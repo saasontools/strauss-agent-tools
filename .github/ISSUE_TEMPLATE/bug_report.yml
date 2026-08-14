@@ -1,0 +1,63 @@
+name: Bug report
+description: Something is broken in a package or plugin
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package or plugin
+      options:
+        - "@saasontools/nx-plugin"
+        - "@saasontools/gemini-deep-research-mcp"
+        - "gemini-deep-research (plugin)"
+        - other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: npm package version, or the marketplace commit for plugins
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client
+      options:
+        - Claude Code
+        - Claude Desktop (MCPB)
+        - Codex
+        - Other MCP client
+        - Not client-related
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Redact API keys. Automatically formatted as code.
+      render: shell
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "macOS 15 / Node 22.14 / pnpm 11.21"
