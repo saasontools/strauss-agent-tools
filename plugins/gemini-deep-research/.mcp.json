@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "gemini-deep-research": {
+      "command": "npx",
+      "args": ["-y", "@saasontools/gemini-deep-research-mcp@^1.0.0"],
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      }
+    }
+  }
+}

@@ -26,6 +26,7 @@ interface MarketplaceEntry {
 interface MarketplaceFile {
   name: string;
   owner: { name: string; url: string };
+  metadata?: { description: string };
   plugins: MarketplaceEntry[];
 }
 
@@ -46,6 +47,10 @@ function addToMarketplace(
         owner: {
           name: COPYRIGHT_HOLDER,
           url: `https://github.com/${GITHUB_OWNER}`,
+        },
+        metadata: {
+          description:
+            "MCP servers and agent plugins from saasontools: deep research, and more.",
         },
         plugins: [],
       };

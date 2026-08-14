@@ -1,0 +1,33 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+export const SERVER_NAME = "gemini-deep-research-mcp";
+export const SERVER_VERSION = "1.0.0";
+
+/**
+ * Builds the MCP server with all tools registered. Kept separate from the
+ * stdio entry point so tests can connect over an in-memory transport.
+ */
+export function createServer(): McpServer {
+  const server = new McpServer({
+    name: SERVER_NAME,
+    version: SERVER_VERSION,
+  });
+
+  server.registerTool(
+    "ping",
+    {
+      description: "Health check that returns a fixed response.",
+      inputSchema: {
+        message: z.string().optional().describe("Optional text to echo back"),
+      },
+    },
+    async ({ message }) => ({
+      content: [
+        { type: "text" as const, text: message ? `pong: ${message}` : "pong" },
+      ],
+    }),
+  );
+
+  return server;
+}

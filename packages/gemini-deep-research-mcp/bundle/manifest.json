@@ -1,0 +1,35 @@
+{
+  "manifest_version": "0.2",
+  "name": "gemini-deep-research-mcp",
+  "display_name": "GeminiDeepResearchMcp",
+  "version": "1.0.0",
+  "description": "MCP server for Google Gemini Deep Research: long-running research jobs with async job handles",
+  "author": {
+    "name": "Assaf Kamil"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/saasontools/strauss-agent-tools"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "GEMINI_API_KEY": "${user_config.gemini_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "gemini_api_key": {
+      "type": "string",
+      "title": "GEMINI_API_KEY",
+      "description": "GEMINI_API_KEY used by the server",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

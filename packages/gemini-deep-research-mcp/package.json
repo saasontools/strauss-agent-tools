@@ -1,0 +1,38 @@
+{
+  "name": "@saasontools/gemini-deep-research-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Google Gemini Deep Research: long-running research jobs with async job handles",
+  "license": "MIT",
+  "author": "Assaf Kamil",
+  "type": "module",
+  "bin": {
+    "gemini-deep-research-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saasontools/strauss-agent-tools.git",
+    "directory": "packages/gemini-deep-research-mcp"
+  },
+  "scripts": {
+    "build": "tsup",
+    "build:bundle": "tsup --config tsup.bundle.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.0"
+  }
+}
