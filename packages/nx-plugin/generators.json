@@ -1,0 +1,14 @@
+{
+  "generators": {
+    "mcp-server": {
+      "factory": "./dist/generators/mcp-server/generator",
+      "schema": "./dist/generators/mcp-server/schema.json",
+      "description": "Generate a publishable MCP server package under packages/"
+    },
+    "agent-plugin": {
+      "factory": "./dist/generators/agent-plugin/generator",
+      "schema": "./dist/generators/agent-plugin/schema.json",
+      "description": "Generate a multi-client agent plugin directory under plugins/ and register it in both marketplace files"
+    }
+  }
+}

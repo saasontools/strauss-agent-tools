@@ -1,0 +1,9 @@
+---
+name: <%= name %>
+description: Subagent for <%= description %> Claude Code only — the portable procedure lives in skills/<%= name %>/SKILL.md so other clients are not degraded.
+---
+
+You are a focused subagent for <%= title %>.
+
+Follow the procedure in the `<%= name %>` skill. Use the `<%= name %>` MCP
+server's tools for the actual work, and report results concisely.

@@ -1,0 +1,43 @@
+{
+  "name": "@saasontools/nx-plugin",
+  "version": "1.0.0",
+  "description": "Nx generators for scaffolding @saasontools MCP server packages and multi-client agent plugins",
+  "keywords": [
+    "nx",
+    "nx-plugin",
+    "mcp",
+    "agent-plugin",
+    "generator"
+  ],
+  "license": "MIT",
+  "author": "Assaf Kamil",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "generators": "./generators.json",
+  "files": [
+    "dist",
+    "generators.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saasontools/strauss-agent-tools.git",
+    "directory": "packages/nx-plugin"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json && node copy-assets.mjs",
+    "typecheck": "tsc -p tsconfig.lib.json --noEmit && tsc -p tsconfig.spec.json",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nx/devkit": "23.1.1"
+  }
+}

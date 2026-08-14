@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "McpServer",
+  "title": "Generate a publishable MCP server package",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Package directory name under packages/; npm name becomes @saasontools/<name>",
+      "$default": { "$source": "argv", "index": 0 },
+      "x-prompt": "What is the name of the MCP server package?",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "description": {
+      "type": "string",
+      "description": "One-line package description"
+    },
+    "apiKeyEnv": {
+      "type": "string",
+      "description": "Name of an API key environment variable the server needs (e.g. GEMINI_API_KEY)",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    }
+  },
+  "required": ["name"]
+}

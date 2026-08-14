@@ -21,3 +21,7 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# MCPB build artifacts
+**/bundle/server/
+*.mcpb

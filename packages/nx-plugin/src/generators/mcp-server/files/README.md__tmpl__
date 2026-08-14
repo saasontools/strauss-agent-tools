@@ -1,0 +1,62 @@
+# <%= npmName %>
+
+<%= description %>
+
+## Usage
+
+### Claude Code
+
+```bash
+claude mcp add <%= name %> -- npx -y <%= npmName %>
+```
+
+### Codex / any MCP client
+
+Add to your client's MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "<%= name %>": {
+      "command": "npx",
+      "args": ["-y", "<%= npmName %>"]<% if (apiKeyEnv) { %>,
+      "env": { "<%= apiKeyEnv %>": "${<%= apiKeyEnv %>}" }<% } %>
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Download the `.mcpb` bundle from the GitHub release and open it with Claude
+Desktop. Claude Desktop is the only client that consumes MCPB bundles; every
+other client should use the npm package above.
+<% if (apiKeyEnv) { %>
+## Configuration
+
+| Environment variable | Required | Purpose |
+| --- | --- | --- |
+| `<%= apiKeyEnv %>` | yes | API key used by the server |
+<% } %>
+## Development
+
+No Nx knowledge needed:
+
+```bash
+cd packages/<%= name %>
+pnpm install
+pnpm build
+pnpm test
+```
+
+`pnpm test` runs unit tests plus an MCP handshake smoke test against the built
+`dist/index.js`. To smoke-test the fully-inlined MCPB bundle instead:
+
+```bash
+pnpm build:bundle
+SMOKE_ENTRY=bundle/server/index.js pnpm test
+```
+
+## License
+
+MIT © Assaf Kamil. Part of [strauss-agent-tools](<%= repoUrl %>).

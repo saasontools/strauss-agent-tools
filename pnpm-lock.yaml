@@ -15,8 +15,8 @@ importers:
         specifier: ^21.2.2
         version: 21.2.2
       '@eslint/js':
-        specifier: ^10.0.1
-        version: 10.0.1(eslint@9.39.5(jiti@2.6.1)(supports-color@7.2.0))
+        specifier: ^9.39.5
+        version: 9.39.5
       '@nx/eslint':
         specifier: 23.1.1
         version: 23.1.1(@babel/traverse@7.29.8(supports-color@7.2.0))(@nx/jest@23.1.1(@babel/traverse@7.29.8(supports-color@7.2.0))(@types/node@26.2.0)(babel-plugin-macros@3.1.0)(nx@23.1.1)(supports-color@7.2.0)(typescript@5.9.3))(@zkochan/js-yaml@0.0.7)(eslint@9.39.5(jiti@2.6.1)(supports-color@7.2.0))(nx@23.1.1)(supports-color@7.2.0)
@@ -29,12 +29,18 @@ importers:
       '@nx/vite':
         specifier: 23.1.1
         version: 23.1.1(@babel/traverse@7.29.8(supports-color@7.2.0))(@nx/eslint@23.1.1(@babel/traverse@7.29.8(supports-color@7.2.0))(@nx/jest@23.1.1(@babel/traverse@7.29.8(supports-color@7.2.0))(@types/node@26.2.0)(babel-plugin-macros@3.1.0)(nx@23.1.1)(supports-color@7.2.0)(typescript@5.9.3))(@zkochan/js-yaml@0.0.7)(eslint@9.39.5(jiti@2.6.1)(supports-color@7.2.0))(nx@23.1.1)(supports-color@7.2.0))(nx@23.1.1)(supports-color@7.2.0)(typescript@5.9.3)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.27.7)(jiti@2.6.1)(yaml@2.9.0))(vitest@4.1.10)
+      '@saasontools/nx-plugin':
+        specifier: workspace:*
+        version: link:packages/nx-plugin
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
       '@vitest/coverage-v8':
         specifier: ^4.1.10
         version: 4.1.10(vitest@4.1.10)
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
       eslint:
         specifier: ^9.39.5
         version: 9.39.5(jiti@2.6.1)(supports-color@7.2.0)
@@ -65,6 +71,12 @@ importers:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@26.2.0)(@vitest/coverage-v8@4.1.10)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.27.7)(jiti@2.6.1)(yaml@2.9.0))
+
+  packages/nx-plugin:
+    dependencies:
+      '@nx/devkit':
+        specifier: 23.1.1
+        version: 23.1.1(nx@23.1.1)
 
 packages:
 
@@ -975,15 +987,6 @@ packages:
   '@eslint/eslintrc@3.3.6':
     resolution: {integrity: sha512-l2Ul9PrHsPCKcEY/ac7VgFj9D80C7S68sOKc618SyHDPK36s1XcFebXY0iTzUVn4Yq+YbwvSnDmCz9yxjX+QrA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
-  '@eslint/js@10.0.1':
-    resolution: {integrity: sha512-zeR9k5pd4gxjZ0abRoIaxdc7I3nDktoXZk2qOv9gCNWx3mVwEn32VRhyLaRsDiJjTs0xq/T8mfPtyuXu7GWBcA==}
-    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
-    peerDependencies:
-      eslint: ^10.0.0
-    peerDependenciesMeta:
-      eslint:
-        optional: true
 
   '@eslint/js@9.39.5':
     resolution: {integrity: sha512-QywQuszQh77pIXCsq998c8hbhSTI/azTty1Z6N53dmAudKHhy573j3yvRLsX2BSp8YpLtoCEG8E9DJe+8zUh4A==}
@@ -4764,10 +4767,6 @@ snapshots:
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
       - supports-color
-
-  '@eslint/js@10.0.1(eslint@9.39.5(jiti@2.6.1)(supports-color@7.2.0))':
-    optionalDependencies:
-      eslint: 9.39.5(jiti@2.6.1)(supports-color@7.2.0)
 
   '@eslint/js@9.39.5': {}
 

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/schema",
+  "$id": "AgentPlugin",
+  "title": "Generate a multi-client agent plugin directory",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Plugin directory name under plugins/",
+      "$default": { "$source": "argv", "index": 0 },
+      "x-prompt": "What is the name of the plugin?",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "description": {
+      "type": "string",
+      "description": "One-line plugin description"
+    },
+    "mcpServer": {
+      "type": "string",
+      "description": "Short name (without scope) of the published MCP server package to wire up; defaults to <name>-mcp",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    },
+    "apiKeyEnv": {
+      "type": "string",
+      "description": "Name of an API key environment variable passed through to the MCP server",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "withAgent": {
+      "type": "boolean",
+      "description": "Also generate a Claude-Code-only agents/<name>.md",
+      "default": false
+    }
+  },
+  "required": ["name"]
+}
