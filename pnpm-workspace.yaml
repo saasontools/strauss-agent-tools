@@ -4,3 +4,6 @@ packages:
   - "packages/*"
 allowBuilds:
   nx: true
+overrides:
+  # CVE mitigation: DoS in brace-expansion <5.0.9 (transitive via nx/minimatch).
+  "brace-expansion@>=4.0.0 <5.0.9": "5.0.9"
