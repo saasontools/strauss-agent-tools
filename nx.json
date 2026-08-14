@@ -27,7 +27,9 @@
     "projects": ["packages/*"],
     "versionPlans": true,
     "changelog": {
-      "projectChangelogs": true,
+      "projectChangelogs": {
+        "createRelease": "github"
+      },
       "workspaceChangelog": false
     }
   }
