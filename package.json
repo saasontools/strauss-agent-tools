@@ -1,0 +1,56 @@
+{
+  "name": "strauss-agent-tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Nx + pnpm monorepo for @saasontools MCP servers and agent plugins",
+  "license": "MIT",
+  "author": "Assaf Kamil",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saasontools/strauss-agent-tools.git"
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "packageManager": "pnpm@11.21.0",
+  "scripts": {
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint",
+    "typecheck": "nx run-many -t typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@eslint/js": "^10.0.1",
+    "@nx/eslint": "23.1.1",
+    "@nx/js": "23.1.1",
+    "@nx/plugin": "23.1.1",
+    "@nx/vite": "23.1.1",
+    "@types/node": "^26.2.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "nx": "23.1.1",
+    "prettier": "^3.9.6",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "4.1.10"
+  }
+}

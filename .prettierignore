@@ -1,0 +1,7 @@
+dist/
+coverage/
+node_modules/
+.nx/
+pnpm-lock.yaml
+CHANGELOG.md
+bundle/server/

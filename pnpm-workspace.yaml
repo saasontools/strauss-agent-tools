@@ -1,0 +1,6 @@
+# plugins/* are intentionally NOT workspace packages: they are plain manifest +
+# markdown directories consumed as-is by agent clients, with no install-time build.
+packages:
+  - "packages/*"
+allowBuilds:
+  nx: true

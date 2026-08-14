@@ -1,0 +1,23 @@
+.nx/polygraph
+.claude/worktrees
+.claude/settings.local.json
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+*.tsbuildinfo
+
+# test outputs
+coverage/
+
+# nx
+.nx/cache
+.nx/workspace-data
+
+# misc
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
