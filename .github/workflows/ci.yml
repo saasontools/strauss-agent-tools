@@ -38,7 +38,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Derive affected base and head
-        uses: nrwl/nx-set-shas@38457b511e60ee4e1da09255b658e480748a1af4 # v5.0.1
+        uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
         with:
           main-branch-name: main
 
