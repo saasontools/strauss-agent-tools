@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Lint, typecheck, test, build (affected)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Derive affected base and head
+        uses: nrwl/nx-set-shas@38457b511e60ee4e1da09255b658e480748a1af4 # v5.0.1
+        with:
+          main-branch-name: main
+
+      - run: pnpm nx affected -t lint typecheck build
+
+      - run: pnpm nx affected -t test -- --coverage
+
+      - name: Validate agent plugins
+        run: | # zizmor: ignore[adhoc-packages]
+          npm install -g @anthropic-ai/claude-code
+          pnpm nx run-many -t validate
+          claude plugin validate .
+
+      - run: pnpm audit --audit-level=high
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: packages/*/coverage
+          if-no-files-found: ignore
+
+  build-cross-platform:
+    # MCP servers run on user machines; path handling is where they break.
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    permissions:
+      contents: read
+    steps:
+      # step-security/harden-runner supports only Linux runners, so it is
+      # intentionally absent from this job.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm nx run-many -t build test

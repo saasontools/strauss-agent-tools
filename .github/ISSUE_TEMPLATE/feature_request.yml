@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a new capability for a package or plugin
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package or plugin
+      options:
+        - "@saasontools/nx-plugin"
+        - "@saasontools/gemini-deep-research-mcp"
+        - "gemini-deep-research (plugin)"
+        - a new package or plugin
+        - other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that you currently can't?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should it look like? Tool signatures, flags, behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

@@ -1,0 +1,10 @@
+{
+  "name": "gemini-deep-research",
+  "version": "1.0.0",
+  "description": "Run deep, citation-backed research with Google Gemini Deep Research.",
+  "author": {
+    "name": "Assaf Kamil"
+  },
+  "homepage": "https://github.com/saasontools/strauss-agent-tools",
+  "license": "MIT"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "saasontools",
+  "owner": {
+    "name": "Assaf Kamil",
+    "url": "https://github.com/saasontools"
+  },
+  "metadata": {
+    "description": "MCP servers and agent plugins from saasontools: deep research, and more."
+  },
+  "plugins": [
+    {
+      "name": "gemini-deep-research",
+      "source": "./plugins/gemini-deep-research",
+      "description": "Run deep, citation-backed research with Google Gemini Deep Research."
+    }
+  ]
+}

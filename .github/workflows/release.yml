@@ -1,0 +1,111 @@
+name: Release
+
+# NOTE — first publish of any NEW package must be manual (see SETUP.md and
+# CONTRIBUTING.md): npm trusted publishing (OIDC) is configured per package on
+# npmjs.com, which requires the package to already exist. Publish 1.0.0 by
+# hand once, configure the trusted publisher for this repo + workflow, and
+# every subsequent release goes through OIDC here. Trusted publishing emits
+# provenance automatically for public packages — no --provenance flag and no
+# NPM_CONFIG_PROVENANCE, on purpose.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".nx/version-plans/**"
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
+
+      # Credentials must persist: `nx release` pushes the version commit and
+      # tags back to the repository.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Trusted publishing requires npm >= 11.5.1; Node 22 bundles npm 10.
+      - run: npm install -g npm@^11.5.1 # zizmor: ignore[adhoc-packages]
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check for version plans
+        id: plans
+        run: |
+          if compgen -G ".nx/version-plans/*.md" > /dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "No version plans found — nothing to release."
+          fi
+
+      - name: Build and test
+        if: steps.plans.outputs.present == 'true'
+        run: pnpm nx run-many -t build test
+
+      - name: Version, changelog, tag, GitHub release
+        if: steps.plans.outputs.present == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          pnpm nx release --yes
+
+      - name: Publish to npm (OIDC trusted publishing)
+        if: steps.plans.outputs.present == 'true'
+        run: pnpm nx release publish
+
+      - name: Build, smoke-test, and attach MCPB bundles
+        if: steps.plans.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for manifest in packages/*/bundle/manifest.json; do
+            [ -e "$manifest" ] || continue
+            dir="$(dirname "$(dirname "$manifest")")"
+            short="$(basename "$dir")"
+            full="$(node -p "require('./$dir/package.json').name")"
+            version="$(node -p "require('./$dir/package.json').version")"
+            echo "::group::MCPB bundle for $full@$version"
+            # Bundling is exactly where a working server breaks: smoke-test the
+            # bundled entry point, not just the npm build.
+            (cd "$dir" && pnpm build:bundle && SMOKE_ENTRY=bundle/server/index.js pnpm test)
+            node -e "
+              const fs = require('fs');
+              const p = '$dir/bundle/manifest.json';
+              const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+              m.version = '$version';
+              fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');
+            "
+            npx -y @anthropic-ai/mcpb@2.1.2 pack "$dir/bundle" "$short-$version.mcpb"
+            if gh release view "$full@$version" > /dev/null 2>&1; then
+              gh release upload "$full@$version" "$short-$version.mcpb" --clobber
+            else
+              echo "No GitHub release $full@$version (package not released this run); skipping upload."
+            fi
+            echo "::endgroup::"
+          done

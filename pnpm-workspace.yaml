@@ -1,0 +1,16 @@
+# plugins/* are intentionally NOT workspace packages: they are plain manifest +
+# markdown directories consumed as-is by agent clients, with no install-time build.
+packages:
+  - "packages/*"
+# Build-script policy: pnpm 11 fails a cold install (CI) when a dependency's
+# build script is neither allowed nor denied, so every script-carrying dep
+# must be listed here explicitly.
+allowBuilds:
+  "@google/genai": false
+  nx: true
+  protobufjs: false
+  esbuild: true
+  unrs-resolver: true
+overrides:
+  # CVE mitigation: DoS in brace-expansion <5.0.9 (transitive via nx/minimatch).
+  "brace-expansion@>=4.0.0 <5.0.9": "5.0.9"

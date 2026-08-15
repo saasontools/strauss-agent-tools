@@ -1,0 +1,22 @@
+---
+name: <%= name %>
+description: <%= description %> Use this skill when the user asks for <%= title %> functionality.
+---
+
+# <%= title %>
+
+This skill is the portable core of the <%= name %> plugin: every supported
+client (Claude Code, Codex, and Agent Plugins 1.0 clients) reads it.
+
+## Instructions
+
+1. The plugin's MCP configuration wires up the `<%= name %>` MCP server
+   (`<%= mcpPackage %>`). Use its tools for the actual work.
+2. Start by calling the server's `ping` tool to confirm connectivity.
+3. Replace this placeholder procedure with the real one before shipping.
+<% if (apiKeyEnv) { %>
+## Requirements
+
+The MCP server needs the `<%= apiKeyEnv %>` environment variable to be set.
+If a tool call fails with an authentication error, ask the user to set it.
+<% } %>

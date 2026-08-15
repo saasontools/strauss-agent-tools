@@ -1,0 +1,7 @@
+# Normalize line endings; the toolchain (and generated MCP servers) assume LF.
+* text=auto eol=lf
+
+# Binary artifacts
+*.mcpb binary
+*.png binary
+*.jpg binary

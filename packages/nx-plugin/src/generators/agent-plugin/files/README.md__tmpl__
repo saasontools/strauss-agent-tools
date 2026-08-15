@@ -1,0 +1,36 @@
+# <%= title %> plugin
+
+<%= description %>
+
+One directory, three plugin formats — nothing collides:
+
+| Client | Manifest | Skills | MCP config |
+| --- | --- | --- | --- |
+| Agent Plugins 1.0 (ChatGPT, Codex CLI, Cursor, Copilot, VS Code, Kiro) | `plugin.json` | `skills/` | `mcp.json` |
+| Claude Code | `.claude-plugin/plugin.json` | `skills/` | `.mcp.json` |
+| Codex | `.codex-plugin/plugin.json` | `skills/` | `.mcp.json` |
+
+## Install
+
+### Claude Code
+
+```
+/plugin marketplace add <%= repoUrl %>
+/plugin install <%= name %>@saasontools
+```
+
+### Codex
+
+Add the marketplace from this repository (`.agents/plugins/marketplace.json`),
+then install `<%= name %>`.
+
+## MCP server
+
+The plugin launches `<%= mcpPackage %>` from npm via `npx`; it does not bundle
+the server code.
+<% if (apiKeyEnv) { %>
+Set the `<%= apiKeyEnv %>` environment variable before use.
+<% } %>
+## License
+
+MIT © Assaf Kamil. Part of [strauss-agent-tools](<%= repoUrl %>).
