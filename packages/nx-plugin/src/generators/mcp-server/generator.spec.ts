@@ -43,12 +43,26 @@ describe("mcp-server generator", () => {
       "tsup.bundle.config.ts",
       "vitest.config.ts",
       "README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
       "LICENSE",
     ]) {
       expect(tree.exists(`packages/sample-mcp/${file}`), file).toBe(true);
     }
     expect(tree.read("packages/sample-mcp/LICENSE", "utf-8")).toContain(
       "MIT License",
+    );
+  });
+
+  it("writes agent guidance with CLAUDE.md pointing at AGENTS.md", async () => {
+    const tree = createTreeWithEmptyWorkspace();
+    await generate(tree);
+    const agents = tree.read("packages/sample-mcp/AGENTS.md", "utf-8");
+    expect(agents).toContain("@saasontools/sample-mcp");
+    expect(agents).toContain("stdout is the JSON-RPC transport");
+    expect(agents).toContain("SAMPLE_API_KEY");
+    expect(tree.read("packages/sample-mcp/CLAUDE.md", "utf-8")).toContain(
+      "@AGENTS.md",
     );
   });
 

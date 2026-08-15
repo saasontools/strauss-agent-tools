@@ -65,6 +65,17 @@ describe("agent-plugin generator", () => {
     expect(withAgent.exists("plugins/sample/agents/sample.md")).toBe(true);
   });
 
+  it("writes agent guidance with CLAUDE.md pointing at AGENTS.md", async () => {
+    const tree = createTreeWithEmptyWorkspace();
+    await generate(tree);
+    const agents = tree.read("plugins/sample/AGENTS.md", "utf-8");
+    expect(agents).toContain("@saasontools/sample-mcp");
+    expect(agents).toContain("byte-identical");
+    expect(tree.read("plugins/sample/CLAUDE.md", "utf-8")).toContain(
+      "@AGENTS.md",
+    );
+  });
+
   it("writes a project.json whose only target is validate", async () => {
     const tree = createTreeWithEmptyWorkspace();
     await generate(tree);

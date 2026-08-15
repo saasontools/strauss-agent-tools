@@ -2,36 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## What this repo is
-
-Nx + pnpm monorepo publishing MCP servers and agent plugins under the
-`@saasontools` npm scope. `packages/*` are npm packages; `plugins/*` are plain
-plugin directories (manifests + markdown, no build) served to Claude Code,
-Codex, and Agent Plugins 1.0 clients from the marketplace files at
-`.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`.
-
-## Commands
-
-- `pnpm nx run-many -t lint typecheck test build` — everything CI checks
-- `pnpm nx run-many -t validate` — `claude plugin validate` over `plugins/*`
-- Single package, no Nx needed: `cd packages/<name> && pnpm build && pnpm test`
-- Single test file: `cd packages/<name> && pnpm vitest run src/server.spec.ts`
-- MCPB bundle check: `pnpm build:bundle && SMOKE_ENTRY=bundle/server/index.js pnpm test`
-
-## Rules that are load-bearing
-
-- **No `project.json` under `packages/*`** — Nx infers targets from npm
-  scripts; keep scripts the source of truth. Only `plugins/*` carry a
-  `project.json`, and only for the `validate` target.
-- **New packages start at `1.0.0`** — Nx release compresses minor→patch below
-  1.0. The generators enforce this.
-- **Releases run on version plans** (`pnpm nx release plan`), never on commit
-  messages. Do not add Changesets/Lerna/Turborepo.
-- **A new package's first npm publish is manual** (OIDC trusted publishing
-  can't create a package) — see CONTRIBUTING.md.
-- Scaffold with the generators, not by hand: `pnpm nx g
-@saasontools/nx-plugin:mcp-server <name>` / `:agent-plugin <name>` (build
-  the plugin first: `pnpm nx run @saasontools/nx-plugin:build`).
+Repository guidance lives in the client-agnostic @AGENTS.md — read it first.
+Keep AGENTS.md the single source of truth; the sections below are Nx-tooling
+specifics maintained by `nx init`.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->

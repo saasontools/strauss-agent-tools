@@ -28,7 +28,7 @@ runs casually.
 
 | Tool                   | Purpose                                                                                                                                                              |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deep_research_start`  | Start a run; returns `{job_id, interaction_id, status}` immediately                                                                                                  |
+| `deep_research_start`  | Start a run; returns `{job_id, interaction_id, status}` immediately. Optional `format` prompt controls report structure                                              |
 | `deep_research_status` | Status, elapsed, latest thinking summary, report readiness                                                                                                           |
 | `deep_research_reply`  | Answer a collaborative-planning turn (ends planning by default — required to unstick the run)                                                                        |
 | `deep_research_fetch`  | Report path + ~4k-char preview, citations, token usage; `inline: true` for full text; `save_to` for a copy; serves partial output for `incomplete`/`budget_exceeded` |

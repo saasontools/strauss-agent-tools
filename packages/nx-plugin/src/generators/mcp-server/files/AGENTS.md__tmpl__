@@ -1,0 +1,28 @@
+# AGENTS.md
+
+Guidance for AI coding agents working on `<%= npmName %>`.
+Repo-wide rules live in the root AGENTS.md.
+
+## Commands (no Nx knowledge needed)
+
+- `pnpm build && pnpm test` — build plus unit and MCP-handshake smoke tests
+- `pnpm build:bundle && SMOKE_ENTRY=bundle/server/index.js pnpm test`
+  — the fully-inlined MCPB bundle must stay green too; bundling is where
+  working servers break
+- `pnpm typecheck && pnpm lint`
+
+## Rules that are load-bearing
+
+- **stdout is the JSON-RPC transport.** Never `console.log`; write
+  diagnostics to stderr only.
+- **Startup must succeed without configuration** so `tools/list` works before
+  the user has set anything up. Read env vars lazily, at call time.
+<% if (apiKeyEnv) { %>- **`<%= apiKeyEnv %>` must never be persisted or logged.**
+<% } %>- **User-facing failures return `isError: true`** with a message the calling
+  model can act on; throw only for genuine protocol bugs.
+- The `createRequire` banner in `tsup.bundle.config.ts` keeps the inlined
+  ESM bundle bootable when CJS deps do dynamic `require()`. Don't remove it.
+- The smoke test (`test/smoke.spec.ts`) asserts the exact tool list — update
+  it whenever tools change.
+- Package versioning runs on Nx version plans (`pnpm nx release plan` at the
+  repo root); never edit `version` by hand.

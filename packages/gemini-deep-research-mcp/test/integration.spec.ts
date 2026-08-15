@@ -183,6 +183,63 @@ describe("happy path", () => {
   });
 });
 
+describe("format parameter", () => {
+  it("appends format instructions to the research prompt on start", async () => {
+    mock.createQueue = [runningInteraction("v1_fmt")];
+    mock.setTimeline("v1_fmt", [runningInteraction("v1_fmt")]);
+
+    const started = await call("deep_research_start", {
+      query: "compare auth providers",
+      format: "A markdown table with columns: provider, pricing, SSO support.",
+    });
+    expect(started.isError).toBeFalsy();
+
+    const body = mock.createBodies()[0] as { input: string };
+    expect(body.input).toContain("compare auth providers");
+    expect(body.input).toContain("Output format requirements:");
+    expect(body.input).toContain("columns: provider, pricing, SSO support");
+    // The stored job keeps the original query, not the combined prompt.
+    const list = await call("deep_research_list", {});
+    expect(list.text).toContain("compare auth providers");
+    expect(list.text).not.toContain("Output format requirements");
+  });
+
+  it("appends format instructions on reply and the blocking wrapper", async () => {
+    mock.createQueue = [
+      { id: "v1_fplan", status: "requires_action", output_text: "PLAN" },
+    ];
+    mock.setTimeline("v1_fplan", [
+      { id: "v1_fplan", status: "requires_action", output_text: "PLAN" },
+    ]);
+    const started = await call("deep_research_start", {
+      query: "q",
+      collaborative_planning: true,
+    });
+    const jobId = (JSON.parse(started.text) as { job_id: string }).job_id;
+    mock.createQueue.push(runningInteraction("v1_frun"));
+    mock.setTimeline("v1_frun", [runningInteraction("v1_frun")]);
+    await call("deep_research_reply", {
+      job_id: jobId,
+      message: "Approved",
+      format: "Bullet points only.",
+    });
+    const replyBody = mock.createBodies()[1] as { input: string };
+    expect(replyBody.input).toContain("Approved");
+    expect(replyBody.input).toContain("Bullet points only.");
+
+    mock.createQueue.push(runningInteraction("v1_fblock"));
+    mock.setTimeline("v1_fblock", [completedInteraction("v1_fblock")]);
+    await call("deep_research", {
+      query: "quick",
+      format: "One paragraph.",
+      wait_seconds: 30,
+    });
+    const blockBody = mock.createBodies()[2] as { input: string };
+    expect(blockBody.input).toContain("quick");
+    expect(blockBody.input).toContain("One paragraph.");
+  });
+});
+
 describe("failure paths", () => {
   it("surfaces failed runs with their errors", async () => {
     mock.createQueue = [runningInteraction("v1_fail")];

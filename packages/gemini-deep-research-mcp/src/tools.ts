@@ -186,6 +186,21 @@ async function fetchPayload(
   return ok(lines.join("\n"));
 }
 
+/** Appends output-format instructions to a research prompt. Kept as a plain
+ * concatenation so the report format travels with the request itself. */
+function withFormat(text: string, format?: string): string {
+  return format ? `${text}\n\nOutput format requirements:\n${format}` : text;
+}
+
+const formatSchema = z
+  .string()
+  .optional()
+  .describe(
+    "Optional prompt describing the desired report format (structure, " +
+      "sections, tone, length, tables, citation style, ...). Appended to " +
+      "the research prompt.",
+  );
+
 const depthSchema = z
   .enum(["standard", "max"])
   .optional()
@@ -216,6 +231,7 @@ export function registerTools(
           .min(1)
           .describe("The research question or task, in natural language."),
         depth: depthSchema,
+        format: formatSchema,
         thinking_summaries: z
           .boolean()
           .optional()
@@ -254,6 +270,7 @@ export function registerTools(
       async (args: {
         query: string;
         depth?: "standard" | "max";
+        format?: string;
         thinking_summaries?: boolean;
         visualization?: boolean;
         collaborative_planning?: boolean;
@@ -261,7 +278,7 @@ export function registerTools(
       }) => {
         const depth = args.depth ?? getDefaultDepth();
         const interaction = await startResearch({
-          query: args.query,
+          query: withFormat(args.query, args.format),
           depth,
           thinkingSummaries: args.thinking_summaries,
           visualization: args.visualization,
@@ -351,6 +368,7 @@ export function registerTools(
           .describe(
             "Stay in planning for another turn instead of starting research (default false).",
           ),
+        format: formatSchema,
       },
       annotations: {
         readOnlyHint: false,
@@ -363,6 +381,7 @@ export function registerTools(
         job_id: string;
         message: string;
         keep_planning?: boolean;
+        format?: string;
       }) => {
         const result = await refreshJob(args.job_id, onTerminal);
         if (!result) return jobNotFound(args.job_id);
@@ -373,7 +392,7 @@ export function registerTools(
         }
         const interaction = await replyResearch({
           previousInteractionId: result.job.interactionId,
-          message: args.message,
+          message: withFormat(args.message, args.format),
           depth: result.job.depth,
           keepPlanning: args.keep_planning,
         });
@@ -543,6 +562,7 @@ export function registerTools(
       inputSchema: {
         query: z.string().min(1).describe("The research question or task."),
         depth: depthSchema,
+        format: formatSchema,
         wait_seconds: z
           .number()
           .int()
@@ -567,6 +587,7 @@ export function registerTools(
         args: {
           query: string;
           depth?: "standard" | "max";
+          format?: string;
           wait_seconds?: number;
           visualization?: boolean;
         },
@@ -585,7 +606,7 @@ export function registerTools(
       ) => {
         const depth = args.depth ?? getDefaultDepth();
         const interaction = await startResearch({
-          query: args.query,
+          query: withFormat(args.query, args.format),
           depth,
           visualization: args.visualization,
           thinkingSummaries: true,
