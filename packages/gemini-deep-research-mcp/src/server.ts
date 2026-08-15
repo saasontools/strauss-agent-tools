@@ -1,7 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { GoogleGenAI } from "@google/genai";
 
 export const SERVER_NAME = "gemini-deep-research-mcp";
+
+// Phase-1 bundle proof: reference the SDK so the bundler cannot tree-shake it
+// away. Replaced by the real client layer in a later phase.
+export const GENAI_SDK = GoogleGenAI;
 export const SERVER_VERSION = "1.0.0";
 
 /**

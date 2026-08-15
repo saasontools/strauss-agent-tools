@@ -3,7 +3,9 @@
 packages:
   - "packages/*"
 allowBuilds:
+  "@google/genai": false
   nx: true
+  protobufjs: false
 overrides:
   # CVE mitigation: DoS in brace-expansion <5.0.9 (transitive via nx/minimatch).
   "brace-expansion@>=4.0.0 <5.0.9": "5.0.9"
