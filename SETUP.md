@@ -21,8 +21,12 @@ JavaScript/TypeScript`, `dependency-review`
 - Enable **private vulnerability reporting** (SECURITY.md points at it)
 - Enable **Dependabot alerts** and **Dependabot security updates**
   (`.github/dependabot.yml` handles version updates)
-- Code scanning: CodeQL and Scorecard workflows upload SARIF on their own;
-  just confirm "Code scanning" shows results after the first run on `main`
+- Code scanning: **switch CodeQL from "Default" to "Advanced" setup**
+  (Settings → Code security → Code scanning → CodeQL analysis). The repo
+  currently has default setup enabled, which rejects SARIF from this repo's
+  own `codeql.yml` with "CodeQL analyses from advanced configurations cannot
+  be processed when the default setup is enabled" — the workflow cannot pass
+  until default setup is disabled. Scorecard's SARIF upload is unaffected.
 
 **Features** (Settings → General):
 
