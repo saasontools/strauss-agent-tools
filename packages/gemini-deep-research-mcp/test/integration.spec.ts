@@ -146,7 +146,10 @@ describe("happy path", () => {
 
     const reportPath = /report_path: (.*)/.exec(fetched.text)![1]!;
     expect(existsSync(reportPath)).toBe(true);
-    expect(statSync(reportPath).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      // POSIX-only: Windows has no file-mode semantics.
+      expect(statSync(reportPath).mode & 0o777).toBe(0o600);
+    }
   });
 
   it("truncates long reports to a preview and inlines on request", async () => {

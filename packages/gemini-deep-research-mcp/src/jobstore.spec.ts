@@ -61,40 +61,53 @@ describe("job store", () => {
     expect(readJob(job.jobId)).toEqual(job);
   });
 
-  it("creates storage with owner-only permissions", () => {
-    ensureStorage();
-    for (const dir of [join(home, "jobs"), join(home, "reports")]) {
-      expect(statSync(dir).mode & 0o777).toBe(0o700);
-    }
-    const job = record();
-    saveJob(job);
-    expect(statSync(join(home, "jobs", `${job.jobId}.json`)).mode & 0o777).toBe(
-      0o600,
-    );
-    const reportPath = saveReport(job.jobId, "# report");
-    expect(statSync(reportPath).mode & 0o777).toBe(0o600);
-  });
+  // POSIX file modes don't exist on Windows; the store's chmod calls are
+  // harmless no-ops there.
+  it.skipIf(process.platform === "win32")(
+    "creates storage with owner-only permissions",
+    () => {
+      ensureStorage();
+      for (const dir of [join(home, "jobs"), join(home, "reports")]) {
+        expect(statSync(dir).mode & 0o777).toBe(0o700);
+      }
+      const job = record();
+      saveJob(job);
+      expect(
+        statSync(join(home, "jobs", `${job.jobId}.json`)).mode & 0o777,
+      ).toBe(0o600);
+      const reportPath = saveReport(job.jobId, "# report");
+      expect(statSync(reportPath).mode & 0o777).toBe(0o600);
+    },
+  );
 
-  it("leaves no tmp files behind and keeps prior state on failed writes", () => {
-    const job = record();
-    saveJob(job);
-    const before = readFileSync(
-      join(home, "jobs", `${job.jobId}.json`),
-      "utf8",
-    );
+  // Uses a read-only directory to force the write to fail, which chmod
+  // cannot arrange on Windows.
+  it.skipIf(process.platform === "win32")(
+    "leaves no tmp files behind and keeps prior state on failed writes",
+    () => {
+      const job = record();
+      saveJob(job);
+      const before = readFileSync(
+        join(home, "jobs", `${job.jobId}.json`),
+        "utf8",
+      );
 
-    // Make the jobs directory unwritable: the atomic write must fail without
-    // touching the existing file.
-    chmodSync(join(home, "jobs"), 0o500);
-    expect(() => saveJob({ ...job, status: "completed" })).toThrow();
-    chmodSync(join(home, "jobs"), 0o700);
+      // Make the jobs directory unwritable: the atomic write must fail without
+      // touching the existing file.
+      chmodSync(join(home, "jobs"), 0o500);
+      expect(() => saveJob({ ...job, status: "completed" })).toThrow();
+      chmodSync(join(home, "jobs"), 0o700);
 
-    const after = readFileSync(join(home, "jobs", `${job.jobId}.json`), "utf8");
-    expect(after).toBe(before);
-    expect(
-      readdirSync(join(home, "jobs")).filter((f) => f.endsWith(".tmp")),
-    ).toEqual([]);
-  });
+      const after = readFileSync(
+        join(home, "jobs", `${job.jobId}.json`),
+        "utf8",
+      );
+      expect(after).toBe(before);
+      expect(
+        readdirSync(join(home, "jobs")).filter((f) => f.endsWith(".tmp")),
+      ).toEqual([]);
+    },
+  );
 
   it("skips files with an unknown schemaVersion instead of throwing", () => {
     const job = record();
