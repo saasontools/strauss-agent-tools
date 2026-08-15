@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
   "name": "io.github.saasontools/gemini-deep-research-mcp",
-  "description": "MCP server for Google Gemini Deep Research: long-running research jobs with async job handles",
+  "description": "Gemini Deep Research over MCP: async job handles (deep_research_start/status/reply/fetch/list/cancel plus a blocking wrapper) for 5-60 minute research runs, returning citation-backed markdown reports as local files with previews.",
   "version": "1.0.0",
   "repository": {
     "url": "https://github.com/saasontools/strauss-agent-tools",
@@ -20,9 +20,21 @@
       "environmentVariables": [
         {
           "name": "GEMINI_API_KEY",
-          "description": "GEMINI_API_KEY used by the server",
+          "description": "Gemini API key (https://aistudio.google.com/apikey); GOOGLE_API_KEY is accepted as a fallback",
           "isRequired": true,
           "isSecret": true
+        },
+        {
+          "name": "GEMINI_DEEP_RESEARCH_AGENT",
+          "description": "Default research depth: standard or max",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GEMINI_DEEP_RESEARCH_HOME",
+          "description": "Job and report storage directory (default ~/.gemini-deep-research-mcp)",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

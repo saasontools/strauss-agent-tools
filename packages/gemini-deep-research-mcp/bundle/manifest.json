@@ -1,9 +1,10 @@
 {
   "manifest_version": "0.2",
   "name": "gemini-deep-research-mcp",
-  "display_name": "GeminiDeepResearchMcp",
+  "display_name": "Gemini Deep Research",
   "version": "1.0.0",
-  "description": "MCP server for Google Gemini Deep Research: long-running research jobs with async job handles",
+  "description": "Run Google Gemini Deep Research jobs from Claude: async job handles, progress polling, and citation-backed markdown reports.",
+  "long_description": "Drives the Gemini Deep Research agents (standard and max) through the Interactions API. Research runs take 5-20 minutes (60 max) and cost roughly $1-3 (standard) or $3-7 (max) per run, so the server exposes async job handles: deep_research_start returns a job id immediately, deep_research_status polls progress with the agent's latest thinking summary, and deep_research_fetch returns the finished report as a file path plus preview, citations, and token usage. Reports are stored locally under ~/.gemini-deep-research-mcp with owner-only permissions. Also supports collaborative planning (review and approve the research plan before it runs), cancellation, and partial-report recovery for runs that end incomplete or over budget.",
   "author": {
     "name": "Assaf Kamil"
   },
@@ -12,6 +13,7 @@
     "type": "git",
     "url": "https://github.com/saasontools/strauss-agent-tools"
   },
+  "homepage": "https://github.com/saasontools/strauss-agent-tools/tree/main/packages/gemini-deep-research-mcp",
   "server": {
     "type": "node",
     "entry_point": "server/index.js",
@@ -23,11 +25,38 @@
       }
     }
   },
+  "tools": [
+    {
+      "name": "deep_research_start",
+      "description": "Start an async research job; returns a job id immediately"
+    },
+    {
+      "name": "deep_research_status",
+      "description": "Poll job status, elapsed time, and latest progress summary"
+    },
+    {
+      "name": "deep_research_reply",
+      "description": "Answer a collaborative-planning turn and start the research"
+    },
+    {
+      "name": "deep_research_fetch",
+      "description": "Fetch the finished report: path, preview, citations, usage"
+    },
+    { "name": "deep_research_list", "description": "List known research jobs" },
+    {
+      "name": "deep_research_cancel",
+      "description": "Cancel an in-flight job (already-billed work is not refunded)"
+    },
+    {
+      "name": "deep_research",
+      "description": "Blocking convenience wrapper that degrades to a job id on timeout"
+    }
+  ],
   "user_config": {
     "gemini_api_key": {
       "type": "string",
       "title": "GEMINI_API_KEY",
-      "description": "GEMINI_API_KEY used by the server",
+      "description": "Gemini API key from https://aistudio.google.com/apikey. Stored in the OS keychain.",
       "sensitive": true,
       "required": true
     }

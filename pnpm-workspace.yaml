@@ -6,7 +6,9 @@ packages:
 # build script is neither allowed nor denied, so every script-carrying dep
 # must be listed here explicitly.
 allowBuilds:
+  "@google/genai": false
   nx: true
+  protobufjs: false
   esbuild: true
   unrs-resolver: true
 overrides:
