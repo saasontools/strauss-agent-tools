@@ -4,12 +4,7 @@ import { writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import { AGENTS, COST_HINT, getDefaultDepth } from "./config.js";
-import {
-  latestThought,
-  reportText,
-  urlCitations,
-  usageSummary,
-} from "./extract.js";
+import { latestThought, reportText } from "./extract.js";
 import {
   GeminiError,
   cancelInteraction,
@@ -143,21 +138,10 @@ async function fetchPayload(
     );
   }
 
-  // Refresh for citations/usage costs one cheap GET; tolerate failure and
-  // degrade to the persisted report alone.
-  let citations: ReturnType<typeof urlCitations> = [];
-  let usage: string | undefined;
-  try {
-    const refreshed = await refreshJob(job.jobId);
-    if (refreshed?.interaction) {
-      citations = urlCitations(refreshed.interaction);
-      usage = usageSummary(refreshed.interaction);
-    }
-  } catch (err) {
-    log.warn("Could not refresh interaction for fetch metadata", {
-      error: String(err),
-    });
-  }
+  // Citations and usage were captured into the job record at the terminal
+  // transition, so a fetch never needs a second network round-trip.
+  const citations = job.sources ?? [];
+  const usage = job.usage;
 
   const lines: string[] = [
     `job_id: ${job.jobId}`,

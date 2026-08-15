@@ -33,6 +33,10 @@ export interface JobRecord {
   reportPath?: string;
   /** Human-readable failure summary, if the run failed. */
   error?: string;
+  /** URL citations captured when the run finished. */
+  sources?: Array<{ url: string; title?: string }>;
+  /** Human-readable token usage line captured when the run finished. */
+  usage?: string;
 }
 
 function jobsDir(): string {

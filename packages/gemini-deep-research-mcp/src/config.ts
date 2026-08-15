@@ -43,3 +43,10 @@ export function getDefaultDepth(): Depth {
 export function getBaseUrl(): string | undefined {
   return process.env.GEMINI_DEEP_RESEARCH_BASE_URL;
 }
+
+/** SDK retry attempts for 408/429/5xx (default 4; tests set 1 so rate-limit
+ * scenarios fail fast instead of backing off for seconds). */
+export function getRetryAttempts(): number {
+  const raw = Number(process.env.GEMINI_DEEP_RESEARCH_RETRY_ATTEMPTS);
+  return Number.isInteger(raw) && raw >= 1 && raw <= 10 ? raw : 4;
+}

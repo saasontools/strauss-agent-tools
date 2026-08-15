@@ -1,5 +1,11 @@
 import { GoogleGenAI, ApiError } from "@google/genai";
-import { AGENTS, getApiKey, getBaseUrl, type Depth } from "./config.js";
+import {
+  AGENTS,
+  getApiKey,
+  getBaseUrl,
+  getRetryAttempts,
+  type Depth,
+} from "./config.js";
 import { redact } from "./logger.js";
 import type { InteractionLike } from "./types.js";
 
@@ -45,7 +51,7 @@ function getClient(): GoogleGenAI {
         timeout: 30_000,
         // SDK-native retries; do not hand-roll a retry loop on top.
         retryOptions: {
-          attempts: 4,
+          attempts: getRetryAttempts(),
           initialDelay: 500,
           maxDelay: 8_000,
           expBase: 2,
@@ -58,16 +64,31 @@ function getClient(): GoogleGenAI {
   return client;
 }
 
+/** HTTP status carried by an SDK error. The classic client throws ApiError
+ * (.status); the next-gen interactions client throws its own error classes
+ * (RateLimitError, ...) carrying .status/.statusCode — duck-type both. */
+function errorHttpStatus(err: unknown): number | undefined {
+  if (err instanceof ApiError) return err.status;
+  if (err && typeof err === "object") {
+    const candidate =
+      (err as { status?: unknown }).status ??
+      (err as { statusCode?: unknown }).statusCode;
+    if (typeof candidate === "number") return candidate;
+  }
+  return undefined;
+}
+
 /** Maps SDK/network failures to actionable, non-leaking messages. The remedy
  * for "could not reach the API" is completely different from "the research
  * failed", so the two are kept distinct. */
 export function mapError(err: unknown, context: string): GeminiError {
   if (err instanceof GeminiError) return err;
-  if (err instanceof ApiError) {
-    if (err.status === 401 || err.status === 403) {
+  const status = errorHttpStatus(err);
+  if (status !== undefined && err instanceof Error) {
+    if (status === 401 || status === 403) {
       return new GeminiError(AUTH_HELP, "auth");
     }
-    if (err.status === 429) {
+    if (status === 429) {
       const retryAfter = /retry[- ]?after[^0-9]*([0-9.]+)/i.exec(
         err.message,
       )?.[1];
@@ -77,7 +98,7 @@ export function mapError(err: unknown, context: string): GeminiError {
         "rate_limited",
       );
     }
-    if (err.status === 400) {
+    if (status === 400) {
       return new GeminiError(
         `The Gemini API rejected the ${context} request (HTTP 400) — most often an ` +
           `unsupported agent name. Valid agents: ${AGENTS.standard} (standard) and ` +
@@ -86,7 +107,7 @@ export function mapError(err: unknown, context: string): GeminiError {
       );
     }
     return new GeminiError(
-      `Gemini API error (HTTP ${err.status}) during ${context}: ${redact(err.message)}`,
+      `Gemini API error (HTTP ${status}) during ${context}: ${redact(err.message)}`,
       "api",
     );
   }

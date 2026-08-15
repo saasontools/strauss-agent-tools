@@ -1,4 +1,9 @@
-import { errorSummary, reportText } from "./extract.js";
+import {
+  errorSummary,
+  reportText,
+  urlCitations,
+  usageSummary,
+} from "./extract.js";
 import { getInteraction } from "./gemini.js";
 import { readJob, saveReport, updateJob, type JobRecord } from "./jobstore.js";
 import { log } from "./logger.js";
@@ -43,6 +48,12 @@ export async function refreshJob(
     if (text) {
       patch.reportPath = saveReport(job.jobId, text);
     }
+    // Capture citations and usage now: once the report is persisted, later
+    // fetches are served from disk with no interaction round-trip.
+    const sources = urlCitations(interaction);
+    if (sources.length) patch.sources = sources;
+    const usage = usageSummary(interaction);
+    if (usage) patch.usage = usage;
   }
   if (interaction.status === "failed") {
     patch.error = errorSummary(interaction) ?? "Research run failed.";
