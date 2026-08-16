@@ -59,6 +59,8 @@ Packages needing the bootstrap today:
 
 - [ ] `@saasontools/nx-plugin`
 - [ ] `@saasontools/gemini-deep-research-mcp`
+- [ ] `@saasontools/strauss-kb` — publish before its version plan merges, or
+      that release run fails for this package alone while the others succeed
 
 Every future `nx g @saasontools/nx-plugin:mcp-server` package needs the same
 two steps once. This is the step that otherwise fails mysteriously in CI
@@ -66,11 +68,11 @@ two steps once. This is the step that otherwise fails mysteriously in CI
 
 ## 3. Official MCP registry
 
-For each `packages/*/server.json` (currently just
-`gemini-deep-research-mcp`), after its npm package is live:
+For each `packages/*/server.json` (`gemini-deep-research-mcp` and
+`strauss-kb`), after its npm package is live:
 
 ```bash
-cd packages/gemini-deep-research-mcp
+cd packages/<name>
 mcp-publisher login github-oidc
 mcp-publisher publish
 ```
@@ -84,10 +86,15 @@ In a scratch Claude Code session:
 ```
 /plugin marketplace add saasontools/strauss-agent-tools
 /plugin install gemini-deep-research@saasontools
+/plugin install strauss-kb@saasontools
 ```
 
 And in Codex, add this repository as a marketplace (it reads
-`.agents/plugins/marketplace.json`) and install `gemini-deep-research`.
+`.agents/plugins/marketplace.json`) and install the same two.
+
+`strauss-kb` also needs `npm i -g @saasontools/strauss-kb` — its `.mcp.json`
+launches `strauss-kb-mcp` off the global install rather than through `npx`,
+so that the server and the CLI its skills shell out to are one version.
 
 ## 5. Scorecard badge
 
