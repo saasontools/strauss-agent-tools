@@ -71,8 +71,11 @@ Two consequences worth knowing before you write a plan:
   ```
 
 A caret range on 0.x is also narrower than you may expect: npm reads `^0.1.0`
-as `>=0.1.0 <0.2.0`. Anything pinning a pre-1.0 package that way — a plugin's
-`.mcp.json`, for instance — needs widening by hand at each new 0.x line.
+as `>=0.1.0 <0.2.0`. Combined with the table above, a caret would pin a
+consumer to `0.1.x` and the server's first breaking release (`0.2.0`) would
+never reach it — silently, since npx just keeps resolving the old line. So
+generated plugins pin `<major>.x` (`0.x`) in their `.mcp.json` rather than a
+caret. Anything else that depends on a pre-1.0 package should do the same.
 
 ### First publish is manual
 

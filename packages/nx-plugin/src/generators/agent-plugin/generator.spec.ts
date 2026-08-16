@@ -41,7 +41,10 @@ describe("agent-plugin generator", () => {
     expect(config.mcpServers.sample.command).toBe("npx");
     expect(config.mcpServers.sample.args).toEqual([
       "-y",
-      "@saasontools/sample-mcp@^0.1.0",
+      // `0.x`, not `^0.1.0`: a caret on a pre-1.0 package stops at 0.2.0, so
+      // the server's first breaking release would leave the plugin pinned to
+      // 0.1.x forever with nothing to signal it.
+      "@saasontools/sample-mcp@0.x",
     ]);
     expect(config.mcpServers.sample.env).toEqual({
       SAMPLE_API_KEY: "${SAMPLE_API_KEY}",
