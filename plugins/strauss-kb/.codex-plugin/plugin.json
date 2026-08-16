@@ -1,0 +1,10 @@
+{
+  "name": "strauss-kb",
+  "version": "0.1.0",
+  "description": "Keep durable project knowledge as markdown records with standing, supersession, and trace.",
+  "author": {
+    "name": "Assaf Kamil"
+  },
+  "homepage": "https://github.com/saasontools/strauss-agent-tools",
+  "license": "MIT"
+}

@@ -13,13 +13,13 @@ async function generate(tree: Tree, overrides = {}): Promise<void> {
 }
 
 describe("mcp-server generator", () => {
-  it("generates a publishable package.json at version 1.0.0", async () => {
+  it("generates a publishable package.json at version 0.1.0", async () => {
     const tree = createTreeWithEmptyWorkspace();
     await generate(tree);
 
     const pkg = readJson(tree, "packages/sample-mcp/package.json");
     expect(pkg.name).toBe("@saasontools/sample-mcp");
-    expect(pkg.version).toBe("1.0.0");
+    expect(pkg.version).toBe("0.1.0");
     expect(pkg.publishConfig).toEqual({ access: "public" });
     expect(pkg.type).toBe("module");
     expect(pkg.bin).toEqual({ "sample-mcp": "./dist/index.js" });
@@ -27,6 +27,22 @@ describe("mcp-server generator", () => {
     expect(pkg.engines.node).toBe(">=22");
     expect(pkg.repository.directory).toBe("packages/sample-mcp");
     expect(pkg.dependencies["@modelcontextprotocol/sdk"]).toBeDefined();
+  });
+
+  // `files` lists a gitignored `dist`. With no build hook, publishing from a
+  // clean tree silently ships a package that installs to nothing — npm does
+  // not treat a missing entry in `files` as an error. It must be `prepack`
+  // rather than `prepublishOnly`, so that `npm pack --dry-run` reports what
+  // publish would really send, and it must call the tool rather than a
+  // package manager, since the workspace is pnpm-pinned.
+  it("builds on pack so a clean tree cannot publish an empty package", async () => {
+    const tree = createTreeWithEmptyWorkspace();
+    await generate(tree);
+
+    const pkg = readJson(tree, "packages/sample-mcp/package.json");
+    expect(pkg.scripts.prepack).toBe("tsup");
+    expect(pkg.scripts.prepublishOnly).toBeUndefined();
+    expect(pkg.files).toContain("dist");
   });
 
   it("generates source, tests, configs, README, and LICENSE", async () => {
@@ -75,7 +91,7 @@ describe("mcp-server generator", () => {
     await generate(tree);
     const server = readJson(tree, "packages/sample-mcp/server.json");
     expect(server.name).toBe("io.github.saasontools/sample-mcp");
-    expect(server.version).toBe("1.0.0");
+    expect(server.version).toBe("0.1.0");
     expect(server.packages[0].identifier).toBe("@saasontools/sample-mcp");
     expect(server.packages[0].environmentVariables[0]).toMatchObject({
       name: "SAMPLE_API_KEY",
@@ -87,7 +103,7 @@ describe("mcp-server generator", () => {
     const tree = createTreeWithEmptyWorkspace();
     await generate(tree);
     const manifest = readJson(tree, "packages/sample-mcp/bundle/manifest.json");
-    expect(manifest.version).toBe("1.0.0");
+    expect(manifest.version).toBe("0.1.0");
     expect(manifest.server.entry_point).toBe("server/index.js");
     expect(manifest.user_config.sample_api_key).toMatchObject({
       sensitive: true,

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.saasontools/strauss-kb",
+  "description": "Knowledge base over MCP: markdown records with standing, supersession and trace (kb_write/query/load/trace/supersede/validate and more) over a self-contained directory, with no database, API key, or service behind it.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/saasontools/strauss-agent-tools",
+    "source": "github",
+    "subfolder": "packages/strauss-kb"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@saasontools/strauss-kb",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "STRAUSS_KB_ACTOR",
+          "description": "Name recorded as the writer in log.jsonl (default \"mcp\")",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

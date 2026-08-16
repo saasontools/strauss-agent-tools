@@ -5,13 +5,18 @@
     "url": "https://github.com/saasontools"
   },
   "metadata": {
-    "description": "MCP servers and agent plugins from saasontools: deep research, and more."
+    "description": "MCP servers and agent plugins from saasontools: deep research, durable project knowledge, and more."
   },
   "plugins": [
     {
       "name": "gemini-deep-research",
       "source": "./plugins/gemini-deep-research",
       "description": "Run deep, citation-backed research with Google Gemini Deep Research."
+    },
+    {
+      "name": "strauss-kb",
+      "source": "./plugins/strauss-kb",
+      "description": "Keep durable project knowledge as markdown records with standing, supersession, and trace."
     }
   ]
 }

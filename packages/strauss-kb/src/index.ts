@@ -1,0 +1,118 @@
+export {
+  KB_DIR,
+  KbStore,
+  type KbLoadResult,
+  type KbLogger,
+  type KbSupersededStub,
+  type KbWriteInput,
+} from "./kb-store.js";
+export {
+  KbInvalidConceptIdError,
+  KbRecordAlreadyExistsError,
+  KbRecordNotFoundError,
+  KbWriteConflictError,
+} from "./kb-errors.js";
+export {
+  kbAnchorSchema,
+  kbActorStampSchema,
+  kbConceptIdSchema,
+  kbRecordFrontmatterSchema,
+  kbSourceSchema,
+  KB_CONCEPT_ID_PATTERN,
+  KB_CONFIDENCES,
+  KB_MATERIALITIES,
+  KB_RECORD_STATUSES,
+  KB_RECORD_TYPES,
+  KB_SLUG_PATTERN,
+  type KbActorStamp,
+  type KbAnchor,
+  type KbRecord,
+  type KbRecordFrontmatter,
+  type KbRecordStatus,
+  type KbRecordType,
+  type KbSource,
+} from "./kb-record.schema.js";
+export {
+  RECORD_TYPES,
+  isKbRecordType,
+  type KbRecordTypeSpec,
+} from "./record-types.js";
+export {
+  composeRecord,
+  composeInputSchema,
+  type ComposeInput,
+  type ComposedRecord,
+} from "./compose.js";
+export { INDEX_FILE, renderIndex, indexIsStale } from "./kb-index.js";
+export {
+  LOG_FILE,
+  parseLog,
+  renderLogEntry,
+  kbLogEntrySchema,
+  type KbLogEntry,
+  type KbLogReadResult,
+} from "./kb-log.js";
+export { kbJsonSchemas } from "./json-schema.js";
+export {
+  matchToDiff,
+  type DiffFile,
+  type DiffHunk,
+  type DiffMatch,
+  type MatchOptions,
+  type SymbolRange,
+} from "./match-diff.js";
+export {
+  adjudicate,
+  resolveHeads,
+  type KbAdjudicated,
+  type KbStanding,
+  type KbWarning,
+} from "./adjudicate.js";
+export {
+  trace,
+  TRACE_EDGES,
+  type KbTraceEdge,
+  type KbTraceOptions,
+  type KbTraceStep,
+} from "./trace.js";
+export { validateBundle, type KbValidationProblem } from "./validate.js";
+export {
+  composeDecisionRecord,
+  composeNoDecisionRecord,
+  isNoDecisionRecord,
+  selectDecisions,
+  decisionInputSchema,
+  DECISION_TYPE,
+  NO_DECISION_SLUG,
+  type DecisionInput,
+} from "./decision-record.js";
+export {
+  KB_COMMANDS,
+  KB_COMMANDS_BY_NAME,
+  type KbCommand,
+  type KbCommandContext,
+} from "./commands.js";
+export { createKbMcpServer, runKbMcpServer } from "./mcp.js";
+export { runKbCli } from "./cli.js";
+export {
+  loadQmd,
+  resolveHits,
+  searchBase,
+  SEARCH_INDEX_FILE,
+  type KbSearchLogger,
+  type QmdModule,
+  type SearchHit,
+  type SearchOptions,
+} from "./search-index.js";
+export {
+  parseMarkdownWithFrontmatter,
+  splitMarkdownFrontmatter,
+  stringifyMarkdownWithFrontmatter,
+} from "./markdown.js";
+export {
+  BaseError,
+  ErrorTypes,
+  Fault,
+  type ErrorDetails,
+  type ErrorProps,
+} from "./errors.js";
