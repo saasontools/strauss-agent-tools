@@ -1,0 +1,64 @@
+import { BaseError, ErrorTypes, Fault } from "./errors.js";
+
+/**
+ * Every caller of this store is an agent, reached through a CLI or a stdio MCP
+ * server, so a bare `Error` reaches it as an opaque string. The `code` carries
+ * the distinction the caller has to act on: 409 means pick a different slug and
+ * retry, 400 means the input was never going to work.
+ */
+export class KbRecordAlreadyExistsError extends BaseError {
+  constructor(readonly conceptId: string) {
+    super({
+      message: `kb: ${conceptId} already exists — choose a more specific slug, or write with overwrite`,
+      errorType: ErrorTypes.KbRecordAlreadyExists,
+      code: 409,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { conceptId },
+    });
+  }
+}
+
+export class KbRecordNotFoundError extends BaseError {
+  constructor(readonly conceptId: string) {
+    super({
+      message: `kb: ${conceptId} does not exist`,
+      errorType: ErrorTypes.KbRecordNotFound,
+      code: 404,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { conceptId },
+    });
+  }
+}
+
+/** Retriable, unlike the others: re-reading and re-applying usually succeeds. */
+export class KbWriteConflictError extends BaseError {
+  constructor(readonly conceptId: string) {
+    super({
+      message: `kb: ${conceptId} changed while it was being updated — re-read and retry`,
+      errorType: ErrorTypes.KbWriteConflict,
+      code: 409,
+      fault: Fault.System,
+      retriable: true,
+      reportToUser: true,
+      details: { conceptId },
+    });
+  }
+}
+
+export class KbInvalidConceptIdError extends BaseError {
+  constructor(message: string, details: Record<string, string>) {
+    super({
+      message: `kb: ${message}`,
+      errorType: ErrorTypes.KbInvalidConceptId,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details,
+    });
+  }
+}

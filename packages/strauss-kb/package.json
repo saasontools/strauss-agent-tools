@@ -1,0 +1,72 @@
+{
+  "name": "@saasontools/strauss-kb",
+  "version": "0.1.1",
+  "description": "Knowledge base of markdown records with standing, supersession and trace: library, CLI, and MCP server over one command set",
+  "license": "MIT",
+  "author": "Assaf Kamil",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "strauss-kb": "./dist/cli-main.js",
+    "strauss-kb-mcp": "./dist/mcp-main.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "knowledge-base",
+    "okf",
+    "markdown",
+    "agent"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saasontools/strauss-agent-tools.git",
+    "directory": "packages/strauss-kb"
+  },
+  "scripts": {
+    "prepack": "tsup",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "gray-matter": "^4.0.3",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@tobilu/qmd": "*"
+  },
+  "peerDependenciesMeta": {
+    "@tobilu/qmd": {
+      "optional": true
+    }
+  }
+}

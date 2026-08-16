@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "gemini-deep-research-mcp",
   "display_name": "Gemini Deep Research",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Run Google Gemini Deep Research jobs from Claude: async job handles, progress polling, and citation-backed markdown reports.",
   "long_description": "Drives the Gemini Deep Research agents (standard and max) through the Interactions API. Research runs take 5-20 minutes (60 max) and cost roughly $1-3 (standard) or $3-7 (max) per run, so the server exposes async job handles: deep_research_start returns a job id immediately, deep_research_status polls progress with the agent's latest thinking summary, and deep_research_fetch returns the finished report as a file path plus preview, citations, and token usage. Reports are stored locally under ~/.gemini-deep-research-mcp with owner-only permissions. Also supports collaborative planning (review and approve the research plan before it runs), cancellation, and partial-report recovery for runs that end incomplete or over budget.",
   "author": {

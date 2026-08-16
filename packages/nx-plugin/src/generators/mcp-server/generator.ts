@@ -48,7 +48,7 @@ export async function mcpServerGenerator(
   // conditional fields (the API key wiring) stay readable.
   writeJson(tree, joinPathFragments(projectRoot, "package.json"), {
     name: npmName,
-    // Packages start at 1.0.0: Nx release compresses minor->patch below 1.0.
+    // Packages start at 0.1.0 and earn 1.0.0 — see INITIAL_VERSION.
     version: INITIAL_VERSION,
     description,
     license: "MIT",
@@ -64,6 +64,16 @@ export async function mcpServerGenerator(
       directory: `packages/${name}`,
     },
     scripts: {
+      // `prepack`, not `prepublishOnly`, and calling tsup rather than a
+      // package manager.
+      //
+      // `files` lists `dist`, which is gitignored. Without a build hook, `npm
+      // publish` from a clean tree does not fail — it quietly packs
+      // package.json, README, and LICENSE, burning the version on a package
+      // that installs to nothing. `prepack` also runs on `npm pack`, so the
+      // `npm pack --dry-run` pre-flight shows what publish will actually
+      // send; `prepublishOnly` would leave that check lying.
+      prepack: "tsup",
       build: "tsup",
       "build:bundle": "tsup --config tsup.bundle.config.ts",
       typecheck: "tsc --noEmit",

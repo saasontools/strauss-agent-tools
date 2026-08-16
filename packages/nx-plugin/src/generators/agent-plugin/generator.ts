@@ -120,11 +120,24 @@ export async function agentPluginGenerator(
   // Wire the plugin to the *published* MCP server package via a semver range,
   // never a workspace link: plugin directories are copied verbatim onto user
   // machines that know nothing about this monorepo.
+  //
+  // `<major>.x`, not a caret. npm reads `^0.1.0` as `>=0.1.0 <0.2.0`, so on a
+  // pre-1.0 server the first breaking release — Nx turns a `major` plan on
+  // 0.1.0 into 0.2.0 — would strand every installed plugin silently: npx keeps
+  // resolving 0.1.x, with no error and a server that never moves again.
+  // `0.x` tracks every 0.x release and stops at 1.0.0, the one boundary that
+  // is actually breaking. Above 1.0 it is identical to a caret (`1.x` is
+  // `>=1.0.0 <2.0.0`), so this stays correct if INITIAL_VERSION ever moves.
+  //
+  // Spelled without a space on purpose: `>=0.1.0 <1.0.0` is the same range,
+  // but it has to survive as one argv element through every client that reads
+  // this file.
+  const serverRange = `${INITIAL_VERSION.split(".")[0]}.x`;
   const mcpConfig = {
     mcpServers: {
       [name]: {
         command: "npx",
-        args: ["-y", `${mcpPackage}@^${INITIAL_VERSION}`],
+        args: ["-y", `${mcpPackage}@${serverRange}`],
         ...(apiKeyEnv ? { env: { [apiKeyEnv]: `\${${apiKeyEnv}}` } } : {}),
       },
     },

@@ -24,8 +24,10 @@ Codex, and Agent Plugins 1.0 clients from the marketplace files at
 - **No `project.json` under `packages/*`** — Nx infers targets from npm
   scripts; keep scripts the source of truth. Only `plugins/*` carry a
   `project.json`, and only for the `validate` target.
-- **New packages start at `1.0.0`** — Nx release compresses minor→patch below
-  1.0. The generators enforce this.
+- **New packages start at `0.1.0`** — the generators do this. Below 1.0 Nx
+  shifts every relative bump down a level (`patch` and `minor` both give
+  `0.1.1`, `major` gives `0.2.0`), so write plans as `patch` and reach 1.0.0
+  with an explicit `nx release version 1.0.0 -p <pkg>`. See CONTRIBUTING.md.
 - **Releases run on version plans** (`pnpm nx release plan`), never on commit
   messages. Do not add Changesets/Lerna/Turborepo.
 - **A new package's first npm publish is manual** (OIDC trusted publishing

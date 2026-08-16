@@ -1,6 +1,6 @@
 {
   "name": "@saasontools/gemini-deep-research-mcp",
-  "version": "1.1.0",
+  "version": "0.1.0",
   "description": "MCP server for Google Gemini Deep Research: long-running research jobs with async job handles",
   "license": "MIT",
   "author": "Assaf Kamil",
@@ -26,6 +26,7 @@
     "directory": "packages/gemini-deep-research-mcp"
   },
   "scripts": {
+    "prepack": "tsup",
     "build": "tsup",
     "build:bundle": "tsup --config tsup.bundle.config.ts",
     "typecheck": "tsc --noEmit",

@@ -4,7 +4,7 @@ import { registerTools } from "./tools.js";
 import { log } from "./logger.js";
 
 export const SERVER_NAME = "gemini-deep-research-mcp";
-export const SERVER_VERSION = "1.0.0";
+export const SERVER_VERSION = "0.1.0";
 
 /**
  * Builds the MCP server with all tools and resources registered. Kept

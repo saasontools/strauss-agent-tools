@@ -2,6 +2,13 @@
 # markdown directories consumed as-is by agent clients, with no install-time build.
 packages:
   - "packages/*"
+# An optional peer dependency has to stay optional. With this on, pnpm resolves
+# @saasontools/strauss-kb's optional search backend and drags native SQLite,
+# a llama runtime, and four tree-sitter grammars into every install — including
+# CI, which then has to answer the build-script policy below for each of them.
+# The package is written to degrade gracefully when that backend is absent, and
+# absent is the state this workspace installs in.
+autoInstallPeers: false
 # Build-script policy: pnpm 11 fails a cold install (CI) when a dependency's
 # build script is neither allowed nor denied, so every script-carrying dep
 # must be listed here explicitly.
