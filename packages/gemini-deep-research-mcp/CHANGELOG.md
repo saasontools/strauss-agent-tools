@@ -1,3 +1,14 @@
+## 0.1.1 (2026-08-16)
+
+### 🩹 Fixes
+
+- Add an optional format parameter to deep_research_start, deep_research_reply, and deep_research: a prompt describing the desired report format, appended to the research prompt. ([26646b0](https://github.com/saasontools/strauss-agent-tools/commit/26646b0))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 # Changelog
 
 This package was reset to `0.1.0` before its first npm publish, when the
