@@ -1,8 +1,14 @@
 # @saasontools/nx-plugin
 
 Nx generators for scaffolding [saasontools](https://github.com/saasontools/strauss-agent-tools)
-MCP server packages and multi-client agent plugins. Published so other
-workspaces can reuse the same generators.
+MCP server packages and multi-client agent plugins.
+
+**Internal to this repository — `private: true`, never published.** The
+generators hardcode this workspace's identity in `src/common.ts` (the
+`@saasontools` npm scope, the GitHub owner and repository, the copyright
+holder), so scaffolding from another workspace would emit packages named for
+this one, pointing at this repository, under this copyright. Making it
+publishable means turning those four constants into generator options first.
 
 ## Generators
 

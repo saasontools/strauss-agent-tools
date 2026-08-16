@@ -1,7 +1,8 @@
 {
   "name": "@saasontools/nx-plugin",
   "version": "1.0.0",
-  "description": "Nx generators for scaffolding @saasontools MCP server packages and multi-client agent plugins",
+  "private": true,
+  "description": "Internal Nx generators for scaffolding this repository's MCP server packages and agent plugins",
   "keywords": [
     "nx",
     "nx-plugin",
@@ -22,9 +23,6 @@
   ],
   "engines": {
     "node": ">=22.14.0"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "repository": {
     "type": "git",

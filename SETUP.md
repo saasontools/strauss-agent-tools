@@ -57,10 +57,12 @@ package exists. For **each** package below:
 
 Packages needing the bootstrap today:
 
-- [ ] `@saasontools/nx-plugin`
 - [ ] `@saasontools/gemini-deep-research-mcp`
 - [ ] `@saasontools/strauss-kb` — publish before its version plan merges, or
       that release run fails for this package alone while the others succeed
+
+`@saasontools/nx-plugin` is deliberately absent: it is `private: true` and
+consumed only through `workspace:*`, so `nx release` skips it entirely.
 
 Every future `nx g @saasontools/nx-plugin:mcp-server` package needs the same
 two steps once. This is the step that otherwise fails mysteriously in CI
