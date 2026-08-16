@@ -15,7 +15,7 @@ import { KbStore } from "./kb-store.js";
  * the two cannot drift.
  */
 export function createKbMcpServer(): McpServer {
-  const server = new McpServer({ name: "strauss-kb", version: "1.0.0" });
+  const server = new McpServer({ name: "strauss-kb", version: "0.1.0" });
   const store = new KbStore({
     warn: (entry) => process.stderr.write(`${JSON.stringify(entry)}\n`),
   });

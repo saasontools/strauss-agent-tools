@@ -34,7 +34,7 @@ Two alternatives work and are not the documented convention:
 
 |                | Command                                                           | When it fits                                                                                                                                    |
 | -------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Per invocation | `npx -y @saasontools/strauss-kb@1`                                | Pinned and zero-install; adds resolution latency to every call and needs a warm npx cache or a network.                                         |
+| Per invocation | `npx -y @saasontools/strauss-kb@0.1`                              | Pinned and zero-install; adds resolution latency to every call and needs a warm npx cache or a network.                                         |
 | Project-local  | `pnpm add -D @saasontools/strauss-kb` then `pnpm exec strauss-kb` | Pinned per repository and offline after install; bare `strauss-kb` does not resolve outside that repository, so skills cannot use one spelling. |
 
 As a library:
