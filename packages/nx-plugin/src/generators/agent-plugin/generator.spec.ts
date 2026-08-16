@@ -25,7 +25,7 @@ describe("agent-plugin generator", () => {
     ]) {
       const manifest = readJson(tree, file);
       expect(manifest.name, file).toBe("sample");
-      expect(manifest.version, file).toBe("1.0.0");
+      expect(manifest.version, file).toBe("0.1.0");
     }
   });
 
@@ -41,7 +41,7 @@ describe("agent-plugin generator", () => {
     expect(config.mcpServers.sample.command).toBe("npx");
     expect(config.mcpServers.sample.args).toEqual([
       "-y",
-      "@saasontools/sample-mcp@^1.0.0",
+      "@saasontools/sample-mcp@^0.1.0",
     ]);
     expect(config.mcpServers.sample.env).toEqual({
       SAMPLE_API_KEY: "${SAMPLE_API_KEY}",

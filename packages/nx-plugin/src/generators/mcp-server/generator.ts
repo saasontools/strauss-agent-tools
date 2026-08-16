@@ -48,7 +48,7 @@ export async function mcpServerGenerator(
   // conditional fields (the API key wiring) stay readable.
   writeJson(tree, joinPathFragments(projectRoot, "package.json"), {
     name: npmName,
-    // Packages start at 1.0.0: Nx release compresses minor->patch below 1.0.
+    // Packages start at 0.1.0 and earn 1.0.0 — see INITIAL_VERSION.
     version: INITIAL_VERSION,
     description,
     license: "MIT",

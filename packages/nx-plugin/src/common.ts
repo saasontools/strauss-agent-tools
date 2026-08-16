@@ -6,9 +6,13 @@ export const REPO_NAME = "strauss-agent-tools";
 export const REPO_URL = `https://github.com/${GITHUB_OWNER}/${REPO_NAME}`;
 export const COPYRIGHT_HOLDER = "Assaf Kamil";
 
-// Nx compresses minor->patch for 0.x versions, so every publishable package
-// starts at 1.0.0. See CONTRIBUTING.md ("Versioning").
-export const INITIAL_VERSION = "1.0.0";
+// Every publishable package starts at 0.1.0 and earns 1.0.0.
+//
+// Below 1.0, Nx shifts every relative bump down one level: `patch` and
+// `minor` both produce 0.1.1, `major` produces 0.2.0. A 0.x package therefore
+// cannot reach 1.0.0 through a version plan at all — that takes an explicit
+// `nx release version 1.0.0`. See CONTRIBUTING.md ("Versioning").
+export const INITIAL_VERSION = "0.1.0";
 
 const MIT_LICENSE = `MIT License
 

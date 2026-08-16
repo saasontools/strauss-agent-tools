@@ -46,17 +46,40 @@ pnpm nx g @saasontools/nx-plugin:agent-plugin my-plugin --mcpServer my-server --
 
 ### Versioning
 
-**Every publishable package starts at `1.0.0`, never `0.x`.** Nx release
-compresses `minor` bumps to `patch` below 1.0 (a `minor` plan on `0.1.0`
-produces `0.1.1`), so 0.x versioning silently breaks semver expectations.
-The generators enforce this; don't undo it by hand.
+**Every publishable package starts at `0.1.0` and earns `1.0.0`.** The
+generators do this; don't undo it by hand.
+
+Below 1.0, Nx shifts every relative bump down one level. This is not a bug to
+work around — it is what you are signing up for by starting at 0.x:
+
+| Version plan | On `0.1.0` | On `1.0.0` |
+| ------------ | ---------- | ---------- |
+| `patch`      | `0.1.1`    | `1.0.1`    |
+| `minor`      | `0.1.1`    | `1.1.0`    |
+| `major`      | `0.2.0`    | `2.0.0`    |
+
+Two consequences worth knowing before you write a plan:
+
+- **`minor` and `patch` are the same thing on 0.x.** Write `patch` for
+  anything that isn't breaking — a plan saying `minor` is a plan whose file
+  disagrees with its result.
+- **A 0.x package cannot reach `1.0.0` through a version plan.** `major` only
+  gets you `0.2.0`. Going stable is a deliberate, separate step:
+
+  ```bash
+  pnpm nx release version 1.0.0 -p @saasontools/<name>
+  ```
+
+A caret range on 0.x is also narrower than you may expect: npm reads `^0.1.0`
+as `>=0.1.0 <0.2.0`. Anything pinning a pre-1.0 package that way — a plugin's
+`.mcp.json`, for instance — needs widening by hand at each new 0.x line.
 
 ### First publish is manual
 
 npm trusted publishing (OIDC) is configured per package on npmjs.com, and the
 settings page only exists once the package exists. For every **new** package:
 
-1. `npm publish --access public` version `1.0.0` once, by hand (or with a
+1. `npm publish --access public` version `0.1.0` once, by hand (or with a
    granular token).
 2. On npmjs.com → package → Settings → Trusted publisher: GitHub Actions,
    owner `saasontools`, repository `strauss-agent-tools`, workflow

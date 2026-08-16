@@ -120,6 +120,11 @@ export async function agentPluginGenerator(
   // Wire the plugin to the *published* MCP server package via a semver range,
   // never a workspace link: plugin directories are copied verbatim onto user
   // machines that know nothing about this monorepo.
+  //
+  // `^0.1.0` means `>=0.1.0 <0.2.0` — narrower than a caret above 1.0, by
+  // npm's own rule for 0.x. While the server is pre-1.0 this range has to be
+  // widened by hand each time it reaches a new 0.x line, or the plugin keeps
+  // installing the version it shipped against.
   const mcpConfig = {
     mcpServers: {
       [name]: {

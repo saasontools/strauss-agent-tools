@@ -38,7 +38,7 @@ OIDC trusted publishing cannot create a package — the trusted-publisher
 setting lives in the package's npmjs.com settings, which only exist after the
 package exists. For **each** package below:
 
-1. One-time manual publish of `1.0.0` (from the repo, logged in to npm as an
+1. One-time manual publish of `0.1.0` (from the repo, logged in to npm as an
    owner of the `@saasontools` org — create the org first if it doesn't
    exist):
 

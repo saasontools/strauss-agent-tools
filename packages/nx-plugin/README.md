@@ -22,9 +22,10 @@ package with:
   (`SMOKE_ENTRY=bundle/server/index.js` re-targets it at the bundle)
 - `server.json` for the official MCP registry and `bundle/manifest.json` for
   MCPB (API keys marked `sensitive`)
-- version `1.0.0` (Nx release compresses minor→patch below 1.0 — never start
-  at 0.x), `publishConfig.access: public`, no `project.json` (targets are
-  inferred from npm scripts)
+- version `0.1.0` (below 1.0 Nx shifts every relative bump down a level, so
+  write version plans as `patch` — see CONTRIBUTING.md),
+  `publishConfig.access: public`, no `project.json` (targets are inferred
+  from npm scripts)
 
 ### `agent-plugin`
 
