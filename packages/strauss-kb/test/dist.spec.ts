@@ -47,8 +47,12 @@ describe("published build", () => {
       const source = await readFile(dist(file), "utf8");
 
       expect(source.startsWith("#!/usr/bin/env node")).toBe(true);
-      // 0o111: executable for user, group, and other. A bin without it is a
-      // "permission denied" the first time anything runs it from PATH.
+
+      // The exec bit is how a bin becomes runnable from PATH on POSIX, and
+      // its absence is a "permission denied" on first use. Windows has no
+      // such bit — npm writes .cmd shims from the `bin` field instead — so
+      // asserting it there would fail on a build that is actually correct.
+      if (process.platform === "win32") return;
       expect(statSync(dist(file)).mode & 0o111).toBe(0o111);
     },
   );
