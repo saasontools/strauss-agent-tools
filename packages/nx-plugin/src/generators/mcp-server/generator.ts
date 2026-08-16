@@ -64,6 +64,16 @@ export async function mcpServerGenerator(
       directory: `packages/${name}`,
     },
     scripts: {
+      // `prepack`, not `prepublishOnly`, and calling tsup rather than a
+      // package manager.
+      //
+      // `files` lists `dist`, which is gitignored. Without a build hook, `npm
+      // publish` from a clean tree does not fail — it quietly packs
+      // package.json, README, and LICENSE, burning the version on a package
+      // that installs to nothing. `prepack` also runs on `npm pack`, so the
+      // `npm pack --dry-run` pre-flight shows what publish will actually
+      // send; `prepublishOnly` would leave that check lying.
+      prepack: "tsup",
       build: "tsup",
       "build:bundle": "tsup --config tsup.bundle.config.ts",
       typecheck: "tsc --noEmit",

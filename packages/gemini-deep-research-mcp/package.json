@@ -26,6 +26,7 @@
     "directory": "packages/gemini-deep-research-mcp"
   },
   "scripts": {
+    "prepack": "tsup",
     "build": "tsup",
     "build:bundle": "tsup --config tsup.bundle.config.ts",
     "typecheck": "tsc --noEmit",

@@ -50,6 +50,7 @@
     "directory": "packages/strauss-kb"
   },
   "scripts": {
+    "prepack": "tsup",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

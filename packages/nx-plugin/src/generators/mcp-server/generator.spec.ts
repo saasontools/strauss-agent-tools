@@ -29,6 +29,22 @@ describe("mcp-server generator", () => {
     expect(pkg.dependencies["@modelcontextprotocol/sdk"]).toBeDefined();
   });
 
+  // `files` lists a gitignored `dist`. With no build hook, publishing from a
+  // clean tree silently ships a package that installs to nothing — npm does
+  // not treat a missing entry in `files` as an error. It must be `prepack`
+  // rather than `prepublishOnly`, so that `npm pack --dry-run` reports what
+  // publish would really send, and it must call the tool rather than a
+  // package manager, since the workspace is pnpm-pinned.
+  it("builds on pack so a clean tree cannot publish an empty package", async () => {
+    const tree = createTreeWithEmptyWorkspace();
+    await generate(tree);
+
+    const pkg = readJson(tree, "packages/sample-mcp/package.json");
+    expect(pkg.scripts.prepack).toBe("tsup");
+    expect(pkg.scripts.prepublishOnly).toBeUndefined();
+    expect(pkg.files).toContain("dist");
+  });
+
   it("generates source, tests, configs, README, and LICENSE", async () => {
     const tree = createTreeWithEmptyWorkspace();
     await generate(tree);
