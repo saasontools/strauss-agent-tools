@@ -10,12 +10,37 @@ Orchestrates the `gemini-deep-research` MCP server
 **costs real money** (~$1–3 standard, ~$3–7 max), so plan runs deliberately;
 never fan out more runs than the user asked for.
 
+## Choosing depth: `standard` vs `max`
+
+**Default is `standard`** (unless the user's environment overrides it via
+`GEMINI_DEEP_RESEARCH_AGENT`). When you don't pass `depth`, you get
+`standard` — and that is the right call for almost everything.
+
+Pick **`standard`** (~$1–3/run) for:
+
+- single-topic questions, overviews, and background briefs
+- competitive snapshots, market scans, literature surveys
+- each topic of a multi-run fan-out study (costs multiply per run)
+- anything exploratory, where a follow-up run is likely anyway
+
+Pick **`max`** (~$3–7/run, deeper and slower) only when:
+
+- the user explicitly asks for exhaustive/maximum-depth research
+- one report must carry a high-stakes decision (due diligence,
+  build-vs-buy, legal/regulatory landscape) and there will be no second run
+- a `standard` run already came back too shallow and the user wants more
+
+Never silently escalate to `max` — it triples the cost. If you believe `max`
+is warranted, say why and let the user confirm first.
+
 ## Single research question
 
 1. Check `deep_research_list` first — an existing completed job on the same
    question is free; a new run is not.
-2. `deep_research_start` with a specific, self-contained query. Include scope,
-   timeframe, and desired output structure in the query text.
+2. `deep_research_start` with a specific, self-contained query. Include scope
+   and timeframe in the query; describe the desired report structure in the
+   separate `format` parameter (e.g. "an executive summary, then a comparison
+   table, then per-vendor sections").
 3. Poll `deep_research_status` every 30–60 seconds. Relay the
    `latest_progress` summaries so the user sees movement. Do other useful work
    between polls if you have any.

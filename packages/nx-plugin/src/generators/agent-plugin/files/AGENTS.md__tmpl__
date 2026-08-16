@@ -1,0 +1,27 @@
+# AGENTS.md
+
+Guidance for AI coding agents working on the `<%= name %>` plugin directory.
+Repo-wide rules live in the root AGENTS.md.
+
+## What this directory is
+
+A multi-client agent plugin served as-is (no build step) to Claude Code,
+Codex, and Agent Plugins 1.0 clients:
+
+- `skills/<%= name %>/SKILL.md` — the portable core every client reads; put
+  the real procedure here, never only in client-specific files
+- `plugin.json` / `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json`
+  — one manifest per format; keep name/version/description in sync
+- `mcp.json` and `.mcp.json` — **must stay byte-identical**; they wire the
+  published MCP server (`<%= mcpPackage %>`) by semver range, never a
+  workspace link
+- `agents/*.md` — Claude Code only; optional
+
+## Rules that are load-bearing
+
+- Validate with `claude plugin validate .` (or `pnpm nx run
+  plugin-<%= name %>:validate` from the repo root) after any change.
+- This directory is registered in `.claude-plugin/marketplace.json` and
+  `.agents/plugins/marketplace.json` at the repo root with an explicit
+  `./plugins/<%= name %>` source path — keep those entries in sync.
+- `project.json` exists only for the `validate` target; add nothing else.
