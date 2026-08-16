@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "strauss-kb": {
+      "command": "strauss-kb-mcp"
+    }
+  }
+}

@@ -1,0 +1,749 @@
+/* eslint-disable no-empty-pattern -- vitest fixtures require object destructuring */
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  mkdirSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, test as baseTest } from "vitest";
+import { composeRecord, type ComposeInput } from "./compose.js";
+import {
+  composeDecisionRecord,
+  composeNoDecisionRecord,
+  isNoDecisionRecord,
+  selectDecisions,
+  type DecisionInput,
+} from "./decision-record.js";
+import { KbStore } from "./kb-store.js";
+import {
+  KbInvalidConceptIdError,
+  KbRecordAlreadyExistsError,
+  KbRecordNotFoundError,
+} from "./kb-errors.js";
+import { INDEX_FILE } from "./kb-index.js";
+import { LOG_FILE } from "./kb-log.js";
+import { validateBundle } from "./validate.js";
+
+interface Ctx {
+  bundle: string;
+  store: KbStore;
+}
+
+const test = baseTest.extend<Ctx>({
+  bundle: async ({}, use) => {
+    const dir = mkdtempSync(join(tmpdir(), "strauss-kb-"));
+    await use(dir);
+    rmSync(dir, { recursive: true, force: true });
+  },
+  store: async ({}, use) => {
+    await use(new KbStore());
+  },
+});
+
+const WRITTEN_BY = "test-writer";
+const WRITTEN_AT = "2026-08-02T09:14:00Z";
+
+function decision(overrides: Partial<DecisionInput> = {}) {
+  return composeDecisionRecord(
+    {
+      slug: "region-in-cache-key",
+      title: "Region is part of the cache key",
+      why: "The cache is shared across regions, so a region-less key serves one region another region's data.",
+      alternative:
+        "A cache per region — one more thing to provision, and it drifts.",
+      verify: ["no cache key omits the region"],
+      anchors: [
+        {
+          file: "src/cache/order-cache.ts",
+          symbol: "OrderCache.get",
+        },
+      ],
+      ...overrides,
+    },
+    WRITTEN_BY,
+    WRITTEN_AT,
+  );
+}
+
+function fact(slug: string, overrides: Partial<ComposeInput> = {}) {
+  return composeRecord(
+    "fact",
+    {
+      slug,
+      title: `Fact ${slug}`,
+      why: "Something observed.",
+      sections: { Claim: "The claim.", Evidence: "The evidence." },
+      ...overrides,
+    },
+    WRITTEN_BY,
+    WRITTEN_AT,
+  );
+}
+
+describe("KbStore", () => {
+  test("writes a record whose concept id is its path minus .md", async ({
+    store,
+    bundle,
+  }) => {
+    const written = await store.write(bundle, decision());
+
+    expect(written.conceptId).toBe("decision.region-in-cache-key");
+    const raw = readFileSync(
+      join(bundle, "decision.region-in-cache-key.md"),
+      "utf8",
+    );
+    expect(raw).toContain("type: decision");
+    expect(raw).toContain("strauss_status: accepted");
+  });
+
+  test("addresses the bundle by path, so two bundles stay independent", async ({
+    store,
+    bundle,
+  }) => {
+    const other = join(bundle, "nested", "kb");
+    mkdirSync(other, { recursive: true });
+
+    await store.write(bundle, decision());
+    await store.write(other, fact("only-over-here"));
+
+    expect((await store.list(bundle)).map((r) => r.conceptId)).toEqual([
+      "decision.region-in-cache-key",
+    ]);
+    expect((await store.list(other)).map((r) => r.conceptId)).toEqual([
+      "fact.only-over-here",
+    ]);
+  });
+
+  test("refuses a second write to the same concept id", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+
+    const rejection = await store
+      .write(bundle, decision({ title: "A different decision" }))
+      .catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(KbRecordAlreadyExistsError);
+    // 409 rather than a message match: the caller retries a collision with a
+    // different slug, and gives up on a 400.
+    expect((rejection as KbRecordAlreadyExistsError).code).toBe(409);
+  });
+
+  test("rejects a slug that is not kebab-case", async ({ store, bundle }) => {
+    const rejection = await store
+      .write(bundle, decision({ slug: "Not A Slug" }))
+      .catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(KbInvalidConceptIdError);
+    // 400, not 409: no retry with a different slug rescues malformed input.
+    expect((rejection as KbInvalidConceptIdError).code).toBe(400);
+  });
+
+  // The concept id names one file directly under the bundle root; a separator
+  // would let a caller write outside it.
+  test("refuses a concept id containing a path separator", async ({
+    store,
+    bundle,
+  }) => {
+    const rejection = await store
+      .read(bundle, "../../etc/passwd")
+      .catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(KbInvalidConceptIdError);
+  });
+
+  test("preserves unknown frontmatter keys, as OKF requires", async ({
+    store,
+    bundle,
+  }) => {
+    writeFileSync(
+      join(bundle, "fact.foreign.md"),
+      [
+        "---",
+        "type: fact",
+        "title: Written by another producer",
+        "their_extension: keep me",
+        "---",
+        "Body.",
+        "",
+      ].join("\n"),
+    );
+
+    const read = await store.read(bundle, "fact.foreign");
+    expect(read?.frontmatter.their_extension).toBe("keep me");
+  });
+
+  // OKF calls a concept carrying only `type` fully conformant, so a missing
+  // status must not make a record unreadable.
+  test("defaults the status of a record that carries none", async ({
+    store,
+    bundle,
+  }) => {
+    writeFileSync(
+      join(bundle, "fact.bare.md"),
+      ["---", "type: fact", "---", "Body.", ""].join("\n"),
+    );
+
+    const read = await store.read(bundle, "fact.bare");
+    expect(read?.frontmatter.strauss_status).toBe("draft");
+  });
+
+  test("moves a status and leaves the rest of the record alone", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+    const moved = await store.setStatus(
+      bundle,
+      "decision.region-in-cache-key",
+      "rejected",
+    );
+
+    expect(moved.frontmatter.strauss_status).toBe("rejected");
+    expect(moved.frontmatter.title).toBe("Region is part of the cache key");
+    expect(moved.frontmatter.strauss_anchors).toHaveLength(1);
+  });
+
+  test("reports a mutation against a record that does not exist", async ({
+    store,
+    bundle,
+  }) => {
+    const rejection = await store
+      .setStatus(bundle, "fact.absent", "accepted")
+      .catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(KbRecordNotFoundError);
+    expect((rejection as KbRecordNotFoundError).code).toBe(404);
+  });
+
+  test("links both directions when superseding", async ({ store, bundle }) => {
+    await store.write(bundle, fact("auth-throws"));
+    await store.write(bundle, fact("auth-retries"));
+
+    await store.supersede(bundle, "fact.auth-throws", "fact.auth-retries");
+
+    const old = await store.read(bundle, "fact.auth-throws");
+    const replacement = await store.read(bundle, "fact.auth-retries");
+
+    expect(old?.frontmatter.strauss_status).toBe("superseded");
+    expect(old?.frontmatter.strauss_superseded_by).toBe("fact.auth-retries");
+    // The backlink is written here rather than left for a validator to miss.
+    expect(replacement?.frontmatter.strauss_supersedes).toEqual([
+      "fact.auth-throws",
+    ]);
+    expect(validateBundle(await store.list(bundle))).toEqual([]);
+  });
+
+  test("answers an open question, appending the answer to the body", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(
+      bundle,
+      composeRecord(
+        "open-question",
+        {
+          slug: "retry-scope",
+          title: "Which failures should the client retry?",
+          why: "Scope decides how much of the client needs a backoff.",
+          sections: {
+            Question: "Which failure classes must the client retry?",
+          },
+        },
+        WRITTEN_BY,
+        WRITTEN_AT,
+      ),
+    );
+
+    const answered = await store.answer(
+      bundle,
+      "open-question.retry-scope",
+      "Timeouts and 5xx only.",
+      "assaf",
+    );
+
+    expect(answered.frontmatter.strauss_status).toBe("resolved");
+    expect(answered.frontmatter.strauss_answered?.by).toBe("assaf");
+    expect(answered.body).toContain("## Answer");
+    expect(answered.body).toContain("Timeouts and 5xx only.");
+  });
+});
+
+describe("INDEX.md", () => {
+  test("is written from the records and repaired when it drifts", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+    await store.write(bundle, fact("cursor-scans"));
+
+    writeFileSync(join(bundle, INDEX_FILE), "# KB Index\n\n- stale nonsense\n");
+    const repaired = await store.readIndex(bundle);
+
+    expect(repaired).toContain("decision.region-in-cache-key.md");
+    expect(repaired).toContain("fact.cursor-scans.md");
+    expect(repaired).not.toContain("stale nonsense");
+    expect(readFileSync(join(bundle, INDEX_FILE), "utf8")).toBe(repaired);
+  });
+
+  // A title does not tell a reader whether a record is worth opening.
+  test("carries the description, not only the title", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+
+    expect(await store.readIndex(bundle)).toContain(
+      "The cache is shared across regions",
+    );
+  });
+
+  // Both store-owned files are markdown. Left in the listing they parse to
+  // null and vanish — but only after warning that the bundle holds a malformed
+  // record, which sends a reader looking for a problem that is not there.
+  test("neither store-owned file is listed as a record", async ({ bundle }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+
+    await quiet.write(bundle, decision());
+    await quiet.readIndex(bundle);
+
+    expect((await quiet.list(bundle)).map((r) => r.conceptId)).toEqual([
+      "decision.region-in-cache-key",
+    ]);
+    expect(warnings).toEqual([]);
+  });
+});
+
+describe("log.jsonl", () => {
+  test("appends one line per mutation", async ({ store, bundle }) => {
+    await store.write(bundle, fact("one"));
+    await store.write(bundle, fact("two"));
+    await store.setStatus(bundle, "fact.one", "rejected");
+
+    const { entries, malformed } = await store.readLog(bundle);
+
+    expect(malformed).toEqual([]);
+    expect(entries.map((entry) => entry.operation)).toEqual([
+      "write",
+      "write",
+      "status:rejected",
+    ]);
+    expect(entries[0]?.conceptId).toBe("fact.one");
+  });
+
+  // The log is the only bundle artifact nothing else can reconstruct, so a bad
+  // line is reported and left in place rather than repaired away.
+  test("reports a malformed line without rewriting it", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+    const before = readFileSync(join(bundle, LOG_FILE), "utf8");
+    writeFileSync(join(bundle, LOG_FILE), `${before}garbage line\n`);
+
+    const { entries, malformed } = await store.readLog(bundle);
+
+    expect(entries).toHaveLength(1);
+    expect(malformed).toEqual([{ line: 2, text: "garbage line" }]);
+    expect(readFileSync(join(bundle, LOG_FILE), "utf8")).toContain(
+      "garbage line",
+    );
+  });
+
+  // Well-formed JSON that is not a log entry is malformed too — otherwise the
+  // shape is only enforced on write, and a hand-edit slips a stranger through.
+  test("reports JSON that does not match the entry schema", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+    const before = readFileSync(join(bundle, LOG_FILE), "utf8");
+    writeFileSync(join(bundle, LOG_FILE), `${before}{"at":"now"}\n`);
+
+    const { entries, malformed } = await store.readLog(bundle);
+
+    expect(entries).toHaveLength(1);
+    expect(malformed).toEqual([{ line: 2, text: '{"at":"now"}' }]);
+  });
+
+  // A separator-delimited line could not carry a value containing the
+  // separator; JSON can, which is why the parser went away.
+  test("round-trips a value that would have broken a delimited line", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"), "agent · with · dots");
+
+    const { entries, malformed } = await store.readLog(bundle);
+    expect(malformed).toEqual([]);
+    expect(entries[0]?.by).toBe("agent · with · dots");
+  });
+
+  test("leaves no staging file behind", async ({ store, bundle }) => {
+    await store.write(bundle, decision());
+    await store.write(bundle, { ...decision(), overwrite: true });
+
+    expect(readdirSync(bundle).sort()).toEqual(
+      ["decision.region-in-cache-key.md", LOG_FILE].sort(),
+    );
+  });
+});
+
+describe("composeRecord", () => {
+  test("renders the type’s sections in order and omits the empty ones", () => {
+    const composed = composeRecord(
+      "risk",
+      {
+        slug: "fake-clock-no-timers",
+        title: "The E2E fake clock does not advance timers",
+        why: "The E2E suite would pass against behaviour production does not have.",
+        sections: {
+          Risk: "Nothing advances a pending timer.",
+          Mitigation: "Cover expiry against a real clock in staging only.",
+        },
+      },
+      WRITTEN_BY,
+      WRITTEN_AT,
+    );
+
+    expect(composed.body).toContain("## Risk");
+    expect(composed.body).toContain("## Mitigation");
+    // "Why it matters" was not supplied; an empty heading would read as an
+    // answer rather than an omission.
+    expect(composed.body).not.toContain("## Why it matters");
+    expect(composed.body.indexOf("## Risk")).toBeLessThan(
+      composed.body.indexOf("## Mitigation"),
+    );
+  });
+
+  test("refuses a section the type does not define", () => {
+    expect(() =>
+      composeRecord(
+        "fact",
+        {
+          slug: "x",
+          title: "X",
+          why: "Y",
+          sections: { Mitigation: "wrong type" },
+        },
+        WRITTEN_BY,
+        WRITTEN_AT,
+      ),
+    ).toThrow(/no section Mitigation/);
+  });
+
+  test("starts each type at its own status", () => {
+    expect(fact("a").frontmatter.strauss_status).toBe("accepted");
+    expect(
+      composeRecord(
+        "open-question",
+        { slug: "q", title: "Q", why: "W" },
+        WRITTEN_BY,
+        WRITTEN_AT,
+      ).frontmatter.strauss_status,
+    ).toBe("open");
+  });
+
+  test("rejects a related concept id that would emit a broken link", () => {
+    expect(() =>
+      composeDecisionRecord(
+        {
+          slug: "x",
+          title: "X",
+          why: "Y",
+          relatedConceptIds: ["not a [concept] id"],
+        },
+        WRITTEN_BY,
+        WRITTEN_AT,
+      ),
+    ).toThrow();
+  });
+
+  test("renders related concepts as body links, which OKF reads as edges", () => {
+    const composed = composeDecisionRecord(
+      { ...decisionInput(), relatedConceptIds: ["flow.cache-fill"] },
+      WRITTEN_BY,
+      WRITTEN_AT,
+    );
+
+    expect(composed.body).toContain("[flow.cache-fill](flow.cache-fill.md)");
+  });
+
+  test("keys source footnotes to the sources[].id", () => {
+    const composed = composeDecisionRecord(
+      {
+        ...decisionInput(),
+        sources: [
+          {
+            id: "cache-design",
+            resource: "docs/cache-design.md",
+            title: "Cache design note",
+          },
+        ],
+      },
+      WRITTEN_BY,
+      WRITTEN_AT,
+    );
+
+    expect(composed.frontmatter.sources).toHaveLength(1);
+    expect(composed.body).toContain("[^cache-design]: Cache design note");
+  });
+
+  // Spelled as a sentinel inside the reference list, "no source" would make
+  // `sources` unable to be legitimately empty. As a field it can be.
+  test("records an unsourced claim as a field, not a fake source", () => {
+    const composed = composeRecord(
+      "assumption",
+      {
+        slug: "worker-runs-single-region",
+        title: "The worker runs in one region",
+        why: "Multi-region would change the locking story.",
+        assumption: true,
+      },
+      WRITTEN_BY,
+      WRITTEN_AT,
+    );
+
+    expect(composed.frontmatter.strauss_assumption).toBe(true);
+    expect(composed.frontmatter.sources).toBeUndefined();
+  });
+});
+
+describe("decisions", () => {
+  test("composes the no-decision claim under a reserved slug", async ({
+    store,
+    bundle,
+  }) => {
+    const written = await store.write(
+      bundle,
+      composeNoDecisionRecord("nothing to decide", WRITTEN_BY, WRITTEN_AT),
+    );
+
+    expect(written.conceptId).toBe("decision.none");
+    expect(isNoDecisionRecord(written)).toBe(true);
+  });
+
+  test("excludes the no-decision claim from the decisions", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+    await store.write(
+      bundle,
+      composeNoDecisionRecord("nothing to decide", WRITTEN_BY, WRITTEN_AT),
+    );
+
+    const decisions = selectDecisions(await store.list(bundle, "decision"));
+    expect(decisions.map((record) => record.conceptId)).toEqual([
+      "decision.region-in-cache-key",
+    ]);
+  });
+});
+
+describe("validateBundle", () => {
+  test("finds a supersession pointer with no partner", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("orphan"));
+    await store.setStatus(bundle, "fact.orphan", "superseded");
+
+    const problems = validateBundle(await store.list(bundle));
+    expect(problems).toEqual([
+      {
+        check: "superseded_by",
+        conceptId: "fact.orphan",
+        note: "superseded with no replacement",
+      },
+    ]);
+  });
+
+  // OKF permits any type, so a stranger's record is a note rather than a fault.
+  test("notes an unrecognised type without failing the record", async ({
+    store,
+    bundle,
+  }) => {
+    writeFileSync(
+      join(bundle, "glossary.term.md"),
+      ["---", "type: glossary", "---", "Body.", ""].join("\n"),
+    );
+
+    const problems = validateBundle(await store.list(bundle));
+    expect(problems).toEqual([
+      {
+        check: "type",
+        conceptId: "glossary.term",
+        note: 'unrecognised type "glossary"',
+      },
+    ]);
+  });
+});
+
+function decisionInput(): DecisionInput {
+  return {
+    slug: "region-in-cache-key",
+    title: "Region is part of the cache key",
+    why: "The cache is shared across regions.",
+  };
+}
+
+describe("load", () => {
+  test("hands over the whole base with standing attached", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+    await store.write(bundle, fact("cursor-scans"));
+
+    const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.recordCount).toBe(2);
+    expect(result.approxTokens).toBeGreaterThan(0);
+    expect(result.records.map((hit) => hit.standing)).toEqual([
+      "current",
+      "current",
+    ]);
+  });
+
+  // A truncated base is indistinguishable from a complete one, so a caller
+  // would answer "that was never decided" from a slice it did not know was one.
+  test("refuses rather than truncating when over budget", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+
+    const result = await store.load(bundle, { budgetTokens: 1 });
+
+    expect(result.loaded).toBe(false);
+    expect(result.recordCount).toBe(1);
+    expect(result.approxTokens).toBeGreaterThan(1);
+    expect(result).not.toHaveProperty("records");
+  });
+
+  test("narrows to a type but adjudicates against the whole base", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("auth-throws"));
+    await store.write(bundle, fact("auth-retries"));
+    await store.write(bundle, decision());
+    await store.supersede(bundle, "fact.auth-throws", "fact.auth-retries");
+
+    const result = await store.load(bundle, { type: "fact" });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.recordCount).toBe(2);
+    expect(result.superseded.map((entry) => entry.conceptId)).toEqual([
+      "fact.auth-throws",
+    ]);
+    expect(result.superseded[0]?.supersededBy).toEqual(["fact.auth-retries"]);
+  });
+
+  // Standing is a qualifier on a body, and over a long session the body
+  // outlives the qualifier. A stub leaves nothing to act on.
+  test("names superseded records instead of spelling them out", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(
+      bundle,
+      fact("auth-throws", {
+        sections: { Claim: "The claim.", Evidence: "Only the stale one says." },
+      }),
+    );
+    await store.write(bundle, fact("auth-retries"));
+    await store.supersede(bundle, "fact.auth-throws", "fact.auth-retries");
+
+    const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records.map((hit) => hit.record.conceptId)).toEqual([
+      "fact.auth-retries",
+    ]);
+    expect(result.superseded).toEqual([
+      {
+        conceptId: "fact.auth-throws",
+        title: "Fact auth-throws",
+        supersededBy: ["fact.auth-retries"],
+        at: WRITTEN_AT,
+      },
+    ]);
+    // The count stays over the whole base: a stub is still a record the caller
+    // has been told about.
+    expect(result.recordCount).toBe(2);
+    expect(JSON.stringify(result)).not.toContain("Only the stale one says.");
+  });
+
+  // A rejected record is the answer to "why didn't you just do X" — the
+  // question a diff destroys hardest. Stubbing it would delete the best
+  // content in the base to save tokens.
+  test("keeps rejected, open and unsettled records whole", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("shared-cache"));
+    await store.write(bundle, fact("draft-thing"));
+    await store.setStatus(bundle, "fact.shared-cache", "rejected");
+    await store.setStatus(bundle, "fact.draft-thing", "draft");
+
+    const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.superseded).toEqual([]);
+    expect(result.records.map((hit) => hit.standing).sort()).toEqual([
+      "rejected",
+      "unsettled",
+    ]);
+    for (const hit of result.records) {
+      expect(hit.record.body).toContain("The evidence.");
+    }
+  });
+
+  // Costing the full bodies would refuse a base that fits once the superseded
+  // ones are stubs.
+  test("measures the budget against what it hands back", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("kept"));
+    await store.write(bundle, fact("dropped"));
+
+    const whole = await store.load(bundle);
+    expect(whole.loaded).toBe(true);
+    if (!whole.loaded) return;
+
+    await store.supersede(bundle, "fact.dropped", "fact.kept");
+    const stubbed = await store.load(bundle);
+    expect(stubbed.loaded).toBe(true);
+    if (!stubbed.loaded) return;
+
+    expect(stubbed.approxTokens).toBeLessThan(whole.approxTokens);
+    // And the smaller figure is the one the budget is held against.
+    const result = await store.load(bundle, {
+      budgetTokens: stubbed.approxTokens,
+    });
+    expect(result.loaded).toBe(true);
+  });
+
+  test("an empty base loads as empty rather than refusing", async ({
+    store,
+    bundle,
+  }) => {
+    const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    expect(result.recordCount).toBe(0);
+  });
+});
