@@ -146,6 +146,10 @@ the name is taken — two writers choosing one concept id is a 409 the caller mu
 answer, by picking a more specific slug or by saying it meant to replace.
 `rename` is used only when the caller passes `overwrite`.
 
+Read-modify-write (`setStatus`, `answer`) checks a content digest immediately
+before publishing, which narrows the lost-update window rather than closing it.
+[ARCHITECTURE.md](./ARCHITECTURE.md) says why a lock was rejected.
+
 `supersede` writes both directions, so a backlink cannot drift in normal use and
 `validate` drops to catching hand-edits.
 
@@ -267,6 +271,10 @@ say no record answers the question, where vector search returns its nearest
 neighbour whatever the distance; and a reader picks the record that answers the
 question rather than the one nearest the topic.
 
+Read for a question, not for a session: a base loaded at the start of a long
+conversation is summarised away by the end of it, and reloading costs about
+three thousand tokens. Read it again at the point of use.
+
 `load` refuses rather than truncating when a base exceeds its budget (25,000
 tokens by default). A truncated base is indistinguishable from a complete one,
 so a caller would answer "that was never decided" from a slice it did not know
@@ -333,7 +341,8 @@ hold is the exception — no invariant, deterministic path.
 the directory boundary. "Was this settled somewhere else?" is answered by a
 person choosing which base to open. That is the price of a base that can be
 copied, deleted, or handed over whole, and it is what keeps the search index
-disposable.
+disposable. [ARCHITECTURE.md](./ARCHITECTURE.md) covers the registry that would
+lift it, and why it is unbuilt.
 
 ## License
 
