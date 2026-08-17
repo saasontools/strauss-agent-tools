@@ -93,8 +93,6 @@ JSON
 if this is wrong. A section the type does not define is rejected, so check
 `types` rather than inventing headings.
 
-For decisions specifically, load the `recording-decisions` skill.
-
 ## Judgment the tools cannot enforce
 
 - **An unsourced claim is an `assumption` with `"assumption": true`**, never a
