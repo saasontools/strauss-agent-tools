@@ -50,10 +50,9 @@ environment. Fifteen tools, one per command: `kb_load`, `kb_query`, `kb_trace`,
 
 **Skills**
 
-| Skill                 | For                                                                                                                         |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `knowledge-base`      | Reading and writing records: what standing means, load before search, why a rejected record is never an answer.             |
-| `recording-decisions` | Whether a choice deserves a record, what goes in `alternative` versus `impact`, and how to say there was nothing to decide. |
+| Skill            | For                                                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- |
+| `knowledge-base` | Reading and writing records: what standing means, load before search, why a rejected record is never an answer. |
 
 `STRAUSS_KB_ACTOR` names the writer in each base's `log.jsonl`; it defaults to
 `mcp` for the server and `unknown` for the CLI.
