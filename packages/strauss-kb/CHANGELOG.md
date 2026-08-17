@@ -1,3 +1,14 @@
+## 0.1.2 (2026-08-17)
+
+### 🩹 Fixes
+
+- Ship ARCHITECTURE.md with the package ([21c54eb](https://github.com/saasontools/strauss-agent-tools/commit/21c54eb))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Opus 5
+
 ## 0.1.1 (2026-08-16)
 
 ### 🩹 Fixes
