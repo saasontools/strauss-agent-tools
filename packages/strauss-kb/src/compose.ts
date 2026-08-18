@@ -23,6 +23,20 @@ export const composeInputSchema = z
     sources: z.array(kbSourceSchema).optional(),
     /** No source exists, as a claim rather than a sentinel in `sources`. */
     assumption: z.boolean().optional(),
+    /**
+     * OKF `stale_after`: the absolute date this record stops being trusted.
+     * Anything the outside world can change — pricing, quotas, versions,
+     * reception counts — should carry one.
+     */
+    stale_after: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, {
+        message: "stale_after must be YYYY-MM-DD",
+      })
+      .refine((date) => !Number.isNaN(Date.parse(date)), {
+        message: "stale_after must be a real date",
+      })
+      .optional(),
     verify: z.array(z.string().min(1)).optional(),
     tags: z.array(z.string().min(1)).optional(),
     /** Concept ids this record relates to; rendered as body links. */
@@ -85,6 +99,7 @@ export function composeRecord(
     verified: [],
     strauss_status: spec.initialStatus,
   };
+  if (parsed.stale_after) frontmatter.stale_after = parsed.stale_after;
   if (parsed.anchors?.length) frontmatter.strauss_anchors = parsed.anchors;
   if (parsed.verify?.length) frontmatter.strauss_verify = parsed.verify;
   if (parsed.tags?.length) frontmatter.tags = parsed.tags;

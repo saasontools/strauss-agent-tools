@@ -422,6 +422,31 @@ describe("composeRecord", () => {
     );
   });
 
+  test("carries stale_after into frontmatter and rejects a malformed one", () => {
+    const composed = composeRecord(
+      "fact",
+      {
+        slug: "vendor-quota",
+        title: "Vendor quota is 100 rps",
+        why: "Sizing depends on it.",
+        stale_after: "2027-02-16",
+      },
+      WRITTEN_BY,
+      WRITTEN_AT,
+    );
+
+    expect(composed.frontmatter.stale_after).toBe("2027-02-16");
+
+    expect(() =>
+      composeRecord(
+        "fact",
+        { slug: "x", title: "X", why: "Y", stale_after: "soonish" },
+        WRITTEN_BY,
+        WRITTEN_AT,
+      ),
+    ).toThrow(/YYYY-MM-DD/);
+  });
+
   test("refuses a section the type does not define", () => {
     expect(() =>
       composeRecord(
