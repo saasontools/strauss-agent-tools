@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { composeInputSchema, composeRecord } from "./compose.js";
+import { buildContext, syncInstructions, toHookJson } from "./kb-context.js";
+import { listPins, pinBase, unpinBase } from "./kb-pins.js";
 import {
   composeDecisionRecord,
   composeNoDecisionRecord,
@@ -39,8 +41,13 @@ export type KbCommandContext = {
 export type KbCommand<Shape extends z.ZodRawShape = z.ZodRawShape> = {
   /** CLI verb. */
   name: string;
-  /** MCP tool name. */
-  tool: string;
+  /**
+   * MCP tool name. Absent only for CLI-only plumbing (`sync-instructions`),
+   * which exists to edit files for hooks and instruction blocks rather than to
+   * give an agent a capability — the capability, "get the pinned context
+   * block", is `kb_context`.
+   */
+  tool?: string;
   /** Argument spelling for CLI usage output. */
   usage: string;
   /** Shown to an agent choosing a tool, so it carries the judgment too. */
@@ -231,7 +238,7 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
     tool: "kb_load",
     usage: "load [type] [--budget N]",
     description:
-      "Load the whole knowledge base at once, each record with its standing. Prefer this over searching: these bases run to a few thousand tokens, and a reader holding all of it has perfect recall and knows why it is asking, which no ranker does. Superseded records arrive under `superseded` as name, replacement and date only — their bodies no longer hold, and reading one later in a long session is the mistake this prevents; pass the id to kb_trace when you need the history. Rejected and unresolved records arrive whole: what was turned down, and what is still open, is the part a diff cannot show you. Refuses with a count rather than truncating when the base is too large — a truncated base is indistinguishable from a complete one, and would have you conclude something was never decided from a slice you did not know was a slice.",
+      "Load the whole knowledge base at once, each record with its standing. Prefer this over searching: these bases run to a few thousand tokens, and a reader holding all of it has perfect recall and knows why it is asking, which no ranker does. Superseded records arrive under `superseded` as name, replacement and date only — their bodies no longer hold, and reading one later in a long session is the mistake this prevents; pass the id to kb_trace when you need the history. Rejected and unresolved records arrive whole: what was turned down, and what is still open, is the part a diff cannot show you. Refuses with a count rather than truncating when the base is too large — a truncated base is indistinguishable from a complete one, and would have you conclude something was never decided from a slice you did not know was a slice. Call at the point of use, not once per session: a base loaded early is summarised away by compaction, so if the visible context holds no records from this base and the question at hand is one it might govern, load before answering — never conclude nothing was decided from a context with no KB content in it. This tool (with kb_query and kb_trace) is the only supported way to read a base; a raw file read bypasses supersession resolution and returns replaced records as if current.",
     input: z.object({
       bundlePath,
       type: z.enum(KB_RECORD_TYPES).optional(),
@@ -278,7 +285,7 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
     tool: "kb_query",
     usage: "query <text...>",
     description:
-      "Search and return each match with its standing. Results are flagged, never filtered: a superseded record comes back alongside whatever replaced it, and a rejected one is marked as something explicitly not adopted. Prefer this over reading record files directly — relevance and standing are different questions, and a bare match answers only the first.",
+      "Search and return each match with its standing. Results are flagged, never filtered: a superseded record comes back alongside whatever replaced it, and a rejected one is marked as something explicitly not adopted. Prefer kb_load when the base fits its budget: on this package's measurements, a reader holding the whole base answered eight of nine questions whose wording appears in no record, where embedding search answered four. Never read record files directly — this tool (with kb_load and kb_trace) is the only supported way to read a base; a file read bypasses supersession resolution and returns replaced records as if current.",
     input: z.object({
       bundlePath,
       text: z.string().optional(),
@@ -315,7 +322,7 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
     tool: "kb_trace",
     usage: "trace <concept-id> [edges...]",
     description:
-      'How a position was arrived at, as a timeline ordered by when each record was written. Deliberately includes rejected, draft, and superseded records — in a history those are the content, not noise. Follows supersession, shared code anchors, and shared sources. Use when the question is "why is this the way it is" rather than "what do we hold now".',
+      'How a position was arrived at, as a timeline ordered by when each record was written. Deliberately includes rejected, draft, and superseded records — in a history those are the content, not noise. Follows supersession, shared code anchors, and shared sources. Use when the question is "why is this the way it is" rather than "what do we hold now". This tool (with kb_load and kb_query) is the only supported way to read a base; a raw file read bypasses supersession resolution and returns replaced records as if current.',
     input: z.object({
       bundlePath,
       conceptId,
@@ -369,7 +376,7 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
     tool: "kb_index",
     usage: "index",
     description:
-      "The index, rebuilt if it disagrees with the records. One call gives the whole shape of the base: title, type, status, and description per record.",
+      "The index, rebuilt if it disagrees with the records. One call gives the whole shape of the base: title, type, status, and description per record. The cheap re-orientation call after compaction or deep in a long session — a few hundred tokens; call it (or kb_context, when bases are pinned) first, then kb_load or fetch by concept id.",
     input: z.object({ bundlePath }),
     fromArgv: (_argv, path) => ({ bundlePath: path }),
     run: ({ store }, { bundlePath: path }) => store.readIndex(path),
@@ -408,6 +415,143 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
     input: z.object({}),
     fromArgv: () => ({}),
     run: () => Promise.resolve(kbJsonSchemas()),
+  }),
+
+  define({
+    name: "pin",
+    tool: "kb_pin",
+    usage: "pin [bundle-path]",
+    description:
+      "Pin a base into this workspace's manifest (.strauss/kb-pins.json), so `context` surfaces its index at every context birth. Idempotent — pinning a pinned path changes nothing. A path with no records yet succeeds with a warning; bases are routinely pinned before they are populated. Pins are workspace state: the pinned base itself is never touched.",
+    input: z.object({ bundlePath }),
+    fromArgv: (argv, path) => ({ bundlePath: argv[1] ?? path }),
+    run: ({ store, now }, { bundlePath: path }) =>
+      pinBase(store, process.cwd(), path, now()),
+  }),
+
+  define({
+    name: "unpin",
+    tool: "kb_unpin",
+    usage: "unpin [bundle-path]",
+    description:
+      "Remove a base from this workspace's pin manifest. Says whether anything was there to remove.",
+    input: z.object({ bundlePath }),
+    fromArgv: (argv, path) => ({ bundlePath: argv[1] ?? path }),
+    run: (_ctx, { bundlePath: path }) => unpinBase(process.cwd(), path),
+  }),
+
+  define({
+    name: "pins",
+    tool: "kb_pins",
+    usage: "pins",
+    description:
+      "Every pinned base, each with whether it currently resolves to readable records. Reads the workspace manifest rather than any one base, like kb_context.",
+    input: z.object({}),
+    fromArgv: () => ({}),
+    run: ({ store }) => listPins(store, process.cwd()),
+  }),
+
+  define({
+    name: "context",
+    tool: "kb_context",
+    usage:
+      "context [--budget N] [--full-under N] [--format json] [--event NAME]",
+    description:
+      "The pinned-base index block, for injection at every context birth — startup, clear, resume, and after compaction. An index, not the content: concept ids, titles and standing, with the bodies left behind kb_load at the point of use. Emits nothing when nothing is pinned. Refuses with the list of bases and their sizes rather than truncating past its budget. Like kb_schema and kb_types this takes no bundlePath — it reads the workspace pin manifest, because which bases a session should see is workspace state, not a property of one base.",
+    input: z.object({
+      budgetTokens: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Approximate token ceiling for the block. Defaults to 4000."),
+      fullUnderTokens: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe(
+          "Bases whose full load fits under this arrive as records rather than index lines. Off by default.",
+        ),
+      format: z
+        .enum(["markdown", "json"])
+        .optional()
+        .describe(
+          "CLI envelope for hook protocols that require strict JSON on stdout (Gemini, Antigravity). MCP callers omit this — the block itself is identical.",
+        ),
+      event: z
+        .string()
+        .optional()
+        .describe(
+          "hookEventName stamped into the JSON envelope. Only meaningful with format=json.",
+        ),
+    }),
+    fromArgv: (argv) => {
+      const flag = (name: string) => {
+        const at = argv.indexOf(name);
+        return at !== -1 ? argv[at + 1] : undefined;
+      };
+      const budget = flag("--budget");
+      const fullUnder = flag("--full-under");
+      const format = flag("--format");
+      const event = flag("--event");
+      return {
+        ...(budget ? { budgetTokens: Number(budget) } : {}),
+        ...(fullUnder ? { fullUnderTokens: Number(fullUnder) } : {}),
+        ...(format ? { format } : {}),
+        ...(event ? { event } : {}),
+      };
+    },
+    run: async (
+      { store },
+      { budgetTokens, fullUnderTokens, format, event },
+    ) => {
+      const result = await buildContext(store, process.cwd(), {
+        ...(budgetTokens ? { budgetTokens } : {}),
+        ...(fullUnderTokens ? { fullUnderTokens } : {}),
+      });
+      // Empty means empty in both formats: this runs from hooks at every
+      // session start and must be silent when there is nothing to say.
+      if (!result.block) return "";
+      return format === "json"
+        ? toHookJson(result.block, event ?? "SessionStart")
+        : result.block;
+    },
+  }),
+
+  define({
+    name: "sync-instructions",
+    usage: "sync-instructions <file> [--budget N] [--full-under N]",
+    description:
+      "Idempotently plant the `context` block between sentinel comments in an instruction file (AGENTS.md, CLAUDE.md, GEMINI.md), creating the block when absent and leaving everything outside the sentinels alone. CLI-only: this is file plumbing for runtimes whose instruction files are re-read where their conversations are not, not an agent capability — the capability is kb_context.",
+    input: z.object({
+      file: z
+        .string()
+        .min(1)
+        .describe("The instruction file to edit in place."),
+      budgetTokens: z.number().int().positive().optional(),
+      fullUnderTokens: z.number().int().positive().optional(),
+    }),
+    fromArgv: (argv) => {
+      const flag = (name: string) => {
+        const at = argv.indexOf(name);
+        return at !== -1 ? argv[at + 1] : undefined;
+      };
+      const budget = flag("--budget");
+      const fullUnder = flag("--full-under");
+      return {
+        file: argv[1],
+        ...(budget ? { budgetTokens: Number(budget) } : {}),
+        ...(fullUnder ? { fullUnderTokens: Number(fullUnder) } : {}),
+      };
+    },
+    run: async ({ store }, { file, budgetTokens, fullUnderTokens }) => {
+      const result = await buildContext(store, process.cwd(), {
+        ...(budgetTokens ? { budgetTokens } : {}),
+        ...(fullUnderTokens ? { fullUnderTokens } : {}),
+      });
+      return syncInstructions(file, result.block);
+    },
   }),
 
   define({

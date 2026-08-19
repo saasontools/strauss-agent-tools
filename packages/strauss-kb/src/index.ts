@@ -43,7 +43,35 @@ export {
   type ComposeInput,
   type ComposedRecord,
 } from "./compose.js";
-export { INDEX_FILE, renderIndex, indexIsStale } from "./kb-index.js";
+export {
+  INDEX_FILE,
+  renderIndex,
+  renderIndexLine,
+  indexIsStale,
+} from "./kb-index.js";
+export {
+  KbPinsMalformedError,
+  PINS_FILE,
+  listPins,
+  pinBase,
+  readPinsManifest,
+  resolvePinPath,
+  unpinBase,
+  type KbPin,
+  type KbPinResult,
+  type KbPinStatus,
+  type KbPinsManifest,
+} from "./kb-pins.js";
+export {
+  CONTEXT_BEGIN,
+  CONTEXT_END,
+  buildContext,
+  syncInstructions,
+  toHookJson,
+  type KbContextOptions,
+  type KbContextResult,
+  type KbSyncResult,
+} from "./kb-context.js";
 export {
   LOG_FILE,
   parseLog,

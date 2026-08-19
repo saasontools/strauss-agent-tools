@@ -16,6 +16,25 @@ Two surfaces, one command set — use whichever the session already has:
 Every example below is written for the CLI. The MCP tool of the same name takes
 the same arguments as an object, plus `bundlePath`.
 
+## Living in a session: pin, and reload at the point of use
+
+A "Knowledge bases (pinned)" block at the top of context is an **index** —
+concept ids, titles, standing. The record bodies are NOT in context. It is
+re-injected at every context birth, so seeing it again after compaction is a
+refresh, not a contradiction.
+
+- **Reload at the point of use.** KB content loaded earlier in a long session
+  may have been compacted away. Before answering a question a base governs,
+  `kb_load` it again — a small base costs a few thousand tokens. Never
+  conclude "nothing was decided" from a context that has no KB content in it.
+- **Pin what every session should see.** `strauss-kb pin <path>` records the
+  base in `.strauss/kb-pins.json` (committable, workspace state — the base
+  itself is never touched); `pins` lists them; `context` emits the block.
+- **Only the tools read a base.** A raw file read bypasses supersession
+  resolution — a superseded or rejected record file reads exactly like a
+  current one. `kb_load`, `kb_query`, and `kb_trace` are the door; the plugin's
+  PreToolUse hook enforces this.
+
 ## Reading: load before you search
 
 **`strauss-kb load` is the first call.** These bases run to a few thousand

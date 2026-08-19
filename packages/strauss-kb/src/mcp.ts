@@ -26,6 +26,9 @@ export function createKbMcpServer(): McpServer {
   };
 
   for (const command of KB_COMMANDS) {
+    // CLI-only plumbing (sync-instructions) edits files for hooks and
+    // instruction blocks; the agent capability it serves is kb_context.
+    if (!command.tool) continue;
     server.registerTool(
       command.tool,
       { description: command.description, inputSchema: command.input.shape },

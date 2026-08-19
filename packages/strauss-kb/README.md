@@ -176,6 +176,11 @@ strauss-kb [--bundle PATH] <command> [args]
   validate                                 Cross-record checks. Exits 1 when it reports a problem.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
+  pin [bundle-path]                        Pin a base into the workspace manifest. Idempotent.
+  unpin [bundle-path]                      Remove a base from the workspace manifest.
+  pins                                     Every pinned base, with whether it resolves to records.
+  context [--budget N] [--full-under N]    The pinned-base index block, for injection at context birth.
+  sync-instructions <file>                 Plant the context block between sentinels in an instruction file.
 
   --bundle PATH  defaults to ./.strauss/kb
   STRAUSS_KB_ACTOR names the writer in the log
@@ -206,9 +211,19 @@ strauss-kb validate || echo "problems above"
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_load`, `kb_query`, `kb_trace`,
-`kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`. Every
-tool but `kb_schema` and `kb_types` takes a `bundlePath`; those two describe the
-format rather than any one base.
+`kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
+`kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
+`kb_schema` and `kb_types` describe the format rather than any one base, and
+`kb_pins` and `kb_context` read the workspace pin manifest rather than any one
+base — which bases a session should see is workspace state, not a property of
+a base.
+
+The one CLI verb with no tool is `sync-instructions`: it edits instruction
+files for hooks and sentinel blocks, which is plumbing rather than an agent
+capability — the capability, "get the pinned context block", is `kb_context`.
+(`context`'s `--format`/`--event` flags are the same kind of thing: an envelope
+for hook protocols that require strict JSON on stdout; MCP callers get the
+identical block without them.)
 
 ```json
 {
@@ -271,6 +286,14 @@ say no record answers the question, where vector search returns its nearest
 neighbour whatever the distance; and a reader picks the record that answers the
 question rather than the one nearest the topic.
 
+The mechanism behind that margin: retrieval makes similarity the gatekeeper — a
+match the ranker misses never reaches the model, so the reader's judgment is
+applied only to what similarity already let through. A full read lets the model
+do the semantic matching natively: synonymy the embedding space does not know,
+implication across records that share no vocabulary, supersession, and
+aggregation across many records. It is also why the vector tier stays off — a
+better gatekeeper is still a gatekeeper.
+
 Read for a question, not for a session: a base loaded at the start of a long
 conversation is summarised away by the end of it, and reloading costs about
 three thousand tokens. Read it again at the point of use.
@@ -278,7 +301,9 @@ three thousand tokens. Read it again at the point of use.
 `load` refuses rather than truncating when a base exceeds its budget (25,000
 tokens by default). A truncated base is indistinguishable from a complete one,
 so a caller would answer "that was never decided" from a slice it did not know
-was a slice. Superseded records come back as name, replacement and date only —
+was a slice. `context` refuses the same way at its own, tighter budget (4,000
+tokens by default): past it, the block degrades to a list of the pinned bases
+and their sizes rather than to a partial index that reads as a whole one. Superseded records come back as name, replacement and date only —
 their bodies no longer hold, and a body read later in a long session outlives
 the qualifier that said so. `trace` still reaches them by id.
 
@@ -301,6 +326,89 @@ return a record the base openly claims is replaced. A cycle terminates with
 fact; a missing replacement is `broken-chain` with no head — the case that needs
 the most care, because returning the stale record unmarked looks exactly like
 success.
+
+## Living in an agent session
+
+A session loses a knowledge base in two ways. Attention decays over a long
+context, and compaction summarises the conversation's history — including any
+records loaded early, and including the early instruction that said to consult
+the base at all. The instruction is itself history; nothing about it survives
+by being important.
+
+The pattern that holds up is two-tier, and worth naming: **the index survives,
+load is re-invoked**. A small derived index sits at the top of context — free
+to regenerate, cheap to re-inject at every context birth — and the record
+bodies are fetched by tool at the point of use, question by question. Neither
+tier tries to do the other's job: the index never carries bodies (a body read
+early outlives the qualifier that said it no longer holds), and a load is never
+expected to survive the session it was made in.
+
+Four layers implement it, each covering the failure mode of the one above:
+
+1. **Pin + context.** `pin` records in `.strauss/kb-pins.json` — committable,
+   relative paths, workspace state that never touches the pinned base — which
+   bases every session should see. `context` emits their index as one
+   self-instructing markdown block: a stable heading (so re-injection after
+   compaction reads as a refresh, not a contradiction), the routing to the
+   tools, and the why. Injected at every context birth.
+2. **The block's preamble** routes to `kb_load` / `kb_query` / `kb_trace` and
+   says why file reads are wrong, so the index itself re-teaches the doctrine
+   each time it appears.
+3. **A PreToolUse hook** (shipped in the [plugin](../../plugins/strauss-kb/))
+   blocks raw file access to pinned bases, with the redirect delivered at the
+   exact point of violation.
+4. **Tool descriptions** carry the point-of-use reload judgment. Descriptions
+   are re-sent with every request, so they survive compaction when nothing
+   else does.
+
+One command, every injection point:
+
+```bash
+strauss-kb pin docs/kb            # once, committed with the repo
+strauss-kb context                # the block, from wherever context is born
+strauss-kb sync-instructions AGENTS.md   # sentinel block for instruction files
+```
+
+- **Instruction-file sentinel block** — `sync-instructions` idempotently owns a
+  `<!-- strauss-kb:begin/end -->` region and touches nothing outside it.
+  AGENTS.md is the canonical default (Codex and Antigravity both read it);
+  CLAUDE.md and GEMINI.md are aliases of the same mechanism.
+- **Runtime hooks** — Claude Code `SessionStart` (all four sources, including
+  `compact`), Codex `SessionStart`, Antigravity `PreInvocation`. Runtimes whose
+  hook protocol requires strict JSON on stdout get `--format json --event
+NAME`; Claude Code and Codex take the plain block.
+- **Harness-owned prompt assembly** — a harness that builds its own prompts
+  calls `strauss-kb context` at assembly time like any other section.
+
+What each runtime actually guarantees (details and configs in the
+[plugin's adapters](../../plugins/strauss-kb/adapters/)):
+
+| Layer                     | Claude Code        | Codex CLI                                                                | Gemini CLI (legacy)     | Antigravity CLI            |
+| ------------------------- | ------------------ | ------------------------------------------------------------------------ | ----------------------- | -------------------------- |
+| MCP tool descriptions     | ✓                  | ✓                                                                        | ✓                       | ✓                          |
+| Session-start injection   | SessionStart hook  | SessionStart hook                                                        | SessionStart, JSON      | PreInvocation, per turn    |
+| Post-compact re-injection | ✓ `compact` source | ✓ client-side; opaque server-side compaction covered by instruction only | ✗ instruction file only | moot — injected every turn |
+| File-read blocking        | ✓ PreToolUse       | ✗ (shell is the side door)                                               | BeforeTool, JSON        | ✓ PreToolUse, JSON         |
+| Instruction file          | CLAUDE.md          | AGENTS.md                                                                | GEMINI.md               | AGENTS.md + rules/         |
+
+Where a row says "instruction only", know what you are getting: after a
+compaction there, nothing mechanically re-injects the index — the sentinel
+block and the tool descriptions are what remind the model to reload.
+
+**Why tool-only access for agents too.** "The store is the sole accessor" was
+written about processes; agents with file tools reopen it. A raw file read is a
+filtered view — no standing resolution, no chain walk — and the caller cannot
+tell what it is missing, because a superseded or rejected record file reads
+exactly like a current one. The PreToolUse hook enforces this at the tool
+layer; project-level deny rules are the belt to its suspenders:
+
+```json
+{
+  "permissions": {
+    "deny": ["Read(.strauss/kb/**)", "Read(**/.strauss/kb/**)"]
+  }
+}
+```
 
 ## Optional search tier
 

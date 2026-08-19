@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "strauss-kb-context",
+            "type": "command",
+            "command": "strauss-kb context --format json --event SessionStart"
+          }
+        ]
+      }
+    ]
+  }
+}

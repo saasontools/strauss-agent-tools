@@ -8,7 +8,7 @@ import { createKbMcpServer } from "./mcp.js";
  * impossible rather than merely discouraged.
  */
 describe("command table", () => {
-  test("every command is registered as an MCP tool", () => {
+  test("every command with a tool name is registered as an MCP tool", () => {
     const server = createKbMcpServer();
     const registered = Object.keys(
       (server as unknown as { _registeredTools: Record<string, unknown> })
@@ -16,8 +16,22 @@ describe("command table", () => {
     );
 
     expect(registered.sort()).toEqual(
-      KB_COMMANDS.map((command) => command.tool).sort(),
+      KB_COMMANDS.filter((command) => command.tool)
+        .map((command) => command.tool)
+        .sort(),
     );
+  });
+
+  // The one sanctioned gap in the projection: sync-instructions edits files
+  // for hooks and instruction blocks, and the capability it plumbs —
+  // "get the pinned context block" — is kb_context. Anything else CLI-only
+  // is a drift bug.
+  test("sync-instructions is the only CLI-only command", () => {
+    expect(
+      KB_COMMANDS.filter((command) => !command.tool).map(
+        (command) => command.name,
+      ),
+    ).toEqual(["sync-instructions"]);
   });
 
   test("names and tools are unique", () => {
@@ -31,6 +45,7 @@ describe("command table", () => {
   // A tool name an agent sees should be predictable from the verb it mirrors.
   test("tool names mirror command names", () => {
     for (const command of KB_COMMANDS) {
+      if (!command.tool) continue;
       expect(command.tool).toBe(`kb_${command.name.replace(/-/g, "_")}`);
     }
   });
@@ -44,11 +59,20 @@ describe("command table", () => {
   });
 
   test("every command that touches a base takes a bundlePath", () => {
+    // schema and types describe the format itself, not any one base; pins,
+    // context, and sync-instructions read the workspace pin manifest, because
+    // which bases a session should see is workspace state, not base state.
+    const noBundle = [
+      "schema",
+      "types",
+      "pins",
+      "context",
+      "sync-instructions",
+    ];
     for (const command of KB_COMMANDS) {
       const shape = Object.keys(command.input.shape);
-      // schema and types describe the format itself, not any one base.
-      if (["schema", "types"].includes(command.name)) {
-        expect(shape).toEqual([]);
+      if (noBundle.includes(command.name)) {
+        expect(shape).not.toContain("bundlePath");
       } else {
         expect(shape).toContain("bundlePath");
       }
