@@ -2,9 +2,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { adjudicate } from "./adjudicate.js";
 import { renderIndexLine } from "./kb-index.js";
 import {
+  contextProfileBudgets,
   KbPinsMalformedError,
   resolvePinPath,
   readPinsManifest,
+  type KbContextBudgets,
 } from "./kb-pins.js";
 import type { KbStore } from "./kb-store.js";
 
@@ -30,11 +32,32 @@ const HEADING = "## Knowledge bases (pinned)";
  */
 const DEFAULT_CONTEXT_BUDGET = 4_000;
 
+/**
+ * What the hooks ask for by name, so the numbers live in one place and a repo
+ * can override them in its pin manifest rather than editing hook commands.
+ * `session-start` is a fresh window — room for tiny bases to arrive whole.
+ * `compact` competes with a summary for a smaller window — index only.
+ * `turn` is per-turn injection (Antigravity) — same tight stance as compact.
+ */
+export const CONTEXT_PROFILES: Record<string, KbContextBudgets> = {
+  "session-start": { fullUnderTokens: 1_500 },
+  compact: { budgetTokens: 2_500 },
+  turn: { budgetTokens: 2_500 },
+};
+
 export type KbContextOptions = {
   /** Refuse past this. Defaults to 4000 tokens. */
   budgetTokens?: number;
   /** Emit bases whose full `load` fits under this as records, not index. 0 = off. */
   fullUnderTokens?: number;
+  /**
+   * A named budget set. Resolution, most specific wins: explicit options,
+   * then the manifest's `context[profile]` over its `context.default`, then
+   * the built-in profile, then the package defaults. An unknown profile is
+   * not an error — it simply falls through; hooks must never break over a
+   * name.
+   */
+  profile?: string;
 };
 
 export type KbContextResult = {
@@ -161,8 +184,12 @@ export async function buildContext(
   workspaceDir: string,
   options: KbContextOptions = {},
 ): Promise<KbContextResult> {
-  const budgetTokens = options.budgetTokens ?? DEFAULT_CONTEXT_BUDGET;
-  const fullUnderTokens = options.fullUnderTokens ?? 0;
+  const builtin = options.profile
+    ? (CONTEXT_PROFILES[options.profile] ?? {})
+    : {};
+  let budgetTokens =
+    options.budgetTokens ?? builtin.budgetTokens ?? DEFAULT_CONTEXT_BUDGET;
+  let fullUnderTokens = options.fullUnderTokens ?? builtin.fullUnderTokens ?? 0;
 
   let manifest;
   try {
@@ -182,6 +209,20 @@ export async function buildContext(
     }
     throw error;
   }
+
+  // The repo's own numbers, from the manifest — above the built-ins, below
+  // anything passed explicitly.
+  const fromManifest = contextProfileBudgets(manifest, options.profile);
+  budgetTokens =
+    options.budgetTokens ??
+    fromManifest.budgetTokens ??
+    builtin.budgetTokens ??
+    DEFAULT_CONTEXT_BUDGET;
+  fullUnderTokens =
+    options.fullUnderTokens ??
+    fromManifest.fullUnderTokens ??
+    builtin.fullUnderTokens ??
+    0;
   if (manifest.pins.length === 0) {
     return {
       block: "",

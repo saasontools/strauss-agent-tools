@@ -6,7 +6,7 @@
           {
             "name": "strauss-kb-context",
             "type": "command",
-            "command": "strauss-kb context --format json --event SessionStart"
+            "command": "strauss-kb context --profile session-start --format json --event SessionStart"
           }
         ]
       }

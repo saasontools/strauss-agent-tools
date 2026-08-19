@@ -61,12 +61,29 @@ compaction.
 **Hooks** (`hooks/hooks.json`, Claude Code)
 
 **SessionStart** — the one hook the plugin wires up. Runs `strauss-kb context`
-at every context birth. Two matcher groups: `startup|resume|clear` injects with
-`--full-under 1500`, so tiny bases arrive whole at a fresh start; `compact`
-re-injects index-only under a tighter budget, because the block is competing
-with a summary for a smaller window. Fail open by construction: no manifest, no
-pins, or no CLI installed produces no output and exit 0 (`2>/dev/null || true`)
-— zero noise.
+at every context birth. Two matcher groups: `startup|resume|clear` uses
+`--profile session-start` (budget 4000, full-under 1500 — tiny bases arrive
+whole at a fresh start); `compact` uses `--profile compact` (index-only at
+2500, because the block is competing with a summary for a smaller window).
+Those are built-in defaults, not the hook's numbers: a repo overrides them per
+profile in its own `.strauss/kb-pins.json`, so the plugin never needs editing —
+
+```json
+{
+  "pins": [{ "path": "docs/kb", "pinnedAt": "2026-08-19T00:00:00Z" }],
+  "context": {
+    "default": { "budgetTokens": 6000 },
+    "session-start": { "fullUnderTokens": 3000 },
+    "compact": { "budgetTokens": 1500 }
+  }
+}
+```
+
+Resolution, most specific wins: explicit flags → the manifest's profile entry →
+its `default` entry → the built-in profile → package defaults. Invalid values
+are ignored rather than errors — a typo in a budget must not silence the index.
+Fail open by construction: no manifest, no pins, or no CLI installed produces
+no output and exit 0 (`2>/dev/null || true`) — zero noise.
 
 **File-read blocking is opt-in, not wired by the plugin.** Blocking `Read` on
 project paths is a workspace policy, not something a plugin should impose on

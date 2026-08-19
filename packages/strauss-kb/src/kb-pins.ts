@@ -28,11 +28,64 @@ const pinSchema = z
   .passthrough();
 
 const pinsManifestSchema = z
-  .object({ pins: z.array(pinSchema).default([]) })
+  .object({
+    pins: z.array(pinSchema).default([]),
+    /**
+     * Per-repo budgets for the `context` command, keyed by profile —
+     * `"session-start"`, `"compact"`, `"turn"`, or `"default"` for all of
+     * them. Deliberately untyped here: a typo'd budget must degrade to the
+     * built-in default, not make the whole manifest unreadable and silence
+     * the index at every session start. `contextProfileBudgets` does the
+     * tolerant read.
+     */
+    context: z.unknown().optional(),
+  })
   .passthrough();
 
 export type KbPin = z.infer<typeof pinSchema>;
 export type KbPinsManifest = z.infer<typeof pinsManifestSchema>;
+
+export type KbContextBudgets = {
+  budgetTokens?: number;
+  fullUnderTokens?: number;
+};
+
+/** Sane integers only; anything else is ignored, not an error. */
+function asBudgets(value: unknown): KbContextBudgets {
+  if (value === null || typeof value !== "object") return {};
+  const table = value as Record<string, unknown>;
+  const pick = (key: string, min: number) => {
+    const raw = table[key];
+    return typeof raw === "number" && Number.isInteger(raw) && raw >= min
+      ? raw
+      : undefined;
+  };
+  const budgetTokens = pick("budgetTokens", 1);
+  // 0 is meaningful — "full-under off", overriding a `default` that set it.
+  const fullUnderTokens = pick("fullUnderTokens", 0);
+  return {
+    ...(budgetTokens ? { budgetTokens } : {}),
+    ...(fullUnderTokens !== undefined ? { fullUnderTokens } : {}),
+  };
+}
+
+/**
+ * The manifest's budgets for one profile: the named profile's values over the
+ * manifest's `"default"` entry. What is absent here falls through to the
+ * caller's built-ins — the manifest narrows, it never has to be complete.
+ */
+export function contextProfileBudgets(
+  manifest: KbPinsManifest,
+  profile?: string,
+): KbContextBudgets {
+  const table = manifest.context;
+  if (table === null || typeof table !== "object") return {};
+  const entries = table as Record<string, unknown>;
+  return {
+    ...asBudgets(entries["default"]),
+    ...(profile ? asBudgets(entries[profile]) : {}),
+  };
+}
 
 /** One pinned base, with whether it currently resolves to anything readable. */
 export type KbPinStatus = {

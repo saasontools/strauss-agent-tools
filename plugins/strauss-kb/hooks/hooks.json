@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "strauss-kb context --full-under 1500 2>/dev/null || true"
+            "command": "strauss-kb context --profile session-start 2>/dev/null || true"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "strauss-kb context --budget 2500 2>/dev/null || true"
+            "command": "strauss-kb context --profile compact 2>/dev/null || true"
           }
         ]
       }

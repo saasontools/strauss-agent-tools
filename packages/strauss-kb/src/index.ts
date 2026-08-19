@@ -50,6 +50,7 @@ export {
   indexIsStale,
 } from "./kb-index.js";
 export {
+  contextProfileBudgets,
   KbPinsMalformedError,
   PINS_FILE,
   listPins,
@@ -57,6 +58,7 @@ export {
   readPinsManifest,
   resolvePinPath,
   unpinBase,
+  type KbContextBudgets,
   type KbPin,
   type KbPinResult,
   type KbPinStatus,
@@ -65,6 +67,7 @@ export {
 export {
   CONTEXT_BEGIN,
   CONTEXT_END,
+  CONTEXT_PROFILES,
   buildContext,
   syncInstructions,
   toHookJson,

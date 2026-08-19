@@ -8,15 +8,16 @@
  * the thin protocol wrapper the runtime needs around the one canonical block
  * writer, `strauss-kb context`.
  *
- * PreInvocation fires per turn, so the budget is deliberately tight
- * (index-only) and the block's stable heading makes each injection read as a
- * refresh. Everything unexpected — CLI missing, no pins, any error — emits {}
- * and exits 0: a broken hook must never break a turn.
+ * PreInvocation fires per turn, so the `turn` profile is deliberately tight
+ * (index-only, 2500 tokens by default; override it per repo under `context`
+ * in .strauss/kb-pins.json) and the block's stable heading makes each
+ * injection read as a refresh. Everything unexpected — CLI missing, no pins,
+ * any error — emits {} and exits 0: a broken hook must never break a turn.
  */
 import { spawnSync } from "node:child_process";
 
 function main() {
-  const result = spawnSync("strauss-kb", ["context", "--budget", "2500"], {
+  const result = spawnSync("strauss-kb", ["context", "--profile", "turn"], {
     encoding: "utf8",
     timeout: 10_000,
   });

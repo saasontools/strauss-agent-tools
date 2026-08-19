@@ -25,7 +25,9 @@ shell out to `strauss-kb` / `strauss-kb-mcp` by name.
 
 **Per-turn injection is always-inject, deliberately.** Antigravity has no
 session-start event — `PreInvocation` fires every turn — so the hook emits the
-index-only block under a tight budget (2,500 tokens) as an `ephemeralMessage`.
+index-only block under the tight `turn` profile (2,500 tokens built-in;
+override per repo under `context.turn` in `.strauss/kb-pins.json`) as an
+`ephemeralMessage`.
 The block's stable heading makes each injection read as a refresh rather than a
 contradiction, and being per-turn it also makes post-compaction re-injection
 moot. If a workspace's pinned index is large enough that per-turn injection

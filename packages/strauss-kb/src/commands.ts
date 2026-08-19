@@ -455,9 +455,9 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
     name: "context",
     tool: "kb_context",
     usage:
-      "context [--budget N] [--full-under N] [--format json] [--event NAME]",
+      "context [--profile NAME] [--budget N] [--full-under N] [--format json] [--event NAME]",
     description:
-      "The pinned-base index block, for injection at every context birth — startup, clear, resume, and after compaction. An index, not the content: concept ids, titles and standing, with the bodies left behind kb_load at the point of use. Emits nothing when nothing is pinned. Refuses with the list of bases and their sizes rather than truncating past its budget. Like kb_schema and kb_types this takes no bundlePath — it reads the workspace pin manifest, because which bases a session should see is workspace state, not a property of one base.",
+      "The pinned-base index block, for injection at every context birth — startup, clear, resume, and after compaction. An index, not the content: concept ids, titles and standing, with the bodies left behind kb_load at the point of use. Emits nothing when nothing is pinned. Refuses with the list of bases and their sizes rather than truncating past its budget. Budgets resolve most-specific-first: explicit flags, then the workspace manifest's `context` table (per profile, over its `default`), then the built-in profile (session-start, compact, turn), then package defaults — so a repo tunes its own numbers in .strauss/kb-pins.json without touching hook commands. Like kb_schema and kb_types this takes no bundlePath — it reads the workspace pin manifest, because which bases a session should see is workspace state, not a property of one base.",
     input: z.object({
       budgetTokens: z
         .number()
@@ -472,6 +472,12 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
         .optional()
         .describe(
           "Bases whose full load fits under this arrive as records rather than index lines. Off by default.",
+        ),
+      profile: z
+        .string()
+        .optional()
+        .describe(
+          "Named budget set: built-ins are session-start (full-under 1500), compact and turn (budget 2500); the manifest's `context` table overrides per repo. Unknown names fall through to defaults rather than failing.",
         ),
       format: z
         .enum(["markdown", "json"])
@@ -493,22 +499,25 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
       };
       const budget = flag("--budget");
       const fullUnder = flag("--full-under");
+      const profile = flag("--profile");
       const format = flag("--format");
       const event = flag("--event");
       return {
         ...(budget ? { budgetTokens: Number(budget) } : {}),
         ...(fullUnder ? { fullUnderTokens: Number(fullUnder) } : {}),
+        ...(profile ? { profile } : {}),
         ...(format ? { format } : {}),
         ...(event ? { event } : {}),
       };
     },
     run: async (
       { store },
-      { budgetTokens, fullUnderTokens, format, event },
+      { budgetTokens, fullUnderTokens, profile, format, event },
     ) => {
       const result = await buildContext(store, process.cwd(), {
         ...(budgetTokens ? { budgetTokens } : {}),
         ...(fullUnderTokens ? { fullUnderTokens } : {}),
+        ...(profile ? { profile } : {}),
       });
       // Empty means empty in both formats: this runs from hooks at every
       // session start and must be silent when there is nothing to say.
@@ -521,7 +530,8 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
 
   define({
     name: "sync-instructions",
-    usage: "sync-instructions <file> [--budget N] [--full-under N]",
+    usage:
+      "sync-instructions <file> [--profile NAME] [--budget N] [--full-under N]",
     description:
       "Idempotently plant the `context` block between sentinel comments in an instruction file (AGENTS.md, CLAUDE.md, GEMINI.md), creating the block when absent and leaving everything outside the sentinels alone. CLI-only: this is file plumbing for runtimes whose instruction files are re-read where their conversations are not, not an agent capability — the capability is kb_context.",
     input: z.object({
@@ -531,6 +541,7 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
         .describe("The instruction file to edit in place."),
       budgetTokens: z.number().int().positive().optional(),
       fullUnderTokens: z.number().int().positive().optional(),
+      profile: z.string().optional(),
     }),
     fromArgv: (argv) => {
       const flag = (name: string) => {
@@ -539,16 +550,22 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
       };
       const budget = flag("--budget");
       const fullUnder = flag("--full-under");
+      const profile = flag("--profile");
       return {
         file: argv[1],
         ...(budget ? { budgetTokens: Number(budget) } : {}),
         ...(fullUnder ? { fullUnderTokens: Number(fullUnder) } : {}),
+        ...(profile ? { profile } : {}),
       };
     },
-    run: async ({ store }, { file, budgetTokens, fullUnderTokens }) => {
+    run: async (
+      { store },
+      { file, budgetTokens, fullUnderTokens, profile },
+    ) => {
       const result = await buildContext(store, process.cwd(), {
         ...(budgetTokens ? { budgetTokens } : {}),
         ...(fullUnderTokens ? { fullUnderTokens } : {}),
+        ...(profile ? { profile } : {}),
       });
       return syncInstructions(file, result.block);
     },

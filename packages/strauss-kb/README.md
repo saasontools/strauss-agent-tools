@@ -179,7 +179,7 @@ strauss-kb [--bundle PATH] <command> [args]
   pin [bundle-path]                        Pin a base into the workspace manifest. Idempotent.
   unpin [bundle-path]                      Remove a base from the workspace manifest.
   pins                                     Every pinned base, with whether it resolves to records.
-  context [--budget N] [--full-under N]    The pinned-base index block, for injection at context birth.
+  context [--profile NAME] [--budget N]    The pinned-base index block, for injection at context birth.
   sync-instructions <file>                 Plant the context block between sentinels in an instruction file.
 
   --bundle PATH  defaults to ./.strauss/kb
@@ -378,7 +378,26 @@ strauss-kb sync-instructions AGENTS.md   # sentinel block for instruction files
 - **Runtime hooks** — Claude Code `SessionStart` (all four sources, including
   `compact`), Codex `SessionStart`, Antigravity `PreInvocation`. Runtimes whose
   hook protocol requires strict JSON on stdout get `--format json --event
-NAME`; Claude Code and Codex take the plain block.
+NAME`; Claude Code and Codex take the plain block. Hooks ask for budgets by
+  name — `--profile session-start` (full-under 1500), `--profile compact` and
+  `--profile turn` (index-only, 2500) — and a repo overrides any of them in
+  its pin manifest, so the numbers live with the pins rather than in hook
+  commands:
+
+  ```json
+  {
+    "pins": [{ "path": "docs/kb" }],
+    "context": {
+      "default": { "budgetTokens": 6000 },
+      "compact": { "budgetTokens": 1500 }
+    }
+  }
+  ```
+
+  Explicit flags beat the manifest, the manifest's profile entry beats its
+  `default`, which beats the built-ins. Invalid values are ignored — a typo'd
+  budget must degrade to a default, never silence the index.
+
 - **Harness-owned prompt assembly** — a harness that builds its own prompts
   calls `strauss-kb context` at assembly time like any other section.
 

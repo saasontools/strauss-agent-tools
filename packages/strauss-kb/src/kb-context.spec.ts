@@ -161,6 +161,62 @@ describe("buildContext", () => {
     expect(block).not.toContain("xxxx");
   });
 
+  test("resolves budgets by profile: flags over manifest over built-ins", async () => {
+    await pinBase(store, workspace, bundle, at);
+
+    // Built-in profile: compact carries a 2500 budget; the seeded base fits.
+    const builtin = await buildContext(store, workspace, {
+      profile: "compact",
+    });
+    expect(builtin.budgetTokens).toBe(2_500);
+    expect(builtin.refused).toBe(false);
+
+    // The repo's manifest overrides the built-in — per profile, over its
+    // `default` — without touching hook commands. Invalid values are
+    // ignored, not errors: a typo must not silence the index.
+    const file = join(workspace, PINS_FILE);
+    const manifest = JSON.parse(readFileSync(file, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    writeFileSync(
+      file,
+      JSON.stringify({
+        ...manifest,
+        context: {
+          default: { fullUnderTokens: 5_000 },
+          compact: { budgetTokens: 60, fullUnderTokens: "lots" },
+        },
+      }),
+    );
+
+    const fromManifest = await buildContext(store, workspace, {
+      profile: "compact",
+    });
+    expect(fromManifest.budgetTokens).toBe(60);
+    expect(fromManifest.refused).toBe(true);
+    // fullUnderTokens "lots" ignored; default's 5000 applies underneath —
+    // visible through a profile that doesn't set it.
+    const sessionStart = await buildContext(store, workspace, {
+      profile: "session-start",
+    });
+    expect(sessionStart.block).toContain("full records");
+
+    // Explicit flags beat everything.
+    const explicit = await buildContext(store, workspace, {
+      profile: "compact",
+      budgetTokens: 50_000,
+    });
+    expect(explicit.refused).toBe(false);
+
+    // An unknown profile falls through to package defaults rather than
+    // failing — hooks must never break over a name.
+    const unknown = await buildContext(store, workspace, {
+      profile: "no-such-profile",
+    });
+    expect(unknown.budgetTokens).toBe(4_000);
+  });
+
   test("wraps the block in a valid hook JSON envelope", () => {
     const wrapped = JSON.parse(toHookJson("## Block\n", "SessionStart")) as {
       hookSpecificOutput: { hookEventName: string; additionalContext: string };
