@@ -32,8 +32,8 @@ refresh, not a contradiction.
   itself is never touched); `pins` lists them; `context` emits the block.
 - **Only the tools read a base.** A raw file read bypasses supersession
   resolution — a superseded or rejected record file reads exactly like a
-  current one. `kb_load`, `kb_query`, and `kb_trace` are the door; the plugin's
-  PreToolUse hook enforces this.
+  current one. `kb_load`, `kb_query`, and `kb_trace` are the door; workspaces
+  can enforce this with the plugin's opt-in PreToolUse script or deny rules.
 
 ## Reading: load before you search
 

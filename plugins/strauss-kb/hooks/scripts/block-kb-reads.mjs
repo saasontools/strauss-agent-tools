@@ -7,9 +7,15 @@
  * base are redirected to the strauss-kb tools. Exit 2 blocks the call and the
  * stderr message reaches the model at the exact point of violation.
  *
+ * Shipped unwired, deliberately: blocking reads on project paths is a
+ * workspace policy, not something a plugin should impose on every project it
+ * is installed into. Opt in per project by copying this file into
+ * `.claude/hooks/` and adding a PreToolUse entry to `.claude/settings.json`
+ * with the matcher width you want — see the plugin README.
+ *
  * Deliberately self-contained (no imports beyond node builtins): this script
- * runs from the installed plugin directory, where the strauss-kb package is
- * not importable. Everything unexpected fails open (exit 0) — a broken hook
+ * runs from wherever it was copied, where the strauss-kb package is not
+ * importable. Everything unexpected fails open (exit 0) — a broken hook
  * must never lock an agent out of its own project.
  *
  * INDEX.md is blocked along with the records, for uniformity: the agent gets

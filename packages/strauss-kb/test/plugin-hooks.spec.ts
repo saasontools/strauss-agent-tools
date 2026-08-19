@@ -237,10 +237,10 @@ describe("plugin config files parse", () => {
     const claudeHooks = parse("hooks/hooks.json") as {
       hooks: Record<string, { matcher?: string }[]>;
     };
-    expect(Object.keys(claudeHooks.hooks).sort()).toEqual([
-      "PreToolUse",
-      "SessionStart",
-    ]);
+    // The plugin wires SessionStart only. File-read blocking ships as a
+    // script but stays opt-in — blocking reads on project paths is workspace
+    // policy, so no PreToolUse entry here.
+    expect(Object.keys(claudeHooks.hooks)).toEqual(["SessionStart"]);
     expect(
       claudeHooks.hooks.SessionStart!.map((group) => group.matcher),
     ).toEqual(["startup|resume|clear", "compact"]);
@@ -271,9 +271,10 @@ describe("plugin config files parse", () => {
       string,
       Record<string, unknown[]>
     >;
-    expect(Object.keys(agHooks["strauss-kb-context"]!).sort()).toEqual([
+    // Same opt-in stance as the Claude Code plugin: injection wired,
+    // blocking left to the workspace.
+    expect(Object.keys(agHooks["strauss-kb-context"]!)).toEqual([
       "PreInvocation",
-      "PreToolUse",
     ]);
   });
 });

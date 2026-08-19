@@ -354,9 +354,11 @@ Four layers implement it, each covering the failure mode of the one above:
 2. **The block's preamble** routes to `kb_load` / `kb_query` / `kb_trace` and
    says why file reads are wrong, so the index itself re-teaches the doctrine
    each time it appears.
-3. **A PreToolUse hook** (shipped in the [plugin](../../plugins/strauss-kb/))
-   blocks raw file access to pinned bases, with the redirect delivered at the
-   exact point of violation.
+3. **A PreToolUse script** (shipped in the [plugin](../../plugins/strauss-kb/),
+   opt-in per workspace) blocks raw file access to pinned bases, with the
+   redirect delivered at the exact point of violation. Opt-in because blocking
+   reads on project paths is workspace policy, not something a plugin imposes —
+   the plugin README shows the granular tiers, from per-base deny rules up.
 4. **Tool descriptions** carry the point-of-use reload judgment. Descriptions
    are re-sent with every request, so they survive compaction when nothing
    else does.
@@ -388,7 +390,7 @@ What each runtime actually guarantees (details and configs in the
 | MCP tool descriptions     | ✓                  | ✓                                                                        | ✓                       | ✓                          |
 | Session-start injection   | SessionStart hook  | SessionStart hook                                                        | SessionStart, JSON      | PreInvocation, per turn    |
 | Post-compact re-injection | ✓ `compact` source | ✓ client-side; opaque server-side compaction covered by instruction only | ✗ instruction file only | moot — injected every turn |
-| File-read blocking        | ✓ PreToolUse       | ✗ (shell is the side door)                                               | BeforeTool, JSON        | ✓ PreToolUse, JSON         |
+| File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                                               | BeforeTool, JSON        | opt-in PreToolUse, JSON    |
 | Instruction file          | CLAUDE.md          | AGENTS.md                                                                | GEMINI.md               | AGENTS.md + rules/         |
 
 Where a row says "instruction only", know what you are getting: after a
@@ -399,8 +401,9 @@ block and the tool descriptions are what remind the model to reload.
 written about processes; agents with file tools reopen it. A raw file read is a
 filtered view — no standing resolution, no chain walk — and the caller cannot
 tell what it is missing, because a superseded or rejected record file reads
-exactly like a current one. The PreToolUse hook enforces this at the tool
-layer; project-level deny rules are the belt to its suspenders:
+exactly like a current one. The opt-in PreToolUse script enforces this at the
+tool layer; project-level deny rules are the most granular enforcement and
+work with no script at all:
 
 ```json
 {

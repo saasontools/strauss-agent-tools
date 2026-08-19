@@ -60,40 +60,82 @@ compaction.
 
 **Hooks** (`hooks/hooks.json`, Claude Code)
 
-1. **SessionStart** — runs `strauss-kb context` at every context birth. Two
-   matcher groups: `startup|resume|clear` injects with `--full-under 1500`, so
-   tiny bases arrive whole at a fresh start; `compact` re-injects index-only
-   under a tighter budget, because the block is competing with a summary for a
-   smaller window. Fail open by construction: no manifest, no pins, or no CLI
-   installed produces no output and exit 0 (`2>/dev/null || true`) — zero noise.
-2. **PreToolUse** on `Read|Glob|Grep` — `hooks/scripts/block-kb-reads.mjs`
-   resolves the target path (relative, absolute, `..`-traversal) and, when it
-   falls inside `.strauss/kb` or any base pinned in `.strauss/kb-pins.json`,
-   exits 2 with the redirect on stderr, which reaches the model at the exact
-   point of violation:
+**SessionStart** — the one hook the plugin wires up. Runs `strauss-kb context`
+at every context birth. Two matcher groups: `startup|resume|clear` injects with
+`--full-under 1500`, so tiny bases arrive whole at a fresh start; `compact`
+re-injects index-only under a tighter budget, because the block is competing
+with a summary for a smaller window. Fail open by construction: no manifest, no
+pins, or no CLI installed produces no output and exit 0 (`2>/dev/null || true`)
+— zero noise.
 
-   > KB directories are read via strauss-kb tools only (kb_load / kb_query /
-   > kb_trace) — file reads bypass supersession resolution and return replaced
-   > records as if current.
+**File-read blocking is opt-in, not wired by the plugin.** Blocking `Read` on
+project paths is a workspace policy, not something a plugin should impose on
+every project it is installed into — so the plugin ships the enforcement script
+(`hooks/scripts/block-kb-reads.mjs`) and you choose where, and how much, to
+apply it. Three tiers, most granular first:
 
-   `INDEX.md` is blocked along with the records, for uniformity — the agent
-   gets the index through `kb_context` / `kb_index`. A `Grep`/`Glob` with no
-   explicit path is allowed rather than over-blocking every project-wide
-   search. Everything unexpected — malformed stdin, unreadable manifest —
-   fails open; a broken hook must never lock an agent out of its project.
+1. **Deny rules, per base** — no script, plain permissions, scoped to exactly
+   the paths you name. In the project's `.claude/settings.json`:
 
-**Known side door: Bash.** This plugin deliberately does not parse shell
-commands for KB paths (`cat .strauss/kb/x.md` gets through). Project-level
-deny rules are the belt to the hook's suspenders — copy into
-`.claude/settings.json`:
+   ```json
+   {
+     "permissions": {
+       "deny": ["Read(.strauss/kb/**)", "Read(docs/kb/**)"]
+     }
+   }
+   ```
 
-```json
-{
-  "permissions": {
-    "deny": ["Read(.strauss/kb/**)", "Read(**/.strauss/kb/**)"]
-  }
-}
-```
+   Precise but static: it does not follow `.strauss/kb-pins.json`, so add a
+   line per pinned base.
+
+2. **The script, Read only** — follows the pin manifest automatically and
+   redirects the model at the point of violation. Copy
+   [`hooks/scripts/block-kb-reads.mjs`](./hooks/scripts/block-kb-reads.mjs)
+   into the project as `.claude/hooks/block-kb-reads.mjs` — it is
+   self-contained (node builtins only) precisely so it can be copied;
+   `${CLAUDE_PLUGIN_ROOT}` resolves only inside a plugin's own hooks.json, so
+   project settings need a project-local path. Then in
+   `.claude/settings.json`:
+
+   ```json
+   {
+     "hooks": {
+       "PreToolUse": [
+         {
+           "matcher": "Read",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-kb-reads.mjs\""
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+3. **The script, wide** — same entry with matcher `"Read|Glob|Grep"`, catching
+   searches whose explicit `path` points into a base too.
+
+What the script does when it fires: resolves the target path (relative,
+absolute, `..`-traversal) and, when it falls inside `.strauss/kb` or any base
+pinned in `.strauss/kb-pins.json`, exits 2 with the redirect on stderr, which
+reaches the model at the exact point of violation:
+
+> KB directories are read via strauss-kb tools only (kb_load / kb_query /
+> kb_trace) — file reads bypass supersession resolution and return replaced
+> records as if current.
+
+`INDEX.md` is blocked along with the records, for uniformity — the agent gets
+the index through `kb_context` / `kb_index`. A `Grep`/`Glob` with no explicit
+path is allowed rather than over-blocking every project-wide search. Everything
+unexpected — malformed stdin, unreadable manifest — fails open; a broken hook
+must never lock an agent out of its project.
+
+**Known side door: Bash.** Neither tier parses shell commands for KB paths
+(`cat .strauss/kb/x.md` gets through), deliberately. The deny rules, the skill,
+and the tool descriptions are the mitigation.
 
 **Adapters for other runtimes** live in [adapters/](./adapters/):
 [Codex CLI](./adapters/codex/) (SessionStart hooks incl. `compact`, AGENTS.md
