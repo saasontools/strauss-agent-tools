@@ -55,6 +55,25 @@ afterEach(() => {
 });
 
 describe("job store", () => {
+  it("round-trips the planning-debug fields", () => {
+    const job = record({
+      collaborativePlanning: true,
+      echoedAgent: "deep-research-max-preview-04-2026",
+      echoedAgentConfig: {
+        type: "deep-research",
+        collaborative_planning: true,
+      },
+      replied: true,
+    });
+    saveJob(job);
+
+    const read = readJob(job.jobId);
+    expect(read?.collaborativePlanning).toBe(true);
+    expect(read?.echoedAgent).toBe("deep-research-max-preview-04-2026");
+    expect(read?.echoedAgentConfig?.collaborative_planning).toBe(true);
+    expect(read?.replied).toBe(true);
+  });
+
   it("round-trips a job record", () => {
     const job = record();
     saveJob(job);

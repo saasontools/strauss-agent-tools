@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createServer, SERVER_NAME } from "./server.js";
+import { readFileSync } from "node:fs";
+import { createServer, SERVER_NAME, SERVER_VERSION } from "./server.js";
 
 export const EXPECTED_TOOLS = [
   "deep_research",
@@ -41,6 +42,13 @@ async function connect(): Promise<Client> {
 }
 
 describe(SERVER_NAME, () => {
+  it("declares the package.json version in the MCP handshake", () => {
+    const pkg = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+    ) as { version: string };
+    expect(SERVER_VERSION).toBe(pkg.version);
+  });
+
   it("lists all seven research tools", async () => {
     const client = await connect();
     const { tools } = await client.listTools();

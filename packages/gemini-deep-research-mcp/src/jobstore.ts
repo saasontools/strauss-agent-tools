@@ -25,7 +25,16 @@ export interface JobRecord {
   interactionId: string;
   query: string;
   depth: Depth;
+  /** Agent we asked for (client-side intent). */
   agent: string;
+  /** Collaborative planning was requested on start. */
+  collaborativePlanning?: boolean;
+  /** Agent name echoed back by the API — what actually ran. */
+  echoedAgent?: string;
+  /** agent_config echoed back by the API — the flags it accepted. */
+  echoedAgentConfig?: { [key: string]: unknown };
+  /** A planning reply was sent; the plan pause (if any) is behind us. */
+  replied?: boolean;
   status: string;
   createdAt: string;
   updatedAt: string;

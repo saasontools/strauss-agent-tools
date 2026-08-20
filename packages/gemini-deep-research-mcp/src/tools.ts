@@ -82,6 +82,11 @@ function jobLine(job: JobRecord): string {
   });
 }
 
+/** After this long in_progress with planning requested and no pause seen,
+ * assume the Preview engine ignored the flag — plan turns come back in
+ * seconds to a couple of minutes, full runs in tens of minutes. */
+const PLANNING_STALL_MS = 3 * 60_000;
+
 function statusPayload(
   job: JobRecord,
   thought?: string,
@@ -90,9 +95,32 @@ function statusPayload(
   const lines = [
     `job_id: ${job.jobId}`,
     `status: ${job.status}`,
+    `agent: ${job.echoedAgent ?? job.agent}`,
     `elapsed: ${elapsed(job)}`,
     `report_ready: ${Boolean(job.reportPath)}`,
   ];
+  if (job.collaborativePlanning) {
+    const echoed =
+      job.echoedAgentConfig?.collaborative_planning === true
+        ? " (confirmed by the API's agent_config echo)"
+        : "";
+    lines.push(`collaborative_planning: requested${echoed}`);
+    const elapsedMs = Date.now() - Date.parse(job.createdAt);
+    if (
+      !job.replied &&
+      (job.status === "in_progress" || job.status === "queued") &&
+      Number.isFinite(elapsedMs) &&
+      elapsedMs > PLANNING_STALL_MS
+    ) {
+      lines.push(
+        "warning: collaborative planning was requested but the run has been " +
+          `${elapsed(job)} without pausing in requires_action. The planning ` +
+          "pause is a Preview feature and the engine sometimes ignores it — " +
+          "this run is likely executing the full research. If the plan " +
+          "needed correcting, deep_research_cancel now to stop spending.",
+      );
+    }
+  }
   if (job.error) lines.push(`error: ${job.error}`);
   if (thought) lines.push(`latest_progress: ${thought}`);
   if (job.status === "requires_action") {
@@ -297,13 +325,40 @@ export function registerTools(
           createdAt: now,
           updatedAt: now,
         };
+        if (args.collaborative_planning) job.collaborativePlanning = true;
+        if (interaction.agent) job.echoedAgent = interaction.agent;
+        if (interaction.agent_config) {
+          job.echoedAgentConfig = interaction.agent_config;
+        }
         saveJob(job);
+        log.info("Research started", {
+          jobId: job.jobId,
+          interactionId: job.interactionId,
+          depth,
+          requestedAgent: job.agent,
+          echoedAgent: job.echoedAgent,
+          collaborativePlanningRequested: Boolean(args.collaborative_planning),
+          collaborativePlanningEchoed:
+            interaction.agent_config?.collaborative_planning,
+          status: job.status,
+        });
         return ok(
           JSON.stringify(
             {
               job_id: job.jobId,
               interaction_id: job.interactionId,
               status: job.status,
+              agent: job.echoedAgent ?? job.agent,
+              ...(args.collaborative_planning
+                ? {
+                    collaborative_planning: {
+                      requested: true,
+                      echoed_by_api:
+                        interaction.agent_config?.collaborative_planning ===
+                        true,
+                    },
+                  }
+                : {}),
             },
             null,
             2,
@@ -399,6 +454,13 @@ export function registerTools(
         const updated = updateJob(args.job_id, {
           interactionId: interaction.id,
           status: interaction.status || "in_progress",
+          replied: true,
+        });
+        log.info("Planning reply sent", {
+          jobId: args.job_id,
+          interactionId: interaction.id,
+          keepPlanning: args.keep_planning === true,
+          status: updated?.status ?? interaction.status,
         });
         return ok(
           JSON.stringify(
