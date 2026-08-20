@@ -19,15 +19,22 @@ const HEADING = "# KB Index";
 export function renderIndex(records: KbRecord[]): string {
   const lines = [...records]
     .sort((left, right) => left.conceptId.localeCompare(right.conceptId))
-    .map((record) => {
-      const { frontmatter: fm } = record;
-      const parts = [fm.type, fm.strauss_status];
-      if (fm.tags?.length) parts.push(`tags: ${fm.tags.join(", ")}`);
-      if (fm.description) parts.push(fm.description);
-      return `- [${fm.title ?? record.conceptId}](${record.conceptId}.md) — ${parts.join(" · ")}`;
-    });
+    .map(renderIndexLine);
 
   return `${HEADING}\n\n${lines.join("\n")}\n`;
+}
+
+/**
+ * One record's index line. The single writer of this shape — `context` emits
+ * the same line rather than growing a second index renderer that would drift
+ * from this one.
+ */
+export function renderIndexLine(record: KbRecord): string {
+  const { frontmatter: fm } = record;
+  const parts = [fm.type, fm.strauss_status];
+  if (fm.tags?.length) parts.push(`tags: ${fm.tags.join(", ")}`);
+  if (fm.description) parts.push(fm.description);
+  return `- [${fm.title ?? record.conceptId}](${record.conceptId}.md) — ${parts.join(" · ")}`;
 }
 
 /** Whether the stored projection still matches the records it claims to index. */

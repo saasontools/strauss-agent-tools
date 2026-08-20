@@ -43,7 +43,48 @@ export {
   type ComposeInput,
   type ComposedRecord,
 } from "./compose.js";
-export { INDEX_FILE, renderIndex, indexIsStale } from "./kb-index.js";
+export {
+  INDEX_FILE,
+  renderIndex,
+  renderIndexLine,
+  indexIsStale,
+} from "./kb-index.js";
+export {
+  assertBaseNotFrozen,
+  contextProfileBudgets,
+  KbBaseFrozenError,
+  KbPinsMalformedError,
+  mergedContextBudgets,
+  PIN_LAYERS,
+  PINS_FILE,
+  PINS_LOCAL_FILE,
+  listPins,
+  pinBase,
+  readMergedPins,
+  readPinsLayer,
+  resolvePinPath,
+  unpinBase,
+  type KbContextBudgets,
+  type KbMergedPin,
+  type KbMergedPins,
+  type KbPin,
+  type KbPinLayer,
+  type KbPinOptions,
+  type KbPinResult,
+  type KbPinStatus,
+  type KbPinsManifest,
+} from "./kb-pins/index.js";
+export {
+  CONTEXT_BEGIN,
+  CONTEXT_END,
+  CONTEXT_PROFILES,
+  buildContext,
+  syncInstructions,
+  toHookJson,
+  type KbContextOptions,
+  type KbContextResult,
+  type KbSyncResult,
+} from "./kb-context.js";
 export {
   LOG_FILE,
   parseLog,
@@ -91,7 +132,7 @@ export {
   KB_COMMANDS_BY_NAME,
   type KbCommand,
   type KbCommandContext,
-} from "./commands.js";
+} from "./commands/index.js";
 export { createKbMcpServer, runKbMcpServer } from "./mcp.js";
 export { runKbCli } from "./cli.js";
 export {

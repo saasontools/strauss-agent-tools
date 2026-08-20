@@ -12,7 +12,9 @@ import { KB_COMMANDS } from "../src/index.js";
 // that in-process unit tests cannot.
 const entry = resolve(process.env.SMOKE_ENTRY ?? "dist/mcp-main.js");
 
-const EXPECTED_TOOLS = KB_COMMANDS.map((command) => command.tool).sort();
+const EXPECTED_TOOLS = KB_COMMANDS.filter((command) => command.tool)
+  .map((command) => command.tool)
+  .sort();
 
 describe("MCP handshake smoke test", () => {
   let client: Client;

@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { KB_COMMANDS } from "./commands.js";
+import { KB_COMMANDS } from "./commands/index.js";
 import { KbStore } from "./kb-store.js";
 
 /**
@@ -26,6 +26,9 @@ export function createKbMcpServer(): McpServer {
   };
 
   for (const command of KB_COMMANDS) {
+    // CLI-only plumbing (sync-instructions) edits files for hooks and
+    // instruction blocks; the agent capability it serves is kb_context.
+    if (!command.tool) continue;
     server.registerTool(
       command.tool,
       { description: command.description, inputSchema: command.input.shape },

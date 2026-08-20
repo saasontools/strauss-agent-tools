@@ -3,6 +3,10 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
+    // The user pin layer reads ~/.strauss by default; tests must never see
+    // the developer's real one. Suites that exercise the layer point this at
+    // a fixture of their own.
+    env: { STRAUSS_KB_USER_ROOT: "/nonexistent-strauss-user-root" },
     include: ["src/**/*.spec.ts", "test/**/*.spec.ts"],
     testTimeout: 20_000,
     hookTimeout: 30_000,

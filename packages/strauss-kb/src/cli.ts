@@ -6,7 +6,7 @@
  * surfaces pass.
  */
 import { join } from "node:path";
-import { KB_COMMANDS, KB_COMMANDS_BY_NAME } from "./commands.js";
+import { KB_COMMANDS, KB_COMMANDS_BY_NAME } from "./commands/index.js";
 import { KB_DIR, KbStore } from "./kb-store.js";
 
 export async function runKbCli(argv: string[]): Promise<void> {
@@ -46,6 +46,10 @@ export async function runKbCli(argv: string[]): Promise<void> {
   // A check reporting a problem succeeded as a command and failed as a check;
   // the command says which, rather than the dispatcher knowing their names.
   if (command.failsWhen?.(result)) process.exitCode = 1;
+  // An empty string is deliberate silence — `context` with nothing pinned
+  // runs from hooks at every session start, and even a bare newline is noise
+  // injected into a fresh context.
+  if (result === "") return;
   process.stdout.write(
     typeof result === "string"
       ? result.endsWith("\n")
