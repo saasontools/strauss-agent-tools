@@ -24,6 +24,24 @@ const pinSchema = z
     /** Relative to the manifest's directory, so the file is committable. */
     path: z.string().min(1),
     pinnedAt: z.string().min(1).optional(),
+    /**
+     * How `context` renders this base. `full` preloads the whole base into
+     * the block regardless of the full-under threshold — for a base whose
+     * contents should simply be present, the way an ADR base should be —
+     * still answering to the block budget, with an index fallback that says
+     * so when it cannot fit. `index` never upgrades, whatever the threshold.
+     * Absent: the profile's full-under threshold decides. Invalid values
+     * degrade to absent rather than failing the manifest.
+     */
+    mode: z.enum(["full", "index"]).optional().catch(undefined),
+    /**
+     * Context profiles this pin surfaces in (e.g. only at session-start,
+     * not per turn). Absent: every profile. A run without a profile sees
+     * every pin. A base that only matters to one skill is better loaded by
+     * that skill at point of use than pinned at all — pins are what every
+     * session should see.
+     */
+    profiles: z.array(z.string()).optional().catch(undefined),
   })
   .passthrough();
 
@@ -96,6 +114,8 @@ export type KbPinStatus = {
   /** The directory exists and yielded at least one parseable record. */
   valid: boolean;
   recordCount: number;
+  mode: "full" | "index" | null;
+  profiles: string[] | null;
 };
 
 export class KbPinsMalformedError extends Error {
@@ -169,21 +189,31 @@ export type KbPinResult = {
   path: string;
   pinnedAt: string;
   alreadyPinned: boolean;
+  mode?: "full" | "index";
+  profiles?: string[];
   /** Set when the path holds no readable records — pinned anyway. */
   warning?: string;
 };
 
+export type KbPinOptions = {
+  mode?: "full" | "index";
+  profiles?: string[];
+};
+
 /**
- * Adds a base to the manifest. Idempotent — pinning a pinned path returns the
- * existing entry untouched. A path that is not (yet) a valid base succeeds
- * with a warning: bases are routinely pinned before they are populated, the
- * same way records link to records that do not exist yet.
+ * Adds a base to the manifest. Idempotent — re-pinning a pinned path with no
+ * options returns the existing entry untouched, and re-pinning with `mode`
+ * or `profiles` updates just those fields, which is how a pin's rendering is
+ * changed. A path that is not (yet) a valid base succeeds with a warning:
+ * bases are routinely pinned before they are populated, the same way records
+ * link to records that do not exist yet.
  */
 export async function pinBase(
   store: KbStore,
   workspaceDir: string,
   bundlePath: string,
   at: string,
+  options: KbPinOptions = {},
 ): Promise<KbPinResult> {
   const manifest = await readPinsManifest(workspaceDir);
   const absolute = resolvePinPath(
@@ -200,11 +230,27 @@ export async function pinBase(
       ? `no records found at ${absolute} — pinned anyway; bases are routinely pinned before they are populated`
       : undefined;
 
+  const fields = {
+    ...(options.mode ? { mode: options.mode } : {}),
+    ...(options.profiles?.length ? { profiles: options.profiles } : {}),
+  };
+
   if (existing) {
+    const updated: KbPin = { ...existing, ...fields };
+    if (Object.keys(fields).length) {
+      await writePinsManifest(workspaceDir, {
+        ...manifest,
+        pins: manifest.pins.map((entry) =>
+          entry === existing ? updated : entry,
+        ),
+      });
+    }
     return {
       path: existing.path,
       pinnedAt: existing.pinnedAt ?? at,
       alreadyPinned: true,
+      ...(updated.mode ? { mode: updated.mode } : {}),
+      ...(updated.profiles ? { profiles: updated.profiles } : {}),
       ...(warning ? { warning } : {}),
     };
   }
@@ -212,6 +258,7 @@ export async function pinBase(
   const entry: KbPin = {
     path: storablePath(workspaceDir, bundlePath),
     pinnedAt: at,
+    ...fields,
   };
   await writePinsManifest(workspaceDir, {
     ...manifest,
@@ -221,6 +268,7 @@ export async function pinBase(
     path: entry.path,
     pinnedAt: at,
     alreadyPinned: false,
+    ...fields,
     ...(warning ? { warning } : {}),
   };
 }
@@ -260,6 +308,8 @@ export async function listPins(
         absolutePath,
         valid: records.length > 0,
         recordCount: records.length,
+        mode: entry.mode ?? null,
+        profiles: entry.profiles ?? null,
       };
     }),
   );

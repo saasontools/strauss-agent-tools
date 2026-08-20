@@ -420,13 +420,50 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
   define({
     name: "pin",
     tool: "kb_pin",
-    usage: "pin [bundle-path]",
+    usage: "pin [bundle-path] [--mode full|index] [--profiles a,b]",
     description:
-      "Pin a base into this workspace's manifest (.strauss/kb-pins.json), so `context` surfaces its index at every context birth. Idempotent — pinning a pinned path changes nothing. A path with no records yet succeeds with a warning; bases are routinely pinned before they are populated. Pins are workspace state: the pinned base itself is never touched.",
-    input: z.object({ bundlePath }),
-    fromArgv: (argv, path) => ({ bundlePath: argv[1] ?? path }),
-    run: ({ store, now }, { bundlePath: path }) =>
-      pinBase(store, process.cwd(), path, now()),
+      "Pin a base into this workspace's manifest (.strauss/kb-pins.json), so `context` surfaces it at every context birth. Idempotent — re-pinning changes nothing unless --mode or --profiles are given, which update just those fields. `--mode full` preloads the whole base into the block regardless of the full-under threshold — for a base whose contents should simply be present; `--mode index` never upgrades. `--profiles` scopes the pin to named context profiles (e.g. session-start only, not per-turn). A path with no records yet succeeds with a warning; bases are routinely pinned before they are populated. Pins are workspace state: the pinned base itself is never touched.",
+    input: z.object({
+      bundlePath,
+      mode: z
+        .enum(["full", "index"])
+        .optional()
+        .describe(
+          "full: always emit this base's records whole (still under the block budget); index: never upgrade. Absent: the profile's full-under threshold decides.",
+        ),
+      profiles: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Context profiles this pin surfaces in. Absent: all of them.",
+        ),
+    }),
+    fromArgv: (argv, path) => {
+      const flag = (name: string) => {
+        const at = argv.indexOf(name);
+        return at !== -1 ? argv[at + 1] : undefined;
+      };
+      const positional = argv[1] && !argv[1].startsWith("--") ? argv[1] : path;
+      const mode = flag("--mode");
+      const profiles = flag("--profiles");
+      return {
+        bundlePath: positional,
+        ...(mode ? { mode } : {}),
+        ...(profiles
+          ? {
+              profiles: profiles
+                .split(",")
+                .map((p) => p.trim())
+                .filter(Boolean),
+            }
+          : {}),
+      };
+    },
+    run: ({ store, now }, { bundlePath: path, mode, profiles }) =>
+      pinBase(store, process.cwd(), path, now(), {
+        ...(mode ? { mode } : {}),
+        ...(profiles ? { profiles } : {}),
+      }),
   }),
 
   define({

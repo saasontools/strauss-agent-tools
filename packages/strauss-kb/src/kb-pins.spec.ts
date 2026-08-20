@@ -82,6 +82,44 @@ describe("kb-pins", () => {
     expect(await listPins(store, workspace)).toHaveLength(1);
   });
 
+  test("mode and profiles round-trip, and re-pinning updates just them", async () => {
+    await pinBase(store, workspace, bundle, at, {
+      mode: "full",
+      profiles: ["session-start"],
+    });
+    expect(await listPins(store, workspace)).toMatchObject([
+      { path: "docs/kb", mode: "full", profiles: ["session-start"] },
+    ]);
+
+    // Re-pin with new options: the entry's fields update, pinnedAt survives.
+    const updated = await pinBase(
+      store,
+      workspace,
+      bundle,
+      "2026-08-21T00:00:00Z",
+      {
+        mode: "index",
+      },
+    );
+    expect(updated).toMatchObject({
+      alreadyPinned: true,
+      pinnedAt: at,
+      mode: "index",
+      profiles: ["session-start"],
+    });
+
+    // An invalid hand-edited mode degrades to absent, not to a broken manifest.
+    const file = join(workspace, PINS_FILE);
+    const raw = JSON.parse(readFileSync(file, "utf8")) as {
+      pins: Record<string, unknown>[];
+    };
+    raw.pins[0]!.mode = "everything";
+    writeFileSync(file, JSON.stringify(raw));
+    expect(await listPins(store, workspace)).toMatchObject([
+      { path: "docs/kb", mode: null },
+    ]);
+  });
+
   test("pinning an unpopulated path succeeds with a warning", async () => {
     const result = await pinBase(
       store,

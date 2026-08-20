@@ -70,7 +70,10 @@ profile in its own `.strauss/kb-pins.json`, so the plugin never needs editing �
 
 ```json
 {
-  "pins": [{ "path": "docs/kb", "pinnedAt": "2026-08-19T00:00:00Z" }],
+  "pins": [
+    { "path": "docs/adr", "mode": "full" },
+    { "path": "docs/kb", "profiles": ["session-start"] }
+  ],
   "context": {
     "default": { "budgetTokens": 6000 },
     "session-start": { "fullUnderTokens": 3000 },
@@ -78,6 +81,11 @@ profile in its own `.strauss/kb-pins.json`, so the plugin never needs editing �
   }
 }
 ```
+
+Per pin: `mode: "full"` preloads the base whole regardless of the full-under
+threshold (still under the block budget — a labelled index fallback when it
+cannot fit), `mode: "index"` never upgrades, and `profiles` scopes the pin to
+named profiles (a base per-turn injection shouldn't carry, say).
 
 Resolution, most specific wins: explicit flags → the manifest's profile entry →
 its `default` entry → the built-in profile → package defaults. Invalid values

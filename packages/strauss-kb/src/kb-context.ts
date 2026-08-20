@@ -109,6 +109,8 @@ async function renderBase(
   path: string,
   absolutePath: string,
   fullUnderTokens: number,
+  pinMode: "full" | "index" | undefined,
+  budgetTokens: number,
 ): Promise<BaseSection> {
   const bundle = await store.list(absolutePath);
   if (bundle.length === 0) {
@@ -120,9 +122,20 @@ async function renderBase(
     };
   }
 
-  if (fullUnderTokens > 0) {
+  // A pin's own mode outranks the threshold. `full` preloads the base whole —
+  // capped only by the block budget, because past that the whole block
+  // refuses anyway; when even that fails, the base degrades to an index and
+  // the label says so, never silently. `index` never upgrades.
+  const fullCap =
+    pinMode === "full"
+      ? budgetTokens
+      : pinMode === "index"
+        ? 0
+        : fullUnderTokens;
+
+  if (fullCap > 0) {
     const full = await store.load(absolutePath, {
-      budgetTokens: fullUnderTokens,
+      budgetTokens: fullCap,
     });
     if (full.loaded) {
       const records = full.records.map((hit) =>
@@ -233,20 +246,41 @@ export async function buildContext(
     };
   }
 
+  // A pin scoped to named profiles surfaces only in those; unscoped pins
+  // surface everywhere, and a run without a profile sees everything — the
+  // explicit full view.
+  const pins = manifest.pins.filter(
+    (pin) =>
+      !pin.profiles?.length ||
+      !options.profile ||
+      pin.profiles.includes(options.profile),
+  );
+  if (pins.length === 0) {
+    return {
+      block: "",
+      refused: false,
+      approxTokens: 0,
+      budgetTokens,
+      bases: [],
+    };
+  }
+
   const sections = await Promise.all(
-    manifest.pins.map((pin) =>
+    pins.map((pin) =>
       renderBase(
         store,
         pin.path,
         resolvePinPath(workspaceDir, pin.path),
         fullUnderTokens,
+        pin.mode,
+        budgetTokens,
       ),
     ),
   );
 
   const modeLabel = {
     index: "index only — record bodies are not here",
-    full: "full records — this base fits whole",
+    full: "full records — this base arrives whole",
     empty: "empty",
   } as const;
 

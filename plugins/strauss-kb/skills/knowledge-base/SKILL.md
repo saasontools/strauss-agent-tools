@@ -16,19 +16,22 @@ Two surfaces, one command set — use whichever the session already has:
 Every example below is written for the CLI. The MCP tool of the same name takes
 the same arguments as an object, plus `bundlePath`.
 
-## The pinned index at the top of context
+## The pinned block at the top of context
 
-A "Knowledge bases (pinned)" block at the top of context is an **index** —
-concept ids, titles, standing. The record bodies are NOT in context; hooks
-re-inject the index (not the bodies) at every context birth, including after
-compaction, so seeing it again is a refresh, not a contradiction.
+A "Knowledge bases (pinned)" block sits at the top of context, re-injected by
+hooks at every context birth (including after compaction), so seeing it again
+is a refresh, not a contradiction. Each base in it is labelled: **full
+records** means that base's contents are already here — use them directly;
+**index only** means concept ids, titles, and descriptions are here and the
+bodies are not. Small or critical bases arrive whole (`mode: full` in
+`.strauss/kb-pins.json`); the index form exists for bases too large to carry.
 
-- **Load once per question, not per turn.** When a question one of those bases
-  governs comes up and its records are not visible in the current context,
-  `kb_load` that base before answering. Records already in front of you do not
-  need reloading — the index block alone does, and the hooks handle that. The
-  one conclusion never to draw: "nothing was decided", from a context whose KB
-  content is an index line.
+- **The index lines are the trigger.** When a question touches what any index
+  line names and that base's records are not visible in the current context,
+  `kb_load` it before answering — once per question, not per turn; records
+  already in front of you need no reloading. The one conclusion never to
+  draw: "nothing was decided", from a context whose KB content is an index
+  line.
 - **Only the tools read a base.** A raw file read bypasses supersession
   resolution — a superseded or rejected record file reads exactly like a
   current one. `kb_load`, `kb_query`, and `kb_trace` are the door.

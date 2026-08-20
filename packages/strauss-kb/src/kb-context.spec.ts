@@ -154,7 +154,7 @@ describe("buildContext", () => {
     // The small base arrives whole, labelled as such; the big one stays an
     // index; the preamble's per-base labels are what says which is which.
     expect(block).toContain(
-      "### docs/kb (full records — this base fits whole)",
+      "### docs/kb (full records — this base arrives whole)",
     );
     expect(block).toContain("Paginate by keyset everywhere.");
     expect(block).toContain("### big (index only");
@@ -215,6 +215,74 @@ describe("buildContext", () => {
       profile: "no-such-profile",
     });
     expect(unknown.budgetTokens).toBe(4_000);
+  });
+
+  test("a mode:full pin arrives whole regardless of the threshold", async () => {
+    await pinBase(store, workspace, bundle, at, { mode: "full" });
+
+    // No full-under at all — the pin's own mode is what upgrades it.
+    const { block } = await buildContext(store, workspace);
+    expect(block).toContain(
+      "### docs/kb (full records — this base arrives whole)",
+    );
+    expect(block).toContain("Paginate by keyset everywhere.");
+
+    // And mode:index pins never upgrade, whatever the threshold says.
+    await pinBase(store, workspace, bundle, at, { mode: "index" });
+    const indexOnly = await buildContext(store, workspace, {
+      fullUnderTokens: 50_000,
+    });
+    expect(indexOnly.block).toContain("### docs/kb (index only");
+    expect(indexOnly.block).not.toContain("Paginate by keyset everywhere.");
+  });
+
+  test("a mode:full pin that cannot fit degrades to an index, labelled", async () => {
+    const big = join(workspace, "big");
+    for (let i = 0; i < 8; i++) {
+      await store.write(
+        big,
+        composeRecord(
+          "fact",
+          {
+            slug: `filler-${i}`,
+            title: `Filler ${i}`,
+            why: "Bulk that keeps the full load past the block budget.",
+            sections: { Claim: "y".repeat(2_000) },
+          },
+          "seed",
+          at,
+        ),
+      );
+    }
+    await pinBase(store, workspace, big, at, { mode: "full" });
+
+    // The bodies exceed the block budget but the index lines fit — the
+    // forced-full pin falls back to index rather than blowing the block.
+    const result = await buildContext(store, workspace);
+
+    expect(result.refused).toBe(false);
+    expect(result.block).toContain("### big (index only");
+    expect(result.block).not.toContain("yyyy");
+  });
+
+  test("profile-scoped pins surface only in their profiles", async () => {
+    await pinBase(store, workspace, bundle, at, {
+      profiles: ["session-start"],
+    });
+
+    const inProfile = await buildContext(store, workspace, {
+      profile: "session-start",
+    });
+    expect(inProfile.block).toContain("### docs/kb");
+
+    const otherProfile = await buildContext(store, workspace, {
+      profile: "turn",
+    });
+    expect(otherProfile.block).toBe("");
+
+    // A run without a profile is the explicit full view.
+    const noProfile = await buildContext(store, workspace);
+    expect(noProfile.block).toContain("### docs/kb");
   });
 
   test("wraps the block in a valid hook JSON envelope", () => {

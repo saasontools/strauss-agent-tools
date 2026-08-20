@@ -176,7 +176,7 @@ strauss-kb [--bundle PATH] <command> [args]
   validate                                 Cross-record checks. Exits 1 when it reports a problem.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
-  pin [bundle-path]                        Pin a base into the workspace manifest. Idempotent.
+  pin [bundle-path] [--mode full|index]    Pin a base into the workspace manifest. Idempotent.
   unpin [bundle-path]                      Remove a base from the workspace manifest.
   pins                                     Every pinned base, with whether it resolves to records.
   context [--profile NAME] [--budget N]    The pinned-base index block, for injection at context birth.
@@ -347,10 +347,16 @@ Four layers implement it, each covering the failure mode of the one above:
 
 1. **Pin + context.** `pin` records in `.strauss/kb-pins.json` — committable,
    relative paths, workspace state that never touches the pinned base — which
-   bases every session should see. `context` emits their index as one
+   bases every session should see. `context` emits them as one
    self-instructing markdown block: a stable heading (so re-injection after
    compaction reads as a refresh, not a contradiction), the routing to the
-   tools, and the why. Injected at every context birth.
+   tools, and the why. Injected at every context birth. Each pin chooses its
+   own rendering: `--mode full` preloads the base whole regardless of the
+   full-under threshold (an ADR base whose contents should simply be present;
+   still under the block budget, degrading to a labelled index when it cannot
+   fit), `--mode index` never upgrades, and `--profiles` scopes a pin to
+   named context profiles — a base only some sessions need is scoped or,
+   better, loaded by the skill that needs it at point of use.
 2. **The block's preamble** routes to `kb_load` / `kb_query` / `kb_trace` and
    says why file reads are wrong, so the index itself re-teaches the doctrine
    each time it appears.

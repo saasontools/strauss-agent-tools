@@ -60,6 +60,7 @@ export {
   unpinBase,
   type KbContextBudgets,
   type KbPin,
+  type KbPinOptions,
   type KbPinResult,
   type KbPinStatus,
   type KbPinsManifest,
