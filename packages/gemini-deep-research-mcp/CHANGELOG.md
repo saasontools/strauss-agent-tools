@@ -1,3 +1,14 @@
+## 0.1.2 (2026-08-20)
+
+### 🩹 Fixes
+
+- Persist API agent/agent_config echoes and planning-debug state; planning-stall warning in status; handshake version derived from package.json ([40d7ddc](https://github.com/saasontools/strauss-agent-tools/commit/40d7ddc))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.1 (2026-08-16)
 
 ### 🩹 Fixes
