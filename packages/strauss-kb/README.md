@@ -374,7 +374,7 @@ strauss-kb sync-instructions AGENTS.md   # sentinel block for instruction files
 - **Instruction-file sentinel block** — `sync-instructions` idempotently owns a
   `<!-- strauss-kb:begin/end -->` region and touches nothing outside it.
   AGENTS.md is the canonical default (Codex and Antigravity both read it);
-  CLAUDE.md and GEMINI.md are aliases of the same mechanism.
+  CLAUDE.md is an alias of the same mechanism.
 - **Runtime hooks** — Claude Code `SessionStart` (all four sources, including
   `compact`), Codex `SessionStart`, Antigravity `PreInvocation`. Runtimes whose
   hook protocol requires strict JSON on stdout get `--format json --event
@@ -404,13 +404,13 @@ NAME`; Claude Code and Codex take the plain block. Hooks ask for budgets by
 What each runtime actually guarantees (details and configs in the
 [plugin's adapters](../../plugins/strauss-kb/adapters/)):
 
-| Layer                     | Claude Code        | Codex CLI                                                                | Gemini CLI (legacy)     | Antigravity CLI            |
-| ------------------------- | ------------------ | ------------------------------------------------------------------------ | ----------------------- | -------------------------- |
-| MCP tool descriptions     | ✓                  | ✓                                                                        | ✓                       | ✓                          |
-| Session-start injection   | SessionStart hook  | SessionStart hook                                                        | SessionStart, JSON      | PreInvocation, per turn    |
-| Post-compact re-injection | ✓ `compact` source | ✓ client-side; opaque server-side compaction covered by instruction only | ✗ instruction file only | moot — injected every turn |
-| File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                                               | BeforeTool, JSON        | opt-in PreToolUse, JSON    |
-| Instruction file          | CLAUDE.md          | AGENTS.md                                                                | GEMINI.md               | AGENTS.md + rules/         |
+| Layer                     | Claude Code        | Codex CLI                                                                | Antigravity CLI            |
+| ------------------------- | ------------------ | ------------------------------------------------------------------------ | -------------------------- |
+| MCP tool descriptions     | ✓                  | ✓                                                                        | ✓                          |
+| Session-start injection   | SessionStart hook  | SessionStart hook                                                        | PreInvocation, per turn    |
+| Post-compact re-injection | ✓ `compact` source | ✓ client-side; opaque server-side compaction covered by instruction only | moot — injected every turn |
+| File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                                               | opt-in PreToolUse, JSON    |
+| Instruction file          | CLAUDE.md          | AGENTS.md                                                                | AGENTS.md + rules/         |
 
 Where a row says "instruction only", know what you are getting: after a
 compaction there, nothing mechanically re-injects the index — the sentinel

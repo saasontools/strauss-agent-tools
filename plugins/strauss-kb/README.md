@@ -89,7 +89,11 @@ no output and exit 0 (`2>/dev/null || true`) — zero noise.
 project paths is a workspace policy, not something a plugin should impose on
 every project it is installed into — so the plugin ships the enforcement script
 (`hooks/scripts/block-kb-reads.mjs`) and you choose where, and how much, to
-apply it. Three tiers, most granular first:
+apply it. Three tiers, most granular first — **prefer tier 1**: plain
+permissions cover Read and Grep by path with no script and no hook latency;
+the script earns its place only when pins change often enough that static
+rules would drift, or when you want the model redirected with the why rather
+than silently denied:
 
 1. **Deny rules, per base** — no script, plain permissions, scoped to exactly
    the paths you name. In the project's `.claude/settings.json`:
@@ -156,11 +160,9 @@ and the tool descriptions are the mitigation.
 
 **Adapters for other runtimes** live in [adapters/](./adapters/):
 [Codex CLI](./adapters/codex/) (SessionStart hooks incl. `compact`, AGENTS.md
-sentinel block), [Antigravity CLI](./adapters/antigravity/) (a full plugin:
-per-turn PreInvocation injection, PreToolUse blocking, rules file), and
-[Gemini CLI](./adapters/gemini/) (legacy: GEMINI.md sentinel block, JSON hook
-envelope). The cross-runtime constant is
-`strauss-kb sync-instructions AGENTS.md`.
+sentinel block) and [Antigravity CLI](./adapters/antigravity/) (a full plugin:
+per-turn PreInvocation injection, opt-in read blocking, rules file). The
+cross-runtime constant is `strauss-kb sync-instructions AGENTS.md`.
 
 `STRAUSS_KB_ACTOR` names the writer in each base's `log.jsonl`; it defaults to
 `mcp` for the server and `unknown` for the CLI.

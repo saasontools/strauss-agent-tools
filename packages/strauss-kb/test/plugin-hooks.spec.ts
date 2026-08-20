@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -190,20 +190,39 @@ describe("Antigravity PreToolUse hook script", () => {
 });
 
 describe("Antigravity PreInvocation hook script", () => {
-  function withShim(script: string): { status: number | null; stdout: string } {
+  // The shim is a node script behind platform launchers — a `.cmd` on
+  // Windows, a shebang'd sh script elsewhere — mirroring how npm actually
+  // installs the CLI, which is exactly the resolution the inject script has
+  // to get right on both platforms.
+  function withShim(body: string): { status: number | null; stdout: string } {
     const bin = mkdtempSync(join(tmpdir(), "strauss-kb-shim-"));
     try {
-      const shim = join(bin, "strauss-kb");
-      writeFileSync(shim, `#!/bin/sh\n${script}\n`);
-      chmodSync(shim, 0o755);
-      return run(agInject, "", { PATH: `${bin}:${process.env.PATH}` });
+      writeFileSync(join(bin, "shim.mjs"), body);
+      if (process.platform === "win32") {
+        writeFileSync(
+          join(bin, "strauss-kb.cmd"),
+          `@echo off\r\nnode "%~dp0shim.mjs" %*\r\n`,
+        );
+      } else {
+        const shim = join(bin, "strauss-kb");
+        writeFileSync(
+          shim,
+          `#!/bin/sh\nexec node "$(dirname "$0")/shim.mjs" "$@"\n`,
+        );
+        chmodSync(shim, 0o755);
+      }
+      return run(agInject, "", {
+        PATH: `${bin}${delimiter}${process.env.PATH}`,
+      });
     } finally {
       rmSync(bin, { recursive: true, force: true });
     }
   }
 
   it("wraps the context block as an ephemeral inject step", () => {
-    const result = withShim('printf "## Knowledge bases (pinned)\\n\\nindex"');
+    const result = withShim(
+      'process.stdout.write("## Knowledge bases (pinned)\\n\\nindex");',
+    );
 
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
@@ -214,8 +233,8 @@ describe("Antigravity PreInvocation hook script", () => {
   });
 
   it("emits {} when there is nothing to say and when the CLI fails", () => {
-    expect(JSON.parse(withShim("exit 0").stdout)).toEqual({});
-    expect(JSON.parse(withShim("exit 1").stdout)).toEqual({});
+    expect(JSON.parse(withShim("process.exit(0);").stdout)).toEqual({});
+    expect(JSON.parse(withShim("process.exit(1);").stdout)).toEqual({});
     // CLI not installed at all.
     expect(
       JSON.parse(run(agInject, "", { PATH: "/nonexistent" }).stdout),
@@ -256,10 +275,6 @@ describe("plugin config files parse", () => {
       hooks: Record<string, unknown[]>;
     };
     expect(codexHooks.hooks.SessionStart).toHaveLength(2);
-
-    expect(parse("adapters/gemini/settings-hooks.json")).toMatchObject({
-      hooks: { SessionStart: expect.any(Array) as unknown },
-    });
 
     expect(parse("adapters/antigravity/plugin.json")).toMatchObject({
       name: "strauss-kb",

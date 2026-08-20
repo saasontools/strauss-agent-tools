@@ -296,7 +296,8 @@ export async function buildContext(
 }
 
 /**
- * The same block in the envelope Gemini CLI and Antigravity hooks require:
+ * The same block in the envelope hook protocols that demand strict JSON on
+ * stdout require:
  * those protocols treat non-JSON stdout as a violation, where Claude Code and
  * Codex take plain text. One canonical writer for the block; this is wrapping.
  */
@@ -319,7 +320,7 @@ export type KbSyncResult = {
 
 /**
  * Idempotently plants the block between sentinels in an instruction file
- * (AGENTS.md, CLAUDE.md, GEMINI.md). This is how a runtime without a reliable
+ * (AGENTS.md, CLAUDE.md). This is how a runtime without a reliable
  * post-compact hook keeps a refreshable index: the file is re-read where the
  * conversation is not. Everything outside the sentinels is left alone.
  */

@@ -464,14 +464,16 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
         .int()
         .positive()
         .optional()
-        .describe("Approximate token ceiling for the block. Defaults to 4000."),
+        .describe(
+          "Ceiling on the whole emitted block; past it the command refuses with a list of bases rather than truncating. Defaults to 4000.",
+        ),
       fullUnderTokens: z
         .number()
         .int()
         .positive()
         .optional()
         .describe(
-          "Bases whose full load fits under this arrive as records rather than index lines. Off by default.",
+          "Per-base rendering threshold, applied before the budget: a base whose complete load fits under this arrives as full records instead of index lines, and the whole block still answers to budgetTokens. Off by default — index-only is the safe default at a context birth, because injected bodies outlive the qualifiers on them; the session-start profile opts tiny bases in at 1500.",
         ),
       profile: z
         .string()
@@ -483,7 +485,7 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
         .enum(["markdown", "json"])
         .optional()
         .describe(
-          "CLI envelope for hook protocols that require strict JSON on stdout (Gemini, Antigravity). MCP callers omit this — the block itself is identical.",
+          "CLI envelope for hook protocols that require strict JSON on stdout. MCP callers omit this — the block itself is identical.",
         ),
       event: z
         .string()
@@ -533,7 +535,7 @@ export const KB_COMMANDS: KbCommand<z.ZodRawShape>[] = [
     usage:
       "sync-instructions <file> [--profile NAME] [--budget N] [--full-under N]",
     description:
-      "Idempotently plant the `context` block between sentinel comments in an instruction file (AGENTS.md, CLAUDE.md, GEMINI.md), creating the block when absent and leaving everything outside the sentinels alone. CLI-only: this is file plumbing for runtimes whose instruction files are re-read where their conversations are not, not an agent capability — the capability is kb_context.",
+      "Idempotently plant the `context` block between sentinel comments in an instruction file (AGENTS.md, CLAUDE.md), creating the block when absent and leaving everything outside the sentinels alone. CLI-only: this is file plumbing for runtimes whose instruction files are re-read where their conversations are not, not an agent capability — the capability is kb_context.",
     input: z.object({
       file: z
         .string()

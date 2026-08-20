@@ -17,9 +17,13 @@
 import { spawnSync } from "node:child_process";
 
 function main() {
+  // On Windows the npm-installed CLI is a .cmd shim, which Node will only
+  // resolve and execute through a shell. The arguments are fixed strings, so
+  // the shell adds no injection surface.
   const result = spawnSync("strauss-kb", ["context", "--profile", "turn"], {
     encoding: "utf8",
     timeout: 10_000,
+    shell: process.platform === "win32",
   });
   const block = result.status === 0 ? (result.stdout ?? "").trim() : "";
   process.stdout.write(
