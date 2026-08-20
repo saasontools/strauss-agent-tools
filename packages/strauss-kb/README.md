@@ -156,6 +156,11 @@ before publishing, which narrows the lost-update window rather than closing it.
 Records are never deleted. Superseding keeps the earlier reasoning inspectable,
 which is what a later `trace` reads.
 
+`no-decision` records the explicit claim that a piece of work had nothing to
+decide (an idempotent `decision.none` record). It exists for workflow gates:
+"did you write a decision?" rewards writing a junk one, "did you answer?"
+does not — so silence has to be expressible.
+
 ## CLI
 
 ```
@@ -214,16 +219,9 @@ Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
-`kb_pins` and `kb_context` read the workspace pin manifest rather than any one
-base — which bases a session should see is workspace state, not a property of
-a base.
-
-The one CLI verb with no tool is `sync-instructions`: it edits instruction
-files for hooks and sentinel blocks, which is plumbing rather than an agent
-capability — the capability, "get the pinned context block", is `kb_context`.
-(`context`'s `--format`/`--event` flags are the same kind of thing: an envelope
-for hook protocols that require strict JSON on stdout; MCP callers get the
-identical block without them.)
+`kb_pins` and `kb_context` read the workspace pin manifests instead. The one
+CLI verb with no tool is `sync-instructions` — file plumbing for hooks, not an
+agent capability; the capability is `kb_context`.
 
 ```json
 {
@@ -284,15 +282,10 @@ base answered eight; embedding search over the same records answered four. Two
 of those differences are structural rather than matters of degree: a reader can
 say no record answers the question, where vector search returns its nearest
 neighbour whatever the distance; and a reader picks the record that answers the
-question rather than the one nearest the topic.
-
-The mechanism behind that margin: retrieval makes similarity the gatekeeper — a
-match the ranker misses never reaches the model, so the reader's judgment is
-applied only to what similarity already let through. A full read lets the model
-do the semantic matching natively: synonymy the embedding space does not know,
-implication across records that share no vocabulary, supersession, and
-aggregation across many records. It is also why the vector tier stays off — a
-better gatekeeper is still a gatekeeper.
+question rather than the one nearest the topic. The mechanism is simple:
+retrieval makes similarity the gatekeeper, and a match the ranker misses never
+reaches the model. A full read lets the model do the matching itself —
+synonymy, implication across records, aggregation — which no ranker does.
 
 Read for a question, not for a session: a base loaded at the start of a long
 conversation is summarised away by the end of it, and reloading costs about
@@ -302,12 +295,7 @@ three thousand tokens. Read it again at the point of use.
 tokens by default). A truncated base is indistinguishable from a complete one,
 so a caller would answer "that was never decided" from a slice it did not know
 was a slice. `context` refuses the same way at its own, tighter budget (4,000
-tokens by default): past it, the block degrades to a list of the pinned bases
-and their sizes rather than to a partial index that reads as a whole one. The
-refusal is not a lock — it tells the reader to `kb_load` what the question
-needs right now (load's budget is separate), and lists the curation moves
-that shrink the recurring block: supersede stale records, `--mode index` a
-large pin, scope profiles, raise the budget, unpin. Superseded records come back as name, replacement and date only —
+by default). Superseded records come back as name, replacement and date only —
 their bodies no longer hold, and a body read later in a long session outlives
 the qualifier that said so. `trace` still reaches them by id.
 
@@ -333,127 +321,69 @@ success.
 
 ## Living in an agent session
 
-A session loses a knowledge base in two ways. Attention decays over a long
-context, and compaction summarises the conversation's history — including any
-records loaded early, and including the early instruction that said to consult
-the base at all. The instruction is itself history; nothing about it survives
-by being important.
-
-The pattern that holds up is two-tier, and worth naming: **the index survives,
-load is re-invoked**. A small derived index sits at the top of context — free
-to regenerate, cheap to re-inject at every context birth — and the record
-bodies are fetched by tool at the point of use, question by question. Neither
-tier tries to do the other's job: the index never carries bodies (a body read
-early outlives the qualifier that said it no longer holds), and a load is never
-expected to survive the session it was made in.
-
-Four layers implement it, each covering the failure mode of the one above:
-
-1. **Pin + context.** `pin` records in `.strauss/kb-pins.json` — committable,
-   relative paths, workspace state that never touches the pinned base — which
-   bases every session should see. `context` emits them as one
-   self-instructing markdown block: a stable heading (so re-injection after
-   compaction reads as a refresh, not a contradiction), the routing to the
-   tools, and the why. Injected at every context birth. Each pin chooses its
-   own rendering: `--mode full` preloads the base whole regardless of the
-   full-under threshold (an ADR base whose contents should simply be present;
-   still under the block budget, degrading to a labelled index when it cannot
-   fit), `--mode index` never upgrades, and `--profiles` scopes a pin to
-   named context profiles — a base only some sessions need is scoped or,
-   better, loaded by the skill that needs it at point of use. `--frozen`
-   marks a base concluded — a finished piece of research, a settled ADR set:
-   write commands against it refuse while the pin holds, and the block labels
-   it read-only. Workspace policy, not base state — the base stays copyable
-   and writable elsewhere.
-
-   Manifests come in three layers, nearest wins per base, each one's paths
-   resolving against its own root:
-
-   | Layer   | File                          | For                         |
-   | ------- | ----------------------------- | --------------------------- |
-   | project | `.strauss/kb-pins.json`       | committed — the team's pins |
-   | local   | `.strauss/kb-pins.local.json` | personal, gitignore it      |
-   | user    | `~/.strauss/kb-pins.json`     | personal, every workspace   |
-
-   `pin` writes the project layer by default; `--local` and `--user` target
-   the others; `unpin` sweeps all three, because unpinned means gone.
-   Budgets under `context` merge the same way — user underneath, local over
-   it, the committed file on top. A malformed layer is skipped on read (one
-   broken personal file must not silence the team's pins) and refused on
-   write.
-
-2. **The block's preamble** routes to `kb_load` / `kb_query` / `kb_trace` and
-   says why file reads are wrong, so the index itself re-teaches the doctrine
-   each time it appears.
-3. **A PreToolUse script** (shipped in the [plugin](../../plugins/strauss-kb/),
-   opt-in per workspace) blocks raw file access to pinned bases, with the
-   redirect delivered at the exact point of violation. Opt-in because blocking
-   reads on project paths is workspace policy, not something a plugin imposes —
-   the plugin README shows the granular tiers, from per-base deny rules up.
-4. **Tool descriptions** carry the point-of-use reload judgment. Descriptions
-   are re-sent with every request, so they survive compaction when nothing
-   else does.
-
-One command, every injection point:
+Long sessions lose a knowledge base twice over: attention decays, and
+compaction summarises away both the records loaded early and the instruction
+that said to consult them. The fix is two-tier: a small index is re-injected
+at every context birth, and record bodies are fetched by tool when a question
+actually needs them.
 
 ```bash
-strauss-kb pin docs/kb            # once, committed with the repo
-strauss-kb context                # the block, from wherever context is born
-strauss-kb sync-instructions AGENTS.md   # sentinel block for instruction files
+strauss-kb pin docs/kb                   # mark a base every session should see
+strauss-kb context                       # emit the pinned index block
+strauss-kb sync-instructions AGENTS.md   # or keep it in an instruction file
 ```
 
-- **Instruction-file sentinel block** — `sync-instructions` idempotently owns a
-  `<!-- strauss-kb:begin/end -->` region and touches nothing outside it.
-  AGENTS.md is the canonical default (Codex and Antigravity both read it);
-  CLAUDE.md is an alias of the same mechanism.
-- **Runtime hooks** — Claude Code `SessionStart` (all four sources, including
-  `compact`), Codex `SessionStart`, Antigravity `PreInvocation`. Runtimes whose
-  hook protocol requires strict JSON on stdout get `--format json --event
-NAME`; Claude Code and Codex take the plain block. Hooks ask for budgets by
-  name — `--profile session-start` (full-under 1500), `--profile compact` and
-  `--profile turn` (index-only, 2500) — and a repo overrides any of them in
-  its pin manifest, so the numbers live with the pins rather than in hook
-  commands:
+Pins live in `.strauss/kb-pins.json`, committed with the repo. Two more
+layers exist: `.strauss/kb-pins.local.json` (personal, gitignore it) and
+`~/.strauss/kb-pins.json` (every workspace). Nearest layer wins per base,
+`--local`/`--user` write the other layers, and `unpin` removes from all
+three. A malformed layer is skipped on read and refused on write.
 
-  ```json
-  {
-    "pins": [{ "path": "docs/kb" }],
-    "context": {
-      "default": { "budgetTokens": 6000 },
-      "compact": { "budgetTokens": 1500 }
-    }
-  }
-  ```
+Per pin:
 
-  Explicit flags beat the manifest, the manifest's profile entry beats its
-  `default`, which beats the built-ins. Invalid values are ignored — a typo'd
-  budget must degrade to a default, never silence the index.
+- `--mode full` — inject the records themselves, not just the index. For
+  small or critical bases (ADRs). Falls back to a labelled index when it
+  cannot fit the block budget.
+- `--mode index` — never inject bodies.
+- `--profiles a,b` — only inject in the named profiles.
+- `--frozen` — the base is concluded; write commands refuse until `--unfreeze`.
 
-- **Harness-owned prompt assembly** — a harness that builds its own prompts
-  calls `strauss-kb context` at assembly time like any other section.
+Budgets are named profiles — `session-start`, `compact`, `turn` — with
+per-repo overrides in the manifest, so hook commands never carry numbers:
 
-What each runtime actually guarantees (details and configs in the
+```json
+{
+  "pins": [{ "path": "docs/adr", "mode": "full" }],
+  "context": { "compact": { "budgetTokens": 1500 } }
+}
+```
+
+Flags beat the manifest, the manifest beats the built-ins, and invalid values
+fall back to defaults instead of silencing the index. Past its budget,
+`context` refuses like `load` does — never truncates — and its refusal says
+what to load directly and how to shrink the block.
+
+`sync-instructions <file>` keeps the same block between
+`<!-- strauss-kb:begin/end -->` sentinels in AGENTS.md or CLAUDE.md, touching
+nothing outside them. Re-run it when pins change; it is idempotent. This is
+the mechanism for runtimes without a reliable post-compaction hook, since
+instruction files are re-read where conversation history is not.
+
+What each runtime gets (configs in the
 [plugin's adapters](../../plugins/strauss-kb/adapters/)):
 
-| Layer                     | Claude Code        | Codex CLI                                                                | Antigravity CLI            |
-| ------------------------- | ------------------ | ------------------------------------------------------------------------ | -------------------------- |
-| MCP tool descriptions     | ✓                  | ✓                                                                        | ✓                          |
-| Session-start injection   | SessionStart hook  | SessionStart hook                                                        | PreInvocation, per turn    |
-| Post-compact re-injection | ✓ `compact` source | ✓ client-side; opaque server-side compaction covered by instruction only | moot — injected every turn |
-| File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                                               | opt-in PreToolUse, JSON    |
-| Instruction file          | CLAUDE.md          | AGENTS.md                                                                | AGENTS.md + rules/         |
+| Layer                     | Claude Code        | Codex CLI                                   | Antigravity CLI            |
+| ------------------------- | ------------------ | ------------------------------------------- | -------------------------- |
+| MCP tool descriptions     | ✓                  | ✓                                           | ✓                          |
+| Session-start injection   | SessionStart hook  | SessionStart hook                           | PreInvocation, per turn    |
+| Post-compact re-injection | ✓ `compact` source | ✓ client-side; instruction-only when hosted | moot — injected every turn |
+| File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
+| Instruction file          | CLAUDE.md          | AGENTS.md                                   | AGENTS.md + rules/         |
 
-Where a row says "instruction only", know what you are getting: after a
-compaction there, nothing mechanically re-injects the index — the sentinel
-block and the tool descriptions are what remind the model to reload.
-
-**Why tool-only access for agents too.** "The store is the sole accessor" was
-written about processes; agents with file tools reopen it. A raw file read is a
-filtered view — no standing resolution, no chain walk — and the caller cannot
-tell what it is missing, because a superseded or rejected record file reads
-exactly like a current one. The opt-in PreToolUse script enforces this at the
-tool layer; project-level deny rules are the most granular enforcement and
-work with no script at all:
+One more thing agents add: file tools. A raw read of a record file bypasses
+standing entirely — a superseded record reads exactly like a current one — so
+bases are read through the tools, and a workspace can enforce that with deny
+rules or the plugin's opt-in PreToolUse script:
 
 ```json
 {

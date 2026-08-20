@@ -17,56 +17,38 @@ One directory, three plugin formats — nothing collides:
 npm install -g @saasontools/strauss-kb
 ```
 
-This is required, not optional. Both surfaces the plugin exposes come from that
-one package — the MCP server `strauss-kb-mcp` and the `strauss-kb` CLI that the
-skills shell out to — and they must be the same installed version. Launching the
-server through `npx` while the skills call a globally installed CLI would put two
-versions of the same store in one session.
-
-See the [package README](../../packages/strauss-kb/README.md) for why a global
-install is the supported path, and for the two alternatives that also work.
+Required: the plugin's MCP server (`strauss-kb-mcp`) and the CLI the skills
+and hooks shell out to (`strauss-kb`) come from this one package and must be
+the same version. See the [package README](../../packages/strauss-kb/README.md)
+for the alternatives to a global install.
 
 ## Install
 
-### Claude Code
+Claude Code:
 
 ```
 /plugin marketplace add https://github.com/saasontools/strauss-agent-tools
 /plugin install strauss-kb@saasontools
 ```
 
-### Codex
-
-Add the marketplace from this repository (`.agents/plugins/marketplace.json`),
-then install `strauss-kb`.
+Codex: add the marketplace from `.agents/plugins/marketplace.json`, then
+install `strauss-kb`.
 
 ## What it adds
 
-**MCP server** — `strauss-kb-mcp` over stdio, no API key and no required
-environment. Fifteen tools, one per command: `kb_load`, `kb_query`, `kb_trace`,
-`kb_write`, `kb_write_decision`, `kb_no_decision`, `kb_status`, `kb_supersede`,
-`kb_answer`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`,
-`kb_types`.
+**MCP server** — `strauss-kb-mcp` over stdio, no API key, one tool per
+command (`kb_load`, `kb_query`, `kb_write`, … see the package README).
 
-**Skills**
-
-| Skill            | For                                                                                                             |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- |
-| `knowledge-base` | Reading and writing records: what standing means, load before search, why a rejected record is never an answer. |
-
-Skills are re-read where conversations are not, so the doctrine in them — pin,
-reload at point of use, the index is not the content — persists across
+**Skill** — `knowledge-base`: how to read standing, load before search, when
+to write. Skills are re-read where conversations are not, so this survives
 compaction.
 
-**Hooks** (`hooks/hooks.json`, Claude Code)
-
-**SessionStart** — the one hook the plugin wires up. Runs `strauss-kb context`
-at every context birth. Two matcher groups: `startup|resume|clear` uses
-`--profile session-start` (budget 4000, full-under 1500 — tiny bases arrive
-whole at a fresh start); `compact` uses `--profile compact` (index-only at
-2500, because the block is competing with a summary for a smaller window).
-Those are built-in defaults, not the hook's numbers: a repo overrides them per
-profile in its own `.strauss/kb-pins.json`, so the plugin never needs editing —
+**SessionStart hook** — runs `strauss-kb context` at every context birth.
+`startup|resume|clear` use the `session-start` profile (small bases arrive
+whole); `compact` uses the tighter `compact` profile (index only). Fails
+open: no pins or no CLI means no output, no noise. Budgets and per-pin
+behavior are configured in the repo's `.strauss/kb-pins.json`, not in the
+hook:
 
 ```json
 {
@@ -75,44 +57,24 @@ profile in its own `.strauss/kb-pins.json`, so the plugin never needs editing �
     { "path": "docs/kb", "profiles": ["session-start"] }
   ],
   "context": {
-    "default": { "budgetTokens": 6000 },
     "session-start": { "fullUnderTokens": 3000 },
     "compact": { "budgetTokens": 1500 }
   }
 }
 ```
 
-Per pin: `mode: "full"` preloads the base whole regardless of the full-under
-threshold (still under the block budget — a labelled index fallback when it
-cannot fit), `mode: "index"` never upgrades, `profiles` scopes the pin to
-named profiles (a base per-turn injection shouldn't carry, say), and
-`frozen: true` marks the base concluded — write commands refuse and the block
-labels it read-only.
+Pin options (`mode`, `profiles`, `frozen`), the local/user manifest layers,
+and budget resolution are documented in the
+[package README](../../packages/strauss-kb/README.md#living-in-an-agent-session).
 
-Manifests layer: the committed project file above, plus
-`.strauss/kb-pins.local.json` (personal, gitignore it) and
-`~/.strauss/kb-pins.json` (personal, every workspace) — `pin --local` /
-`pin --user` write them, nearest layer wins per base, and the blocking script
-protects pins from all three.
+## Blocking raw KB reads (opt-in)
 
-Resolution, most specific wins: explicit flags → the manifest's profile entry →
-its `default` entry → the built-in profile → package defaults. Invalid values
-are ignored rather than errors — a typo in a budget must not silence the index.
-Fail open by construction: no manifest, no pins, or no CLI installed produces
-no output and exit 0 (`2>/dev/null || true`) — zero noise.
+Record files must be read through the tools — a superseded record file reads
+exactly like a current one. The plugin does not enforce this by itself
+(blocking reads is workspace policy); pick one:
 
-**File-read blocking is opt-in, not wired by the plugin.** Blocking `Read` on
-project paths is a workspace policy, not something a plugin should impose on
-every project it is installed into — so the plugin ships the enforcement script
-(`hooks/scripts/block-kb-reads.mjs`) and you choose where, and how much, to
-apply it. Three tiers, most granular first — **prefer tier 1**: plain
-permissions cover Read and Grep by path with no script and no hook latency;
-the script earns its place only when pins change often enough that static
-rules would drift, or when you want the model redirected with the why rather
-than silently denied:
-
-1. **Deny rules, per base** — no script, plain permissions, scoped to exactly
-   the paths you name. In the project's `.claude/settings.json`:
+1. **Deny rules** — no script, in `.claude/settings.json`. Preferred. Static:
+   add a line per pinned base.
 
    ```json
    {
@@ -122,17 +84,10 @@ than silently denied:
    }
    ```
 
-   Precise but static: it does not follow `.strauss/kb-pins.json`, so add a
-   line per pinned base.
-
-2. **The script, Read only** — follows the pin manifest automatically and
-   redirects the model at the point of violation. Copy
-   [`hooks/scripts/block-kb-reads.mjs`](./hooks/scripts/block-kb-reads.mjs)
-   into the project as `.claude/hooks/block-kb-reads.mjs` — it is
-   self-contained (node builtins only) precisely so it can be copied;
-   `${CLAUDE_PLUGIN_ROOT}` resolves only inside a plugin's own hooks.json, so
-   project settings need a project-local path. Then in
-   `.claude/settings.json`:
+2. **The shipped hook script** — follows the pin manifests automatically and
+   tells the model _why_ at the point of violation instead of a silent deny.
+   Copy [`hooks/scripts/block-kb-reads.mjs`](./hooks/scripts/block-kb-reads.mjs)
+   (self-contained, node builtins only) to `.claude/hooks/` and add:
 
    ```json
    {
@@ -152,36 +107,23 @@ than silently denied:
    }
    ```
 
-3. **The script, wide** — same entry with matcher `"Read|Glob|Grep"`, catching
-   searches whose explicit `path` points into a base too.
+   Widen the matcher to `"Read|Glob|Grep"` to also catch searches whose
+   explicit `path` points into a base. The script blocks `INDEX.md` too,
+   allows pathless searches rather than over-blocking, and fails open on
+   anything unexpected.
 
-What the script does when it fires: resolves the target path (relative,
-absolute, `..`-traversal) and, when it falls inside `.strauss/kb` or any base
-pinned in `.strauss/kb-pins.json`, exits 2 with the redirect on stderr, which
-reaches the model at the exact point of violation:
+Known side door: Bash (`cat .strauss/kb/x.md`). Neither option parses shell
+commands, deliberately — the skill and tool descriptions are the mitigation.
 
-> KB directories are read via strauss-kb tools only (kb_load / kb_query /
-> kb_trace) — file reads bypass supersession resolution and return replaced
-> records as if current.
+## Other runtimes
 
-`INDEX.md` is blocked along with the records, for uniformity — the agent gets
-the index through `kb_context` / `kb_index`. A `Grep`/`Glob` with no explicit
-path is allowed rather than over-blocking every project-wide search. Everything
-unexpected — malformed stdin, unreadable manifest — fails open; a broken hook
-must never lock an agent out of its project.
+[adapters/](./adapters/) carries [Codex CLI](./adapters/codex/) (SessionStart
+hooks incl. `compact`, AGENTS.md sentinel block) and
+[Antigravity CLI](./adapters/antigravity/) (a full plugin: per-turn injection,
+opt-in read blocking, rules file). The cross-runtime constant is
+`strauss-kb sync-instructions AGENTS.md`.
 
-**Known side door: Bash.** Neither tier parses shell commands for KB paths
-(`cat .strauss/kb/x.md` gets through), deliberately. The deny rules, the skill,
-and the tool descriptions are the mitigation.
-
-**Adapters for other runtimes** live in [adapters/](./adapters/):
-[Codex CLI](./adapters/codex/) (SessionStart hooks incl. `compact`, AGENTS.md
-sentinel block) and [Antigravity CLI](./adapters/antigravity/) (a full plugin:
-per-turn PreInvocation injection, opt-in read blocking, rules file). The
-cross-runtime constant is `strauss-kb sync-instructions AGENTS.md`.
-
-`STRAUSS_KB_ACTOR` names the writer in each base's `log.jsonl`; it defaults to
-`mcp` for the server and `unknown` for the CLI.
+`STRAUSS_KB_ACTOR` names the writer in each base's `log.jsonl`.
 
 ## License
 
