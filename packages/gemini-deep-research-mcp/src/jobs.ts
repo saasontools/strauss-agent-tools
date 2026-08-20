@@ -43,6 +43,15 @@ export async function refreshJob(
   const wasTerminal = isTerminal(job.status);
   const patch: Parameters<typeof updateJob>[1] = { status: interaction.status };
 
+  // Backfill the API's own account of what ran: the stored `agent`/`depth`
+  // are client-side intent, and a debugging session needs the server's echo.
+  if (!job.echoedAgent && interaction.agent) {
+    patch.echoedAgent = interaction.agent;
+  }
+  if (!job.echoedAgentConfig && interaction.agent_config) {
+    patch.echoedAgentConfig = interaction.agent_config;
+  }
+
   if (mayHaveReport(interaction.status)) {
     const text = reportText(interaction);
     if (text) {

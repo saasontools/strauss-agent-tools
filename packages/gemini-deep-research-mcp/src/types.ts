@@ -64,6 +64,10 @@ export interface UsageLike {
 export interface InteractionLike {
   id: string;
   status: string;
+  /** Agent name echoed by the API — proof of which model actually ran. */
+  agent?: string;
+  /** agent_config echoed by the API — proof of which flags it accepted. */
+  agent_config?: { [key: string]: unknown };
   created?: string;
   updated?: string;
   output_text?: string;
