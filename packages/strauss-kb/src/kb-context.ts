@@ -5,7 +5,7 @@ import {
   mergedContextBudgets,
   readMergedPins,
   type KbContextBudgets,
-} from "./kb-pins.js";
+} from "./kb-pins/index.js";
 import type { KbStore } from "./kb-store.js";
 
 /**
@@ -56,6 +56,12 @@ export type KbContextOptions = {
    * name.
    */
   profile?: string;
+  /**
+   * Where budget pressure is reported outside the block itself: a full pin
+   * that had to degrade to an index, a block that refused. The block already
+   * says both to the agent; this says them to the operator's log.
+   */
+  warn?: (entry: Record<string, unknown>) => void;
 };
 
 export type KbContextResult = {
@@ -100,6 +106,12 @@ type BaseSection = {
   absolutePath: string;
   body: string;
   mode: "index" | "full" | "empty";
+  /**
+   * A `mode: full` pin whose bodies exceeded the block budget, emitted as an
+   * index instead. Flagged in the section label, never silent — the reader
+   * asked for the whole base and must know it is not looking at it.
+   */
+  degradedFrom?: { approxTokens: number };
 };
 
 async function renderBase(
@@ -131,10 +143,14 @@ async function renderBase(
         ? 0
         : fullUnderTokens;
 
+  let degradedFrom: { approxTokens: number } | undefined;
   if (fullCap > 0) {
     const full = await store.load(absolutePath, {
       budgetTokens: fullCap,
     });
+    if (!full.loaded && pinMode === "full") {
+      degradedFrom = { approxTokens: full.approxTokens };
+    }
     if (full.loaded) {
       const records = full.records.map((hit) =>
         [
@@ -182,6 +198,7 @@ async function renderBase(
     absolutePath,
     mode: "index",
     body: [...lines, ...superseded].join("\n"),
+    ...(degradedFrom ? { degradedFrom } : {}),
   };
 }
 
@@ -261,15 +278,33 @@ export async function buildContext(
     empty: "empty",
   } as const;
 
-  const rendered = sections.map(({ section, frozen }) =>
-    [
-      `### ${section.path} (${modeLabel[section.mode]}${frozen ? " · frozen, read-only" : ""})`,
+  // A full pin that could not fit is loudly labelled, in the block and in the
+  // log: the reader asked for the whole base and must know it is not looking
+  // at it, and the operator must see the budget pressure without reading
+  // injected context.
+  for (const { section } of sections) {
+    if (section.degradedFrom) {
+      options.warn?.({
+        operation: "kb.context.full-pin-degraded",
+        path: section.path,
+        approxTokens: section.degradedFrom.approxTokens,
+        budgetTokens,
+      });
+    }
+  }
+
+  const rendered = sections.map(({ section, frozen }) => {
+    const label = section.degradedFrom
+      ? `index only — pinned \`mode: full\`, but its ~${section.degradedFrom.approxTokens} tokens exceed this block's ${budgetTokens}-token budget; kb_load it directly (load's budget is separate), or raise this profile's budget`
+      : modeLabel[section.mode];
+    return [
+      `### ${section.path} (${label}${frozen ? " · frozen, read-only" : ""})`,
       "",
       `bundlePath: \`${section.absolutePath}\``,
       "",
       section.body,
-    ].join("\n"),
-  );
+    ].join("\n");
+  });
 
   const block = [preamble(), "", rendered.join("\n\n"), ""].join("\n");
   const bases = sections.map(({ section }) => ({
@@ -280,6 +315,12 @@ export async function buildContext(
   const total = approxTokens(block);
 
   if (total > budgetTokens) {
+    options.warn?.({
+      operation: "kb.context.refused",
+      approxTokens: total,
+      budgetTokens,
+      bases: bases.map((base) => base.path),
+    });
     // A refusal, not a lock: the budget guards what is injected at every
     // context birth, never a deliberate read. So the refusal carries both
     // moves — read what the question needs right now, and shrink the

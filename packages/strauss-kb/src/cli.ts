@@ -6,7 +6,7 @@
  * surfaces pass.
  */
 import { join } from "node:path";
-import { KB_COMMANDS, KB_COMMANDS_BY_NAME } from "./commands.js";
+import { KB_COMMANDS, KB_COMMANDS_BY_NAME } from "./commands/index.js";
 import { KB_DIR, KbStore } from "./kb-store.js";
 
 export async function runKbCli(argv: string[]): Promise<void> {

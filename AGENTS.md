@@ -40,3 +40,10 @@ Codex, and Agent Plugins 1.0 clients from the marketplace files at
 - **pnpm build scripts are an explicit allowlist** (`allowBuilds` in
   pnpm-workspace.yaml) — a new dep with a build script fails cold installs
   until it is listed there.
+- **Multi-responsibility source files become folder modules.** When a file
+  under `src/` accumulates more than one responsibility, split it into a
+  directory of single-responsibility modules (`model.ts` for types/schemas,
+  `errors.ts`, one file per operation or command) with an `index.ts` barrel
+  that re-exports the public surface — see `packages/strauss-kb/src/kb-pins/`
+  and `src/commands/`. Importers point at the barrel (`./kb-pins/index.js`);
+  no compatibility re-export file is left at the old path.

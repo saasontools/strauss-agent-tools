@@ -16,9 +16,9 @@ import {
   syncInstructions,
   toHookJson,
 } from "./kb-context.js";
-import { PINS_FILE, pinBase } from "./kb-pins.js";
+import { PINS_FILE, pinBase } from "./kb-pins/index.js";
 import { KbStore } from "./kb-store.js";
-import { KB_COMMANDS_BY_NAME } from "./commands.js";
+import { KB_COMMANDS_BY_NAME } from "./commands/index.js";
 
 describe("buildContext", () => {
   let workspace: string;
@@ -274,12 +274,36 @@ describe("buildContext", () => {
     await pinBase(store, workspace, big, at, { mode: "full" });
 
     // The bodies exceed the block budget but the index lines fit — the
-    // forced-full pin falls back to index rather than blowing the block.
-    const result = await buildContext(store, workspace);
+    // forced-full pin falls back to index rather than blowing the block, and
+    // says so twice: in the section label the agent reads, and through warn
+    // for the operator's log.
+    const warnings: Record<string, unknown>[] = [];
+    const result = await buildContext(store, workspace, {
+      warn: (entry) => warnings.push(entry),
+    });
 
     expect(result.refused).toBe(false);
     expect(result.block).toContain("### big (index only");
+    expect(result.block).toContain("pinned `mode: full`");
+    expect(result.block).toContain("kb_load it directly");
     expect(result.block).not.toContain("yyyy");
+    expect(warnings).toMatchObject([
+      { operation: "kb.context.full-pin-degraded", path: "big" },
+    ]);
+  });
+
+  test("a refused block is reported through warn as well", async () => {
+    await pinBase(store, workspace, bundle, at);
+
+    const warnings: Record<string, unknown>[] = [];
+    await buildContext(store, workspace, {
+      budgetTokens: 50,
+      warn: (entry) => warnings.push(entry),
+    });
+
+    expect(warnings).toMatchObject([
+      { operation: "kb.context.refused", budgetTokens: 50, bases: ["docs/kb"] },
+    ]);
   });
 
   test("profile-scoped pins surface only in their profiles", async () => {

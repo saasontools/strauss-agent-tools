@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { KB_COMMANDS } from "./commands.js";
+import { KB_COMMANDS } from "./commands/index.js";
 import { createKbMcpServer } from "./mcp.js";
 
 /**

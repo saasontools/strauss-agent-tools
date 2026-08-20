@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { KB_COMMANDS } from "./commands.js";
+import { KB_COMMANDS } from "./commands/index.js";
 import { KbStore } from "./kb-store.js";
 
 /**

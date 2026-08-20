@@ -10,7 +10,10 @@ is `.strauss/kb` under the working directory; `--bundle PATH` addresses another.
 
 Two surfaces, one command set — use whichever the session already has:
 
-- MCP tools `kb_*` from the `strauss-kb` server.
+- MCP tools `kb_*` from the `strauss-kb` server. Clients namespace MCP tool
+  names, so in your session they may appear as `mcp__strauss-kb__kb_load` or
+  similar — the `kb_*` suffix is the stable part; every mention of `kb_load`,
+  `kb_query`, `kb_trace` here means whatever your client calls that tool.
 - The `strauss-kb` CLI (requires `npm install -g @saasontools/strauss-kb`).
 
 Every example below is written for the CLI. The MCP tool of the same name takes

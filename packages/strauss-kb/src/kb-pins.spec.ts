@@ -16,9 +16,9 @@ import {
   PINS_FILE,
   listPins,
   pinBase,
-  readPinsManifest,
+  readPinsLayer,
   unpinBase,
-} from "./kb-pins.js";
+} from "./kb-pins/index.js";
 import { KbStore } from "./kb-store.js";
 
 describe("kb-pins", () => {
@@ -201,7 +201,7 @@ describe("kb-pins", () => {
     expect(await unpinBase(workspace, bundle)).toMatchObject({
       removed: false,
     });
-    expect(await readPinsManifest(workspace)).toEqual({ pins: [] });
+    expect(await readPinsLayer(workspace, "project")).toEqual({ pins: [] });
   });
 
   // The same tolerance the record reader extends to frontmatter it did not

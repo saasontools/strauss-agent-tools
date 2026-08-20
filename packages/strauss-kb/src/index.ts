@@ -62,7 +62,6 @@ export {
   pinBase,
   readMergedPins,
   readPinsLayer,
-  readPinsManifest,
   resolvePinPath,
   unpinBase,
   type KbContextBudgets,
@@ -74,7 +73,7 @@ export {
   type KbPinResult,
   type KbPinStatus,
   type KbPinsManifest,
-} from "./kb-pins.js";
+} from "./kb-pins/index.js";
 export {
   CONTEXT_BEGIN,
   CONTEXT_END,
@@ -133,7 +132,7 @@ export {
   KB_COMMANDS_BY_NAME,
   type KbCommand,
   type KbCommandContext,
-} from "./commands.js";
+} from "./commands/index.js";
 export { createKbMcpServer, runKbMcpServer } from "./mcp.js";
 export { runKbCli } from "./cli.js";
 export {
