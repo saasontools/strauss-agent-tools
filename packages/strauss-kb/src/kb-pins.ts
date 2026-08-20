@@ -1,17 +1,51 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
 import type { KbStore } from "./kb-store.js";
 
 /**
- * The pin manifest, relative to the working directory.
+ * Pin manifests, in three layers.
  *
- * Pins are workspace state, not base state: they record which bases this
- * workspace wants surfaced at every context birth. The pinned base is never
- * touched — not even its log — because a base must remain copyable without
- * knowing who pins it.
+ * Pins are workspace state, not base state: they record which bases a session
+ * should be shown at every context birth. The pinned base is never touched —
+ * not even its log — because a base must remain copyable without knowing who
+ * pins it.
+ *
+ * The layers, nearest wins when the same base appears in more than one:
+ *
+ * | layer   | file                              | for                          |
+ * | ------- | --------------------------------- | ---------------------------- |
+ * | project | <workspace>/.strauss/kb-pins.json       | committed, the team's pins   |
+ * | local   | <workspace>/.strauss/kb-pins.local.json | personal, gitignored         |
+ * | user    | ~/.strauss/kb-pins.json                 | personal, every workspace    |
+ *
+ * Every manifest's paths resolve against its own root — the workspace for
+ * project and local, the home directory for user — so each file is portable
+ * with the tree it belongs to. `STRAUSS_KB_USER_ROOT` overrides the user root
+ * (tests, unusual homes).
  */
 export const PINS_FILE = join(".strauss", "kb-pins.json");
+export const PINS_LOCAL_FILE = join(".strauss", "kb-pins.local.json");
+
+export const PIN_LAYERS = ["project", "local", "user"] as const;
+export type KbPinLayer = (typeof PIN_LAYERS)[number];
+
+function userRoot(): string {
+  return process.env.STRAUSS_KB_USER_ROOT || homedir();
+}
+
+/** The directory a layer's stored paths resolve against. */
+function layerRoot(workspaceDir: string, layer: KbPinLayer): string {
+  return layer === "user" ? userRoot() : resolve(workspaceDir);
+}
+
+function layerFile(workspaceDir: string, layer: KbPinLayer): string {
+  return join(
+    layerRoot(workspaceDir, layer),
+    layer === "local" ? PINS_LOCAL_FILE : PINS_FILE,
+  );
+}
 
 /**
  * Primary state — it records an intent nothing else holds — but trivially
@@ -21,7 +55,7 @@ export const PINS_FILE = join(".strauss", "kb-pins.json");
  */
 const pinSchema = z
   .object({
-    /** Relative to the manifest's directory, so the file is committable. */
+    /** Relative to the manifest's root, so the file is committable. */
     path: z.string().min(1),
     pinnedAt: z.string().min(1).optional(),
     /**
@@ -42,6 +76,13 @@ const pinSchema = z
      * session should see.
      */
     profiles: z.array(z.string()).optional().catch(undefined),
+    /**
+     * The base is concluded — a finished piece of research, a frozen ADR
+     * set. Write commands against it refuse while this workspace holds the
+     * pin, and `context` labels it read-only. Workspace policy, not base
+     * state: the base itself stays copyable and writable elsewhere.
+     */
+    frozen: z.boolean().optional().catch(undefined),
   })
   .passthrough();
 
@@ -88,9 +129,9 @@ function asBudgets(value: unknown): KbContextBudgets {
 }
 
 /**
- * The manifest's budgets for one profile: the named profile's values over the
+ * One manifest's budgets for one profile: the named profile's values over the
  * manifest's `"default"` entry. What is absent here falls through to the
- * caller's built-ins — the manifest narrows, it never has to be complete.
+ * caller's built-ins — a manifest narrows, it never has to be complete.
  */
 export function contextProfileBudgets(
   manifest: KbPinsManifest,
@@ -105,19 +146,6 @@ export function contextProfileBudgets(
   };
 }
 
-/** One pinned base, with whether it currently resolves to anything readable. */
-export type KbPinStatus = {
-  /** As stored — relative to the manifest's directory. */
-  path: string;
-  pinnedAt: string | null;
-  absolutePath: string;
-  /** The directory exists and yielded at least one parseable record. */
-  valid: boolean;
-  recordCount: number;
-  mode: "full" | "index" | null;
-  profiles: string[] | null;
-};
-
 export class KbPinsMalformedError extends Error {
   constructor(file: string, cause: string) {
     super(`pin manifest ${file} is not readable (${cause}) — fix or remove it`);
@@ -125,18 +153,29 @@ export class KbPinsMalformedError extends Error {
   }
 }
 
+export class KbBaseFrozenError extends Error {
+  constructor(bundlePath: string, layer: KbPinLayer) {
+    super(
+      `${bundlePath} is frozen (read-only) by this workspace's ${layer} pin manifest — re-pin with --unfreeze, or unpin, to change it`,
+    );
+    this.name = "KbBaseFrozenError";
+  }
+}
+
 /**
- * The manifest, or an empty one when the file is missing.
+ * One layer's manifest, or an empty one when the file is missing.
  *
  * A malformed file throws rather than being treated as empty: every write path
  * does a full rewrite, and rewriting over content we could not read would
  * destroy the one copy of it. Read-only consumers that must stay silent
- * (`context` from a session hook) catch this and fail open themselves.
+ * (`context` from a session hook, the merged reader) skip malformed layers
+ * themselves.
  */
-export async function readPinsManifest(
+export async function readPinsLayer(
   workspaceDir: string,
+  layer: KbPinLayer,
 ): Promise<KbPinsManifest> {
-  const file = join(resolve(workspaceDir), PINS_FILE);
+  const file = layerFile(workspaceDir, layer);
   let raw: string;
   try {
     raw = await readFile(file, "utf8");
@@ -163,34 +202,120 @@ export async function readPinsManifest(
   return manifest.data;
 }
 
-async function writePinsManifest(
+/** The project layer — kept for compatibility with earlier callers. */
+export async function readPinsManifest(
   workspaceDir: string,
+): Promise<KbPinsManifest> {
+  return readPinsLayer(workspaceDir, "project");
+}
+
+async function writePinsLayer(
+  workspaceDir: string,
+  layer: KbPinLayer,
   manifest: KbPinsManifest,
 ): Promise<void> {
-  const file = join(resolve(workspaceDir), PINS_FILE);
+  const file = layerFile(workspaceDir, layer);
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }
 
-/** Where a stored pin points, resolved against the manifest's directory. */
-export function resolvePinPath(workspaceDir: string, path: string): string {
+/** Where a stored pin points, resolved against its layer's root. */
+export function resolvePinPath(rootDir: string, path: string): string {
   return isAbsolute(path)
     ? resolve(path)
-    : resolve(workspaceDir, path.split("/").join(sep));
+    : resolve(rootDir, path.split("/").join(sep));
 }
 
-/** How a base is spelled in the manifest: relative, forward slashes. */
-function storablePath(workspaceDir: string, bundlePath: string): string {
-  const rel = relative(resolve(workspaceDir), resolve(bundlePath));
+/** How a base is spelled in a manifest: relative to the layer root, forward slashes. */
+function storablePath(rootDir: string, bundlePath: string): string {
+  const rel = relative(resolve(rootDir), resolve(bundlePath));
   return (rel === "" ? "." : rel).split(sep).join("/");
 }
 
+/** A pin as the merged view hands it back: entry + where it came from. */
+export type KbMergedPin = KbPin & {
+  layer: KbPinLayer;
+  absolutePath: string;
+};
+
+export type KbMergedPins = {
+  /** Effective pins after dedup — nearest layer wins per resolved path. */
+  pins: KbMergedPin[];
+  /** Per-layer manifests that parsed, for budget merging. */
+  manifests: Partial<Record<KbPinLayer, KbPinsManifest>>;
+};
+
+/**
+ * All three layers, merged. A malformed layer is skipped rather than thrown:
+ * this feeds hooks at every session start, and one broken personal file must
+ * not silence the team's pins — `pin`/`unpin` against the broken layer still
+ * refuse loudly.
+ */
+export async function readMergedPins(
+  workspaceDir: string,
+): Promise<KbMergedPins> {
+  const manifests: Partial<Record<KbPinLayer, KbPinsManifest>> = {};
+  const pins: KbMergedPin[] = [];
+  const seen = new Set<string>();
+
+  for (const layer of PIN_LAYERS) {
+    let manifest: KbPinsManifest;
+    try {
+      manifest = await readPinsLayer(workspaceDir, layer);
+    } catch {
+      continue;
+    }
+    manifests[layer] = manifest;
+    const root = layerRoot(workspaceDir, layer);
+    for (const entry of manifest.pins) {
+      const absolutePath = resolvePinPath(root, entry.path);
+      if (seen.has(absolutePath)) continue;
+      seen.add(absolutePath);
+      pins.push({ ...entry, layer, absolutePath });
+    }
+  }
+  return { pins, manifests };
+}
+
+/**
+ * Budgets across the layers: user underneath, local over it, project on top —
+ * the committed file is the workspace's word — and explicit flags above all
+ * of this, applied by the caller.
+ */
+export function mergedContextBudgets(
+  merged: KbMergedPins,
+  profile?: string,
+): KbContextBudgets {
+  const layered = (["user", "local", "project"] as const).map((layer) => {
+    const manifest = merged.manifests[layer];
+    return manifest ? contextProfileBudgets(manifest, profile) : {};
+  });
+  return { ...layered[0], ...layered[1], ...layered[2] };
+}
+
+/** One pinned base, with whether it currently resolves to anything readable. */
+export type KbPinStatus = {
+  /** As stored — relative to its layer's root. */
+  path: string;
+  layer: KbPinLayer;
+  pinnedAt: string | null;
+  absolutePath: string;
+  /** The directory exists and yielded at least one parseable record. */
+  valid: boolean;
+  recordCount: number;
+  mode: "full" | "index" | null;
+  profiles: string[] | null;
+  frozen: boolean;
+};
+
 export type KbPinResult = {
   path: string;
+  layer: KbPinLayer;
   pinnedAt: string;
   alreadyPinned: boolean;
   mode?: "full" | "index";
   profiles?: string[];
+  frozen?: boolean;
   /** Set when the path holds no readable records — pinned anyway. */
   warning?: string;
 };
@@ -198,15 +323,18 @@ export type KbPinResult = {
 export type KbPinOptions = {
   mode?: "full" | "index";
   profiles?: string[];
+  frozen?: boolean;
+  /** Which manifest to write. Defaults to the committed project layer. */
+  layer?: KbPinLayer;
 };
 
 /**
- * Adds a base to the manifest. Idempotent — re-pinning a pinned path with no
- * options returns the existing entry untouched, and re-pinning with `mode`
- * or `profiles` updates just those fields, which is how a pin's rendering is
- * changed. A path that is not (yet) a valid base succeeds with a warning:
- * bases are routinely pinned before they are populated, the same way records
- * link to records that do not exist yet.
+ * Adds a base to one layer's manifest. Idempotent — re-pinning a pinned path
+ * with no options returns the existing entry untouched, and re-pinning with
+ * `mode`, `profiles`, or `frozen` updates just those fields, which is how a
+ * pin's rendering or writability is changed. A path that is not (yet) a valid
+ * base succeeds with a warning: bases are routinely pinned before they are
+ * populated, the same way records link to records that do not exist yet.
  */
 export async function pinBase(
   store: KbStore,
@@ -215,14 +343,13 @@ export async function pinBase(
   at: string,
   options: KbPinOptions = {},
 ): Promise<KbPinResult> {
-  const manifest = await readPinsManifest(workspaceDir);
-  const absolute = resolvePinPath(
-    workspaceDir,
-    storablePath(workspaceDir, bundlePath),
-  );
+  const layer = options.layer ?? "project";
+  const root = layerRoot(workspaceDir, layer);
+  const manifest = await readPinsLayer(workspaceDir, layer);
+  const absolute = resolvePinPath(root, storablePath(root, bundlePath));
 
   const existing = manifest.pins.find(
-    (entry) => resolvePinPath(workspaceDir, entry.path) === absolute,
+    (entry) => resolvePinPath(root, entry.path) === absolute,
   );
   const records = await store.list(absolute);
   const warning =
@@ -233,12 +360,13 @@ export async function pinBase(
   const fields = {
     ...(options.mode ? { mode: options.mode } : {}),
     ...(options.profiles?.length ? { profiles: options.profiles } : {}),
+    ...(options.frozen !== undefined ? { frozen: options.frozen } : {}),
   };
 
   if (existing) {
     const updated: KbPin = { ...existing, ...fields };
     if (Object.keys(fields).length) {
-      await writePinsManifest(workspaceDir, {
+      await writePinsLayer(workspaceDir, layer, {
         ...manifest,
         pins: manifest.pins.map((entry) =>
           entry === existing ? updated : entry,
@@ -247,25 +375,28 @@ export async function pinBase(
     }
     return {
       path: existing.path,
+      layer,
       pinnedAt: existing.pinnedAt ?? at,
       alreadyPinned: true,
       ...(updated.mode ? { mode: updated.mode } : {}),
       ...(updated.profiles ? { profiles: updated.profiles } : {}),
+      ...(updated.frozen !== undefined ? { frozen: updated.frozen } : {}),
       ...(warning ? { warning } : {}),
     };
   }
 
   const entry: KbPin = {
-    path: storablePath(workspaceDir, bundlePath),
+    path: storablePath(root, bundlePath),
     pinnedAt: at,
     ...fields,
   };
-  await writePinsManifest(workspaceDir, {
+  await writePinsLayer(workspaceDir, layer, {
     ...manifest,
     pins: [...manifest.pins, entry],
   });
   return {
     path: entry.path,
+    layer,
     pinnedAt: at,
     alreadyPinned: false,
     ...fields,
@@ -273,44 +404,79 @@ export async function pinBase(
   };
 }
 
-/** Removes a base from the manifest. Says whether anything was there. */
+/**
+ * Removes a base from every layer that holds it — unpinned means gone, not
+ * "gone from one file and still injected from another". A malformed layer is
+ * skipped (it cannot be rewritten safely); the layers actually touched are
+ * reported.
+ */
 export async function unpinBase(
   workspaceDir: string,
   bundlePath: string,
-): Promise<{ path: string; removed: boolean }> {
-  const manifest = await readPinsManifest(workspaceDir);
-  const absolute = resolvePinPath(
-    workspaceDir,
-    storablePath(workspaceDir, bundlePath),
-  );
-  const kept = manifest.pins.filter(
-    (entry) => resolvePinPath(workspaceDir, entry.path) !== absolute,
-  );
-  const removed = kept.length !== manifest.pins.length;
-  if (removed)
-    await writePinsManifest(workspaceDir, { ...manifest, pins: kept });
-  return { path: storablePath(workspaceDir, bundlePath), removed };
+): Promise<{ path: string; removed: boolean; layers: KbPinLayer[] }> {
+  const layers: KbPinLayer[] = [];
+  for (const layer of PIN_LAYERS) {
+    const root = layerRoot(workspaceDir, layer);
+    let manifest: KbPinsManifest;
+    try {
+      manifest = await readPinsLayer(workspaceDir, layer);
+    } catch {
+      continue;
+    }
+    const absolute = resolvePinPath(root, storablePath(root, bundlePath));
+    const kept = manifest.pins.filter(
+      (entry) => resolvePinPath(root, entry.path) !== absolute,
+    );
+    if (kept.length !== manifest.pins.length) {
+      await writePinsLayer(workspaceDir, layer, { ...manifest, pins: kept });
+      layers.push(layer);
+    }
+  }
+  return {
+    path: storablePath(resolve(workspaceDir), bundlePath),
+    removed: layers.length > 0,
+    layers,
+  };
 }
 
-/** Every pin, with whether it currently points at a readable base. */
+/** Every effective pin across the layers, with whether it points at records. */
 export async function listPins(
   store: KbStore,
   workspaceDir: string,
 ): Promise<KbPinStatus[]> {
-  const manifest = await readPinsManifest(workspaceDir);
+  const merged = await readMergedPins(workspaceDir);
   return Promise.all(
-    manifest.pins.map(async (entry) => {
-      const absolutePath = resolvePinPath(workspaceDir, entry.path);
-      const records = await store.list(absolutePath);
+    merged.pins.map(async (entry) => {
+      const records = await store.list(entry.absolutePath);
       return {
         path: entry.path,
+        layer: entry.layer,
         pinnedAt: entry.pinnedAt ?? null,
-        absolutePath,
+        absolutePath: entry.absolutePath,
         valid: records.length > 0,
         recordCount: records.length,
         mode: entry.mode ?? null,
         profiles: entry.profiles ?? null,
+        frozen: entry.frozen === true,
       };
     }),
   );
+}
+
+/**
+ * Refuses when a write would land in a base this workspace froze. Called by
+ * every mutating command; a workspace that pinned a base `--frozen` said the
+ * base is concluded, and a quiet write past that would be exactly the silent
+ * drift the pin was meant to stop.
+ */
+export async function assertBaseNotFrozen(
+  workspaceDir: string,
+  bundlePath: string,
+): Promise<void> {
+  const merged = await readMergedPins(workspaceDir);
+  const absolute = resolve(bundlePath);
+  const pin = merged.pins.find((entry) => entry.absolutePath === absolute);
+  if (pin?.frozen === true) {
+    throw new KbBaseFrozenError(pin.path, pin.layer);
+  }
 }

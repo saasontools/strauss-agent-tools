@@ -90,6 +90,35 @@ describe("Claude Code PreToolUse hook script", () => {
     expect(result.stderr).toContain("supersession");
   });
 
+  it("protects local-layer and user-layer pins too", () => {
+    writeFileSync(
+      join(workspace, ".strauss", "kb-pins.local.json"),
+      JSON.stringify({ pins: [{ path: "scratch/kb" }] }),
+    );
+    const userRoot = mkdtempSync(join(tmpdir(), "strauss-kb-user-hooks-"));
+    try {
+      mkdirSync(join(userRoot, ".strauss"), { recursive: true });
+      writeFileSync(
+        join(userRoot, ".strauss", "kb-pins.json"),
+        JSON.stringify({ pins: [{ path: "conventions" }] }),
+      );
+
+      const env = { STRAUSS_KB_USER_ROOT: userRoot };
+      expect(run(claudeBlock, read("scratch/kb/fact.a.md"), env).status).toBe(
+        2,
+      );
+      expect(
+        run(claudeBlock, read(join(userRoot, "conventions", "b.md")), env)
+          .status,
+      ).toBe(2);
+    } finally {
+      rmSync(join(workspace, ".strauss", "kb-pins.local.json"), {
+        force: true,
+      });
+      rmSync(userRoot, { recursive: true, force: true });
+    }
+  });
+
   it("blocks relative, `..`-traversal, and pinned-base paths alike", () => {
     for (const target of [
       ".strauss/kb/INDEX.md",

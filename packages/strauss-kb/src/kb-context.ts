@@ -2,10 +2,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import { adjudicate } from "./adjudicate.js";
 import { renderIndexLine } from "./kb-index.js";
 import {
-  contextProfileBudgets,
-  KbPinsMalformedError,
-  resolvePinPath,
-  readPinsManifest,
+  mergedContextBudgets,
+  readMergedPins,
   type KbContextBudgets,
 } from "./kb-pins.js";
 import type { KbStore } from "./kb-store.js";
@@ -204,28 +202,15 @@ export async function buildContext(
     options.budgetTokens ?? builtin.budgetTokens ?? DEFAULT_CONTEXT_BUDGET;
   let fullUnderTokens = options.fullUnderTokens ?? builtin.fullUnderTokens ?? 0;
 
-  let manifest;
-  try {
-    manifest = await readPinsManifest(workspaceDir);
-  } catch (error) {
-    // Read-only and run from hooks at every session start: a malformed
-    // manifest must degrade to silence there, not to a stack trace injected
-    // into a fresh context. `pins` is the command that surfaces the problem.
-    if (error instanceof KbPinsMalformedError) {
-      return {
-        block: "",
-        refused: false,
-        approxTokens: 0,
-        budgetTokens,
-        bases: [],
-      };
-    }
-    throw error;
-  }
+  // All three manifest layers, merged — nearest wins. The reader skips a
+  // malformed layer rather than throwing: this runs from hooks at every
+  // session start, and one broken personal file must not silence the team's
+  // pins. `pin`/`unpin` are what surface the broken layer, loudly.
+  const merged = await readMergedPins(workspaceDir);
 
-  // The repo's own numbers, from the manifest — above the built-ins, below
-  // anything passed explicitly.
-  const fromManifest = contextProfileBudgets(manifest, options.profile);
+  // The workspace's own numbers, from the manifests — above the built-ins,
+  // below anything passed explicitly.
+  const fromManifest = mergedContextBudgets(merged, options.profile);
   budgetTokens =
     options.budgetTokens ??
     fromManifest.budgetTokens ??
@@ -236,20 +221,11 @@ export async function buildContext(
     fromManifest.fullUnderTokens ??
     builtin.fullUnderTokens ??
     0;
-  if (manifest.pins.length === 0) {
-    return {
-      block: "",
-      refused: false,
-      approxTokens: 0,
-      budgetTokens,
-      bases: [],
-    };
-  }
 
   // A pin scoped to named profiles surfaces only in those; unscoped pins
   // surface everywhere, and a run without a profile sees everything — the
   // explicit full view.
-  const pins = manifest.pins.filter(
+  const pins = merged.pins.filter(
     (pin) =>
       !pin.profiles?.length ||
       !options.profile ||
@@ -266,16 +242,17 @@ export async function buildContext(
   }
 
   const sections = await Promise.all(
-    pins.map((pin) =>
-      renderBase(
+    pins.map(async (pin) => ({
+      section: await renderBase(
         store,
         pin.path,
-        resolvePinPath(workspaceDir, pin.path),
+        pin.absolutePath,
         fullUnderTokens,
         pin.mode,
         budgetTokens,
       ),
-    ),
+      frozen: pin.frozen === true,
+    })),
   );
 
   const modeLabel = {
@@ -284,9 +261,9 @@ export async function buildContext(
     empty: "empty",
   } as const;
 
-  const rendered = sections.map((section) =>
+  const rendered = sections.map(({ section, frozen }) =>
     [
-      `### ${section.path} (${modeLabel[section.mode]})`,
+      `### ${section.path} (${modeLabel[section.mode]}${frozen ? " · frozen, read-only" : ""})`,
       "",
       `bundlePath: \`${section.absolutePath}\``,
       "",
@@ -295,7 +272,7 @@ export async function buildContext(
   );
 
   const block = [preamble(), "", rendered.join("\n\n"), ""].join("\n");
-  const bases = sections.map((section) => ({
+  const bases = sections.map(({ section }) => ({
     path: section.path,
     absolutePath: section.absolutePath,
     approxTokens: approxTokens(section.body),
@@ -303,18 +280,31 @@ export async function buildContext(
   const total = approxTokens(block);
 
   if (total > budgetTokens) {
+    // A refusal, not a lock: the budget guards what is injected at every
+    // context birth, never a deliberate read. So the refusal carries both
+    // moves — read what the question needs right now, and shrink the
+    // recurring block so the next session does not land here.
     const refusal = [
       HEADING,
       "",
       `The pinned index runs to ~${total} tokens, past the ${budgetTokens}-token`,
       "budget, and was not emitted — a truncated index is indistinguishable",
-      "from a complete one. The pinned bases, for the strauss-kb tools",
-      "(`kb_index` for one base's shape, `kb_load` for its records):",
+      "from a complete one. The pinned bases:",
       "",
       ...bases.map(
         (base) =>
           `- ${base.path} — ~${base.approxTokens} tokens (bundlePath: \`${base.absolutePath}\`)`,
       ),
+      "",
+      "For the question at hand, read what you need now — `kb_load` a base",
+      "(its own budget is separate), or `kb_index` for one base's shape.",
+      "",
+      "To bring this block back under budget, in order of preference:",
+      "- supersede or resolve stale records — the base shrinks, the knowledge keeps",
+      "- force a large base to index lines: `strauss-kb pin <path> --mode index`",
+      "- scope a pin to the profiles that need it: `strauss-kb pin <path> --profiles session-start`",
+      "- raise this profile's budget under `context` in .strauss/kb-pins.json",
+      "- unpin what no session actually needs",
       "",
     ].join("\n");
     return {

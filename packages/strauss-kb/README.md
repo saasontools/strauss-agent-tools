@@ -176,8 +176,8 @@ strauss-kb [--bundle PATH] <command> [args]
   validate                                 Cross-record checks. Exits 1 when it reports a problem.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
-  pin [bundle-path] [--mode full|index]    Pin a base into the workspace manifest. Idempotent.
-  unpin [bundle-path]                      Remove a base from the workspace manifest.
+  pin [bundle-path] [flags]                Pin a base. --mode, --profiles, --frozen; --local/--user pick the layer.
+  unpin [bundle-path]                      Remove a base from every manifest layer that holds it.
   pins                                     Every pinned base, with whether it resolves to records.
   context [--profile NAME] [--budget N]    The pinned-base index block, for injection at context birth.
   sync-instructions <file>                 Plant the context block between sentinels in an instruction file.
@@ -303,7 +303,11 @@ tokens by default). A truncated base is indistinguishable from a complete one,
 so a caller would answer "that was never decided" from a slice it did not know
 was a slice. `context` refuses the same way at its own, tighter budget (4,000
 tokens by default): past it, the block degrades to a list of the pinned bases
-and their sizes rather than to a partial index that reads as a whole one. Superseded records come back as name, replacement and date only —
+and their sizes rather than to a partial index that reads as a whole one. The
+refusal is not a lock — it tells the reader to `kb_load` what the question
+needs right now (load's budget is separate), and lists the curation moves
+that shrink the recurring block: supersede stale records, `--mode index` a
+large pin, scope profiles, raise the budget, unpin. Superseded records come back as name, replacement and date only —
 their bodies no longer hold, and a body read later in a long session outlives
 the qualifier that said so. `trace` still reaches them by id.
 
@@ -356,7 +360,28 @@ Four layers implement it, each covering the failure mode of the one above:
    still under the block budget, degrading to a labelled index when it cannot
    fit), `--mode index` never upgrades, and `--profiles` scopes a pin to
    named context profiles — a base only some sessions need is scoped or,
-   better, loaded by the skill that needs it at point of use.
+   better, loaded by the skill that needs it at point of use. `--frozen`
+   marks a base concluded — a finished piece of research, a settled ADR set:
+   write commands against it refuse while the pin holds, and the block labels
+   it read-only. Workspace policy, not base state — the base stays copyable
+   and writable elsewhere.
+
+   Manifests come in three layers, nearest wins per base, each one's paths
+   resolving against its own root:
+
+   | Layer   | File                          | For                         |
+   | ------- | ----------------------------- | --------------------------- |
+   | project | `.strauss/kb-pins.json`       | committed — the team's pins |
+   | local   | `.strauss/kb-pins.local.json` | personal, gitignore it      |
+   | user    | `~/.strauss/kb-pins.json`     | personal, every workspace   |
+
+   `pin` writes the project layer by default; `--local` and `--user` target
+   the others; `unpin` sweeps all three, because unpinned means gone.
+   Budgets under `context` merge the same way — user underneath, local over
+   it, the committed file on top. A malformed layer is skipped on read (one
+   broken personal file must not silence the team's pins) and refused on
+   write.
+
 2. **The block's preamble** routes to `kb_load` / `kb_query` / `kb_trace` and
    says why file reads are wrong, so the index itself re-teaches the doctrine
    each time it appears.

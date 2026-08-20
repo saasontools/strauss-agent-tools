@@ -22,30 +22,42 @@
  * the index through kb_context / kb_index instead.
  */
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const REDIRECT =
   "KB directories are read via strauss-kb tools only (kb_load / kb_query / kb_trace) — " +
   "file reads bypass supersession resolution and return replaced records as if current.";
 
-/** The bundle directories this workspace protects: the default base + pins. */
+/**
+ * The bundle directories this workspace protects: the default base plus every
+ * pin from the three manifest layers — project, local, and user — each layer's
+ * relative paths resolved against its own root. A layer that is missing or
+ * unreadable is skipped; the rest still protect.
+ */
 function kbDirs(cwd) {
   const dirs = [resolve(cwd, ".strauss", "kb")];
-  try {
-    const manifest = JSON.parse(
-      readFileSync(join(cwd, ".strauss", "kb-pins.json"), "utf8"),
-    );
-    for (const pin of Array.isArray(manifest?.pins) ? manifest.pins : []) {
-      if (typeof pin?.path === "string" && pin.path) {
-        dirs.push(
-          isAbsolute(pin.path)
-            ? resolve(pin.path)
-            : resolve(cwd, pin.path.split("/").join(sep)),
-        );
+  const userRoot = process.env.STRAUSS_KB_USER_ROOT || homedir();
+  const layers = [
+    { root: cwd, file: join(cwd, ".strauss", "kb-pins.json") },
+    { root: cwd, file: join(cwd, ".strauss", "kb-pins.local.json") },
+    { root: userRoot, file: join(userRoot, ".strauss", "kb-pins.json") },
+  ];
+  for (const { root, file } of layers) {
+    try {
+      const manifest = JSON.parse(readFileSync(file, "utf8"));
+      for (const pin of Array.isArray(manifest?.pins) ? manifest.pins : []) {
+        if (typeof pin?.path === "string" && pin.path) {
+          dirs.push(
+            isAbsolute(pin.path)
+              ? resolve(pin.path)
+              : resolve(root, pin.path.split("/").join(sep)),
+          );
+        }
       }
+    } catch {
+      // This layer is missing or unreadable — the others still protect.
     }
-  } catch {
-    // No manifest, or one we cannot read — protect the default base only.
   }
   return dirs;
 }

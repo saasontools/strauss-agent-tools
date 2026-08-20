@@ -10,6 +10,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { composeRecord } from "./compose.js";
 import {
+  assertBaseNotFrozen,
+  KbBaseFrozenError,
   KbPinsMalformedError,
   PINS_FILE,
   listPins,
@@ -63,6 +65,7 @@ describe("kb-pins", () => {
     expect(await unpinBase(workspace, bundle)).toEqual({
       path: "docs/kb",
       removed: true,
+      layers: ["project"],
     });
     expect(await listPins(store, workspace)).toEqual([]);
   });
@@ -118,6 +121,65 @@ describe("kb-pins", () => {
     expect(await listPins(store, workspace)).toMatchObject([
       { path: "docs/kb", mode: null },
     ]);
+  });
+
+  test("layers merge nearest-first and unpin sweeps them all", async () => {
+    const userRoot = mkdtempSync(join(tmpdir(), "strauss-kb-user-"));
+    const prevUserRoot = process.env.STRAUSS_KB_USER_ROOT;
+    process.env.STRAUSS_KB_USER_ROOT = userRoot;
+    try {
+      // The same base pinned in project and user; a second base per layer.
+      await pinBase(store, workspace, bundle, at, { mode: "index" });
+      await pinBase(store, workspace, bundle, at, {
+        layer: "user",
+        mode: "full",
+      });
+      await pinBase(store, workspace, join(workspace, "scratch"), at, {
+        layer: "local",
+      });
+      await pinBase(store, workspace, join(userRoot, "kb"), at, {
+        layer: "user",
+      });
+
+      const pins = await listPins(store, workspace);
+      // Project wins the conflict; each remaining pin keeps its layer, and
+      // the user pin's relative path resolved against the user root.
+      expect(pins).toMatchObject([
+        { path: "docs/kb", layer: "project", mode: "index" },
+        { path: "scratch", layer: "local" },
+        { path: "kb", layer: "user", absolutePath: join(userRoot, "kb") },
+      ]);
+
+      const gone = await unpinBase(workspace, bundle);
+      expect(gone.layers.sort()).toEqual(["project", "user"]);
+      expect(await listPins(store, workspace)).toHaveLength(2);
+    } finally {
+      process.env.STRAUSS_KB_USER_ROOT = prevUserRoot;
+      rmSync(userRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("a frozen pin refuses writes until unfrozen, from any layer", async () => {
+    await pinBase(store, workspace, bundle, at, {
+      layer: "local",
+      frozen: true,
+    });
+
+    await expect(assertBaseNotFrozen(workspace, bundle)).rejects.toThrow(
+      KbBaseFrozenError,
+    );
+    // Another base in the workspace stays writable.
+    await expect(
+      assertBaseNotFrozen(workspace, join(workspace, "other")),
+    ).resolves.toBeUndefined();
+
+    await pinBase(store, workspace, bundle, at, {
+      layer: "local",
+      frozen: false,
+    });
+    await expect(
+      assertBaseNotFrozen(workspace, bundle),
+    ).resolves.toBeUndefined();
   });
 
   test("pinning an unpopulated path succeeds with a warning", async () => {

@@ -123,6 +123,23 @@ describe("buildContext", () => {
     expect(result.block).toContain(`bundlePath: \`${bundle}\``);
     // The refusal is itself a small block, never the oversized index.
     expect(result.block).not.toContain("[Keyset pagination]");
+    // A refusal, not a lock: it says what to read now, and how to shrink the
+    // recurring block so the next session does not land here.
+    expect(result.block).toContain("read what you need now");
+    expect(result.block).toContain("--mode index");
+    expect(result.block).toContain("unpin what no session actually needs");
+  });
+
+  test("surfaces local-layer pins and labels frozen bases read-only", async () => {
+    await pinBase(store, workspace, bundle, at, {
+      layer: "local",
+      frozen: true,
+    });
+
+    const { block } = await buildContext(store, workspace);
+
+    expect(block).toContain("### docs/kb (index only");
+    expect(block).toContain("frozen, read-only");
   });
 
   test("emits a base whole when it fits under --full-under", async () => {

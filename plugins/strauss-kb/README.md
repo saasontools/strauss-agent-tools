@@ -84,8 +84,16 @@ profile in its own `.strauss/kb-pins.json`, so the plugin never needs editing �
 
 Per pin: `mode: "full"` preloads the base whole regardless of the full-under
 threshold (still under the block budget — a labelled index fallback when it
-cannot fit), `mode: "index"` never upgrades, and `profiles` scopes the pin to
-named profiles (a base per-turn injection shouldn't carry, say).
+cannot fit), `mode: "index"` never upgrades, `profiles` scopes the pin to
+named profiles (a base per-turn injection shouldn't carry, say), and
+`frozen: true` marks the base concluded — write commands refuse and the block
+labels it read-only.
+
+Manifests layer: the committed project file above, plus
+`.strauss/kb-pins.local.json` (personal, gitignore it) and
+`~/.strauss/kb-pins.json` (personal, every workspace) — `pin --local` /
+`pin --user` write them, nearest layer wins per base, and the blocking script
+protects pins from all three.
 
 Resolution, most specific wins: explicit flags → the manifest's profile entry →
 its `default` entry → the built-in profile → package defaults. Invalid values
