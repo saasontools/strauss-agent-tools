@@ -1,9 +1,3 @@
-## Unreleased
-
-### 🩹 Fixes
-
-- `write` (and `write-decision`) with `supersedes` now marks the prior record superseded, not only the new record's forward pointer; the write still succeeds when a `supersedes` id names a record that does not exist yet. `kb_write`/`kb_write_decision` return `{ conceptId, action, supersededIds }`, and a 409 concept-id collision carries `action: "refused"`.
-
 ## 0.1.2 (2026-08-17)
 
 ### 🩹 Fixes
