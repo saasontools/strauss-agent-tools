@@ -846,7 +846,7 @@ describe("load", () => {
     expect(result.loaded).toBe(true);
     if (!result.loaded) return;
     expect(result.recordCount).toBe(2);
-    expect(result.approxTokens).toBeGreaterThan(0);
+    expect(result.tokensLoaded).toBeGreaterThan(0);
     expect(result.records.map((hit) => hit.standing)).toEqual([
       "current",
       "current",
@@ -864,6 +864,7 @@ describe("load", () => {
     const result = await store.load(bundle, { budgetTokens: 1 });
 
     expect(result.loaded).toBe(false);
+    if (result.loaded) return;
     expect(result.recordCount).toBe(1);
     expect(result.approxTokens).toBeGreaterThan(1);
     expect(result).not.toHaveProperty("records");
@@ -969,10 +970,10 @@ describe("load", () => {
     expect(stubbed.loaded).toBe(true);
     if (!stubbed.loaded) return;
 
-    expect(stubbed.approxTokens).toBeLessThan(whole.approxTokens);
+    expect(stubbed.tokensLoaded).toBeLessThan(whole.tokensLoaded);
     // And the smaller figure is the one the budget is held against.
     const result = await store.load(bundle, {
-      budgetTokens: stubbed.approxTokens,
+      budgetTokens: stubbed.tokensLoaded,
     });
     expect(result.loaded).toBe(true);
   });
@@ -986,4 +987,71 @@ describe("load", () => {
     expect(result.loaded).toBe(true);
     expect(result.recordCount).toBe(0);
   });
+
+  // The default budget is the guardrail an agent hits by accident; `all` is
+  // the explicit override for an operator who has decided to pay for it.
+  test("all loads a base over the default budget without refusing", async ({
+    store,
+    bundle,
+  }) => {
+    await writeOverBudgetBundle(store, bundle);
+
+    const refused = await store.load(bundle);
+    expect(refused.loaded).toBe(false);
+
+    const result = await store.load(bundle, { all: true });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.recordCount).toBe(OVER_BUDGET_RECORD_COUNT);
+    expect(result.records).toHaveLength(OVER_BUDGET_RECORD_COUNT);
+    expect(result.tokensLoaded).toBeGreaterThan(25_000);
+    expect(result.budgetTokens).toBeNull();
+  });
+
+  test("all leaves standing adjudication untouched", async ({
+    store,
+    bundle,
+  }) => {
+    await writeOverBudgetBundle(store, bundle);
+    await store.write(bundle, fact("auth-throws"));
+    await store.write(bundle, fact("auth-retries"));
+    await store.write(bundle, fact("shared-cache"));
+    await store.supersede(bundle, "fact.auth-throws", "fact.auth-retries");
+    await store.setStatus(bundle, "fact.shared-cache", "rejected");
+
+    const result = await store.load(bundle, { all: true });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.superseded.map((entry) => entry.conceptId)).toEqual([
+      "fact.auth-throws",
+    ]);
+    const rejected = result.records.find(
+      (hit) => hit.record.conceptId === "fact.shared-cache",
+    );
+    expect(rejected?.standing).toBe("rejected");
+    expect(rejected?.record.body).toContain("The evidence.");
+  });
 });
+
+const OVER_BUDGET_RECORD_COUNT = 40;
+
+/** Enough bulk facts to push `approxTokens` past `DEFAULT_LOAD_BUDGET`. */
+async function writeOverBudgetBundle(
+  store: KbStore,
+  bundle: string,
+): Promise<void> {
+  const paragraph = Array.from(
+    { length: 40 },
+    (_, i) => `Sentence ${i} explains one observed detail about the system.`,
+  ).join(" ");
+  for (let i = 0; i < OVER_BUDGET_RECORD_COUNT; i++) {
+    await store.write(
+      bundle,
+      fact(`bulk-${i}`, {
+        sections: { Claim: paragraph, Evidence: paragraph },
+      }),
+    );
+  }
+}

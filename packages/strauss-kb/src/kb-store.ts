@@ -77,8 +77,9 @@ export type KbLoadResult =
       /** Named only. Their bodies are reachable through `trace`. */
       superseded: KbSupersededStub[];
       recordCount: number;
-      approxTokens: number;
-      budgetTokens: number;
+      tokensLoaded: number;
+      /** `null` when loaded via `all`: no ceiling was applied. */
+      budgetTokens: number | null;
     }
   | {
       loaded: false;
@@ -405,10 +406,14 @@ export class KbStore {
    * Refuses rather than truncates when the base is too large. A truncated base
    * is indistinguishable from a complete one, so a caller would answer "that
    * was never decided" from a slice it did not know was a slice.
+   *
+   * That refusal is the default guardrail. `all` bypasses it outright and
+   * always hands back the whole bundle: an explicit, never-accidental escape
+   * hatch for an operator who has the budget to spend, not a wider default.
    */
   async load(
     bundlePath: string,
-    options: { budgetTokens?: number; type?: string } = {},
+    options: { budgetTokens?: number; type?: string; all?: boolean } = {},
   ): Promise<KbLoadResult> {
     const budgetTokens = options.budgetTokens ?? DEFAULT_LOAD_BUDGET;
     const bundle = await this.list(bundlePath);
@@ -430,7 +435,7 @@ export class KbStore {
       records.reduce((total, hit) => total + estimateTokens(hit.record), 0) +
       superseded.reduce((total, entry) => total + estimateStubTokens(entry), 0);
 
-    if (approxTokens > budgetTokens) {
+    if (!options.all && approxTokens > budgetTokens) {
       return {
         loaded: false,
         recordCount: wanted.length,
@@ -442,8 +447,8 @@ export class KbStore {
     return {
       loaded: true,
       recordCount: wanted.length,
-      approxTokens,
-      budgetTokens,
+      tokensLoaded: approxTokens,
+      budgetTokens: options.all ? null : budgetTokens,
       records,
       superseded,
     };

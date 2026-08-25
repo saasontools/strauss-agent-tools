@@ -196,7 +196,7 @@ strauss-kb [--bundle PATH] <command> [args]
   status <concept-id> <status>             Move a record's status, compare-and-swap.
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
-  load [type] [--budget N]                 Hand over the whole base, each record with its standing.
+  load [type] [--budget N | --all]         Hand over the whole base, each record with its standing.
   query <text...>                          Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
   list [type]                              Every record, optionally narrowed to one type.
@@ -322,6 +322,17 @@ was a slice. `context` refuses the same way at its own, tighter budget (4,000
 by default). Superseded records come back as name, replacement and date only —
 their bodies no longer hold, and a body read later in a long session outlives
 the qualifier that said so. `trace` still reaches them by id.
+
+`--all` (`all: true` over MCP) is the escape hatch: it bypasses the refusal
+outright and hands back the entire bundle whatever its size. A loaded result
+carries `tokensLoaded`, the same estimate the budget is held against, and
+`budgetTokens: null` marks that no ceiling was applied; `--all` is mutually
+exclusive with `--budget`. That refusal is the guardrail an agent needs so a
+wide base does not silently consume its whole context; `--all` is for a
+deliberate operator who has decided the size is worth the tokens, not a
+setting to reach for by default. A reader that does not actually need every
+record is better served by a narrower `type` filter or a `query` than by
+turning the guardrail off.
 
 **Flag, never filter.** `query` returns every hit with its standing, because a
 filtered result set is invisible — the caller cannot tell it missed anything.

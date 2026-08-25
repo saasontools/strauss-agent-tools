@@ -192,6 +192,26 @@ describe("runKbCli", () => {
     });
   });
 
+  test("--all loads regardless of budget, and is rejected alongside --budget", async () => {
+    expect(parsed(await at(["load", "--all"]))).toMatchObject({
+      loaded: true,
+      recordCount: 2,
+      budgetTokens: null,
+    });
+
+    const run = await at(["load", "--all", "--budget", "1"]);
+    expect(run.stderr).toContain(
+      "(root): all and budgetTokens are mutually exclusive",
+    );
+  });
+
+  test("--all still resolves a positional type", async () => {
+    expect(parsed(await at(["load", "fact", "--all"]))).toMatchObject({
+      loaded: true,
+      recordCount: 1,
+    });
+  });
+
   test("traces from a seed, narrowing to named edges", async () => {
     expect(
       parsed(await at(["trace", "fact.cache-key-includes-region", "anchor"])),
