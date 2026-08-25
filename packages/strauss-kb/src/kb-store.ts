@@ -96,6 +96,13 @@ export type KbWriteInput = {
   overwrite?: boolean;
 };
 
+export type KbWriteResult = KbRecord & {
+  /** Whether this write also marked prior records superseded. */
+  action: "created" | "superseded-prior";
+  /** `frontmatter.strauss_supersedes` ids that were actually marked. */
+  supersededIds: string[];
+};
+
 /**
  * Reads and writes a knowledge bundle.
  *
@@ -123,7 +130,7 @@ export class KbStore {
     bundlePath: string,
     input: KbWriteInput,
     actor = "unknown",
-  ): Promise<KbRecord> {
+  ): Promise<KbWriteResult> {
     if (!KB_SLUG_PATTERN.test(input.slug)) {
       throw new KbInvalidConceptIdError("slug must be kebab-case", {
         slug: input.slug,
@@ -157,6 +164,24 @@ export class KbStore {
       by: actor,
     });
 
+    // The new record is published and logged first, then each prior record it
+    // supersedes is marked in turn. A crash between the two leaves an old
+    // record with no backlink — exactly what kb_validate already reports as
+    // "<old> is not marked superseded", never a silent drift.
+    const supersededIds: string[] = [];
+    for (const old of frontmatter.strauss_supersedes ?? []) {
+      try {
+        await this.markSuperseded(bundlePath, old, conceptId, actor);
+        supersededIds.push(old);
+      } catch (error) {
+        // Broken links are legal (see compose.ts): a supersedes id may name a
+        // record not yet written. Only ids actually marked are reported here;
+        // kb_validate's "target is missing" check remains the one that flags
+        // an id that never resolves.
+        if (!(error instanceof KbRecordNotFoundError)) throw error;
+      }
+    }
+
     this.logger.info?.({
       operation: "kb.write",
       bundlePath: root,
@@ -164,7 +189,13 @@ export class KbStore {
       anchors: frontmatter.strauss_anchors?.length ?? 0,
     });
 
-    return { conceptId, frontmatter, body: input.body };
+    return {
+      conceptId,
+      frontmatter,
+      body: input.body,
+      action: supersededIds.length ? "superseded-prior" : "created",
+      supersededIds,
+    };
   }
 
   /** One record by concept id, or null when it does not exist. */
@@ -257,15 +288,11 @@ export class KbStore {
     const replacement = await this.read(bundlePath, replacementId);
     if (!replacement) throw new KbRecordNotFoundError(replacementId);
 
-    const superseded = await this.mutate(
+    const superseded = await this.markSuperseded(
       bundlePath,
       conceptId,
-      (frontmatter) => ({
-        ...frontmatter,
-        strauss_status: "superseded" as const,
-        strauss_superseded_by: replacementId,
-      }),
-      { operation: "supersede", by: actor, target: replacementId },
+      replacementId,
+      actor,
     );
 
     await this.mutate(
@@ -476,6 +503,25 @@ export class KbStore {
       });
     }
     return result;
+  }
+
+  /** The one-directional half of `supersede`: marks `conceptId` superseded. */
+  private async markSuperseded(
+    bundlePath: string,
+    conceptId: string,
+    replacementId: string,
+    actor: string,
+  ): Promise<KbRecord> {
+    return this.mutate(
+      bundlePath,
+      conceptId,
+      (frontmatter) => ({
+        ...frontmatter,
+        strauss_status: "superseded" as const,
+        strauss_superseded_by: replacementId,
+      }),
+      { operation: "supersede", by: actor, target: replacementId },
+    );
   }
 
   private async mutate(

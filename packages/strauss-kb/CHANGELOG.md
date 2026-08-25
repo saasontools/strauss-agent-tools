@@ -1,16 +1,8 @@
-## 0.1.3 (2026-08-25)
+## Unreleased
 
 ### 🩹 Fixes
 
-- Session-lifecycle support: pin manifest (pin/unpin/pins), the context command ([393723f](https://github.com/saasontools/strauss-agent-tools/commit/393723f))
-  with budget/full-under/json-envelope modes, sync-instructions for sentinel
-  blocks in instruction files, and tool descriptions carrying point-of-use
-  reload judgment.
-
-### ❤️ Thank You
-
-- assafk
-- Claude Fable 5
+- `write` (and `write-decision`) with `supersedes` now marks the prior record superseded, not only the new record's forward pointer; the write still succeeds when a `supersedes` id names a record that does not exist yet. `kb_write`/`kb_write_decision` return `{ conceptId, action, supersededIds }`, and a 409 concept-id collision carries `action: "refused"`.
 
 ## 0.1.2 (2026-08-17)
 

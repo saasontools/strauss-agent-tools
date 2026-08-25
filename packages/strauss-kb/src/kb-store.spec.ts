@@ -239,6 +239,96 @@ describe("KbStore", () => {
     expect(validateBundle(await store.list(bundle))).toEqual([]);
   });
 
+  test("marks the prior record superseded when written with supersedes", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("auth-throws"));
+
+    const written = await store.write(
+      bundle,
+      fact("auth-retries", { supersedes: ["fact.auth-throws"] }),
+    );
+
+    expect(written.action).toBe("superseded-prior");
+    expect(written.supersededIds).toEqual(["fact.auth-throws"]);
+
+    const old = await store.read(bundle, "fact.auth-throws");
+    const replacement = await store.read(bundle, "fact.auth-retries");
+
+    expect(old?.frontmatter.strauss_status).toBe("superseded");
+    expect(old?.frontmatter.strauss_superseded_by).toBe("fact.auth-retries");
+    expect(replacement?.frontmatter.strauss_supersedes).toEqual([
+      "fact.auth-throws",
+    ]);
+    expect(validateBundle(await store.list(bundle))).toEqual([]);
+
+    const { entries } = await store.readLog(bundle);
+    expect(entries.map((entry) => [entry.conceptId, entry.operation])).toEqual([
+      ["fact.auth-throws", "write"],
+      ["fact.auth-retries", "write"],
+      ["fact.auth-throws", "supersede"],
+    ]);
+  });
+
+  test("reports 'created' and an empty list when supersedes is absent", async ({
+    store,
+    bundle,
+  }) => {
+    const written = await store.write(bundle, fact("standalone"));
+
+    expect(written.action).toBe("created");
+    expect(written.supersededIds).toEqual([]);
+  });
+
+  test("marks the prior record superseded through write-decision's own path", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("region-only-key"));
+
+    const written = await store.write(
+      bundle,
+      decision({
+        slug: "region-and-account-key",
+        supersedes: ["fact.region-only-key"],
+      }),
+    );
+
+    expect(written.action).toBe("superseded-prior");
+    expect(written.supersededIds).toEqual(["fact.region-only-key"]);
+
+    const old = await store.read(bundle, "fact.region-only-key");
+    expect(old?.frontmatter.strauss_status).toBe("superseded");
+    expect(old?.frontmatter.strauss_superseded_by).toBe(
+      "decision.region-and-account-key",
+    );
+    expect(validateBundle(await store.list(bundle))).toEqual([]);
+  });
+
+  // Broken links are legal (compose.ts): a supersedes id may name a record not
+  // yet written. The write must still succeed, and validate — not write — is
+  // the one that reports the missing target.
+  test("does not fail the write when a supersedes target does not exist", async ({
+    store,
+    bundle,
+  }) => {
+    const written = await store.write(
+      bundle,
+      fact("auth-retries", { supersedes: ["fact.does-not-exist"] }),
+    );
+
+    expect(written.action).toBe("created");
+    expect(written.supersededIds).toEqual([]);
+
+    const problems = validateBundle(await store.list(bundle));
+    expect(problems).toContainEqual({
+      check: "supersedes",
+      conceptId: "fact.auth-retries",
+      note: "target fact.does-not-exist is missing",
+    });
+  });
+
   test("answers an open question, appending the answer to the body", async ({
     store,
     bundle,
