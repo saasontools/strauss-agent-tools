@@ -326,7 +326,7 @@ the qualifier that said so. `trace` still reaches them by id.
 `--all` (`all: true` over MCP) is the escape hatch: it bypasses the refusal
 outright and hands back the entire bundle whatever its size. A loaded result
 carries `tokensLoaded`, the same estimate the budget is held against, and
-`budgetTokens: null` marks that no ceiling was applied — `--all` is mutually
+`budgetTokens: null` marks that no ceiling was applied; `--all` is mutually
 exclusive with `--budget`. That refusal is the guardrail an agent needs so a
 wide base does not silently consume its whole context; `--all` is for a
 deliberate operator who has decided the size is worth the tokens, not a

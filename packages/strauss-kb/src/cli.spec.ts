@@ -205,7 +205,7 @@ describe("runKbCli", () => {
     );
   });
 
-  test("--all still resolves a positional type, past the old --budget-only check", async () => {
+  test("--all still resolves a positional type", async () => {
     expect(parsed(await at(["load", "fact", "--all"]))).toMatchObject({
       loaded: true,
       recordCount: 1,

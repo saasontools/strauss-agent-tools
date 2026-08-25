@@ -78,7 +78,7 @@ export type KbLoadResult =
       superseded: KbSupersededStub[];
       recordCount: number;
       tokensLoaded: number;
-      /** `null` when loaded via `all` — no ceiling was applied. */
+      /** `null` when loaded via `all`: no ceiling was applied. */
       budgetTokens: number | null;
     }
   | {
@@ -408,7 +408,7 @@ export class KbStore {
    * was never decided" from a slice it did not know was a slice.
    *
    * That refusal is the default guardrail. `all` bypasses it outright and
-   * always hands back the whole bundle — an explicit, never-accidental escape
+   * always hands back the whole bundle: an explicit, never-accidental escape
    * hatch for an operator who has the budget to spend, not a wider default.
    */
   async load(
