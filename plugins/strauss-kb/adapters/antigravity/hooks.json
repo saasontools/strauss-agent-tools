@@ -1,0 +1,15 @@
+{
+  "strauss-kb-context": {
+    "PreInvocation": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./scripts/context-inject.mjs",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

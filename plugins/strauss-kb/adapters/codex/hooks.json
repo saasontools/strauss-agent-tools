@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "strauss-kb context --profile session-start 2>/dev/null || true",
+            "statusMessage": "Loading pinned knowledge bases"
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "strauss-kb context --profile compact 2>/dev/null || true",
+            "statusMessage": "Refreshing pinned knowledge bases"
+          }
+        ]
+      }
+    ]
+  }
+}

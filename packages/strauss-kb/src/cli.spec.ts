@@ -292,7 +292,7 @@ describe("runKbCli", () => {
     });
     const read = () => Promise.resolve(stdin);
 
-    const { KB_COMMANDS_BY_NAME } = await import("./commands.js");
+    const { KB_COMMANDS_BY_NAME } = await import("./commands/index.js");
     const write = KB_COMMANDS_BY_NAME.get("write")!;
     const input = write.input.parse(
       await write.fromArgv(["write", "fact"], bundle, read),
@@ -319,7 +319,7 @@ describe("runKbCli", () => {
       impact: "A losing writer re-reads and retries.",
     });
 
-    const { KB_COMMANDS_BY_NAME } = await import("./commands.js");
+    const { KB_COMMANDS_BY_NAME } = await import("./commands/index.js");
     const command = KB_COMMANDS_BY_NAME.get("write-decision")!;
     const input = command.input.parse(
       await command.fromArgv(["write-decision"], bundle, () =>

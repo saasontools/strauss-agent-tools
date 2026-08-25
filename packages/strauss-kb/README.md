@@ -156,6 +156,11 @@ before publishing, which narrows the lost-update window rather than closing it.
 Records are never deleted. Superseding keeps the earlier reasoning inspectable,
 which is what a later `trace` reads.
 
+`no-decision` records the explicit claim that a piece of work had nothing to
+decide (an idempotent `decision.none` record). It exists for workflow gates:
+"did you write a decision?" rewards writing a junk one, "did you answer?"
+does not — so silence has to be expressible.
+
 ## CLI
 
 ```
@@ -176,6 +181,11 @@ strauss-kb [--bundle PATH] <command> [args]
   validate                                 Cross-record checks. Exits 1 when it reports a problem.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
+  pin [bundle-path] [flags]                Pin a base. --mode, --profiles, --frozen; --local/--user pick the layer.
+  unpin [bundle-path]                      Remove a base from every manifest layer that holds it.
+  pins                                     Every pinned base, with whether it resolves to records.
+  context [--profile NAME] [--budget N]    The pinned-base index block, for injection at context birth.
+  sync-instructions <file>                 Plant the context block between sentinels in an instruction file.
 
   --bundle PATH  defaults to ./.strauss/kb
   STRAUSS_KB_ACTOR names the writer in the log
@@ -206,9 +216,12 @@ strauss-kb validate || echo "problems above"
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_load`, `kb_query`, `kb_trace`,
-`kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`. Every
-tool but `kb_schema` and `kb_types` takes a `bundlePath`; those two describe the
-format rather than any one base.
+`kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
+`kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
+`kb_schema` and `kb_types` describe the format rather than any one base, and
+`kb_pins` and `kb_context` read the workspace pin manifests instead. The one
+CLI verb with no tool is `sync-instructions` — file plumbing for hooks, not an
+agent capability; the capability is `kb_context`.
 
 ```json
 {
@@ -269,7 +282,10 @@ base answered eight; embedding search over the same records answered four. Two
 of those differences are structural rather than matters of degree: a reader can
 say no record answers the question, where vector search returns its nearest
 neighbour whatever the distance; and a reader picks the record that answers the
-question rather than the one nearest the topic.
+question rather than the one nearest the topic. The mechanism is simple:
+retrieval makes similarity the gatekeeper, and a match the ranker misses never
+reaches the model. A full read lets the model do the matching itself —
+synonymy, implication across records, aggregation — which no ranker does.
 
 Read for a question, not for a session: a base loaded at the start of a long
 conversation is summarised away by the end of it, and reloading costs about
@@ -278,7 +294,8 @@ three thousand tokens. Read it again at the point of use.
 `load` refuses rather than truncating when a base exceeds its budget (25,000
 tokens by default). A truncated base is indistinguishable from a complete one,
 so a caller would answer "that was never decided" from a slice it did not know
-was a slice. Superseded records come back as name, replacement and date only —
+was a slice. `context` refuses the same way at its own, tighter budget (4,000
+by default). Superseded records come back as name, replacement and date only —
 their bodies no longer hold, and a body read later in a long session outlives
 the qualifier that said so. `trace` still reaches them by id.
 
@@ -301,6 +318,80 @@ return a record the base openly claims is replaced. A cycle terminates with
 fact; a missing replacement is `broken-chain` with no head — the case that needs
 the most care, because returning the stale record unmarked looks exactly like
 success.
+
+## Living in an agent session
+
+Long sessions lose a knowledge base twice over: attention decays, and
+compaction summarises away both the records loaded early and the instruction
+that said to consult them. The fix is two-tier: a small index is re-injected
+at every context birth, and record bodies are fetched by tool when a question
+actually needs them.
+
+```bash
+strauss-kb pin docs/kb                   # mark a base every session should see
+strauss-kb context                       # emit the pinned index block
+strauss-kb sync-instructions AGENTS.md   # or keep it in an instruction file
+```
+
+Pins live in `.strauss/kb-pins.json`, committed with the repo. Two more
+layers exist: `.strauss/kb-pins.local.json` (personal, gitignore it) and
+`~/.strauss/kb-pins.json` (every workspace). Nearest layer wins per base,
+`--local`/`--user` write the other layers, and `unpin` removes from all
+three. A malformed layer is skipped on read and refused on write.
+
+Per pin:
+
+- `--mode full` — inject the records themselves, not just the index. For
+  small or critical bases (ADRs). Falls back to a labelled index when it
+  cannot fit the block budget.
+- `--mode index` — never inject bodies.
+- `--profiles a,b` — only inject in the named profiles.
+- `--frozen` — the base is concluded; write commands refuse until `--unfreeze`.
+
+Budgets are named profiles — `session-start`, `compact`, `turn` — with
+per-repo overrides in the manifest, so hook commands never carry numbers:
+
+```json
+{
+  "pins": [{ "path": "docs/adr", "mode": "full" }],
+  "context": { "compact": { "budgetTokens": 1500 } }
+}
+```
+
+Flags beat the manifest, the manifest beats the built-ins, and invalid values
+fall back to defaults instead of silencing the index. Past its budget,
+`context` refuses like `load` does — never truncates — and its refusal says
+what to load directly and how to shrink the block.
+
+`sync-instructions <file>` keeps the same block between
+`<!-- strauss-kb:begin/end -->` sentinels in AGENTS.md or CLAUDE.md, touching
+nothing outside them. Re-run it when pins change; it is idempotent. This is
+the mechanism for runtimes without a reliable post-compaction hook, since
+instruction files are re-read where conversation history is not.
+
+What each runtime gets (configs in the
+[plugin's adapters](../../plugins/strauss-kb/adapters/)):
+
+| Layer                     | Claude Code        | Codex CLI                                   | Antigravity CLI            |
+| ------------------------- | ------------------ | ------------------------------------------- | -------------------------- |
+| MCP tool descriptions     | ✓                  | ✓                                           | ✓                          |
+| Session-start injection   | SessionStart hook  | SessionStart hook                           | PreInvocation, per turn    |
+| Post-compact re-injection | ✓ `compact` source | ✓ client-side; instruction-only when hosted | moot — injected every turn |
+| File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
+| Instruction file          | CLAUDE.md          | AGENTS.md                                   | AGENTS.md + rules/         |
+
+One more thing agents add: file tools. A raw read of a record file bypasses
+standing entirely — a superseded record reads exactly like a current one — so
+bases are read through the tools, and a workspace can enforce that with deny
+rules or the plugin's opt-in PreToolUse script:
+
+```json
+{
+  "permissions": {
+    "deny": ["Read(.strauss/kb/**)", "Read(**/.strauss/kb/**)"]
+  }
+}
+```
 
 ## Optional search tier
 

@@ -17,45 +17,113 @@ One directory, three plugin formats — nothing collides:
 npm install -g @saasontools/strauss-kb
 ```
 
-This is required, not optional. Both surfaces the plugin exposes come from that
-one package — the MCP server `strauss-kb-mcp` and the `strauss-kb` CLI that the
-skills shell out to — and they must be the same installed version. Launching the
-server through `npx` while the skills call a globally installed CLI would put two
-versions of the same store in one session.
-
-See the [package README](../../packages/strauss-kb/README.md) for why a global
-install is the supported path, and for the two alternatives that also work.
+Required: the plugin's MCP server (`strauss-kb-mcp`) and the CLI the skills
+and hooks shell out to (`strauss-kb`) come from this one package and must be
+the same version. See the [package README](../../packages/strauss-kb/README.md)
+for the alternatives to a global install.
 
 ## Install
 
-### Claude Code
+Claude Code:
 
 ```
 /plugin marketplace add https://github.com/saasontools/strauss-agent-tools
 /plugin install strauss-kb@saasontools
 ```
 
-### Codex
-
-Add the marketplace from this repository (`.agents/plugins/marketplace.json`),
-then install `strauss-kb`.
+Codex: add the marketplace from `.agents/plugins/marketplace.json`, then
+install `strauss-kb`.
 
 ## What it adds
 
-**MCP server** — `strauss-kb-mcp` over stdio, no API key and no required
-environment. Fifteen tools, one per command: `kb_load`, `kb_query`, `kb_trace`,
-`kb_write`, `kb_write_decision`, `kb_no_decision`, `kb_status`, `kb_supersede`,
-`kb_answer`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`,
-`kb_types`.
+**MCP server** — `strauss-kb-mcp` over stdio, no API key, one tool per
+command (`kb_load`, `kb_query`, `kb_write`, … see the package README).
 
-**Skills**
+**Skill** — `knowledge-base`: how to read standing, load before search, when
+to write. Skills are re-read where conversations are not, so this survives
+compaction.
 
-| Skill            | For                                                                                                             |
-| ---------------- | --------------------------------------------------------------------------------------------------------------- |
-| `knowledge-base` | Reading and writing records: what standing means, load before search, why a rejected record is never an answer. |
+**SessionStart hook** — runs `strauss-kb context` at every context birth.
+`startup|resume|clear` use the `session-start` profile (small bases arrive
+whole); `compact` uses the tighter `compact` profile (index only). Fails
+open: no pins or no CLI means no output, no noise. Budgets and per-pin
+behavior are configured in the repo's `.strauss/kb-pins.json`, not in the
+hook:
 
-`STRAUSS_KB_ACTOR` names the writer in each base's `log.jsonl`; it defaults to
-`mcp` for the server and `unknown` for the CLI.
+```json
+{
+  "pins": [
+    { "path": "docs/adr", "mode": "full" },
+    { "path": "docs/kb", "profiles": ["session-start"] }
+  ],
+  "context": {
+    "session-start": { "fullUnderTokens": 3000 },
+    "compact": { "budgetTokens": 1500 }
+  }
+}
+```
+
+Pin options (`mode`, `profiles`, `frozen`), the local/user manifest layers,
+and budget resolution are documented in the
+[package README](../../packages/strauss-kb/README.md#living-in-an-agent-session).
+
+## Blocking raw KB reads (opt-in)
+
+Record files must be read through the tools — a superseded record file reads
+exactly like a current one. The plugin does not enforce this by itself
+(blocking reads is workspace policy); pick one:
+
+1. **Deny rules** — no script, in `.claude/settings.json`. Preferred. Static:
+   add a line per pinned base.
+
+   ```json
+   {
+     "permissions": {
+       "deny": ["Read(.strauss/kb/**)", "Read(docs/kb/**)"]
+     }
+   }
+   ```
+
+2. **The shipped hook script** — follows the pin manifests automatically and
+   tells the model _why_ at the point of violation instead of a silent deny.
+   Copy [`hooks/scripts/block-kb-reads.mjs`](./hooks/scripts/block-kb-reads.mjs)
+   (self-contained, node builtins only) to `.claude/hooks/` and add:
+
+   ```json
+   {
+     "hooks": {
+       "PreToolUse": [
+         {
+           "matcher": "Read",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-kb-reads.mjs\""
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+   Widen the matcher to `"Read|Glob|Grep"` to also catch searches whose
+   explicit `path` points into a base. The script blocks `INDEX.md` too,
+   allows pathless searches rather than over-blocking, and fails open on
+   anything unexpected.
+
+Known side door: Bash (`cat .strauss/kb/x.md`). Neither option parses shell
+commands, deliberately — the skill and tool descriptions are the mitigation.
+
+## Other runtimes
+
+[adapters/](./adapters/) carries [Codex CLI](./adapters/codex/) (SessionStart
+hooks incl. `compact`, AGENTS.md sentinel block) and
+[Antigravity CLI](./adapters/antigravity/) (a full plugin: per-turn injection,
+opt-in read blocking, rules file). The cross-runtime constant is
+`strauss-kb sync-instructions AGENTS.md`.
+
+`STRAUSS_KB_ACTOR` names the writer in each base's `log.jsonl`.
 
 ## License
 
