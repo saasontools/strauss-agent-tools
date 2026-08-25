@@ -151,7 +151,31 @@ before publishing, which narrows the lost-update window rather than closing it.
 [ARCHITECTURE.md](./ARCHITECTURE.md) says why a lock was rejected.
 
 `supersede` writes both directions, so a backlink cannot drift in normal use and
-`validate` drops to catching hand-edits.
+`validate` drops to catching hand-edits. A `write` (or `write-decision`) that
+carries `supersedes` does the same: the new record publishes first, then each
+prior record it names is marked superseded in turn — a crash between the two
+leaves an old record with no backlink, which `validate` already reports as
+"is not marked superseded", never a silent drift. A `supersedes` id naming a
+record that does not exist yet is legal and does not fail the write; `validate`
+is what reports a target that never resolves. A `supersedes` id naming the
+record's own concept id is a no-op rather than an error, duplicate ids mark
+once, and the array is capped at 32 entries.
+
+A concurrent writer marking the same target races the compare-and-swap check;
+that's retried a few times before giving up, and giving up is reported the
+same way as a target that doesn't exist yet — left out of `supersededIds` for
+`validate` to catch, not thrown, since the calling record is already
+published by that point. If two different records both name the same target
+in `supersedes`, the target's backlink points at whichever wrote last;
+`validate` doesn't see this as a problem because the target genuinely is
+superseded, but `kb_query`/`kb_load`'s adjudication surfaces the resulting
+fork as a warning at read time.
+
+`kb_write` and `kb_write_decision` return
+`{ conceptId, action: "created" | "superseded-prior", supersededIds }` —
+`supersededIds` is only the ids actually marked, not every id the input named.
+A 409 from a concept-id collision carries `action: "refused"` in its `details`,
+alongside the `conceptId`.
 
 Records are never deleted. Superseding keeps the earlier reasoning inspectable,
 which is what a later `trace` reads.

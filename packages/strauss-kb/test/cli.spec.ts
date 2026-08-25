@@ -77,6 +77,8 @@ describe("built CLI round trip", () => {
     expect(status).toBe(0);
     expect(json(stdout)).toEqual({
       conceptId: "fact.cache-key-includes-region",
+      action: "created",
+      supersededIds: [],
     });
     expect(
       readFileSync(join(bundle, "fact.cache-key-includes-region.md"), "utf8"),

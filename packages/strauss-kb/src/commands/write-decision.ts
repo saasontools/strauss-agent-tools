@@ -30,6 +30,10 @@ export const writeDecisionCommand = define({
       composeDecisionRecord(input, actor, now()),
       actor,
     );
-    return { conceptId: record.conceptId };
+    return {
+      conceptId: record.conceptId,
+      action: record.action,
+      supersededIds: record.supersededIds,
+    };
   },
 });

@@ -34,6 +34,10 @@ export const writeCommand = define({
       composeRecord(type as KbRecordType, input, actor, now()),
       actor,
     );
-    return { conceptId: record.conceptId };
+    return {
+      conceptId: record.conceptId,
+      action: record.action,
+      supersededIds: record.supersededIds,
+    };
   },
 });

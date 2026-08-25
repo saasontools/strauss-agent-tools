@@ -42,7 +42,7 @@ export const composeInputSchema = z
     /** Concept ids this record relates to; rendered as body links. */
     relatedConceptIds: z.array(kbConceptIdSchema).optional(),
     /** Concept ids this record replaces. The store settles the backlinks. */
-    supersedes: z.array(kbConceptIdSchema).optional(),
+    supersedes: z.array(kbConceptIdSchema).max(32).optional(),
     materiality: z.enum(KB_MATERIALITIES).optional(),
     confidence: z.enum(KB_CONFIDENCES).optional(),
     owner: z.string().min(1).optional(),

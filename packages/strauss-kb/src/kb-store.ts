@@ -96,6 +96,13 @@ export type KbWriteInput = {
   overwrite?: boolean;
 };
 
+export type KbWriteResult = KbRecord & {
+  /** Whether this write also marked prior records superseded. */
+  action: "created" | "superseded-prior";
+  /** `frontmatter.strauss_supersedes` ids that were actually marked. */
+  supersededIds: string[];
+};
+
 /**
  * Reads and writes a knowledge bundle.
  *
@@ -123,7 +130,7 @@ export class KbStore {
     bundlePath: string,
     input: KbWriteInput,
     actor = "unknown",
-  ): Promise<KbRecord> {
+  ): Promise<KbWriteResult> {
     if (!KB_SLUG_PATTERN.test(input.slug)) {
       throw new KbInvalidConceptIdError("slug must be kebab-case", {
         slug: input.slug,
@@ -157,6 +164,25 @@ export class KbStore {
       by: actor,
     });
 
+    // The new record is published and logged first, then each prior record it
+    // supersedes is marked in turn. A crash between the two leaves an old
+    // record with no backlink — exactly what kb_validate already reports as
+    // "<old> is not marked superseded", never a silent drift.
+    //
+    // Naming itself is a no-op, not an error — the record is already itself.
+    // Duplicates collapse through the Set, so a repeated id marks once.
+    const targets = new Set(frontmatter.strauss_supersedes ?? []);
+    targets.delete(conceptId);
+
+    const supersededIds: string[] = [];
+    for (const old of targets) {
+      if (
+        await this.markSupersededRetrying(bundlePath, old, conceptId, actor)
+      ) {
+        supersededIds.push(old);
+      }
+    }
+
     this.logger.info?.({
       operation: "kb.write",
       bundlePath: root,
@@ -164,7 +190,13 @@ export class KbStore {
       anchors: frontmatter.strauss_anchors?.length ?? 0,
     });
 
-    return { conceptId, frontmatter, body: input.body };
+    return {
+      conceptId,
+      frontmatter,
+      body: input.body,
+      action: supersededIds.length ? "superseded-prior" : "created",
+      supersededIds,
+    };
   }
 
   /** One record by concept id, or null when it does not exist. */
@@ -257,15 +289,11 @@ export class KbStore {
     const replacement = await this.read(bundlePath, replacementId);
     if (!replacement) throw new KbRecordNotFoundError(replacementId);
 
-    const superseded = await this.mutate(
+    const superseded = await this.markSuperseded(
       bundlePath,
       conceptId,
-      (frontmatter) => ({
-        ...frontmatter,
-        strauss_status: "superseded" as const,
-        strauss_superseded_by: replacementId,
-      }),
-      { operation: "supersede", by: actor, target: replacementId },
+      replacementId,
+      actor,
     );
 
     await this.mutate(
@@ -476,6 +504,55 @@ export class KbStore {
       });
     }
     return result;
+  }
+
+  /**
+   * `markSuperseded`, tolerant of the two ways it legitimately doesn't land:
+   * a missing target (a broken link, legal per compose.ts) or a CAS conflict
+   * from a concurrent writer touching the same target. A conflict is retried
+   * a bounded number of times — each attempt re-reads the target fresh — and
+   * on the last, `false` reports "not marked" rather than throwing: the
+   * caller's own record is already published, so failing here would leave
+   * that publish unreported instead of undone. kb_validate's existing
+   * "not marked superseded" check is what surfaces the residue.
+   */
+  private async markSupersededRetrying(
+    bundlePath: string,
+    conceptId: string,
+    replacementId: string,
+    actor: string,
+    retries = 3,
+  ): Promise<boolean> {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        await this.markSuperseded(bundlePath, conceptId, replacementId, actor);
+        return true;
+      } catch (error) {
+        if (error instanceof KbRecordNotFoundError) return false;
+        if (!(error instanceof KbWriteConflictError)) throw error;
+        if (attempt === retries) return false;
+      }
+    }
+    return false;
+  }
+
+  /** The one-directional half of `supersede`: marks `conceptId` superseded. */
+  private async markSuperseded(
+    bundlePath: string,
+    conceptId: string,
+    replacementId: string,
+    actor: string,
+  ): Promise<KbRecord> {
+    return this.mutate(
+      bundlePath,
+      conceptId,
+      (frontmatter) => ({
+        ...frontmatter,
+        strauss_status: "superseded" as const,
+        strauss_superseded_by: replacementId,
+      }),
+      { operation: "supersede", by: actor, target: replacementId },
+    );
   }
 
   private async mutate(

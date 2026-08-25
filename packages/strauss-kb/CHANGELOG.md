@@ -1,17 +1,3 @@
-## 0.1.3 (2026-08-25)
-
-### 🩹 Fixes
-
-- Session-lifecycle support: pin manifest (pin/unpin/pins), the context command ([393723f](https://github.com/saasontools/strauss-agent-tools/commit/393723f))
-  with budget/full-under/json-envelope modes, sync-instructions for sentinel
-  blocks in instruction files, and tool descriptions carrying point-of-use
-  reload judgment.
-
-### ❤️ Thank You
-
-- assafk
-- Claude Fable 5
-
 ## 0.1.2 (2026-08-17)
 
 ### 🩹 Fixes

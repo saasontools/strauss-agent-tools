@@ -15,7 +15,7 @@ export class KbRecordAlreadyExistsError extends BaseError {
       fault: Fault.User,
       retriable: false,
       reportToUser: true,
-      details: { conceptId },
+      details: { conceptId, action: "refused" },
     });
   }
 }

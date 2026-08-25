@@ -306,7 +306,11 @@ describe("runKbCli", () => {
       input,
     );
 
-    expect(result).toEqual({ conceptId: "fact.log-is-primary" });
+    expect(result).toEqual({
+      conceptId: "fact.log-is-primary",
+      action: "created",
+      supersededIds: [],
+    });
   });
 
   test("writes a decision from stdin, keeping the rejected alternative", async () => {

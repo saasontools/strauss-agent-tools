@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test as baseTest } from "vitest";
+import { describe, expect, vi, test as baseTest } from "vitest";
 import { composeRecord, type ComposeInput } from "./compose.js";
 import {
   composeDecisionRecord,
@@ -23,10 +23,25 @@ import {
   KbInvalidConceptIdError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
+  KbWriteConflictError,
 } from "./kb-errors.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
+import type { KbRecord } from "./kb-record.schema.js";
 import { validateBundle } from "./validate.js";
+
+/**
+ * Isolates the store's private `markSuperseded` for conflict-injection tests
+ * — its signature, not `any`, is what's asserted through the `unknown` cast.
+ */
+type WithMarkSuperseded = {
+  markSuperseded(
+    bundlePath: string,
+    conceptId: string,
+    replacementId: string,
+    actor: string,
+  ): Promise<KbRecord>;
+};
 
 interface Ctx {
   bundle: string;
@@ -237,6 +252,190 @@ describe("KbStore", () => {
       "fact.auth-throws",
     ]);
     expect(validateBundle(await store.list(bundle))).toEqual([]);
+  });
+
+  test("marks the prior record superseded when written with supersedes", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("auth-throws"));
+
+    const written = await store.write(
+      bundle,
+      fact("auth-retries", { supersedes: ["fact.auth-throws"] }),
+    );
+
+    expect(written.action).toBe("superseded-prior");
+    expect(written.supersededIds).toEqual(["fact.auth-throws"]);
+
+    const old = await store.read(bundle, "fact.auth-throws");
+    const replacement = await store.read(bundle, "fact.auth-retries");
+
+    expect(old?.frontmatter.strauss_status).toBe("superseded");
+    expect(old?.frontmatter.strauss_superseded_by).toBe("fact.auth-retries");
+    expect(replacement?.frontmatter.strauss_supersedes).toEqual([
+      "fact.auth-throws",
+    ]);
+    expect(validateBundle(await store.list(bundle))).toEqual([]);
+
+    const { entries } = await store.readLog(bundle);
+    expect(entries.map((entry) => [entry.conceptId, entry.operation])).toEqual([
+      ["fact.auth-throws", "write"],
+      ["fact.auth-retries", "write"],
+      ["fact.auth-throws", "supersede"],
+    ]);
+  });
+
+  test("reports 'created' and an empty list when supersedes is absent", async ({
+    store,
+    bundle,
+  }) => {
+    const written = await store.write(bundle, fact("standalone"));
+
+    expect(written.action).toBe("created");
+    expect(written.supersededIds).toEqual([]);
+  });
+
+  test("marks the prior record superseded through write-decision's own path", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("region-only-key"));
+
+    const written = await store.write(
+      bundle,
+      decision({
+        slug: "region-and-account-key",
+        supersedes: ["fact.region-only-key"],
+      }),
+    );
+
+    expect(written.action).toBe("superseded-prior");
+    expect(written.supersededIds).toEqual(["fact.region-only-key"]);
+
+    const old = await store.read(bundle, "fact.region-only-key");
+    expect(old?.frontmatter.strauss_status).toBe("superseded");
+    expect(old?.frontmatter.strauss_superseded_by).toBe(
+      "decision.region-and-account-key",
+    );
+    expect(validateBundle(await store.list(bundle))).toEqual([]);
+  });
+
+  // Broken links are legal (compose.ts): a supersedes id may name a record not
+  // yet written. The write must still succeed, and validate — not write — is
+  // the one that reports the missing target.
+  test("does not fail the write when a supersedes target does not exist", async ({
+    store,
+    bundle,
+  }) => {
+    const written = await store.write(
+      bundle,
+      fact("auth-retries", { supersedes: ["fact.does-not-exist"] }),
+    );
+
+    expect(written.action).toBe("created");
+    expect(written.supersededIds).toEqual([]);
+
+    const problems = validateBundle(await store.list(bundle));
+    expect(problems).toContainEqual({
+      check: "supersedes",
+      conceptId: "fact.auth-retries",
+      note: "target fact.does-not-exist is missing",
+    });
+  });
+
+  // Reachable through kb_write: a record naming its own concept id would
+  // otherwise mark itself superseded-by-itself the instant it's published.
+  test("ignores a record naming its own concept id in supersedes", async ({
+    store,
+    bundle,
+  }) => {
+    const written = await store.write(
+      bundle,
+      fact("self-referential", { supersedes: ["fact.self-referential"] }),
+    );
+
+    expect(written.action).toBe("created");
+    expect(written.supersededIds).toEqual([]);
+
+    const read = await store.read(bundle, "fact.self-referential");
+    expect(read?.frontmatter.strauss_status).not.toBe("superseded");
+  });
+
+  test("marks a duplicated id in supersedes once, not once per occurrence", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("auth-throws"));
+
+    const written = await store.write(
+      bundle,
+      fact("auth-retries", {
+        supersedes: ["fact.auth-throws", "fact.auth-throws"],
+      }),
+    );
+
+    expect(written.supersededIds).toEqual(["fact.auth-throws"]);
+
+    const { entries } = await store.readLog(bundle);
+    expect(
+      entries.filter(
+        (entry) =>
+          entry.conceptId === "fact.auth-throws" &&
+          entry.operation === "supersede",
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("retries a CAS conflict marking a superseded target, then succeeds", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("auth-throws"));
+
+    const internal = store as unknown as WithMarkSuperseded;
+    const original = internal.markSuperseded.bind(internal);
+    let calls = 0;
+    vi.spyOn(internal, "markSuperseded").mockImplementation(async (...args) => {
+      calls += 1;
+      if (calls < 3) throw new KbWriteConflictError(args[1]);
+      return original(...args);
+    });
+
+    const written = await store.write(
+      bundle,
+      fact("auth-retries", { supersedes: ["fact.auth-throws"] }),
+    );
+
+    expect(calls).toBe(3);
+    expect(written.action).toBe("superseded-prior");
+    expect(written.supersededIds).toEqual(["fact.auth-throws"]);
+  });
+
+  // The new record is already published by the time the loop hits a
+  // permanent conflict, so the write must still succeed — only the residue
+  // is reported, via `supersededIds` and, downstream, `kb_validate`.
+  test("gives up marking superseded after repeated CAS conflicts, without failing the write", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("auth-throws"));
+
+    const internal = store as unknown as WithMarkSuperseded;
+    vi.spyOn(internal, "markSuperseded").mockRejectedValue(
+      new KbWriteConflictError("fact.auth-throws"),
+    );
+
+    const written = await store.write(
+      bundle,
+      fact("auth-retries", { supersedes: ["fact.auth-throws"] }),
+    );
+
+    expect(written.action).toBe("created");
+    expect(written.supersededIds).toEqual([]);
+
+    const persisted = await store.read(bundle, "fact.auth-retries");
+    expect(persisted).not.toBeNull();
   });
 
   test("answers an open question, appending the answer to the body", async ({
@@ -473,6 +672,22 @@ describe("composeRecord", () => {
         WRITTEN_AT,
       ).frontmatter.strauss_status,
     ).toBe("open");
+  });
+
+  test("rejects a supersedes array beyond the cap", () => {
+    expect(() =>
+      composeRecord(
+        "fact",
+        {
+          slug: "x",
+          title: "X",
+          why: "Y",
+          supersedes: Array.from({ length: 33 }, (_, i) => `fact.s-${i}`),
+        },
+        WRITTEN_BY,
+        WRITTEN_AT,
+      ),
+    ).toThrow();
   });
 
   test("rejects a related concept id that would emit a broken link", () => {
