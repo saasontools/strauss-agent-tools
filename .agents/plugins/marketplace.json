@@ -14,6 +14,16 @@
       "description": "Run deep, citation-backed research with Google Gemini Deep Research."
     },
     {
+      "name": "strauss",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/saasontools/strauss.git",
+        "path": "plugins/strauss",
+        "ref": "main"
+      },
+      "description": "Orchestrate coding agents against your repository: plan from a tracker issue, launch sessions in isolated worktrees, review the diffs, and carry the result to a merged pull request."
+    },
+    {
       "name": "strauss-kb",
       "source": "./plugins/strauss-kb",
       "description": "Keep durable project knowledge as markdown records with standing, supersession, and trace."
