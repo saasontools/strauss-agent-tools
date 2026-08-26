@@ -275,6 +275,20 @@ describe("anchorResolveCommand", () => {
     });
   });
 
+  test("an anchor path escaping the repo root is unresolved and never read", async () => {
+    writeSource(SOURCE, "secret.ts");
+    await seed([{ file: "../secret.ts", symbol: "totals" }]);
+
+    const output = await run({ repoRoot: join(repo, "src") });
+
+    expect(output.results[0]).toMatchObject({
+      file: "../secret.ts",
+      state: "unresolved",
+      reason: "outside-repo",
+    });
+    expect(output.verified).toBe(false);
+  });
+
   test("an unknown record is a not-found error", async () => {
     await expect(run({})).rejects.toMatchObject({
       name: "KbRecordNotFoundError",

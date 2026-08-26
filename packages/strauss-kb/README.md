@@ -238,9 +238,12 @@ states per anchor:
   when the anchor recorded no `lines` — size unknown, not zero). The stored
   baseline is kept, unless `--rebaseline` accepts the current code as the new
   one.
-- **unresolved** — the file is missing or the symbol not found. A finding, not
+- **unresolved** — the file is missing, the symbol not found, or the anchor's
+  path points outside the repository root (`outside-repo`). A finding, not
   an error: drift detection runs over bases whose code has moved, and moved
-  code is exactly what it exists to report.
+  code is exactly what it exists to report. The outside-repo case is a
+  containment rule, not a convenience: bundles are data, and an anchor must
+  not be able to read files beyond the repo it describes.
 
 The CLI exits non-zero when any anchor drifted, so a CI gate can run it bare.
 On a `--frozen` base the report still runs — drift reporting is a read; only a

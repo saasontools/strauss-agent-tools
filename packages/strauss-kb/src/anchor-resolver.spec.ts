@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test as baseTest } from "vitest";
 import {
+  anchorFilePath,
   detectAnchorDrift,
   hashAnchorText,
   regexResolver,
@@ -192,6 +193,20 @@ describe("resolveAnchor", () => {
   });
 });
 
+describe("anchorFilePath", () => {
+  test("keeps repo-relative paths and strips a leading ./", () => {
+    expect(anchorFilePath("/repo", "./src/a.ts")).toBe("/repo/src/a.ts");
+    expect(anchorFilePath("/repo", "src/a.ts")).toBe("/repo/src/a.ts");
+  });
+
+  test("rejects traversal, absolute paths, and the root itself", () => {
+    expect(anchorFilePath("/repo", "../secret")).toBeNull();
+    expect(anchorFilePath("/repo", "src/../../secret")).toBeNull();
+    expect(anchorFilePath("/repo", "/etc/passwd")).toBeNull();
+    expect(anchorFilePath("/repo", ".")).toBeNull();
+  });
+});
+
 describe("detectAnchorDrift", () => {
   function stamp(file: string, symbol: string, source: string) {
     const resolved = resolveAnchor(source, { file, symbol });
@@ -250,6 +265,33 @@ describe("detectAnchorDrift", () => {
     expect(entry?.state).toBe("drifted");
     expect(entry?.currentHash).not.toBe(anchor.hash);
     expect(entry?.diffSize).toBe(1);
+  });
+
+  test("an anchor path escaping the repo root reports unresolved, unread", async ({
+    repo,
+  }) => {
+    const anchor = {
+      file: "../outside.ts",
+      hash: hashAnchorText(SOURCE),
+      resolved_at: "2026-08-26T10:00:00Z",
+      lines: 3,
+    };
+    write(repo, "escape/inside.ts", SOURCE);
+    write(repo, "outside.ts", SOURCE);
+
+    const drift = await detectAnchorDrift([record("fact.escape", [anchor])], {
+      repoRoot: join(repo, "escape"),
+    });
+
+    expect(drift.get("fact.escape")).toEqual([
+      {
+        file: "../outside.ts",
+        state: "unresolved",
+        storedHash: anchor.hash,
+        diffSize: null,
+        reason: "outside-repo",
+      },
+    ]);
   });
 
   test("a missing file reports unresolved, not a throw", async ({ repo }) => {

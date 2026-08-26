@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { z } from "zod";
-import { hashAnchorText, resolveAnchor } from "../anchor-resolver.js";
+import {
+  anchorFilePath,
+  hashAnchorText,
+  resolveAnchor,
+} from "../anchor-resolver.js";
 import {
   KbRecordNotFoundError,
   KbSelfVerificationError,
@@ -18,7 +21,7 @@ type AnchorResolveResult = {
   currentHash?: string;
   /** `null` when the anchor recorded no `lines` — size unknown, not zero. */
   diffSize?: number | null;
-  reason?: "file-missing" | "symbol-not-found";
+  reason?: "file-missing" | "symbol-not-found" | "outside-repo";
   rebaselined?: boolean;
 };
 
@@ -68,11 +71,13 @@ export const anchorResolveCommand = define({
         ...(anchor.symbol ? { symbol: anchor.symbol } : {}),
       };
 
-      // Anchors are repo-relative, hand-written often enough that `./` shows up.
-      const source = await readFile(
-        join(root, anchor.file.replace(/^\.\//, "")),
-        "utf8",
-      ).catch(() => null);
+      const filePath = anchorFilePath(root, anchor.file);
+      if (filePath === null) {
+        results.push({ ...base, state: "unresolved", reason: "outside-repo" });
+        updated.push(anchor);
+        continue;
+      }
+      const source = await readFile(filePath, "utf8").catch(() => null);
       if (source === null) {
         results.push({ ...base, state: "unresolved", reason: "file-missing" });
         updated.push(anchor);

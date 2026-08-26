@@ -38,6 +38,7 @@ export {
   type KbVerifiedEvent,
 } from "./kb-record.schema.js";
 export {
+  anchorFilePath,
   detectAnchorDrift,
   hashAnchorText,
   regexResolver,

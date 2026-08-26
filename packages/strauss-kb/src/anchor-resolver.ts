@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
 
 /**
@@ -138,8 +138,29 @@ export type KbAnchorDriftEntry = {
   currentHash?: string;
   /** `null` when the anchor recorded no `lines` — size unknown, not zero. */
   diffSize: number | null;
-  reason?: "file-missing" | "symbol-not-found";
+  reason?: "file-missing" | "symbol-not-found" | "outside-repo";
 };
+
+/**
+ * An anchor's `file` must stay inside the repository root — a record points
+ * at code, not at arbitrary files on the machine reading it. Bundles are
+ * data, so a traversal or absolute path here is untrusted input, not a bug
+ * in the caller. Returns the resolved path, or `null` when it escapes.
+ */
+export function anchorFilePath(repoRoot: string, file: string): string | null {
+  // Anchors are repo-relative, hand-written often enough that `./` shows up.
+  const path = resolve(repoRoot, file.replace(/^\.\//, ""));
+  const rel = relative(resolve(repoRoot), path);
+  if (
+    rel === "" ||
+    rel === ".." ||
+    rel.startsWith(`..${sep}`) ||
+    isAbsolute(rel)
+  ) {
+    return null;
+  }
+  return path;
+}
 
 /**
  * Re-resolves every hash-carrying anchor and compares against the stored hash.
@@ -172,8 +193,16 @@ export async function detectAnchorDrift(
         storedHash: anchor.hash,
       };
 
-      // Anchors are repo-relative, hand-written often enough that `./` shows up.
-      const path = join(repoRoot, anchor.file.replace(/^\.\//, ""));
+      const path = anchorFilePath(repoRoot, anchor.file);
+      if (path === null) {
+        entries.push({
+          ...base,
+          state: "unresolved",
+          diffSize: null,
+          reason: "outside-repo",
+        });
+        continue;
+      }
       if (!sources.has(path)) {
         sources.set(path, await readFile(path, "utf8").catch(() => null));
       }
