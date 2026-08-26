@@ -1,7 +1,7 @@
 /* eslint-disable no-empty-pattern -- vitest fixtures require object destructuring */
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { describe, expect, test as baseTest } from "vitest";
 import {
   anchorFilePath,
@@ -195,8 +195,9 @@ describe("resolveAnchor", () => {
 
 describe("anchorFilePath", () => {
   test("keeps repo-relative paths and strips a leading ./", () => {
-    expect(anchorFilePath("/repo", "./src/a.ts")).toBe("/repo/src/a.ts");
-    expect(anchorFilePath("/repo", "src/a.ts")).toBe("/repo/src/a.ts");
+    const expected = resolve("/repo", "src", "a.ts");
+    expect(anchorFilePath("/repo", "./src/a.ts")).toBe(expected);
+    expect(anchorFilePath("/repo", "src/a.ts")).toBe(expected);
   });
 
   test("rejects traversal, absolute paths, and the root itself", () => {
