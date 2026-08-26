@@ -1,3 +1,14 @@
+## 0.1.6 (2026-08-26)
+
+### 🩹 Fixes
+
+- strauss-kb gains kb_verify: append-only verified[] events with a required note, refused with a distinct log entry when a non-human actor verifies its own record ([cd96238](https://github.com/saasontools/strauss-agent-tools/commit/cd96238))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.5 (2026-08-25)
 
 ### 🚀 Features
