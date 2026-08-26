@@ -1,5 +1,6 @@
 /* eslint-disable no-empty-pattern -- vitest fixtures require object destructuring */
 import {
+  appendFileSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -10,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, vi, test as baseTest } from "vitest";
+import { hashAnchorText } from "./anchor-resolver.js";
 import { composeRecord, type ComposeInput } from "./compose.js";
 import {
   composeDecisionRecord,
@@ -232,6 +234,42 @@ describe("KbStore", () => {
     expect(moved.frontmatter.strauss_status).toBe("rejected");
     expect(moved.frontmatter.title).toBe("Region is part of the cache key");
     expect(moved.frontmatter.strauss_anchors).toHaveLength(1);
+  });
+
+  test("replaces anchors and logs the resolution", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+    const anchors = [
+      {
+        file: "src/cache/order-cache.ts",
+        symbol: "OrderCache.get",
+        hash: `sha256:${"cd".repeat(32)}`,
+        resolved_at: "2026-08-26T10:00:00Z",
+        lines: 14,
+      },
+    ];
+
+    const updated = await store.updateAnchors(
+      bundle,
+      "decision.region-in-cache-key",
+      anchors,
+      "agent:resolver",
+    );
+
+    expect(updated.frontmatter.strauss_anchors).toEqual(anchors);
+    expect(updated.frontmatter.title).toBe("Region is part of the cache key");
+
+    const read = await store.read(bundle, "decision.region-in-cache-key");
+    expect(read?.frontmatter.strauss_anchors).toEqual(anchors);
+
+    const { entries } = await store.readLog(bundle);
+    expect(entries.at(-1)).toMatchObject({
+      operation: "anchor-resolve",
+      conceptId: "decision.region-in-cache-key",
+      by: "agent:resolver",
+    });
   });
 
   test("reports a mutation against a record that does not exist", async ({
@@ -1203,6 +1241,87 @@ describe("load", () => {
     );
     expect(rejected?.standing).toBe("rejected");
     expect(rejected?.record.body).toContain("The evidence.");
+  });
+});
+
+describe("load anchor drift", () => {
+  const SOURCE = [
+    "export function total(items: number[]): number {",
+    "  return items.reduce((sum, n) => sum + n, 0);",
+    "}",
+    "",
+  ].join("\n");
+
+  async function seedAnchored(store: KbStore, bundle: string): Promise<void> {
+    mkdirSync(join(bundle, "src"), { recursive: true });
+    writeFileSync(join(bundle, "src", "order.ts"), SOURCE);
+    await store.write(
+      bundle,
+      fact("order-total", {
+        anchors: [
+          {
+            file: "src/order.ts",
+            hash: hashAnchorText(SOURCE),
+            resolved_at: "2026-08-26T10:00:00Z",
+            lines: SOURCE.split("\n").length,
+          },
+        ],
+      }),
+    );
+  }
+
+  test("stays quiet while the anchored code is unchanged", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+
+    const result = await store.load(bundle, { repoRoot: bundle });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records[0]?.warnings.some((w) => w.kind === "drifted")).toBe(
+      false,
+    );
+  });
+
+  test("flags an edited anchor with how far it moved", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+    appendFileSync(
+      join(bundle, "src", "order.ts"),
+      "\nexport const VERSION = 2;\n",
+    );
+
+    const result = await store.load(bundle, { repoRoot: bundle });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    const drifted = result.records[0]?.warnings.find(
+      (w) => w.kind === "drifted",
+    );
+    expect(drifted).toBeDefined();
+    if (drifted?.kind !== "drifted") return;
+    expect(drifted.anchors).toEqual([{ file: "src/order.ts", diffSize: 2 }]);
+  });
+
+  // The default fixture's anchor carries no hash and names a file that does
+  // not exist under the default repoRoot — neither may surface as drift.
+  test("says nothing about anchors nobody stamped", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+
+    const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records[0]?.warnings.some((w) => w.kind === "drifted")).toBe(
+      false,
+    );
   });
 });
 

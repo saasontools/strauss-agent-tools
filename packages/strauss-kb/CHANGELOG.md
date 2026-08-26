@@ -1,3 +1,14 @@
+## Unreleased
+
+### 🚀 Features
+
+- strauss-kb anchors gain content hashes and drift detection: `strauss_anchors` entries may carry `hash` (`sha256:<hex>`), `lines`, and `resolved_at`, all optional so existing anchors stay valid; the new `kb_anchor_resolve` (CLI `anchor-resolve`) resolves a record's anchors against the working tree — stamping a hash onto anchors that lack one, refreshing matches, and reporting drift with a line-count diff size — exits non-zero on drift so a CI gate can run it, and takes `--rebaseline` to accept the current code as the new baseline; an all-match run appends a verified[] event under the same verifier-identity rule as kb_verify (a self-resolve reports `verifyRefused: "self-verification"` instead of verifying); kb_load and kb_query attach a `{ kind: "drifted" }` warning to records whose anchored code moved; resolution is a pluggable `AnchorResolver` interface with a regex-on-symbol-name v1 resolver
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.7 (2026-08-26)
 
 ### 🚀 Features

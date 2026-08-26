@@ -18,6 +18,7 @@ import {
   kbRecordFrontmatterSchema,
   kbVerifiedEventSchema,
   KB_SLUG_PATTERN,
+  type KbAnchor,
   type KbRecord,
   type KbRecordFrontmatter,
   type KbRecordStatus,
@@ -31,6 +32,10 @@ import {
 } from "./kb-errors.js";
 import { INDEX_FILE, indexIsStale, renderIndex } from "./kb-index.js";
 import { adjudicate, type KbAdjudicated } from "./adjudicate.js";
+import {
+  detectAnchorDrift,
+  type KbAnchorDriftEntry,
+} from "./anchor-resolver.js";
 import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
 import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
@@ -278,6 +283,27 @@ export class KbStore {
   }
 
   /**
+   * Replaces a record's anchors wholesale, preserving everything else.
+   *
+   * Wholesale rather than merged: the caller just resolved the anchors it is
+   * writing, so it holds the complete current set, and a merge would keep
+   * stale entries the resolution pass deliberately dropped.
+   */
+  async updateAnchors(
+    bundlePath: string,
+    conceptId: string,
+    anchors: KbAnchor[],
+    actor = "unknown",
+  ): Promise<KbRecord> {
+    return this.mutate(
+      bundlePath,
+      conceptId,
+      (frontmatter) => ({ ...frontmatter, strauss_anchors: anchors }),
+      { operation: "anchor-resolve", by: actor },
+    );
+  }
+
+  /**
    * Appends one `verified[]` event: who checked the record, when, and what the
    * check found. Append-only — prior events are history, and are spread into
    * the new array untouched rather than reshaped through the write schema.
@@ -403,16 +429,23 @@ export class KbStore {
   async query(
     bundlePath: string,
     text: string,
-    options: { type?: string; includeNonCurrent?: boolean } = {},
+    options: {
+      type?: string;
+      includeNonCurrent?: boolean;
+      repoRoot?: string;
+    } = {},
   ): Promise<KbAdjudicated[]> {
     const bundle = await this.list(bundlePath);
     const needle = text.trim();
     const hits = needle ? await this.rank(bundlePath, needle, bundle) : bundle;
+    const narrowed = options.type
+      ? hits.filter((r) => r.frontmatter.type === options.type)
+      : hits;
     const adjudicated = adjudicate(
-      options.type
-        ? hits.filter((r) => r.frontmatter.type === options.type)
-        : hits,
+      narrowed,
       bundle,
+      new Date(),
+      await this.detectDrift(narrowed, options.repoRoot),
     );
 
     if (options.includeNonCurrent) return adjudicated;
@@ -444,6 +477,32 @@ export class KbStore {
   }
 
   /**
+   * Anchor drift over the records about to be handed back. Like the search
+   * index, this is an enrichment: a filesystem failure degrades to "no drift
+   * reported" rather than failing the read. Anchors without a stored hash are
+   * skipped inside `detectAnchorDrift`, so a base nobody has stamped pays no
+   * fs cost here. `repoRoot` defaults to the working directory — the CLI runs
+   * at the repo root, and the MCP server's cwd is the workspace.
+   */
+  private async detectDrift(
+    records: KbRecord[],
+    repoRoot?: string,
+  ): Promise<Map<string, KbAnchorDriftEntry[]> | undefined> {
+    try {
+      return await detectAnchorDrift(records, {
+        repoRoot: repoRoot ?? process.cwd(),
+      });
+    } catch (error) {
+      this.logger.warn?.({
+        operation: "kb.anchor-drift",
+        outcome: "skipped",
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      return undefined;
+    }
+  }
+
+  /**
    * The whole base, adjudicated, when it is small enough to hand over.
    *
    * At the sizes these reach — twenty records is about three thousand tokens —
@@ -468,7 +527,12 @@ export class KbStore {
    */
   async load(
     bundlePath: string,
-    options: { budgetTokens?: number; type?: string; all?: boolean } = {},
+    options: {
+      budgetTokens?: number;
+      type?: string;
+      all?: boolean;
+      repoRoot?: string;
+    } = {},
   ): Promise<KbLoadResult> {
     const budgetTokens = options.budgetTokens ?? DEFAULT_LOAD_BUDGET;
     const bundle = await this.list(bundlePath);
@@ -478,7 +542,12 @@ export class KbStore {
 
     // Adjudicated against the whole base, not the filtered slice: a record's
     // replacement may be of another type.
-    const adjudicated = adjudicate(wanted, bundle);
+    const adjudicated = adjudicate(
+      wanted,
+      bundle,
+      new Date(),
+      await this.detectDrift(wanted, options.repoRoot),
+    );
     const records = adjudicated.filter((hit) => hit.standing !== "superseded");
     const superseded = adjudicated
       .filter((hit) => hit.standing === "superseded")

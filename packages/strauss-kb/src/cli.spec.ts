@@ -1,7 +1,8 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
 import { runKbCli } from "./cli.js";
 import { composeRecord } from "./compose.js";
 import { KbStore } from "./kb-store.js";
@@ -452,6 +453,75 @@ describe("runKbCli", () => {
 
     expect(run.exitCode).toBe(1);
     expect(parsed(run)).toMatchObject([{ check: "superseded_by" }]);
+  });
+
+  test("anchor-resolve matches against --repo-root, then gates on drift", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "strauss-kb-cli-repo-"));
+    try {
+      const file = "src/cache/order-cache.ts";
+      const source = [
+        "export function orderKey(region: string): string {",
+        "  return `${region}:orders`;",
+        "}",
+        "",
+      ].join("\n");
+      mkdirSync(dirname(join(repo, file)), { recursive: true });
+      writeFileSync(join(repo, file), source);
+
+      const resolved = resolveAnchor(source, { file, symbol: "orderKey" })!;
+      await new KbStore().write(
+        bundle,
+        composeRecord(
+          "decision",
+          {
+            slug: "region-in-key",
+            title: "The region prefixes the key",
+            why: "A region-less key serves the wrong region's data.",
+            anchors: [
+              {
+                file,
+                symbol: "orderKey",
+                hash: hashAnchorText(resolved.text),
+                resolved_at: "2026-08-01T02:00:00Z",
+                lines: resolved.endLine - resolved.startLine + 1,
+              },
+            ],
+          },
+          "seed",
+          "2026-08-01T02:00:00Z",
+        ),
+      );
+
+      const clean = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+      ]);
+      expect(clean.exitCode).toBeUndefined();
+      expect(parsed(clean)).toMatchObject({
+        verified: true,
+        results: [{ state: "match" }],
+      });
+
+      writeFileSync(
+        join(repo, file),
+        source.replace("`${region}:orders`", "`orders`"),
+      );
+      const drifted = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+      ]);
+      expect(drifted.exitCode).toBe(1);
+      expect(parsed(drifted)).toMatchObject({
+        verified: false,
+        results: [{ state: "drifted", diffSize: 0 }],
+      });
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   test("answers schema and types without touching a base", async () => {

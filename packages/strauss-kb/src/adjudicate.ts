@@ -1,3 +1,4 @@
+import type { KbAnchorDriftEntry } from "./anchor-resolver.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 
 /**
@@ -24,7 +25,19 @@ export type KbWarning =
   /** Two records claim to replace this one; picking either would be a guess. */
   | { kind: "forked-chain"; heads: string[] }
   | { kind: "stale"; staleAfter: string }
-  | { kind: "unverified" };
+  | { kind: "unverified" }
+  /** The code this record anchors to has changed since its hash was recorded —
+   *  the record may describe code that no longer exists in that form. */
+  | {
+      kind: "drifted";
+      anchors: {
+        file: string;
+        symbol?: string;
+        /** `null` when the anchor recorded no line count — size unknown. */
+        diffSize: number | null;
+        reason?: string;
+      }[];
+    };
 
 export type KbStanding =
   "current" | "superseded" | "rejected" | "unsettled" | "open";
@@ -58,6 +71,9 @@ export function adjudicate(
   hits: KbRecord[],
   bundle: KbRecord[],
   now = new Date(),
+  // Precomputed by the caller: this function stays pure and sync, and the fs
+  // work of re-resolving anchors lives in detectAnchorDrift.
+  anchorDrift?: Map<string, KbAnchorDriftEntry[]>,
 ): KbAdjudicated[] {
   const byId = new Map(bundle.map((record) => [record.conceptId, record]));
   return hits.map((record) => {
@@ -89,6 +105,21 @@ export function adjudicate(
     }
     if (!record.frontmatter.verified?.length) {
       warnings.push({ kind: "unverified" });
+    }
+
+    const moved = (anchorDrift?.get(record.conceptId) ?? []).filter(
+      (entry) => entry.state !== "match",
+    );
+    if (moved.length) {
+      warnings.push({
+        kind: "drifted",
+        anchors: moved.map(({ file, symbol, diffSize, reason }) => ({
+          file,
+          ...(symbol !== undefined ? { symbol } : {}),
+          diffSize,
+          ...(reason !== undefined ? { reason } : {}),
+        })),
+      });
     }
 
     return { record, standing: STANDING[status], heads, warnings };

@@ -5,6 +5,7 @@
  * base housekeeping, the format, and the workspace pin verbs.
  */
 import { DECISION_TYPE } from "../decision-record.js";
+import { anchorResolveCommand } from "./anchor-resolve.js";
 import { answerCommand } from "./answer.js";
 import { contextCommand } from "./context.js";
 import { listCommand } from "./list.js";
@@ -37,6 +38,7 @@ export const KB_COMMANDS: KbCommand[] = [
   supersedeCommand,
   answerCommand,
   verifyCommand,
+  anchorResolveCommand,
   loadCommand,
   packCommand,
   queryCommand,
