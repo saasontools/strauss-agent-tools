@@ -10,6 +10,7 @@ export {
   KbInvalidConceptIdError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
+  KbSelfVerificationError,
   KbWriteConflictError,
 } from "./kb-errors.js";
 export {
@@ -18,6 +19,7 @@ export {
   kbConceptIdSchema,
   kbRecordFrontmatterSchema,
   kbSourceSchema,
+  kbVerifiedEventSchema,
   KB_CONCEPT_ID_PATTERN,
   KB_CONFIDENCES,
   KB_MATERIALITIES,
@@ -31,6 +33,7 @@ export {
   type KbRecordStatus,
   type KbRecordType,
   type KbSource,
+  type KbVerifiedEvent,
 } from "./kb-record.schema.js";
 export {
   RECORD_TYPES,

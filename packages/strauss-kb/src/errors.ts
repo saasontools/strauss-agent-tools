@@ -24,6 +24,7 @@ export enum ErrorTypes {
   KbRecordAlreadyExists = "KbRecordAlreadyExists",
   KbInvalidConceptId = "KbInvalidConceptId",
   KbRecordNotFound = "KbRecordNotFound",
+  KbSelfVerification = "KbSelfVerification",
   KbWriteConflict = "KbWriteConflict",
 }
 

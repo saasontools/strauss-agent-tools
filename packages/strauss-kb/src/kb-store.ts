@@ -16,6 +16,7 @@ import {
 } from "./markdown.js";
 import {
   kbRecordFrontmatterSchema,
+  kbVerifiedEventSchema,
   KB_SLUG_PATTERN,
   type KbRecord,
   type KbRecordFrontmatter,
@@ -25,6 +26,7 @@ import {
   KbInvalidConceptIdError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
+  KbSelfVerificationError,
   KbWriteConflictError,
 } from "./kb-errors.js";
 import { INDEX_FILE, indexIsStale, renderIndex } from "./kb-index.js";
@@ -271,6 +273,54 @@ export class KbStore {
       conceptId,
       (frontmatter) => ({ ...frontmatter, strauss_status: status }),
       { operation: `status:${status}`, by: actor },
+    );
+  }
+
+  /**
+   * Appends one `verified[]` event: who checked the record, when, and what the
+   * check found. Append-only — prior events are history, and are spread into
+   * the new array untouched rather than reshaped through the write schema.
+   *
+   * A record's generator cannot verify its own record unless the actor is
+   * human: the generator re-reading its own output is not an independent
+   * check. The rule runs before the mutation so a refusal never publishes,
+   * and the refusal is logged under its own operation name — `mutate` only
+   * logs what it publishes.
+   */
+  async verify(
+    bundlePath: string,
+    conceptId: string,
+    note: string,
+    actor = "unknown",
+    at = new Date().toISOString(),
+  ): Promise<KbRecord> {
+    const event = kbVerifiedEventSchema.parse({ by: actor, at, note });
+
+    const existing = await this.read(bundlePath, conceptId);
+    if (!existing) throw new KbRecordNotFoundError(conceptId);
+
+    const generatedBy = existing.frontmatter.generated?.by;
+    if (
+      generatedBy !== undefined &&
+      normalizeActor(actor) === normalizeActor(generatedBy) &&
+      !normalizeActor(actor).startsWith("human:")
+    ) {
+      await this.record(this.root(bundlePath), {
+        operation: "verify:refused",
+        conceptId,
+        by: actor,
+      });
+      throw new KbSelfVerificationError(conceptId, actor);
+    }
+
+    return this.mutate(
+      bundlePath,
+      conceptId,
+      (frontmatter) => ({
+        ...frontmatter,
+        verified: [...(frontmatter.verified ?? []), event],
+      }),
+      { operation: "verify", by: actor },
     );
   }
 
@@ -725,6 +775,18 @@ function matches(record: KbRecord, needle: string): boolean {
   return [record.conceptId, title, description, record.body].some((field) =>
     field?.toLowerCase().includes(needle),
   );
+}
+
+/**
+ * Case-normalizes only the kind prefix — the segment up to and including the
+ * first `:` — so `Human:alice` and `human:alice` name the same kind of actor
+ * while the identity after the colon keeps its case. An id with no colon is
+ * all prefix, and is lowercased whole.
+ */
+function normalizeActor(id: string): string {
+  const colon = id.indexOf(":");
+  if (colon === -1) return id.toLowerCase();
+  return id.slice(0, colon + 1).toLowerCase() + id.slice(colon + 1);
 }
 
 function digest(contents: string): string {

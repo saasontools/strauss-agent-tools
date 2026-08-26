@@ -23,11 +23,13 @@ import {
   KbInvalidConceptIdError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
+  KbSelfVerificationError,
   KbWriteConflictError,
 } from "./kb-errors.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
 import type { KbRecord } from "./kb-record.schema.js";
+import { stringifyMarkdownWithFrontmatter } from "./markdown.js";
 import { validateBundle } from "./validate.js";
 
 /**
@@ -41,6 +43,14 @@ type WithMarkSuperseded = {
     replacementId: string,
     actor: string,
   ): Promise<KbRecord>;
+};
+
+/**
+ * `parse` runs between `mutate`'s first read and its witness read, so a spy
+ * that rewrites the file on disk inside it stages a genuine concurrent write.
+ */
+type WithParse = {
+  parse(conceptId: string, raw: string): KbRecord | null;
 };
 
 interface Ctx {
@@ -470,6 +480,159 @@ describe("KbStore", () => {
     expect(answered.frontmatter.strauss_answered?.by).toBe("assaf");
     expect(answered.body).toContain("## Answer");
     expect(answered.body).toContain("Timeouts and 5xx only.");
+  });
+});
+
+describe("verify", () => {
+  // The noteless first event and the passthrough key on the second stand in
+  // for OKF-native entries a foreign producer may have written.
+  const PRIOR_EVENTS = [
+    { by: "agent:researcher", at: "2026-08-01T00:00:00Z" },
+    {
+      by: "human:dana",
+      at: "2026-08-02T00:00:00Z",
+      note: "spot-checked the claim",
+      their_extension: "kept",
+    },
+  ];
+
+  function seed(
+    bundle: string,
+    generatedBy: string,
+    verified: Record<string, unknown>[] = [],
+  ): string {
+    writeFileSync(
+      join(bundle, "fact.two-checks.md"),
+      stringifyMarkdownWithFrontmatter("The claim.\n", {
+        type: "fact",
+        title: "A fact with a history",
+        generated: { by: generatedBy, at: WRITTEN_AT },
+        verified,
+        strauss_status: "accepted",
+      }),
+    );
+    return "fact.two-checks";
+  }
+
+  test("appends one event and leaves the prior ones untouched", async ({
+    store,
+    bundle,
+  }) => {
+    const id = seed(bundle, "agent:writer", PRIOR_EVENTS);
+
+    const updated = await store.verify(
+      bundle,
+      id,
+      "Re-ran the check against main.",
+      "agent:checker",
+      "2026-08-03T00:00:00Z",
+    );
+
+    expect(updated.frontmatter.verified).toEqual([
+      ...PRIOR_EVENTS,
+      {
+        by: "agent:checker",
+        at: "2026-08-03T00:00:00Z",
+        note: "Re-ran the check against main.",
+      },
+    ]);
+
+    const persisted = await store.read(bundle, id);
+    expect(persisted?.frontmatter.verified).toEqual(
+      updated.frontmatter.verified,
+    );
+
+    const { entries } = await store.readLog(bundle);
+    expect(entries.at(-1)).toMatchObject({
+      operation: "verify",
+      conceptId: id,
+      by: "agent:checker",
+    });
+  });
+
+  test("refuses a non-human actor verifying its own record, and logs it", async ({
+    store,
+    bundle,
+  }) => {
+    const id = seed(bundle, "agent:claude");
+
+    const rejection = await store
+      .verify(bundle, id, "Looks right to me.", "Agent:claude")
+      .catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(KbSelfVerificationError);
+    expect((rejection as KbSelfVerificationError).code).toBe(400);
+
+    // The refusal never publishes, but it does leave its own log entry.
+    const persisted = await store.read(bundle, id);
+    expect(persisted?.frontmatter.verified).toEqual([]);
+
+    const { entries } = await store.readLog(bundle);
+    expect(entries.at(-1)).toMatchObject({
+      operation: "verify:refused",
+      conceptId: id,
+      by: "Agent:claude",
+    });
+  });
+
+  // Only the kind prefix is case-normalized: `Human:` is `human:`, and a
+  // person restating their own record is a legitimate check.
+  test("lets Human:alice verify what human:alice generated", async ({
+    store,
+    bundle,
+  }) => {
+    const id = seed(bundle, "human:alice");
+
+    const updated = await store.verify(
+      bundle,
+      id,
+      "Still holds after the rewrite.",
+      "Human:alice",
+      "2026-08-03T00:00:00Z",
+    );
+
+    expect(updated.frontmatter.verified).toEqual([
+      {
+        by: "Human:alice",
+        at: "2026-08-03T00:00:00Z",
+        note: "Still holds after the rewrite.",
+      },
+    ]);
+  });
+
+  test("rejects an empty note before touching the record", async ({
+    store,
+    bundle,
+  }) => {
+    const id = seed(bundle, "agent:writer");
+
+    await expect(
+      store.verify(bundle, id, "", "agent:checker"),
+    ).rejects.toThrow();
+
+    const persisted = await store.read(bundle, id);
+    expect(persisted?.frontmatter.verified).toEqual([]);
+  });
+
+  test("surfaces a concurrent write as the conflict error", async ({
+    store,
+    bundle,
+  }) => {
+    const id = seed(bundle, "agent:writer");
+
+    const internal = store as unknown as WithParse;
+    const original = internal.parse.bind(internal);
+    vi.spyOn(internal, "parse").mockImplementation((conceptId, raw) => {
+      writeFileSync(join(bundle, `${conceptId}.md`), `${raw}\n`);
+      return original(conceptId, raw);
+    });
+
+    const rejection = await store
+      .verify(bundle, id, "A check that loses the race.", "agent:checker")
+      .catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(KbWriteConflictError);
+    expect((rejection as KbWriteConflictError).code).toBe(409);
   });
 });
 
