@@ -159,10 +159,11 @@ describe("runKbCli", () => {
 
   // A verification without findings is a rubber stamp; the note is required
   // and required to say something.
-  test("rejects a verify with a missing or empty note", async () => {
+  test("rejects a verify with a missing, empty, or whitespace-only note", async () => {
     for (const args of [
       ["verify", "fact.cache-key-includes-region"],
       ["verify", "fact.cache-key-includes-region", "--note", ""],
+      ["verify", "fact.cache-key-includes-region", "--note", "   "],
     ]) {
       const run = await at(args);
       expect(run.stderr).toContain("verify: note:");

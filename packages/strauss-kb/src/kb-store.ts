@@ -299,10 +299,14 @@ export class KbStore {
     const existing = await this.read(bundlePath, conceptId);
     if (!existing) throw new KbRecordNotFoundError(conceptId);
 
+    // The equality test compares whole actors case-insensitively: case drift
+    // (`agent:Claude` vs `agent:claude`) must not mint a distinct verifier
+    // identity. Only the `human:` exemption keeps the prefix-only
+    // normalization.
     const generatedBy = existing.frontmatter.generated?.by;
     if (
       generatedBy !== undefined &&
-      normalizeActor(actor) === normalizeActor(generatedBy) &&
+      actor.toLowerCase() === generatedBy.toLowerCase() &&
       !normalizeActor(actor).startsWith("human:")
     ) {
       await this.record(this.root(bundlePath), {
@@ -310,7 +314,7 @@ export class KbStore {
         conceptId,
         by: actor,
       });
-      throw new KbSelfVerificationError(conceptId, actor);
+      throw new KbSelfVerificationError(conceptId, actor, generatedBy);
     }
 
     return this.mutate(

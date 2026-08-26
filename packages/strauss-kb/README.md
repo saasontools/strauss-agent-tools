@@ -96,12 +96,15 @@ requirement on the array, so noteless entries a foreign producer wrote remain
 readable, and prior entries are spread forward untouched rather than reshaped.
 
 Who may append is the point. A verifier whose actor equals the record's
-`generated.by` is refused unless the actor is `human:`-prefixed — trust that
-can be self-granted is not trust, and a generator re-reading its own output is
-not an independent check. The refusal is recorded in the log as
-`verify:refused`, so an audit sees the attempt as well as the rule. The
-comparison case-normalizes only the kind prefix — `Human:alice` reads as
-`human:alice` — which is worth knowing when configuring `STRAUSS_KB_ACTOR`.
+`generated.by` — compared case-insensitively over the whole actor, so case
+drift cannot mint a distinct verifier identity — is refused unless the actor
+is `human:`-prefixed: trust that can be self-granted is not trust, and a
+generator re-reading its own output is not an independent check. The refusal
+is recorded in the log as `verify:refused`, so an audit sees the attempt as
+well as the rule. The `human:` prefix itself is an honor-system label — actor
+identity is self-declared through `STRAUSS_KB_ACTOR`, not an authenticated
+identity claim — which is worth knowing when deciding how much weight a
+human-verified event carries.
 
 Anything prefixed `strauss_` is this package's extension, namespaced so a later
 OKF version defining the same name cannot collide:
@@ -315,12 +318,14 @@ problem:
 | Standing  | `strauss_status`, the supersession chain                | is this still what we hold?     |
 | Freshness | `stale_after`, `verified[]`                             | has anyone confirmed it lately? |
 
-Freshness is tiered by who did the confirming. OKF's spec (§5.3) keys the
-trust tiers on the verifying actor's prefix: an empty `verified[]` is
-unverified — the warning adjudication already attaches — an agent-prefixed
-verifier makes the record machine-confirmed, and a `human:`-prefixed verifier
-makes it human-reviewed. The tier is derived from the events at read time,
-never stored, so it cannot drift from the trail that justifies it.
+Freshness is tiered by who did the confirming. OKF's spec (§5.3) defines the
+trust tiers from the verifying actor's prefix: an empty `verified[]` is
+unverified, an agent-prefixed verifier makes the record machine-confirmed, and
+a `human:`-prefixed verifier makes it human-reviewed. Of that ladder, today's
+adjudication reports only the first rung — the warning it attaches when
+`verified[]` is empty; reporting the full tier is upcoming tooling. When it
+lands, the tier will be derived from the events at read time, never stored, so
+it cannot drift from the trail that justifies it.
 
 **Load before you search.** These bases run to a few thousand tokens — twenty
 records measured at about 3,000 — so the first thing to try is taking all of it.

@@ -8,7 +8,13 @@ export const verifyCommand = define({
   usage: "verify <concept-id> --note <text>",
   description:
     "Append one verified[] event — who checked the record, when, and what the check found. Appends only; prior events are never rewritten. A record's own generator is refused unless the actor is human: re-reading your own output is not an independent check.",
-  input: z.object({ bundlePath, conceptId, note: z.string().min(1) }),
+  input: z.object({
+    bundlePath,
+    conceptId,
+    note: z.string().refine((s) => s.trim().length > 0, {
+      message: "note must say what the check found",
+    }),
+  }),
   fromArgv: (argv, path) => ({
     bundlePath: path,
     conceptId: argv[1],

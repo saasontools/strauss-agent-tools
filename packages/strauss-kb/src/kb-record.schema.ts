@@ -44,7 +44,9 @@ export const kbActorStampSchema = z
  * entries carry no note and a consumer must not reject conformant records.
  */
 export const kbVerifiedEventSchema = kbActorStampSchema.extend({
-  note: z.string().min(1),
+  note: z.string().refine((s) => s.trim().length > 0, {
+    message: "note must say what the check found",
+  }),
 });
 
 /**
