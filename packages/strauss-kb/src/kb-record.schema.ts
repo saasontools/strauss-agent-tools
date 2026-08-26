@@ -38,6 +38,18 @@ export const kbActorStampSchema = z
   .passthrough();
 
 /**
+ * A `verified[]` event as this package writes one: the actor stamp plus a
+ * required note saying what the check found. Write-side only — the frontmatter
+ * keeps reading `verified` with `kbActorStampSchema`, because OKF-native
+ * entries carry no note and a consumer must not reject conformant records.
+ */
+export const kbVerifiedEventSchema = kbActorStampSchema.extend({
+  note: z.string().refine((s) => s.trim().length > 0, {
+    message: "note must say what the check found",
+  }),
+});
+
+/**
  * Where a record attaches in the code.
  *
  * Symbolic on purpose. These are written while the code is still moving: a
@@ -158,6 +170,7 @@ export const kbRecordFrontmatterSchema = z
 
 export type KbSource = z.infer<typeof kbSourceSchema>;
 export type KbActorStamp = z.infer<typeof kbActorStampSchema>;
+export type KbVerifiedEvent = z.infer<typeof kbVerifiedEventSchema>;
 export type KbAnchor = z.infer<typeof kbAnchorSchema>;
 export type KbRecordFrontmatter = z.infer<typeof kbRecordFrontmatterSchema>;
 

@@ -23,6 +23,7 @@ import { traceCommand } from "./trace.js";
 import { typesCommand } from "./types.js";
 import { unpinCommand } from "./unpin.js";
 import { validateCommand } from "./validate.js";
+import { verifyCommand } from "./verify.js";
 import { writeCommand } from "./write.js";
 import { writeDecisionCommand } from "./write-decision.js";
 import type { KbCommand } from "./model.js";
@@ -34,6 +35,7 @@ export const KB_COMMANDS: KbCommand[] = [
   statusCommand,
   supersedeCommand,
   answerCommand,
+  verifyCommand,
   loadCommand,
   queryCommand,
   traceCommand,

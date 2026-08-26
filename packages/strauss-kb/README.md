@@ -88,6 +88,24 @@ concepts. `type` is the only key OKF requires; `title`, `description`,
 OKF's. Unknown keys are preserved rather than stripped, as OKF requires of
 consumers.
 
+`verified` is the record's append-only trail of checks. Each entry is OKF's
+actor stamp — `{ by, at }` — and the entries this package's `verify` writes add
+a `note`: what the check actually found, not just that one happened. The `note`
+is a strauss extension key on the entries this tool writes, not an OKF
+requirement on the array, so noteless entries a foreign producer wrote remain
+readable, and prior entries are spread forward untouched rather than reshaped.
+
+Who may append is the point. A verifier whose actor equals the record's
+`generated.by` — compared case-insensitively over the whole actor, so case
+drift cannot mint a distinct verifier identity — is refused unless the actor
+is `human:`-prefixed: trust that can be self-granted is not trust, and a
+generator re-reading its own output is not an independent check. The refusal
+is recorded in the log as `verify:refused`, so an audit sees the attempt as
+well as the rule. The `human:` prefix itself is an honor-system label — actor
+identity is self-declared through `STRAUSS_KB_ACTOR`, not an authenticated
+identity claim — which is worth knowing when deciding how much weight a
+human-verified event carries.
+
 Anything prefixed `strauss_` is this package's extension, namespaced so a later
 OKF version defining the same name cannot collide:
 
@@ -196,6 +214,7 @@ strauss-kb [--bundle PATH] <command> [args]
   status <concept-id> <status>             Move a record's status, compare-and-swap.
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
+  verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
   load [type] [--budget N | --all]         Hand over the whole base, each record with its standing.
   query <text...>                          Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
@@ -239,8 +258,8 @@ strauss-kb validate || echo "problems above"
 
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_load`, `kb_query`, `kb_trace`,
-`kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_query`,
+`kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
 `kb_pins` and `kb_context` read the workspace pin manifests instead. The one
@@ -298,6 +317,15 @@ problem:
 | Relevance | BM25 where an index exists, substring where it does not | does this match?                |
 | Standing  | `strauss_status`, the supersession chain                | is this still what we hold?     |
 | Freshness | `stale_after`, `verified[]`                             | has anyone confirmed it lately? |
+
+Freshness is tiered by who did the confirming. OKF's spec (§5.3) defines the
+trust tiers from the verifying actor's prefix: an empty `verified[]` is
+unverified, an agent-prefixed verifier makes the record machine-confirmed, and
+a `human:`-prefixed verifier makes it human-reviewed. Of that ladder, today's
+adjudication reports only the first rung — the warning it attaches when
+`verified[]` is empty; reporting the full tier is upcoming tooling. When it
+lands, the tier will be derived from the events at read time, never stored, so
+it cannot drift from the trail that justifies it.
 
 **Load before you search.** These bases run to a few thousand tokens — twenty
 records measured at about 3,000 — so the first thing to try is taking all of it.
