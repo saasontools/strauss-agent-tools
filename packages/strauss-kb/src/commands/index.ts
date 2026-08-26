@@ -11,6 +11,7 @@ import { listCommand } from "./list.js";
 import { loadCommand } from "./load.js";
 import { logCommand } from "./log.js";
 import { noDecisionCommand } from "./no-decision.js";
+import { packCommand } from "./pack.js";
 import { pinCommand } from "./pin.js";
 import { pinsCommand } from "./pins.js";
 import { queryCommand } from "./query.js";
@@ -37,6 +38,7 @@ export const KB_COMMANDS: KbCommand[] = [
   answerCommand,
   verifyCommand,
   loadCommand,
+  packCommand,
   queryCommand,
   traceCommand,
   listCommand,

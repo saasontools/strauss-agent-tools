@@ -1,12 +1,12 @@
+import { edgeNeighbours } from "./kb-edges.js";
 import type { KbRecord } from "./kb-record.schema.js";
 
 /**
- * Edges a trace may follow.
- *
- * Two more are conceivable and absent: `strauss_answered` carries no target id,
- * so a question's resolution lives in its own body rather than in another
- * record; and following OKF's body markdown links would need a markdown AST
- * pass this package does not yet do.
+ * Edges a trace may follow — the shared kb-edges.ts definitions, minus
+ * `body-link`: body links can reach most of a bundle from anywhere, which
+ * suits a bounded pack but floods a timeline. Also absent by design:
+ * `strauss_answered` carries no target id, so a question's resolution lives
+ * in its own body rather than in another record.
  */
 export const TRACE_EDGES = ["supersession", "anchor", "source"] as const;
 export type KbTraceEdge = (typeof TRACE_EDGES)[number];
@@ -57,7 +57,7 @@ export function trace(
     const next: KbRecord[] = [];
     for (const from of frontier) {
       for (const edge of edges) {
-        for (const record of neighbours(from, bundle, edge)) {
+        for (const record of edgeNeighbours(from, bundle, edge)) {
           const existing = reached.get(record.conceptId);
           if (existing) {
             // Reached twice by different edges: keep the shorter path, but
@@ -78,70 +78,6 @@ export function trace(
   }
 
   return [...reached.values()].sort(byGeneratedAt);
-}
-
-function neighbours(
-  from: KbRecord,
-  bundle: KbRecord[],
-  edge: KbTraceEdge,
-): KbRecord[] {
-  switch (edge) {
-    case "supersession":
-      return bundle.filter(
-        (candidate) =>
-          candidate.conceptId !== from.conceptId &&
-          (candidate.conceptId === from.frontmatter.strauss_superseded_by ||
-            from.frontmatter.strauss_supersedes?.includes(
-              candidate.conceptId,
-            ) ||
-            candidate.frontmatter.strauss_superseded_by === from.conceptId ||
-            candidate.frontmatter.strauss_supersedes?.includes(from.conceptId)),
-      );
-
-    // The edge that answers "why is this code shaped this way": every record
-    // attached to the same file or symbol, whatever its standing.
-    case "anchor": {
-      const mine = from.frontmatter.strauss_anchors ?? [];
-      if (!mine.length) return [];
-      return bundle.filter(
-        (candidate) =>
-          candidate.conceptId !== from.conceptId &&
-          (candidate.frontmatter.strauss_anchors ?? []).some((theirs) =>
-            mine.some((ours) => anchorsTouch(ours, theirs)),
-          ),
-      );
-    }
-
-    case "source": {
-      const mine = new Set((from.frontmatter.sources ?? []).map((s) => s.id));
-      if (!mine.size) return [];
-      return bundle.filter(
-        (candidate) =>
-          candidate.conceptId !== from.conceptId &&
-          (candidate.frontmatter.sources ?? []).some((source) =>
-            mine.has(source.id),
-          ),
-      );
-    }
-  }
-}
-
-/**
- * Two anchors touch when they name the same file and do not name different
- * symbols within it.
- *
- * An anchor without a symbol means "this record is about this file", so it
- * relates to everything anchored inside it. Requiring an exact match instead
- * would hide the file-level record from every symbol-level trace, which is the
- * direction a reviewer actually reads.
- */
-function anchorsTouch(
-  left: { file: string; symbol?: string },
-  right: { file: string; symbol?: string },
-): boolean {
-  if (left.file !== right.file) return false;
-  if (!left.symbol || !right.symbol) return true;
-  return left.symbol === right.symbol;
 }
 
 function byGeneratedAt(left: KbTraceStep, right: KbTraceStep): number {
