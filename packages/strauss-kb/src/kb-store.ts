@@ -33,6 +33,7 @@ import { INDEX_FILE, indexIsStale, renderIndex } from "./kb-index.js";
 import { adjudicate, type KbAdjudicated } from "./adjudicate.js";
 import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
+import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
 import {
   LOG_FILE,
   parseLog,
@@ -55,7 +56,7 @@ export type KbLogger = {
 };
 
 /** Roughly an eighth of a large context window — generous, and overridable. */
-const DEFAULT_LOAD_BUDGET = 25_000;
+export const DEFAULT_LOAD_BUDGET = 25_000;
 
 /**
  * A superseded record, named but not spelled out.
@@ -517,6 +518,15 @@ export class KbStore {
     return trace(seedId, await this.list(bundlePath), options);
   }
 
+  /** A bounded neighbourhood around one record. See `pack.ts`. */
+  async pack(
+    bundlePath: string,
+    rootId: string,
+    options: KbPackOptions = {},
+  ): Promise<KbPackResult> {
+    return pack(await this.list(bundlePath), rootId, options);
+  }
+
   /**
    * The stored index, rebuilt if it disagrees with the records.
    *
@@ -744,14 +754,17 @@ export class KbStore {
  * tokeniser would be a dependency carried to decide whether to avoid carrying
  * dependencies, and four characters per token is close enough to choose
  * between "hand it over" and "do not".
+ *
+ * Exported (with `estimateStubTokens` and `stub`) so `pack` costs and stubs
+ * records exactly as `load` does — two accountings would drift.
  */
-function estimateTokens(record: KbRecord): number {
+export function estimateTokens(record: KbRecord): number {
   return Math.ceil(
     (record.body.length + JSON.stringify(record.frontmatter).length) / 4,
   );
 }
 
-function estimateStubTokens(entry: KbSupersededStub): number {
+export function estimateStubTokens(entry: KbSupersededStub): number {
   return Math.ceil(JSON.stringify(entry).length / 4);
 }
 
@@ -762,7 +775,7 @@ function estimateStubTokens(entry: KbSupersededStub): number {
  * forked chain resolves to no head, and the warning that says so travels with
  * the head record rather than here.
  */
-function stub(hit: KbAdjudicated): KbSupersededStub {
+export function stub(hit: KbAdjudicated): KbSupersededStub {
   return {
     conceptId: hit.record.conceptId,
     title: hit.record.frontmatter.title ?? null,

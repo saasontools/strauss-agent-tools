@@ -58,6 +58,39 @@ describe("createKbMcpServer", () => {
     expect(result.content[0]!.text.startsWith("# KB Index")).toBe(true);
   });
 
+  // `kb_pack` renders text like `kb_index`, and its budget refusal reaches the
+  // client as the typed error — never as a partial pack in tool content.
+  test("kb_pack renders a pack and refuses past the budget with the typed error", async () => {
+    await tools().kb_write!.handler({
+      bundlePath: bundle,
+      type: "fact",
+      input: {
+        slug: "pack-root",
+        title: "The pack starts somewhere",
+        why: "A neighbourhood needs a centre.",
+      },
+    });
+
+    const result = await tools().kb_pack!.handler({
+      bundlePath: bundle,
+      conceptId: "fact.pack-root",
+    });
+    expect(result.content[0]!.text.startsWith("# KB Pack — fact.pack-root")).toBe(
+      true,
+    );
+
+    await expect(
+      tools().kb_pack!.handler({
+        bundlePath: bundle,
+        conceptId: "fact.pack-root",
+        budgetTokens: 1,
+      }),
+    ).rejects.toMatchObject({
+      name: "KbPackBudgetExceededError",
+      details: { budgetTokens: 1 },
+    });
+  });
+
   test("rejects arguments the command's schema does not accept", async () => {
     await expect(
       tools().kb_status!.handler({

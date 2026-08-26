@@ -1,3 +1,14 @@
+## 0.1.7 (2026-08-26)
+
+### 🚀 Features
+
+- strauss-kb gains kb_pack (CLI `pack`): the bounded, standing-aware neighbourhood around one record — a walk over body links, supersession in both directions, shared anchors, and shared sources, capped by `hops` and `maxNodes` with every cut record named under Excluded; superseded neighbours arrive as stubs, the pack refuses rather than truncates past its token budget, and everything below the header is byte-identical across runs over an unchanged base
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.6 (2026-08-26)
 
 ### 🩹 Fixes

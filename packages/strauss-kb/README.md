@@ -216,6 +216,8 @@ strauss-kb [--bundle PATH] <command> [args]
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
   load [type] [--budget N | --all]         Hand over the whole base, each record with its standing.
+  pack <conceptId> [--hops N] [--max-nodes N] [--budget N]
+                                           The bounded neighbourhood around one record, every cut named.
   query <text...>                          Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
   list [type]                              Every record, optionally narrowed to one type.
@@ -234,7 +236,8 @@ strauss-kb [--bundle PATH] <command> [args]
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
-Results go to stdout as JSON — `index` is markdown, which is what it is. Errors
+Results go to stdout as JSON — `index` and `pack` are markdown, which is what
+they are. Errors
 go to stderr and exit 1. `validate` is the one command whose exit code is not
 just "did it run": a check that reports a problem succeeded as a command and
 failed as a check, so it exits 1 with its findings on stdout.
@@ -258,7 +261,7 @@ strauss-kb validate || echo "problems above"
 
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_query`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_pack`, `kb_query`,
 `kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
@@ -361,6 +364,22 @@ deliberate operator who has decided the size is worth the tokens, not a
 setting to reach for by default. A reader that does not actually need every
 record is better served by a narrower `type` filter or a `query` than by
 turning the guardrail off.
+
+**Pack is the middle rung.** Under budget, load the base whole — perfect
+recall beats any ranking. Over budget, when the work centres on a record you
+can name, `pack` hands over that record's bounded neighbourhood instead:
+everything within `--hops` of the root, walked over the base's edges — body
+links (a `relatedConceptIds` entry is stored as one), supersession in both
+directions, shared code anchors, and shared sources — ranked and cut to
+`--max-nodes`. Standing travels with it: superseded neighbours arrive as the
+same name, replacement and date stubs `load` emits. Every record the cut
+dropped is named under Excluded, because a named gap is knowable and a silent
+one is not, and past its own token budget `pack` refuses exactly as `load`
+does — naming what was already cut, so the caller can narrow the walk or
+raise the ceiling. Below the header, the only place a timestamp appears, the
+output is byte-identical across runs over an unchanged base: two packs diff,
+and a changed byte means changed knowledge. With neither a budget problem nor
+a root record in hand, the question is a point lookup, and that is `query`.
 
 **Flag, never filter.** `query` returns every hit with its standing, because a
 filtered result set is invisible — the caller cannot tell it missed anything.

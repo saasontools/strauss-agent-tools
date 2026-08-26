@@ -239,6 +239,138 @@ describe("runKbCli", () => {
     });
   });
 
+  describe("pack", () => {
+    const root = "fact.cache-key-includes-region";
+
+    // Extends the seeded pair to three depths from the root: the question sits
+    // one anchor hop out, and the decision that supersedes it one supersession
+    // hop past that.
+    async function seedDecisionRing(): Promise<void> {
+      const store = new KbStore();
+      await store.write(
+        bundle,
+        composeRecord(
+          "decision",
+          {
+            slug: "retry-timeouts-only",
+            title: "Retry timeouts only",
+            why: "Retrying every failure repeats non-idempotent writes.",
+          },
+          "seed",
+          "2026-08-02T00:00:00Z",
+        ),
+      );
+      await store.supersede(
+        bundle,
+        "open-question.retry-scope",
+        "decision.retry-timeouts-only",
+        "seed",
+      );
+    }
+
+    test("packs the neighbourhood with a header, ranked records, and stubs", async () => {
+      await seedDecisionRing();
+
+      const run = await at(["pack", root]);
+
+      expect(run.exitCode).toBeUndefined();
+      expect(run.stdout).toContain(`# KB Pack — ${root}`);
+      expect(run.stdout).toContain(`bundle: ${bundle}`);
+      expect(run.stdout).toMatch(/^budget: ~\d+ of 25000 tokens, 3 records$/m);
+      expect(run.stdout).toMatch(
+        /^packed: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/m,
+      );
+      expect(run.stdout).toContain("## Records (2)");
+      expect(run.stdout).toContain("Every key is prefixed with the region.");
+      // The superseded question is a stub pointing at its head, not a body.
+      expect(run.stdout).toContain("## Superseded (1)");
+      expect(run.stdout).toContain(
+        "- open-question.retry-scope → decision.retry-timeouts-only",
+      );
+      expect(run.stdout).not.toContain(
+        "Scope decides how much of the client needs a backoff.",
+      );
+    });
+
+    test("keeps the timestamp in the header: the body is byte-identical across runs", async () => {
+      await seedDecisionRing();
+      const body = (stdout: string) =>
+        stdout.slice(stdout.indexOf("\n", stdout.indexOf("\npacked: ") + 1));
+
+      const first = await at(["pack", root]);
+      const second = await at(["pack", root]);
+
+      expect(body(first.stdout)).toContain("## Records");
+      expect(body(second.stdout)).toBe(body(first.stdout));
+      // The timestamp appears in the header and nowhere else.
+      expect(body(first.stdout)).not.toContain("packed:");
+    });
+
+    test("--hops and --max-nodes cut the walk and name every cut id", async () => {
+      await seedDecisionRing();
+
+      // One hop keeps the question (as a stub — it is superseded) and cuts
+      // the decision two hops out.
+      const hopped = await at(["pack", root, "--hops", "1"]);
+      expect(hopped.stdout).toContain("## Records (1)");
+      expect(hopped.stdout).toContain("## Superseded (1)");
+      expect(hopped.stdout).toContain("## Excluded (1)");
+      expect(hopped.stdout).toContain("- decision.retry-timeouts-only");
+
+      const capped = await at(["pack", root, "--max-nodes", "1"]);
+      expect(capped.stdout).toContain("## Records (1)");
+      expect(capped.stdout).toContain("## Excluded (2)");
+      expect(capped.stdout).toContain("- open-question.retry-scope");
+    });
+
+    // The refusal reaches the caller as the typed error — count, tokens,
+    // budget and every already-cut id in `details` — with no partial pack on
+    // stdout for it to mistake for a complete one.
+    test("refuses past the budget with the typed error and no partial output", async () => {
+      await seedDecisionRing();
+      let stdout = "";
+      const out = vi
+        .spyOn(process.stdout, "write")
+        .mockImplementation((chunk: string | Uint8Array) => {
+          stdout += String(chunk);
+          return true;
+        });
+
+      try {
+        await expect(
+          runKbCli([
+            "--bundle",
+            bundle,
+            "pack",
+            root,
+            "--max-nodes",
+            "1",
+            "--budget",
+            "1",
+          ]),
+        ).rejects.toMatchObject({
+          name: "KbPackBudgetExceededError",
+          details: {
+            budgetTokens: 1,
+            excluded: [
+              "decision.retry-timeouts-only",
+              "open-question.retry-scope",
+            ],
+          },
+        });
+      } finally {
+        out.mockRestore();
+      }
+      expect(stdout).toBe("");
+    });
+
+    test("rejects an unknown root", async () => {
+      await expect(
+        runKbCli(["--bundle", bundle, "pack", "fact.no-such-record"]),
+      ).rejects.toMatchObject({ name: "KbRecordNotFoundError" });
+    });
+  });
+
   test("traces from a seed, narrowing to named edges", async () => {
     expect(
       parsed(await at(["trace", "fact.cache-key-includes-region", "anchor"])),

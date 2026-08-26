@@ -1,4 +1,5 @@
 export {
+  DEFAULT_LOAD_BUDGET,
   KB_DIR,
   KbStore,
   type KbLoadResult,
@@ -8,6 +9,7 @@ export {
 } from "./kb-store.js";
 export {
   KbInvalidConceptIdError,
+  KbPackBudgetExceededError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
   KbSelfVerificationError,
@@ -119,6 +121,21 @@ export {
   type KbTraceOptions,
   type KbTraceStep,
 } from "./trace.js";
+export {
+  edgeNeighbours,
+  neighbours,
+  KB_EDGE_KINDS,
+  type KbEdgeKind,
+  type KbNeighbour,
+} from "./kb-edges.js";
+export {
+  pack,
+  DEFAULT_PACK_HOPS,
+  DEFAULT_PACK_MAX_NODES,
+  type KbPackOptions,
+  type KbPackResult,
+  type KbPackedRecord,
+} from "./pack.js";
 export { validateBundle, type KbValidationProblem } from "./validate.js";
 export {
   composeDecisionRecord,

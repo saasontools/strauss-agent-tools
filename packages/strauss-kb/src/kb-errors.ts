@@ -68,6 +68,32 @@ export class KbSelfVerificationError extends BaseError {
   }
 }
 
+/**
+ * A pack that will not fit its token budget. Refusal, not truncation: a
+ * partial pack is indistinguishable from a complete one, so the caller gets
+ * the full picture — how many records, how many tokens, and every id the
+ * walk's own limits already cut — and decides whether to raise the budget or
+ * tighten the walk.
+ */
+export class KbPackBudgetExceededError extends BaseError {
+  constructor(
+    readonly recordCount: number,
+    readonly approxTokens: number,
+    readonly budgetTokens: number,
+    readonly excluded: string[],
+  ) {
+    super({
+      message: `kb: a pack of ${recordCount} records is ~${approxTokens} tokens against a budget of ${budgetTokens} — lower hops or maxNodes, or raise the budget`,
+      errorType: ErrorTypes.KbPackBudgetExceeded,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { recordCount, approxTokens, budgetTokens, excluded },
+    });
+  }
+}
+
 export class KbInvalidConceptIdError extends BaseError {
   constructor(message: string, details: Record<string, string>) {
     super({
