@@ -1,7 +1,14 @@
 {
   "mcpServers": {
     "strauss-kb": {
-      "command": "strauss-kb-mcp"
+      "command": "npx",
+      "args": [
+        "-y",
+        "--@saasontools:registry=https://registry.npmjs.org",
+        "-p",
+        "@saasontools/strauss-kb@0.x",
+        "strauss-kb-mcp"
+      ]
     }
   }
 }

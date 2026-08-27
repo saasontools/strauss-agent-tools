@@ -64,7 +64,9 @@ function isInside(target, dir) {
 function stringValues(value, depth = 0) {
   if (typeof value === "string") return [value];
   if (depth >= 3 || value === null || typeof value !== "object") return [];
-  return Object.values(value).flatMap((entry) => stringValues(entry, depth + 1));
+  return Object.values(value).flatMap((entry) =>
+    stringValues(entry, depth + 1),
+  );
 }
 
 function main() {
@@ -76,7 +78,8 @@ function main() {
     return 0;
   }
 
-  const cwd = typeof input?.cwd === "string" && input.cwd ? input.cwd : process.cwd();
+  const cwd =
+    typeof input?.cwd === "string" && input.cwd ? input.cwd : process.cwd();
   const dirs = kbDirs(cwd);
   const candidates = stringValues(input?.tool_input ?? {}).filter(
     (value) => value.length > 0 && value.length < 4_096,
