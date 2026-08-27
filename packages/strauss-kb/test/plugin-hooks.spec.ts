@@ -297,7 +297,16 @@ describe("plugin config files parse", () => {
       name: "strauss-kb",
     });
     expect(parse(".mcp.json")).toMatchObject({
-      mcpServers: { "strauss-kb": { command: "strauss-kb-mcp" } },
+      mcpServers: {
+        "strauss-kb": {
+          // The published package, not whatever happens to be installed.
+          command: "npx",
+          args: expect.arrayContaining([
+            "@saasontools/strauss-kb@0.x",
+            "strauss-kb-mcp",
+          ]),
+        },
+      },
     });
 
     const codexHooks = parse("adapters/codex/hooks.json") as {
@@ -309,7 +318,16 @@ describe("plugin config files parse", () => {
       name: "strauss-kb",
     });
     expect(parse("adapters/antigravity/mcp_config.json")).toMatchObject({
-      mcpServers: { "strauss-kb": { command: "strauss-kb-mcp" } },
+      mcpServers: {
+        "strauss-kb": {
+          // The published package, not whatever happens to be installed.
+          command: "npx",
+          args: expect.arrayContaining([
+            "@saasontools/strauss-kb@0.x",
+            "strauss-kb-mcp",
+          ]),
+        },
+      },
     });
     const agHooks = parse("adapters/antigravity/hooks.json") as Record<
       string,
