@@ -46,6 +46,11 @@ jobs:
 
       - run: pnpm nx affected -t test -- --coverage
 
+      - name: Check plugin/package version drift
+        run: node scripts/check-plugin-package-drift.mjs
+        env:
+          NX_BASE: ${{ env.NX_BASE }}
+
       - name: Validate agent plugins
         run: | # zizmor: ignore[adhoc-packages]
           npm install -g @anthropic-ai/claude-code

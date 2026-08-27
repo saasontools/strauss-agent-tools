@@ -8,6 +8,7 @@
 import { join } from "node:path";
 import { KB_COMMANDS, KB_COMMANDS_BY_NAME } from "./commands/index.js";
 import { KB_DIR, KbStore } from "./kb-store.js";
+import { VERSION } from "./version.js";
 
 export async function runKbCli(argv: string[]): Promise<void> {
   const { bundle, rest } = takeBundle(argv);
@@ -15,6 +16,14 @@ export async function runKbCli(argv: string[]): Promise<void> {
 
   if (!name || name === "-h" || name === "--help") {
     process.stdout.write(usage());
+    return;
+  }
+
+  // The plugin in front of this CLI updates from a marketplace while the CLI
+  // updates from npm, and neither prompts for the other. Answering "which one
+  // is installed" is what makes that skew diagnosable instead of mysterious.
+  if (name === "--version" || name === "-v") {
+    process.stdout.write(`${VERSION}\n`);
     return;
   }
 
@@ -111,6 +120,7 @@ function usage(): string {
     ),
     "",
     `  --bundle PATH  defaults to ./${KB_DIR}`,
+    "  --version      the installed package version",
     "  STRAUSS_KB_ACTOR names the writer in the log",
     "",
   ].join("\n");
