@@ -34,6 +34,20 @@ Claude Code:
 Codex: add the marketplace from `.agents/plugins/marketplace.json`, then
 install `strauss-kb`.
 
+Both runtimes launch the binary off a global install rather than through
+`npx`, so install the package too — and keep it current, because the plugin
+and the package update from different places and neither prompts for the
+other:
+
+```bash
+npm install -g @saasontools/strauss-kb@^0.1.6
+```
+
+Skew is quiet by design: the SessionStart hook fails open, so an outdated
+binary produces no output rather than an error. `strauss-kb --version` reports
+what is installed; the MCP server reports the same value as `serverInfo.version`.
+This plugin is built against **0.1.6**.
+
 ## What it adds
 
 **MCP server** — `strauss-kb-mcp` over stdio, no API key, one tool per

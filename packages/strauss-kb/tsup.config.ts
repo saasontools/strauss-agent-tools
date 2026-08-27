@@ -1,4 +1,9 @@
+import { createRequire } from "node:module";
 import { defineConfig } from "tsup";
+
+const { version } = createRequire(import.meta.url)("./package.json") as {
+  version: string;
+};
 
 // Both formats, deliberately. A downstream consumer that transpiles to
 // CommonJS per-file without bundling will `require()` this package at runtime;
@@ -19,4 +24,8 @@ export default defineConfig({
   // The optional search backend is resolved at runtime or not at all — see
   // src/search-index.ts. Inlining it would make an optional peer mandatory.
   external: ["@tobilu/qmd"],
+  // `serverInfo.version` is the only thing a client can ask a running server
+  // about itself, so it has to be the real one rather than a literal someone
+  // remembers to bump. See src/version.ts.
+  define: { __STRAUSS_KB_VERSION__: JSON.stringify(version) },
 });

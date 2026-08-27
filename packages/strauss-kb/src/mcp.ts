@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { KB_COMMANDS } from "./commands/index.js";
 import { KbStore } from "./kb-store.js";
+import { VERSION } from "./version.js";
 
 /**
  * A knowledge base's own MCP server, over stdio.
@@ -15,7 +16,7 @@ import { KbStore } from "./kb-store.js";
  * the two cannot drift.
  */
 export function createKbMcpServer(): McpServer {
-  const server = new McpServer({ name: "strauss-kb", version: "0.1.0" });
+  const server = new McpServer({ name: "strauss-kb", version: VERSION });
   const store = new KbStore({
     warn: (entry) => process.stderr.write(`${JSON.stringify(entry)}\n`),
   });
