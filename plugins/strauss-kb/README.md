@@ -34,6 +34,26 @@ Claude Code:
 Codex: add the marketplace from `.agents/plugins/marketplace.json`, then
 install `strauss-kb`.
 
+The MCP server needs no install: it is launched with `npx` against
+`@saasontools/strauss-kb@0.x`, so a session picks up each release without
+anyone updating anything.
+
+The **CLI is a separate matter**. The SessionStart hook runs `strauss-kb
+context`, and the skill's examples shell out to `strauss-kb`, both resolved
+from `PATH`. Install it, and keep it current:
+
+```bash
+npm install -g @saasontools/strauss-kb@latest
+```
+
+`strauss-kb --version` reports what is installed.
+
+One resolution rule is worth knowing, because it decides which build actually
+runs: `npx` prefers a project's `node_modules/.bin`, then a global binary of
+the same name, and only fetches when neither exists. In a repo that depends on
+this package the pinned copy wins — usually what that repo wants, but it means
+`0.x` is a ceiling there, not a promise of latest.
+
 Both runtimes launch the binary off a global install rather than through
 `npx`, so install the package too — and keep it current, because the plugin
 and the package update from different places and neither prompts for the
