@@ -41,10 +41,10 @@
     "@nx/plugin": "23.1.1",
     "@nx/vite": "23.1.1",
     "@saasontools/nx-plugin": "workspace:*",
-    "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@types/node": "^26.3.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "ajv": "^8.20.0",
-    "eslint": "^10.8.1",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
@@ -52,7 +52,7 @@
     "prettier": "^3.9.6",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.67.0",
-    "vitest": "4.1.10"
+    "typescript-eslint": "^8.68.0",
+    "vitest": "4.1.11"
   }
 }
