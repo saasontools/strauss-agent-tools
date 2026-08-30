@@ -23,6 +23,7 @@ MCPB bundles for Claude Desktop.
 | Plugin                                                 | Description                                                                                        |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
 | [`gemini-deep-research`](plugins/gemini-deep-research) | Deep research via the Gemini Deep Research MCP server                                              |
+| [`gemini-infographics`](plugins/gemini-infographics)   | Generate infographic images with Gemini image models                                               |
 | [`strauss-kb`](plugins/strauss-kb)                     | Durable project knowledge with standing, supersession, and trace                                   |
 | [`codex-claude-agent`](plugins/codex-claude-agent)     | Delegate work from Codex to Claude Code, in a worktree, with tracked jobs (Codex marketplace only) |
 
