@@ -1,7 +1,16 @@
 import { createGitRepositoryFixture } from "./helpers/git-repository.js";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { RunnerError } from "../errors.js";
 import {
@@ -30,15 +39,34 @@ function success(overrides: Partial<RawOutcome> = {}): RawOutcome {
 }
 
 let originalApiKey: string | undefined;
+let originalClaudePath: string | undefined;
+let stubbedClaude: string;
+
+beforeAll(async () => {
+  // These suites replace the executor, so no Claude Code is ever spawned — but
+  // `runClaude` still runs diagnostics, which refuses to start without an
+  // executable on the host. Stubbing the path is the same move this file
+  // already makes for ANTHROPIC_API_KEY: a machine-level precondition that
+  // orchestration tests must not depend on. Without it the suite passes only
+  // on a developer machine that happens to have Claude Code installed.
+  const dir = await mkdtemp(path.join(tmpdir(), "codex-claude-stub-"));
+  stubbedClaude = path.join(dir, "claude");
+  await writeFile(stubbedClaude, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+});
 
 beforeEach(() => {
   originalApiKey = process.env.ANTHROPIC_API_KEY;
+  originalClaudePath = process.env.CODEX_CLAUDE_AGENT_CLAUDE_PATH;
   process.env.ANTHROPIC_API_KEY = "test-only";
+  process.env.CODEX_CLAUDE_AGENT_CLAUDE_PATH = stubbedClaude;
 });
 
 afterEach(() => {
   if (originalApiKey === undefined) delete process.env.ANTHROPIC_API_KEY;
   else process.env.ANTHROPIC_API_KEY = originalApiKey;
+  if (originalClaudePath === undefined)
+    delete process.env.CODEX_CLAUDE_AGENT_CLAUDE_PATH;
+  else process.env.CODEX_CLAUDE_AGENT_CLAUDE_PATH = originalClaudePath;
 });
 
 describe("runClaude foreground integration", () => {
