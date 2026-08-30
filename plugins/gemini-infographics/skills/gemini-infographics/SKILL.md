@@ -12,10 +12,10 @@ description: >
 # Gemini Infographics
 
 Turn a described visual into a PNG via the Gemini image API. The plugin ships one
-stdlib-only script; there is no MCP server and no npm install.
+Node script (standard library only); there is no MCP server and nothing to install.
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/gemini-infographics/scripts/generate-infographics.py" \
+node "${CLAUDE_PLUGIN_ROOT}/skills/gemini-infographics/scripts/generate-infographics.mjs" \
   spec.json --out ./viz
 ```
 
@@ -91,7 +91,7 @@ else has a default.
 ## Step 3 — Generate
 
 ```bash
-python3 .../generate-infographics.py spec.json --out ./viz [--mode auto|sync|batch]
+node .../generate-infographics.mjs spec.json --out ./viz [--mode auto|sync|batch]
 ```
 
 The script batches automatically when ≥3 images share a resolved model (half

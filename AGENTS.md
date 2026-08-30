@@ -23,7 +23,8 @@ Codex, and Agent Plugins 1.0 clients from the marketplace files at
 
 - **No `project.json` under `packages/*`** — Nx infers targets from npm
   scripts; keep scripts the source of truth. Only `plugins/*` carry a
-  `project.json`, and only for the `validate` target.
+  `project.json`: every plugin for its `validate` target, plus a `typecheck`
+  target where the plugin ships executable code (`gemini-infographics`).
 - **New packages start at `0.1.0`** — the generators do this. Below 1.0 Nx
   shifts every relative bump down a level (`patch` and `minor` both give
   `0.1.1`, `major` gives `0.2.0`), so write plans as `patch` and reach 1.0.0

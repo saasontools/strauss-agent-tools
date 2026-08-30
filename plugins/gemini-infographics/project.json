@@ -3,6 +3,12 @@
   "name": "plugin-gemini-infographics",
   "projectType": "library",
   "targets": {
+    "typecheck": {
+      "command": "tsc -p tsconfig.json",
+      "options": {
+        "cwd": "plugins/gemini-infographics"
+      }
+    },
     "validate": {
       "command": "claude plugin validate .",
       "options": {

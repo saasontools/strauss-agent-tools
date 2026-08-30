@@ -6,7 +6,7 @@ annotated simulated screenshots — with the model configurable and an automatic
 fallback to the newest live model when a pinned id ages out.
 
 Skill-only: no MCP server, no npm install. The generator is a single
-stdlib-only Python 3 script.
+dependency-free Node script.
 
 One directory, three plugin formats — nothing collides:
 
@@ -32,7 +32,7 @@ then install `gemini-infographics`.
 
 ## Requirements
 
-- Python 3.9+ (standard library only — no pip install)
+- Node 18+ (standard library only — no dependencies, no build step)
 - `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in the environment; get one at
   <https://aistudio.google.com/apikey>
 
@@ -43,7 +43,7 @@ Images cost money: roughly 2–13¢ each depending on model and batching.
 The skill drives the script; you can also run it directly:
 
 ```bash
-python3 skills/gemini-infographics/scripts/generate-infographics.py \
+node skills/gemini-infographics/scripts/generate-infographics.mjs \
   spec.json --out ./viz
 ```
 
