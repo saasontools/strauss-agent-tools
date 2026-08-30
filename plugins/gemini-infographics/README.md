@@ -68,13 +68,28 @@ key:
 
 Accepted keys: `apiKey`, `apiKeyCommand`, `apiKeyFile`, `model`, `mode`,
 `fallback`. `$XDG_CONFIG_HOME` relocates the file; `$GEMINI_INFOGRAPHICS_CONFIG`
-points at an exact path. Everything resolves **flag > environment > config file
-
-> default**, and `--dry-run` prints which file was read.
+points at an exact path. Settings resolve in the order **flag, environment,
+config file, built-in default**, and `--dry-run` prints which file was read.
 
 The file is read from the user's config directory only, never from the project
 being worked on: `apiKeyCommand` executes a command, and honouring a checked-in
 config would make cloning a repository enough to run its author's shell.
+
+Clients can inject the environment variables once per machine instead, if you
+would rather configure it there — an `env` block in `~/.claude/settings.json`
+for Claude Code, and for Codex a `set` table in `~/.codex/config.toml`, which
+reaches every subprocess Codex spawns:
+
+```toml
+[shell_environment_policy]
+set = { GEMINI_API_KEY_COMMAND = "op read 'op://Private/Gemini/credential'" }
+```
+
+`ignore_default_excludes` on that table defaults to `true`, which keeps
+variables whose names contain `KEY`, `SECRET` or `TOKEN`. Where it has been set
+to `false`, an inherited `GEMINI_API_KEY` is stripped before the script sees it;
+`set` it explicitly, or use the config file. The config file is the only option
+that also covers a cron job or a plain terminal.
 
 Images cost money: roughly 2–13¢ each depending on model and batching.
 

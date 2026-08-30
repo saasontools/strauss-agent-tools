@@ -143,9 +143,23 @@ file. It is deliberately **per-user, never per-project** — `apiKeyCommand` run
 a command, so honouring a checked-in config would make cloning a repo enough to
 run its author's shell. `--dry-run` prints which config file was read.
 
-A Claude Code user can also set the variable for every session at once with an
-`env` block in `~/.claude/settings.json`; the config file is the client-agnostic
-version of the same idea and is what to reach for first.
+Clients have their own once-per-machine equivalent, if the user would rather
+configure it there: an `env` block in `~/.claude/settings.json` for Claude Code,
+and for Codex a `set` table in `~/.codex/config.toml`, which injects into every
+subprocess Codex spawns — including the shell this script runs in:
+
+```toml
+[shell_environment_policy]
+set = { GEMINI_API_KEY_COMMAND = "op read 'op://Private/Gemini/credential'" }
+```
+
+One caveat on that table: `ignore_default_excludes` defaults to `true`, which
+_keeps_ variables whose names contain `KEY`, `SECRET` or `TOKEN`. If a user has
+set it to `false`, an inherited `GEMINI_API_KEY` is stripped before the script
+ever sees it — `set` it explicitly, or use the config file.
+
+The config file is the client-agnostic version of all of this, and the only one
+that also covers a cron job or a plain terminal, so reach for it first.
 
 If nothing is set the script exits with those instructions — relay them.
 **Never ask the user to paste the key into the chat, and never put it in the
