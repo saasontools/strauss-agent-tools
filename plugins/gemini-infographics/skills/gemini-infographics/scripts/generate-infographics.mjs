@@ -34,9 +34,18 @@
  * family and keeps going. `--no-fallback` (or GEMINI_IMAGE_MODEL_FALLBACK=off)
  * turns that off and lets the failure stand.
  *
+ * The API key comes from the environment, in this order:
+ *   GEMINI_API_KEY / GOOGLE_API_KEY   the key itself
+ *   GEMINI_API_KEY_COMMAND            a command whose stdout is the key —
+ *                                     the OS-vault path (op read, security
+ *                                     find-generic-password, secret-tool, pass)
+ *   GEMINI_API_KEY_FILE               a file containing the key
+ * It is read once per run, and every diagnostic is redacted before printing.
+ *
  * Node >= 18 standard library only — no dependencies, no build step.
  */
 
+import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -92,23 +101,117 @@ const remapped = new Map();
 
 /** @param {string} msg @returns {never} */
 function die(msg) {
-  console.error(`ERROR: ${msg}`);
+  console.error(redact(`ERROR: ${msg}`));
   process.exit(1);
 }
 
 /** @param {number} ms */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const KEY_HELP =
+  "No Gemini API key found. Set one of:\n" +
+  "  GEMINI_API_KEY          the key itself (GOOGLE_API_KEY also accepted)\n" +
+  "  GEMINI_API_KEY_COMMAND  a command whose stdout is the key, e.g.\n" +
+  "                            op read 'op://Private/Gemini/credential'\n" +
+  "                            security find-generic-password -s gemini-api-key -w\n" +
+  "                            secret-tool lookup service gemini\n" +
+  "                            pass show gemini/api-key\n" +
+  "  GEMINI_API_KEY_FILE     path to a file containing the key\n" +
+  "Get a key at: https://aistudio.google.com/apikey";
+
+/** @type {string | undefined} */
+let cachedKey;
+
+/**
+ * The key, resolved once per run. Vault-backed sources are the reason for the
+ * cache: `op read` and `security find-generic-password` can prompt for Touch
+ * ID, and one prompt per image would be unusable.
+ *
+ * Sources are read from the environment only — never from the spec file, which
+ * would turn a shared spec into arbitrary command execution.
+ */
 function apiKey() {
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!key) {
-    die(
-      "GEMINI_API_KEY is not set.\n" +
-        "Set it with:  export GEMINI_API_KEY='your-key-here'\n" +
-        "Get a key at: https://aistudio.google.com/apikey",
-    );
+  if (cachedKey) return cachedKey;
+
+  const direct = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (direct?.trim()) return (cachedKey = direct.trim());
+
+  const command = process.env.GEMINI_API_KEY_COMMAND;
+  if (command?.trim()) {
+    /** @type {string} */
+    let out;
+    try {
+      out = execSync(command, {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        timeout: 60_000,
+      });
+    } catch (err) {
+      // The command's own output can carry the secret it half-printed; only
+      // the command line and exit status are safe to surface.
+      return die(
+        `GEMINI_API_KEY_COMMAND failed (${command}): ` +
+          `${redact(errorSummary(err))}`,
+      );
+    }
+    const key = out.split("\n")[0]?.trim();
+    if (!key) return die(`GEMINI_API_KEY_COMMAND produced no key (${command})`);
+    return (cachedKey = key);
   }
-  return key;
+
+  const file = process.env.GEMINI_API_KEY_FILE;
+  if (file?.trim()) {
+    try {
+      const key = readFileSync(file, "utf8").split("\n")[0]?.trim();
+      if (!key) return die(`GEMINI_API_KEY_FILE is empty (${file})`);
+      return (cachedKey = key);
+    } catch (err) {
+      return die(`cannot read GEMINI_API_KEY_FILE ${file}: ${String(err)}`);
+    }
+  }
+
+  return die(KEY_HELP);
+}
+
+/** @param {unknown} err */
+function errorSummary(err) {
+  if (err && typeof err === "object" && "status" in err) {
+    return `exit ${String(/** @type {{ status: unknown }} */ (err).status)}`;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Strip anything key-shaped out of text that came from the API, a vault
+ * command, or an exception, before it reaches a terminal or a CI log.
+ * @param {string} text
+ */
+function redact(text) {
+  let out = text;
+  // Google API keys: "AIza" + url-safe chars.
+  out = out.replace(/AIza[0-9A-Za-z_-]{10,}/g, "[REDACTED]");
+  // Anything assigned to a key/token/secret-ish name. The separator class
+  // excludes newlines on purpose: with `\s` in it, a line ending in "api-key"
+  // swallows the first word of the line below — which is how this rule first
+  // redacted the help text's own "GEMINI_API_KEY_FILE".
+  out = out.replace(
+    /((?:api[_-]?key|token|secret|authorization|x-goog-api-key)["':=\t ]{1,5})[0-9A-Za-z_-]{8,}/gi,
+    "$1[REDACTED]",
+  );
+  // The configured key value itself, however it was sourced.
+  for (const value of [
+    cachedKey,
+    process.env.GEMINI_API_KEY,
+    process.env.GOOGLE_API_KEY,
+  ]) {
+    if (value && value.length >= 8) out = out.split(value).join("[REDACTED]");
+  }
+  return out;
+}
+
+/** Diagnostics go to stderr, redacted — this is the only stderr path. @param {string} msg */
+function warn(msg) {
+  console.error(redact(msg));
 }
 
 /** An API response that came back with a non-2xx status. */
@@ -275,7 +378,7 @@ async function fallbackModel(model, fallback) {
   if (known) return known;
   const replacement = await latestModel(familyOf(model));
   if (replacement !== model) {
-    console.error(`  ${model} unavailable — falling back to ${replacement}`);
+    warn(`  ${model} unavailable — falling back to ${replacement}`);
   }
   remapped.set(model, replacement);
   return replacement;
@@ -337,7 +440,7 @@ async function runSync(model, entries, outdir, fallback) {
         );
       } catch (err) {
         if (err instanceof HttpError) {
-          console.error(`  ${e.name}: HTTP ${err.status} ${err.detail}`);
+          warn(`  ${e.name}: HTTP ${err.status} ${err.detail}`);
           if (isMissingModel(err)) {
             const replacement = await fallbackModel(model, fallback);
             if (replacement !== model) {
@@ -355,7 +458,7 @@ async function runSync(model, entries, outdir, fallback) {
           }
           break;
         }
-        console.error(`  ${e.name}: ${String(err)}`);
+        warn(`  ${e.name}: ${String(err)}`);
         if (attempt === SYNC_RETRIES) break;
         await sleep(5_000);
         continue;
@@ -365,7 +468,7 @@ async function runSync(model, entries, outdir, fallback) {
         ok = true;
         break;
       }
-      console.error(`  ${e.name}: empty response, attempt ${attempt}`);
+      warn(`  ${e.name}: empty response, attempt ${attempt}`);
       await sleep(5_000);
     }
     if (!ok) failed.push(e.name);
@@ -404,7 +507,7 @@ async function runBatch(model, entries, outdir, fallback) {
       120_000,
     );
   } catch (err) {
-    console.error(
+    warn(
       `  batch submit: ${err instanceof HttpError ? `HTTP ${err.status} ${err.detail}` : String(err)}`,
     );
     if (isMissingModel(err)) {
@@ -413,7 +516,7 @@ async function runBatch(model, entries, outdir, fallback) {
         return runBatch(replacement, entries, outdir, fallback);
       }
     }
-    console.error("  batch submit failed — falling back to sync");
+    warn("  batch submit failed — falling back to sync");
     return runSync(model, entries, outdir, fallback);
   }
 
@@ -429,7 +532,7 @@ async function runBatch(model, entries, outdir, fallback) {
     try {
       st = await get(`${API_BASE}/${opname}`);
     } catch (err) {
-      console.error(
+      warn(
         `  ${elapsed(t0)} poll error (${String(err)}); retrying`,
       );
       continue;
@@ -437,7 +540,7 @@ async function runBatch(model, entries, outdir, fallback) {
     console.log(`  ${elapsed(t0)} ${st?.metadata?.state ?? "?"}`);
     if (st.done) break;
     if (Date.now() - t0 > BATCH_TIMEOUT_MS) {
-      console.error("  batch timeout — falling back to sync");
+      warn("  batch timeout — falling back to sync");
       return runSync(model, entries, outdir, fallback);
     }
   }
@@ -449,14 +552,14 @@ async function runBatch(model, entries, outdir, fallback) {
   for (const item of inlined) {
     const key = item?.metadata?.key ?? "?";
     if (item.error) {
-      console.error(`  ERR ${key}: ${JSON.stringify(item.error).slice(0, 150)}`);
+      warn(`  ERR ${key}: ${JSON.stringify(item.error).slice(0, 150)}`);
       failed.push(key);
       continue;
     }
     if (saveImage(item.response, join(outdir, `${key}.png`))) {
       console.log(`  ok ${key}`);
     } else {
-      console.error(`  ${key}: no image in batch response`);
+      warn(`  ${key}: no image in batch response`);
       failed.push(key);
     }
   }
@@ -608,7 +711,7 @@ async function main() {
       `${Math.round((Date.now() - t0) / 1000)}s`,
   );
   if (failed.length) {
-    console.error(`FAILED: ${failed.join(", ")}`);
+    warn(`FAILED: ${failed.join(", ")}`);
     process.exit(2);
   }
 }

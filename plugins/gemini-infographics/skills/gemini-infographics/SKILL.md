@@ -104,8 +104,27 @@ per-request batch failures individually. Useful flags:
 - `--list-models` — image models this API key can actually reach, newest first.
 - `--no-fallback` — fail instead of silently moving to another model.
 
-`GEMINI_API_KEY` must be set (`GOOGLE_API_KEY` also works). If it is missing the
-script exits with setup instructions — relay them; never ask for the key in chat.
+### The API key
+
+The script reads the key from the environment, first match wins:
+
+| Variable                            | Meaning                                               |
+| ----------------------------------- | ----------------------------------------------------- |
+| `GEMINI_API_KEY` / `GOOGLE_API_KEY` | the key itself                                        |
+| `GEMINI_API_KEY_COMMAND`            | a command whose stdout is the key — the OS-vault path |
+| `GEMINI_API_KEY_FILE`               | a file containing the key                             |
+
+`GEMINI_API_KEY_COMMAND` is how a user keeps the key in their OS vault instead
+of their shell profile — `op read 'op://Private/Gemini/credential'`,
+`security find-generic-password -s gemini-api-key -w`, `secret-tool lookup
+service gemini`, `pass show gemini/api-key`. It runs once per script run, so a
+Touch ID prompt happens at most once.
+
+If none is set the script exits with those instructions — relay them. **Never
+ask the user to paste the key into the chat, and never put it in the spec file
+or a command line**; a key on the command line lands in their shell history.
+Every diagnostic the script prints is redacted, but a key you typed into the
+conversation is already out.
 
 ## Step 4 — Model choice and configuration
 

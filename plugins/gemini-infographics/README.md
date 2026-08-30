@@ -33,8 +33,20 @@ then install `gemini-infographics`.
 ## Requirements
 
 - Node 18+ (standard library only — no dependencies, no build step)
-- `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in the environment; get one at
-  <https://aistudio.google.com/apikey>
+- A Gemini API key (get one at <https://aistudio.google.com/apikey>), supplied
+  through any of, first match wins:
+  - `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) — the key itself
+  - `GEMINI_API_KEY_COMMAND` — a command whose stdout is the key, for keeping
+    it in an OS vault rather than a shell profile:
+    `op read 'op://Private/Gemini/credential'`,
+    `security find-generic-password -s gemini-api-key -w`,
+    `secret-tool lookup service gemini`, `pass show gemini/api-key`. It runs
+    once per run, so a Touch ID prompt happens at most once.
+  - `GEMINI_API_KEY_FILE` — a file containing the key
+
+Diagnostics are redacted before printing: Google-shaped keys, anything assigned
+to a key/token/secret-ish name, and the configured key value itself, however it
+was sourced.
 
 Images cost money: roughly 2–13¢ each depending on model and batching.
 

@@ -29,6 +29,14 @@ state to hold; do not add a server unless the plugin grows a lifecycle.
   JSDoc, checked by `tsc --checkJs` via `pnpm nx run
 plugin-gemini-infographics:typecheck`. Real TypeScript would need a build,
   which this directory cannot have.
+- **The key is read from the environment only, never from the spec.**
+  `GEMINI_API_KEY_COMMAND` executes a command; sourcing that from a spec file
+  would turn a shared spec into arbitrary code execution. It is also cached for
+  the run — vault commands prompt for Touch ID, and one prompt per image is
+  unusable.
+- **Everything printed to stderr goes through `warn()`/`die()`, which redact.**
+  Error bodies come from the API and from vault commands; neither is trusted to
+  be key-free. Do not add a bare `console.error`.
 - **The pinned model ids in `ALIASES` are defaults, not guarantees.** When a
   pin ages out, the fallback path (newest live model in the same family) is
   what keeps runs working — keep it working, and keep `--no-fallback` as the
