@@ -1,0 +1,26 @@
+{
+  "name": "codex-claude-agent",
+  "version": "0.1.0",
+  "description": "Delegate reviews, investigations, and implementation work from Codex to Claude Code, in a worktree, with budgets and tracked background jobs.",
+  "author": {
+    "name": "Assaf Kamil"
+  },
+  "homepage": "https://github.com/saasontools/strauss-agent-tools",
+  "license": "MIT",
+  "keywords": ["claude-code", "codex", "agent-sdk", "subagent", "worktree"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Claude Code Delegate",
+    "shortDescription": "Run Claude Code from Codex via the Agent SDK",
+    "longDescription": "Delegate reviews, investigations, and implementation tasks to Claude Code with safe worktrees, budgets, retries, structured results, and tracked background jobs.",
+    "developerName": "Assaf Kamil",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/saasontools/strauss-agent-tools/tree/main/plugins/codex-claude-agent",
+    "defaultPrompt": [
+      "Use $claude to review my current changes",
+      "Use $claude to investigate this failure",
+      "Use $claude --edit to implement this task"
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Delegate"
+  short_description: "Delegate code tasks to Claude Code"
+  default_prompt: "Use $claude to review this repository in read-only mode."

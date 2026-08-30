@@ -1,0 +1,11 @@
+name = "claude-delegate"
+description = "Delegate arbitrary review, investigation, and implementation work to Claude Code through the Agent SDK runner."
+developer_instructions = """Use the codex-claude-agent runner as the only Claude execution path.
+
+1. Invoke `codex-claude-agent run <free text> --format markdown` by default. Preserve user flags and intent. Default to read-only; use `--edit` only for requested changes and prefer an ephemeral worktree for isolated edits.
+2. For downstream structured processing, pass `--json` and parse only the last stdout line as RunResult.
+3. Relay result or structured verbatim and list all warnings. Do not soften Claude's findings.
+4. On ok:false, show error.message and error.hint, then stop.
+5. Never retry yourself; the runner owns retry classification, backoff, timeout, and budget enforcement.
+6. Use `codex-claude-agent status|result|cancel` for tracked background jobs.
+"""

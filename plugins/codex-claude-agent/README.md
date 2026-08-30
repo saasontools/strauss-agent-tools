@@ -1,0 +1,98 @@
+# codex-claude-agent
+
+Delegate a task from Codex to Claude Code and get a structured result back.
+`$claude review the auth changes` runs Claude Code through the Claude Agent
+SDK — read-only by default, optionally in a throwaway Git worktree, under a
+turn/budget/time ceiling — and relays what it found.
+
+This plugin is the front end: a `$claude` skill, session hooks, and an optional
+Codex agent.
+
+## Install
+
+Add this repository as a Codex marketplace
+(`.agents/plugins/marketplace.json`) and install `codex-claude-agent` by name.
+
+The plugin directory ships manifests and markdown; the runner itself is the
+[`@saasontools/codex-claude-agent`](../../packages/codex-claude-agent) npm
+package. **You do not have to install it.** When it is not on `PATH`, the
+skill and the hook reach it through `npx -y --omit=optional -p
+@saasontools/codex-claude-agent@0.x`, which tracks every 0.x release without
+anyone updating anything.
+
+Installing it is still worth one command — it is faster, and it is what the
+skill's examples type:
+
+```bash
+npm install -g --omit=optional @saasontools/codex-claude-agent
+```
+
+Then, once per machine:
+
+```bash
+codex-claude-agent setup
+```
+
+`setup` is idempotent. It checks the SDK, the Claude Code executable, your
+auth, Git, and free disk,
+then enables `[features].hooks`, `[features].plugin_hooks`, and the
+repository's `.codex-claude` writable root in `~/.codex/config.toml`. Restart
+Codex after it changes anything.
+
+Requirements: Node 22+, Git 2.30+, Claude Code installed, and either a Claude
+login or `ANTHROPIC_API_KEY`.
+
+### Why `--omit=optional`
+
+The Agent SDK ships the Claude Code executable as a per-platform optional
+dependency: ~245 MB, and a second copy of the CLI you are already running,
+frozen at whatever build that SDK release carried. The runner never spawns it
+— it resolves your installed `claude` and hands the SDK that path, so
+delegated runs follow your own Claude Code version. Omitting it takes the
+download from ~290 MB to ~45 MB. `CODEX_CLAUDE_AGENT_CLAUDE_PATH` pins a
+specific executable if you keep several.
+
+## What the plugin carries
+
+| Piece                                | Where                                |
+| ------------------------------------ | ------------------------------------ |
+| The `$claude` skill                  | `skills/claude/SKILL.md`             |
+| Session-id capture for job ownership | `hooks/session-start.sh`             |
+| Finished-job notice on next prompt   | `hooks/unread-result.sh`             |
+| Optional `claude-delegate` agent     | `.codex/agents/claude-delegate.toml` |
+
+`hooks/hooks.json` wires `SessionStart` and `UserPromptSubmit`. Both scripts
+exit silently when `CODEX_CLAUDE_AGENT_NESTED` is set, so a Claude session the
+runner started never re-enters the plugin.
+
+The unread-result hook runs on every prompt, so it is ordered to cost nothing
+until it can't: it tests for the runner's state directory first and exits when
+no job has ever been started, then prefers an installed CLI, and only falls
+back to `npx` after that. A session that never delegates in the background
+never spawns anything.
+
+The agent file is a Codex project agent, not something the plugin registers.
+Copy it in to get `claude-delegate` as a selectable agent:
+
+```bash
+cp .codex/agents/claude-delegate.toml <repo>/.codex/agents/
+```
+
+## Using it
+
+```
+$claude review the current authentication changes
+$claude --edit --worktree ephemeral fix the failing tests
+$claude --background audit this diff against our error-handling rules
+$claude status
+$claude result <job-id>
+```
+
+Read-only is the default; `--edit` is the only thing that lets Claude write,
+and `--worktree ephemeral` keeps those writes off your checkout. Background
+runs are tracked per repository — `status`, `result`, and `cancel` address them
+by job id, and the first prompt after one finishes says so.
+
+The full flag list, the `RunResult` contract, and the retry, budget, and
+timeout rules are in the
+[package README](../../packages/codex-claude-agent/README.md).
