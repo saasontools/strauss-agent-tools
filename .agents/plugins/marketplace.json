@@ -9,6 +9,11 @@
   },
   "plugins": [
     {
+      "name": "codex-claude-agent",
+      "source": "./plugins/codex-claude-agent",
+      "description": "Delegate reviews, investigations, and implementation work from Codex to Claude Code, in a worktree, with budgets and tracked background jobs."
+    },
+    {
       "name": "gemini-deep-research",
       "source": "./plugins/gemini-deep-research",
       "description": "Run deep, citation-backed research with Google Gemini Deep Research."

@@ -21,3 +21,10 @@ allowBuilds:
 overrides:
   # CVE mitigation: DoS in brace-expansion <5.0.9 (transitive via nx/minimatch).
   "brace-expansion@>=4.0.0 <5.0.9": "5.0.9"
+  # CVE mitigation, both transitive via @opentelemetry/sdk-node under
+  # @saasontools/codex-claude-agent. The OTel release train pins these two well
+  # behind their own patched lines, so waiting for the exporters to catch up
+  # means shipping known-vulnerable versions — protobufjs at a high severity —
+  # in the meantime.
+  "protobufjs@>=8.0.0 <8.6.6": "8.6.6"
+  "@opentelemetry/propagator-jaeger@<2.9.0": "2.9.0"

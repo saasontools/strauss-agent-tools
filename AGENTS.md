@@ -40,6 +40,10 @@ Codex, and Agent Plugins 1.0 clients from the marketplace files at
 - **pnpm build scripts are an explicit allowlist** (`allowBuilds` in
   pnpm-workspace.yaml) — a new dep with a build script fails cold installs
   until it is listed there.
+- **A package may add a scoped `AGENTS.md`** for rules that only hold inside
+  it — `packages/codex-claude-agent/AGENTS.md` carries the job-module and
+  secure-file invariants of that runner. Scoped, never contradicting: anything
+  that applies repo-wide belongs in this file.
 - **Multi-responsibility source files become folder modules.** When a file
   under `src/` accumulates more than one responsibility, split it into a
   directory of single-responsibility modules (`model.ts` for types/schemas,
