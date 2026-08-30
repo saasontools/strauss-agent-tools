@@ -4,6 +4,7 @@ export const errorCodes = [
   "E_AUTH",
   "E_SDK_MISSING",
   "E_SDK_VERSION",
+  "E_CLAUDE_MISSING",
   "E_NOT_GIT_REPO",
   "E_WORKTREE_NOT_FOUND",
   "E_WORKTREE_EXISTS",
@@ -40,6 +41,7 @@ export const ERROR_EXIT_CODES: Readonly<Record<ErrorCode, number>> = {
   E_AUTH: 10,
   E_SDK_MISSING: 11,
   E_SDK_VERSION: 12,
+  E_CLAUDE_MISSING: 13,
   E_NOT_GIT_REPO: 20,
   E_WORKTREE_NOT_FOUND: 21,
   E_WORKTREE_EXISTS: 22,
@@ -62,6 +64,8 @@ const ERROR_HINTS: Readonly<Record<ErrorCode, string>> = {
   E_SDK_MISSING: "Install dependencies with `pnpm install`.",
   E_SDK_VERSION:
     "Upgrade @anthropic-ai/claude-agent-sdk to the supported minimum.",
+  E_CLAUDE_MISSING:
+    "Install Claude Code, or point CODEX_CLAUDE_AGENT_CLAUDE_PATH at its executable.",
   E_NOT_GIT_REPO: "Run inside a Git repository or pass --no-git.",
   E_WORKTREE_NOT_FOUND:
     "Pass a path listed by `git worktree list --porcelain`.",

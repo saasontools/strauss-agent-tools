@@ -6,18 +6,20 @@ The runtime never executes `claude -p`. `src/sdk.ts` is the only Agent SDK impor
 
 ## Install and setup
 
-Requirements: Node 22+, Git 2.30+, and either a Claude login or `ANTHROPIC_API_KEY`.
+Requirements: Node 22+, Git 2.30+, Claude Code installed, and either a Claude login or `ANTHROPIC_API_KEY`.
 
 ```bash
-npm install -g @saasontools/codex-claude-agent
+npm install -g --omit=optional @saasontools/codex-claude-agent
 codex-claude-agent setup
 ```
 
-The CLI is installed rather than run through `npx` on purpose: the Codex plugin's `UserPromptSubmit` hook calls it on every prompt, and the skill's examples shell out to it by name.
+`--omit=optional` is the whole install story, so it is worth a paragraph. The Agent SDK ships the Claude Code executable as a per-platform optional dependency — roughly 245 MB, and a second copy of a CLI you already have, frozen at whatever build that SDK release carried. This runner never spawns it: `src/claude-binary.ts` resolves your installed `claude` and passes it as `pathToClaudeCodeExecutable`, so delegated runs follow your own Claude Code version. Omitting the optional dependency drops the download to about 45 MB and changes nothing else. Set `CODEX_CLAUDE_AGENT_CLAUDE_PATH` to pin a specific executable; without one on `PATH`, a run fails as `E_CLAUDE_MISSING` before it starts.
+
+Installing the CLI is preferred over `npx` because the Codex plugin's `UserPromptSubmit` hook can then answer from `PATH`. It is not required: the plugin falls back to `npx -y --omit=optional -p @saasontools/codex-claude-agent@0.x`, which tracks 0.x releases on its own.
 
 The front end for Codex — the `$claude` skill, the hooks, and the optional `claude-delegate` agent — ships separately as the [`codex-claude-agent` plugin](../../plugins/codex-claude-agent), listed in this repository's Codex marketplace (`.agents/plugins/marketplace.json`). The runner works standalone without it; the plugin is what makes `$claude` a thing you can type.
 
-`setup` is idempotent. It checks SDK/version, auth, Git, and free disk, then enables `[features].hooks`, `[features].plugin_hooks`, and the repository's `.codex-claude` writable root in `~/.codex/config.toml`. Restart Codex after setup changes its config.
+`setup` is idempotent. It checks SDK/version, the Claude Code executable, auth, Git, and free disk, then enables `[features].hooks`, `[features].plugin_hooks`, and the repository's `.codex-claude` writable root in `~/.codex/config.toml`. Restart Codex after setup changes its config.
 
 ## Examples
 
@@ -142,6 +144,7 @@ Authentication determines billing. `ANTHROPIC_API_KEY` takes precedence and uses
 | `E_AUTH`               |   10 | Claude authentication missing or rejected |
 | `E_SDK_MISSING`        |   11 | Agent SDK unavailable                     |
 | `E_SDK_VERSION`        |   12 | Agent SDK below the minimum               |
+| `E_CLAUDE_MISSING`     |   13 | Claude Code executable not found          |
 | `E_NOT_GIT_REPO`       |   20 | cwd is not a Git repository               |
 | `E_WORKTREE_NOT_FOUND` |   21 | existing worktree is not registered       |
 | `E_WORKTREE_EXISTS`    |   22 | worktree path conflict                    |

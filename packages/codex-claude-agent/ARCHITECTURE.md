@@ -10,6 +10,13 @@ The stream begins with `{ type: 'system', subtype: 'init', session_id, agents?, 
 
 ## Deliberate choices
 
+- The Claude Code executable comes from the host, not from the SDK. The Agent
+  SDK's per-platform binary is an optional dependency this package installs
+  without; `claude-binary.ts` resolves the user's `claude` (or
+  `CODEX_CLAUDE_AGENT_CLAUDE_PATH`) and passes it as
+  `pathToClaudeCodeExecutable`. A delegated run therefore uses the same Claude
+  Code build the user runs interactively, and a missing one is a diagnostics
+  failure (`E_CLAUDE_MISSING`) rather than a spawn error from inside the SDK.
 - `tools` limits the exposed built-ins while `canUseTool` enforces non-interactive approval. Read-only Bash commands are matched locally and rejected when they contain shell control syntax or write-capable Git flags.
 - SDK isolation is the default. `CLAUDE.md` is injected as text, project settings require explicit opt-in, and the SDK subprocess receives a minimal runtime/Claude-auth environment rather than every host secret.
 - Structured-output repair resumes the same session once. Transient retries stop after any tool use so a recovered stream cannot repeat mutations.

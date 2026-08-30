@@ -98,6 +98,7 @@
             "E_AUTH",
             "E_SDK_MISSING",
             "E_SDK_VERSION",
+            "E_CLAUDE_MISSING",
             "E_NOT_GIT_REPO",
             "E_WORKTREE_NOT_FOUND",
             "E_WORKTREE_EXISTS",

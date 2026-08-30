@@ -11,3 +11,4 @@ export {
   type RunResult,
 } from "./schema.js";
 export { RunnerError, ERROR_EXIT_CODES, exitCodeFor } from "./errors.js";
+export { CLAUDE_PATH_ENV, resolveClaudeExecutable } from "./claude-binary.js";

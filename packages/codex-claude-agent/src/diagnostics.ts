@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 
 import { RunnerError } from "./errors.js";
 import { probeClaudeAuth, SDK_VERSION } from "./sdk.js";
+import { CLAUDE_PATH_ENV, resolveClaudeExecutable } from "./claude-binary.js";
 import { DiagnosticsSchema, type Diagnostics } from "./schema.js";
 import { repositoryStateDirectory } from "./state.js";
 import { readFileNoFollow, writeFileAtomically } from "./utils/secure-files.js";
@@ -125,6 +126,21 @@ export async function runDiagnostics(
       : `Install @anthropic-ai/claude-agent-sdk >= ${MINIMUM_SDK_VERSION}.`,
   });
 
+  // The SDK's own copy of the Claude Code binary is an optional dependency
+  // this package does not install, so the executable has to come from the
+  // user's install. Checked before auth, which spawns it.
+  const claudePath = resolveClaudeExecutable();
+  checks.push({
+    name: "claude",
+    ok: claudePath !== undefined,
+    detail: claudePath
+      ? `Claude Code executable: ${claudePath}`
+      : "Claude Code executable not found.",
+    fix: claudePath
+      ? undefined
+      : `Install Claude Code (https://claude.com/claude-code), or set ${CLAUDE_PATH_ENV} to its path.`,
+  });
+
   let claudeAuth: Diagnostics["claudeAuth"] = "missing";
   if (process.env.ANTHROPIC_API_KEY) {
     claudeAuth = "api-key";
@@ -199,11 +215,13 @@ export function assertDiagnostics(diagnostics: Diagnostics): void {
   const code =
     failure.name === "auth"
       ? "E_AUTH"
-      : failure.name === "sdk"
-        ? SDK_VERSION === "unknown"
-          ? "E_SDK_MISSING"
-          : "E_SDK_VERSION"
-        : "E_EXECUTION";
+      : failure.name === "claude"
+        ? "E_CLAUDE_MISSING"
+        : failure.name === "sdk"
+          ? SDK_VERSION === "unknown"
+            ? "E_SDK_MISSING"
+            : "E_SDK_VERSION"
+          : "E_EXECUTION";
   throw new RunnerError(code, failure.detail, { hint: failure.fix });
 }
 

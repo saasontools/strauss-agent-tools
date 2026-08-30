@@ -18,6 +18,7 @@ import path from "node:path";
 
 import { RunnerError } from "./errors.js";
 import type { RunRequest, Warning } from "./schema.js";
+import { resolveClaudeExecutable } from "./claude-binary.js";
 import { stateRoot } from "./state.js";
 import { VERSION } from "./version.js";
 
@@ -65,6 +66,7 @@ export async function probeClaudeAuth(
           prompt: "",
           options: {
             abortController: controller,
+            pathToClaudeCodeExecutable: resolveClaudeExecutable(),
             maxTurns: 0,
             tools: [],
             settingSources: [],
@@ -558,6 +560,11 @@ async function executeQueryInternal(
   );
   const options: Options = {
     abortController: controller,
+    // Undefined falls back to the SDK's own bundled binary, which this package
+    // deliberately does not install — see claude-binary.ts. runDiagnostics
+    // fails the run before here when there is nothing to point at, so this is
+    // the ordinary path, not a fallback.
+    pathToClaudeCodeExecutable: resolveClaudeExecutable(),
     cwd,
     additionalDirectories: req.additionalDirectories,
     agents: validateAgentDefinitions(

@@ -6,35 +6,51 @@ SDK — read-only by default, optionally in a throwaway Git worktree, under a
 turn/budget/time ceiling — and relays what it found.
 
 This plugin is the front end: a `$claude` skill, session hooks, and an optional
-Codex agent. The runner behind it is the
-[`@saasontools/codex-claude-agent`](../../packages/codex-claude-agent) npm
-package.
+Codex agent.
 
 ## Install
 
-The plugin directory ships manifests and markdown; the runner comes from npm,
-and both the skill and the hooks call it through `PATH`:
-
-```bash
-npm install -g @saasontools/codex-claude-agent
-```
-
-Then add this repository as a Codex marketplace
+Add this repository as a Codex marketplace
 (`.agents/plugins/marketplace.json`) and install `codex-claude-agent` by name.
 
-Finally, once per machine:
+The plugin directory ships manifests and markdown; the runner itself is the
+[`@saasontools/codex-claude-agent`](../../packages/codex-claude-agent) npm
+package. **You do not have to install it.** When it is not on `PATH`, the
+skill and the hook reach it through `npx -y --omit=optional -p
+@saasontools/codex-claude-agent@0.x`, which tracks every 0.x release without
+anyone updating anything.
+
+Installing it is still worth one command — it is faster, and it is what the
+skill's examples type:
+
+```bash
+npm install -g --omit=optional @saasontools/codex-claude-agent
+```
+
+Then, once per machine:
 
 ```bash
 codex-claude-agent setup
 ```
 
-`setup` is idempotent. It checks the SDK, your Claude auth, Git, and free disk,
+`setup` is idempotent. It checks the SDK, the Claude Code executable, your
+auth, Git, and free disk,
 then enables `[features].hooks`, `[features].plugin_hooks`, and the
 repository's `.codex-claude` writable root in `~/.codex/config.toml`. Restart
 Codex after it changes anything.
 
-Requirements: Node 22+, Git 2.30+, and either a Claude login or
-`ANTHROPIC_API_KEY`.
+Requirements: Node 22+, Git 2.30+, Claude Code installed, and either a Claude
+login or `ANTHROPIC_API_KEY`.
+
+### Why `--omit=optional`
+
+The Agent SDK ships the Claude Code executable as a per-platform optional
+dependency: ~245 MB, and a second copy of the CLI you are already running,
+frozen at whatever build that SDK release carried. The runner never spawns it
+— it resolves your installed `claude` and hands the SDK that path, so
+delegated runs follow your own Claude Code version. Omitting it takes the
+download from ~290 MB to ~45 MB. `CODEX_CLAUDE_AGENT_CLAUDE_PATH` pins a
+specific executable if you keep several.
 
 ## What the plugin carries
 
@@ -47,9 +63,13 @@ Requirements: Node 22+, Git 2.30+, and either a Claude login or
 
 `hooks/hooks.json` wires `SessionStart` and `UserPromptSubmit`. Both scripts
 exit silently when `CODEX_CLAUDE_AGENT_NESTED` is set, so a Claude session the
-runner started never re-enters the plugin. The unread-result hook also exits
-silently when the CLI is not on `PATH`: it runs on every prompt, so it resolves
-an installed binary rather than paying a registry round-trip through `npx`.
+runner started never re-enters the plugin.
+
+The unread-result hook runs on every prompt, so it is ordered to cost nothing
+until it can't: it tests for the runner's state directory first and exits when
+no job has ever been started, then prefers an installed CLI, and only falls
+back to `npx` after that. A session that never delegates in the background
+never spawns anything.
 
 The agent file is a Codex project agent, not something the plugin registers.
 Copy it in to get `claude-delegate` as a selectable agent:

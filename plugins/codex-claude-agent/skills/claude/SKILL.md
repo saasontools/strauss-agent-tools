@@ -7,6 +7,8 @@ description: Delegate arbitrary reviews, investigations, fixes, or implementatio
 
 Run `codex-claude-agent run ... --format markdown` by default and relay the rendered output.
 
+If `codex-claude-agent` is not on `PATH`, prefix every invocation in this skill with `npx -y --omit=optional -p @saasontools/codex-claude-agent@0.x --`. Nothing else changes. `--omit=optional` is not decorative: it keeps the Agent SDK's bundled Claude Code binary (~245 MB) out of the download, and the runner spawns the installed `claude` instead.
+
 ## Procedure
 
 1. Convert the user's free text and flags directly into one runner invocation. Do not replace the task with a fixed command.

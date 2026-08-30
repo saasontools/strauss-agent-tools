@@ -1,9 +1,17 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+
+import { stateRoot } from "../src/state.js";
 
 /**
  * The plugin directory is what users actually install, and it lives outside
@@ -147,35 +155,120 @@ describe("SessionStart hook", () => {
 });
 
 describe("UserPromptSubmit hook", () => {
-  onPosix("says nothing when the runner is not installed", () => {
-    // It runs on every prompt. A machine without the CLI has to be silent,
-    // not noisy once per turn.
-    const result = runHook("unread-result.sh", "", {
-      PATH: "/nonexistent",
-      CODEX_CLAUDE_AGENT_NESTED: "",
-    });
+  /**
+   * A shim directory holding fake `codex-claude-agent` / `npx` binaries that
+   * echo their arguments. `/usr/bin` and `/bin` stay on PATH because the hook
+   * shells out to `find`.
+   */
+  function shims(names: string[]): { dir: string; path: string } {
+    const dir = mkdtempSync(join(tmpdir(), "codex-claude-agent-bin-"));
+    for (const name of names) {
+      writeFileSync(join(dir, name), `#!/bin/sh\necho "${name}:$*"\n`, {
+        mode: 0o755,
+      });
+    }
+    return { dir, path: `${dir}:/usr/bin:/bin` };
+  }
 
-    expect(result.status).toBe(0);
-    expect(result.stdout).toBe("");
-  });
+  /** A state directory holding one job record, laid out as the runner does. */
+  function stateWithJob(): string {
+    const root = mkdtempSync(join(tmpdir(), "codex-claude-agent-state-"));
+    const jobs = join(root, "repositories", "a".repeat(32), "jobs");
+    mkdirSync(jobs, { recursive: true });
+    writeFileSync(join(jobs, "claude-abc.json"), "{}");
+    return root;
+  }
 
-  onPosix("reports a finished job through the installed CLI", () => {
-    const bin = mkdtempSync(join(tmpdir(), "codex-claude-agent-bin-"));
+  onPosix("stays silent when nothing has ever been run", () => {
+    // It runs on every prompt. A session that never started a background job
+    // must not pay for a process spawn once per turn — the directory test is
+    // the whole cost.
+    const { dir, path } = shims(["codex-claude-agent", "npx"]);
+    const empty = mkdtempSync(join(tmpdir(), "codex-claude-agent-state-"));
     try {
-      const shim = join(bin, "codex-claude-agent");
-      writeFileSync(shim, '#!/bin/sh\necho "ARGS:$*"\n', { mode: 0o755 });
-
       const result = runHook("unread-result.sh", "", {
-        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        PATH: path,
+        CODEX_CLAUDE_AGENT_STATE_DIR: empty,
         CODEX_CLAUDE_AGENT_NESTED: "",
       });
 
       expect(result.status).toBe(0);
-      expect(result.stdout.trim()).toBe("ARGS:hook unread");
+      expect(result.stdout).toBe("");
     } finally {
-      rmSync(bin, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(empty, { recursive: true, force: true });
     }
   });
+
+  onPosix("looks where the runner actually writes job records", () => {
+    // The hook computes the state root in shell; the package computes it in
+    // `stateRoot()`. Two implementations of one path is exactly the drift this
+    // asserts against — including the XDG default, not just the env override.
+    const home = mkdtempSync(join(tmpdir(), "codex-claude-agent-xdg-"));
+    const { dir, path } = shims(["codex-claude-agent"]);
+    try {
+      const env = { XDG_STATE_HOME: home };
+      const jobs = join(stateRoot(env), "repositories", "b".repeat(32), "jobs");
+      mkdirSync(jobs, { recursive: true });
+      writeFileSync(join(jobs, "claude-xyz.json"), "{}");
+
+      const result = runHook("unread-result.sh", "", {
+        ...env,
+        PATH: path,
+        CODEX_CLAUDE_AGENT_STATE_DIR: "",
+        CODEX_CLAUDE_AGENT_NESTED: "",
+      });
+
+      expect(result.stdout.trim()).toBe("codex-claude-agent:hook unread");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  onPosix("prefers an installed CLI over fetching one", () => {
+    const { dir, path } = shims(["codex-claude-agent", "npx"]);
+    const state = stateWithJob();
+    try {
+      const result = runHook("unread-result.sh", "", {
+        PATH: path,
+        CODEX_CLAUDE_AGENT_STATE_DIR: state,
+        CODEX_CLAUDE_AGENT_NESTED: "",
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout.trim()).toBe("codex-claude-agent:hook unread");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
+
+  onPosix(
+    "falls back to the published package when nothing is installed",
+    () => {
+      const { dir, path } = shims(["npx"]);
+      const state = stateWithJob();
+      try {
+        const result = runHook("unread-result.sh", "", {
+          PATH: path,
+          CODEX_CLAUDE_AGENT_STATE_DIR: state,
+          CODEX_CLAUDE_AGENT_NESTED: "",
+        });
+
+        expect(result.status).toBe(0);
+        // The range, not a bare name: the plugin tracks 0.x releases. And
+        // --omit=optional, without which npx drags in the SDK's ~245 MB bundled
+        // Claude Code binary that this runner never spawns.
+        expect(result.stdout).toContain("@saasontools/codex-claude-agent@0.x");
+        expect(result.stdout).toContain("--omit=optional");
+        expect(result.stdout.trim()).toMatch(/codex-claude-agent hook unread$/);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+        rmSync(state, { recursive: true, force: true });
+      }
+    },
+  );
 
   onPosix("stays out of a nested run", () => {
     const result = runHook("unread-result.sh", "", {
