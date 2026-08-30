@@ -26,9 +26,12 @@ export function redact(text: string): string {
   let out = text;
   // Google API keys ("AIza" + 35 url-safe chars, but be generous on length).
   out = out.replace(/AIza[0-9A-Za-z_-]{10,}/g, "[REDACTED]");
-  // Anything assigned to a key/token/secret-ish name.
+  // Anything assigned to a key/token/secret-ish name. The separator class
+  // excludes newlines deliberately: with `\s` in it, a line ending in
+  // "api-key" swallows the first word of the line below, so multi-line
+  // messages lose text that was never a secret.
   out = out.replace(
-    /((?:api[_-]?key|token|secret|authorization|x-goog-api-key)["':\s=]{1,5})[0-9A-Za-z_-]{8,}/gi,
+    /((?:api[_-]?key|token|secret|authorization|x-goog-api-key)["':=\t ]{1,5})[0-9A-Za-z_-]{8,}/gi,
     "$1[REDACTED]",
   );
   // The literal configured key value, wherever it appears.

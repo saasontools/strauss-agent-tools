@@ -58,5 +58,16 @@ describe("logger", () => {
     expect(redact('{"api_key":"abcdefgh12345678"}')).not.toContain(
       "abcdefgh12345678",
     );
+    expect(redact("x-goog-api-key: abcdefgh12345678")).not.toContain(
+      "abcdefgh12345678",
+    );
+    expect(redact("token\tabcdefgh12345678")).not.toContain("abcdefgh12345678");
+  });
+
+  it("does not redact across a line break", () => {
+    // A line ending in something key-shaped must not swallow the next line's
+    // first word: that word is ordinary text, not a secret.
+    const text = "see: pass show gemini/api-key\nGEMINI_API_KEY_FILE is unset";
+    expect(redact(text)).toBe(text);
   });
 });

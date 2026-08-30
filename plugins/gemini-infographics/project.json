@@ -1,18 +1,24 @@
 {
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "name": "plugin-strauss-kb",
+  "name": "plugin-gemini-infographics",
   "projectType": "library",
   "targets": {
     "lint": {
       "command": "eslint .",
       "options": {
-        "cwd": "plugins/strauss-kb"
+        "cwd": "plugins/gemini-infographics"
+      }
+    },
+    "typecheck": {
+      "command": "tsc -p tsconfig.json",
+      "options": {
+        "cwd": "plugins/gemini-infographics"
       }
     },
     "validate": {
       "command": "claude plugin validate .",
       "options": {
-        "cwd": "plugins/strauss-kb"
+        "cwd": "plugins/gemini-infographics"
       }
     }
   }

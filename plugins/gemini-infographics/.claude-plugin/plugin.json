@@ -1,0 +1,10 @@
+{
+  "name": "gemini-infographics",
+  "version": "0.1.0",
+  "description": "Generate Gemini (nano-banana) infographic images from a JSON spec, with model configuration and latest-model fallback.",
+  "author": {
+    "name": "Assaf Kamil"
+  },
+  "homepage": "https://github.com/saasontools/strauss-agent-tools",
+  "license": "MIT"
+}
