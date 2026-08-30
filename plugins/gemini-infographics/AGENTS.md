@@ -41,8 +41,8 @@ plugin-gemini-infographics:validate` from the repo root) after any change.
   `.agents/plugins/marketplace.json` at the repo root with an explicit
   `./plugins/gemini-infographics` source path — keep those entries in sync.
 - `project.json` carries `validate` and — because this plugin ships
-  executable code — `typecheck`. Add nothing beyond checks that run on the
-  files in this directory.
+  executable code — `lint` and `typecheck`. Add nothing beyond checks that run
+  on the files in this directory.
 
 ## Testing the script without spending money
 

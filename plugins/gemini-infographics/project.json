@@ -3,6 +3,12 @@
   "name": "plugin-gemini-infographics",
   "projectType": "library",
   "targets": {
+    "lint": {
+      "command": "eslint .",
+      "options": {
+        "cwd": "plugins/gemini-infographics"
+      }
+    },
     "typecheck": {
       "command": "tsc -p tsconfig.json",
       "options": {
