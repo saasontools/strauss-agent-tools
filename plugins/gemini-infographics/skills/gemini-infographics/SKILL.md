@@ -106,23 +106,51 @@ per-request batch failures individually. Useful flags:
 
 ### The API key
 
-The script reads the key from the environment, first match wins:
+Settings resolve **flag > environment > config file > default**. The key comes
+from the first of these that is set:
 
-| Variable                            | Meaning                                               |
-| ----------------------------------- | ----------------------------------------------------- |
-| `GEMINI_API_KEY` / `GOOGLE_API_KEY` | the key itself                                        |
-| `GEMINI_API_KEY_COMMAND`            | a command whose stdout is the key — the OS-vault path |
-| `GEMINI_API_KEY_FILE`               | a file containing the key                             |
+| Source                                                       | Meaning                                               |
+| ------------------------------------------------------------ | ----------------------------------------------------- |
+| `GEMINI_API_KEY` / `GOOGLE_API_KEY`                          | the key itself                                        |
+| `GEMINI_API_KEY_COMMAND`                                     | a command whose stdout is the key — the OS-vault path |
+| `GEMINI_API_KEY_FILE`                                        | a file containing the key                             |
+| `apiKeyCommand` / `apiKeyFile` / `apiKey` in the config file | the same three, configured once                       |
 
-`GEMINI_API_KEY_COMMAND` is how a user keeps the key in their OS vault instead
-of their shell profile — `op read 'op://Private/Gemini/credential'`,
-`security find-generic-password -s gemini-api-key -w`, `secret-tool lookup
-service gemini`, `pass show gemini/api-key`. It runs once per script run, so a
-Touch ID prompt happens at most once.
+`GEMINI_API_KEY_COMMAND` (or `apiKeyCommand`) is how a user keeps the key in
+their OS vault instead of their shell profile — `op read
+'op://Private/Gemini/credential'`, `security find-generic-password -s
+gemini-api-key -w`, `secret-tool lookup service gemini`, `pass show
+gemini/api-key`. It runs once per script run, so a Touch ID prompt happens at
+most once.
 
-If none is set the script exits with those instructions — relay them. **Never
-ask the user to paste the key into the chat, and never put it in the spec file
-or a command line**; a key on the command line lands in their shell history.
+**When the user has to re-export the key in every session**, that is what the
+config file is for — an exported variable does not reach a background session,
+a scheduled run, or a fresh terminal:
+
+`~/.config/gemini-infographics.json` — `chmod 600` it if it holds a literal
+key:
+
+```json
+{
+  "apiKeyCommand": "op read 'op://Private/Gemini/credential'",
+  "model": "flash",
+  "mode": "auto"
+}
+```
+
+`$XDG_CONFIG_HOME` moves it; `$GEMINI_INFOGRAPHICS_CONFIG` points at an exact
+file. It is deliberately **per-user, never per-project** — `apiKeyCommand` runs
+a command, so honouring a checked-in config would make cloning a repo enough to
+run its author's shell. `--dry-run` prints which config file was read.
+
+A Claude Code user can also set the variable for every session at once with an
+`env` block in `~/.claude/settings.json`; the config file is the client-agnostic
+version of the same idea and is what to reach for first.
+
+If nothing is set the script exits with those instructions — relay them.
+**Never ask the user to paste the key into the chat, and never put it in the
+spec file or a command line**; a key on the command line lands in their shell
+history.
 Every diagnostic the script prints is redacted, but a key you typed into the
 conversation is already out.
 

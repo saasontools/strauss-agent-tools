@@ -40,13 +40,18 @@
  *                                     the OS-vault path (op read, security
  *                                     find-generic-password, secret-tool, pass)
  *   GEMINI_API_KEY_FILE               a file containing the key
- * It is read once per run, and every diagnostic is redacted before printing.
+ * ...and failing all of those, from the per-user config file, which is how a
+ * user configures this once instead of exporting into every session:
+ *   ~/.config/gemini-infographics.json   { "apiKeyCommand": "op read ..." }
+ * The same file supplies defaults for model / mode / fallback. It is read once
+ * per run, and every diagnostic is redacted before printing.
  *
  * Node >= 18 standard library only — no dependencies, no build step.
  */
 
 import { execSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
@@ -108,8 +113,70 @@ function die(msg) {
 /** @param {number} ms */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * @typedef {object} Config
+ * @property {string} [apiKey]
+ * @property {string} [apiKeyCommand]
+ * @property {string} [apiKeyFile]
+ * @property {string} [model]
+ * @property {string} [mode]
+ * @property {boolean} [fallback]
+ */
+
+/**
+ * The config file is per-user, never per-project: `apiKeyCommand` runs a
+ * command, so honouring a checked-in `.gemini-infographics.json` would make
+ * cloning a repository enough to execute its author's shell.
+ */
+function configPath() {
+  const explicit = process.env.GEMINI_INFOGRAPHICS_CONFIG?.trim();
+  if (explicit) return explicit;
+  const xdg = process.env.XDG_CONFIG_HOME?.trim();
+  return join(xdg || join(homedir(), ".config"), "gemini-infographics.json");
+}
+
+/** @type {Config | undefined} */
+let configCache;
+
+/** @returns {Config} */
+function loadConfig() {
+  if (configCache) return configCache;
+  const path = configPath();
+  /** @type {string} */
+  let raw;
+  try {
+    raw = readFileSync(path, "utf8");
+  } catch {
+    return (configCache = {});
+  }
+  /** @type {unknown} */
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    return die(`${path} is not valid JSON: ${errorSummary(err)}`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return die(`${path} must contain a JSON object`);
+  }
+  const config = /** @type {Config} */ (parsed);
+  if (config.apiKey) warnIfWorldReadable(path);
+  return (configCache = config);
+}
+
+/** @param {string} path */
+function warnIfWorldReadable(path) {
+  try {
+    if (statSync(path).mode & 0o077) {
+      warn(`  ${path} holds a key and is readable by others — chmod 600 it`);
+    }
+  } catch {
+    // stat can fail on exotic filesystems; the key still works.
+  }
+}
+
 const KEY_HELP =
-  "No Gemini API key found. Set one of:\n" +
+  "No Gemini API key found. Set one of these environment variables:\n" +
   "  GEMINI_API_KEY          the key itself (GOOGLE_API_KEY also accepted)\n" +
   "  GEMINI_API_KEY_COMMAND  a command whose stdout is the key, e.g.\n" +
   "                            op read 'op://Private/Gemini/credential'\n" +
@@ -117,6 +184,12 @@ const KEY_HELP =
   "                            secret-tool lookup service gemini\n" +
   "                            pass show gemini/api-key\n" +
   "  GEMINI_API_KEY_FILE     path to a file containing the key\n" +
+  "\n" +
+  "Or, so no session has to carry them, put the same thing in\n" +
+  `${configPath()}:\n` +
+  '  { "apiKeyCommand": "op read \'op://Private/Gemini/credential\'" }\n' +
+  "(also accepts apiKeyFile, apiKey, and defaults for model / mode / fallback)\n" +
+  "\n" +
   "Get a key at: https://aistudio.google.com/apikey";
 
 /** @type {string | undefined} */
@@ -127,17 +200,20 @@ let cachedKey;
  * cache: `op read` and `security find-generic-password` can prompt for Touch
  * ID, and one prompt per image would be unusable.
  *
- * Sources are read from the environment only — never from the spec file, which
- * would turn a shared spec into arbitrary command execution.
+ * Sources are the environment and the per-user config file — never the spec
+ * file, which would turn a shared spec into arbitrary command execution.
  */
 function apiKey() {
   if (cachedKey) return cachedKey;
+  const config = loadConfig();
 
   const direct = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (direct?.trim()) return (cachedKey = direct.trim());
 
-  const command = process.env.GEMINI_API_KEY_COMMAND;
-  if (command?.trim()) {
+  const command = (process.env.GEMINI_API_KEY_COMMAND || config.apiKeyCommand)
+    ?.toString()
+    .trim();
+  if (command) {
     /** @type {string} */
     let out;
     try {
@@ -150,25 +226,28 @@ function apiKey() {
       // The command's own output can carry the secret it half-printed; only
       // the command line and exit status are safe to surface.
       return die(
-        `GEMINI_API_KEY_COMMAND failed (${command}): ` +
-          `${redact(errorSummary(err))}`,
+        `API key command failed (${command}): ${redact(errorSummary(err))}`,
       );
     }
     const key = out.split("\n")[0]?.trim();
-    if (!key) return die(`GEMINI_API_KEY_COMMAND produced no key (${command})`);
+    if (!key) return die(`API key command produced no key (${command})`);
     return (cachedKey = key);
   }
 
-  const file = process.env.GEMINI_API_KEY_FILE;
-  if (file?.trim()) {
+  const file = (process.env.GEMINI_API_KEY_FILE || config.apiKeyFile)
+    ?.toString()
+    .trim();
+  if (file) {
     try {
       const key = readFileSync(file, "utf8").split("\n")[0]?.trim();
-      if (!key) return die(`GEMINI_API_KEY_FILE is empty (${file})`);
+      if (!key) return die(`API key file is empty (${file})`);
       return (cachedKey = key);
     } catch (err) {
-      return die(`cannot read GEMINI_API_KEY_FILE ${file}: ${String(err)}`);
+      return die(`cannot read API key file ${file}: ${errorSummary(err)}`);
     }
   }
+
+  if (config.apiKey?.trim()) return (cachedKey = config.apiKey.trim());
 
   return die(KEY_HELP);
 }
@@ -594,6 +673,14 @@ const USAGE = `Usage:
   --no-fallback    fail instead of falling back to the latest model in the family
   --dry-run        validate the spec and print the model plan; generate nothing
   --list-models    list the image models this API key can reach, newest first
+
+Settings resolve flag > environment > config file > default. The config file
+is per-user, so nothing has to be exported into each session:
+
+  ~/.config/gemini-infographics.json   ($XDG_CONFIG_HOME or
+                                        $GEMINI_INFOGRAPHICS_CONFIG override it)
+  { "apiKeyCommand": "op read 'op://Private/Gemini/credential'",
+    "model": "flash", "mode": "auto", "fallback": true }
 `;
 
 /** @param {string} specPath @returns {Entry[]} */
@@ -627,7 +714,7 @@ async function main() {
     allowPositionals: true,
     options: {
       out: { type: "string" },
-      mode: { type: "string", default: "auto" },
+      mode: { type: "string" },
       model: { type: "string" },
       "no-fallback": { type: "boolean", default: false },
       "dry-run": { type: "boolean", default: false },
@@ -653,21 +740,33 @@ async function main() {
     die("spec and --out are required (unless --list-models)");
     return;
   }
-  const mode = values.mode ?? "auto";
+  // Flag beats environment beats config file beats built-in default.
+  const config = loadConfig();
+  const mode = values.mode || config.mode || "auto";
   if (!["auto", "sync", "batch"].includes(mode)) {
-    die(`--mode must be auto, sync or batch (got '${mode}')`);
+    die(`mode must be auto, sync or batch (got '${mode}')`);
   }
 
   const fallback =
-    !values["no-fallback"] && process.env.GEMINI_IMAGE_MODEL_FALLBACK !== "off";
+    !values["no-fallback"] &&
+    process.env.GEMINI_IMAGE_MODEL_FALLBACK !== "off" &&
+    config.fallback !== false;
   const defaultModel =
-    values.model || process.env.GEMINI_IMAGE_MODEL || DEFAULT_ALIAS;
+    values.model ||
+    process.env.GEMINI_IMAGE_MODEL ||
+    config.model ||
+    DEFAULT_ALIAS;
 
   const entries = loadSpec(spec);
 
   if (values["dry-run"]) {
+    const path = configPath();
     console.log(
-      `default model: ${defaultModel}   fallback: ${fallback ? "on" : "off"}`,
+      `config: ${path}${Object.keys(config).length ? "" : " (not found)"}`,
+    );
+    console.log(
+      `default model: ${defaultModel}   mode: ${mode}   ` +
+        `fallback: ${fallback ? "on" : "off"}`,
     );
     for (const e of entries) {
       const raw = e.model || defaultModel;

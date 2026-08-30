@@ -48,6 +48,34 @@ Diagnostics are redacted before printing: Google-shaped keys, anything assigned
 to a key/token/secret-ish name, and the configured key value itself, however it
 was sourced.
 
+## Configuring it once
+
+Environment variables have to reach every session that runs the script —
+background agents, scheduled runs, and fresh terminals included. To avoid that,
+put the settings in a per-user config file instead:
+
+`~/.config/gemini-infographics.json` — `chmod 600` it if it holds a literal
+key:
+
+```json
+{
+  "apiKeyCommand": "op read 'op://Private/Gemini/credential'",
+  "model": "flash",
+  "mode": "auto",
+  "fallback": true
+}
+```
+
+Accepted keys: `apiKey`, `apiKeyCommand`, `apiKeyFile`, `model`, `mode`,
+`fallback`. `$XDG_CONFIG_HOME` relocates the file; `$GEMINI_INFOGRAPHICS_CONFIG`
+points at an exact path. Everything resolves **flag > environment > config file
+
+> default**, and `--dry-run` prints which file was read.
+
+The file is read from the user's config directory only, never from the project
+being worked on: `apiKeyCommand` executes a command, and honouring a checked-in
+config would make cloning a repository enough to run its author's shell.
+
 Images cost money: roughly 2–13¢ each depending on model and batching.
 
 ## Usage

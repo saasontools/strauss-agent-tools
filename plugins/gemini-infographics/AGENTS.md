@@ -29,9 +29,10 @@ state to hold; do not add a server unless the plugin grows a lifecycle.
   JSDoc, checked by `tsc --checkJs` via `pnpm nx run
 plugin-gemini-infographics:typecheck`. Real TypeScript would need a build,
   which this directory cannot have.
-- **The key is read from the environment only, never from the spec.**
-  `GEMINI_API_KEY_COMMAND` executes a command; sourcing that from a spec file
-  would turn a shared spec into arbitrary code execution. It is also cached for
+- **Key and settings come from the environment and the per-user config file
+  only — never from the spec or a project-local file.** Both `apiKeyCommand`
+  sources execute a command; honouring a checked-in config or a spec field
+  would make cloning a repository enough to run its author's shell. It is also cached for
   the run — vault commands prompt for Touch ID, and one prompt per image is
   unusable.
 - **Everything printed to stderr goes through `warn()`/`die()`, which redact.**
