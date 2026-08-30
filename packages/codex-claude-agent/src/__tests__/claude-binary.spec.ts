@@ -7,10 +7,18 @@ import { CLAUDE_PATH_ENV, resolveClaudeExecutable } from "../claude-binary.js";
 
 const directories: string[] = [];
 
-function binDir(options: { executable?: boolean; name?: string } = {}): string {
+/**
+ * What a PATH lookup can actually find on this platform. Windows spawns need
+ * an extension from PATHEXT — a bare `claude` there is the Git Bash shell
+ * script, which `child_process.spawn` cannot execute — so the resolver only
+ * looks for the extended names and a stub without one would never match.
+ */
+const EXECUTABLE = process.platform === "win32" ? "claude.exe" : "claude";
+
+function binDir(options: { executable?: boolean } = {}): string {
   const dir = mkdtempSync(join(tmpdir(), "codex-claude-agent-bin-"));
   directories.push(dir);
-  const file = join(dir, options.name ?? "claude");
+  const file = join(dir, EXECUTABLE);
   writeFileSync(file, "#!/bin/sh\nexit 0\n");
   chmodSync(file, options.executable === false ? 0o644 : 0o755);
   return dir;
@@ -29,19 +37,21 @@ describe("resolveClaudeExecutable", () => {
 
     expect(
       resolveClaudeExecutable({ PATH: [first, second].join(delimiter) }),
-    ).toBe(join(first, "claude"));
+    ).toBe(join(first, EXECUTABLE));
   });
 
   it("prefers an explicit override over PATH", () => {
     const onPath = binDir();
     const pinned = binDir();
 
+    // An explicit path is taken as given on both platforms: it is spawned
+    // directly rather than looked up through PATHEXT.
     expect(
       resolveClaudeExecutable({
         PATH: onPath,
-        [CLAUDE_PATH_ENV]: join(pinned, "claude"),
+        [CLAUDE_PATH_ENV]: join(pinned, EXECUTABLE),
       }),
-    ).toBe(join(pinned, "claude"));
+    ).toBe(join(pinned, EXECUTABLE));
   });
 
   it("reports nothing rather than a path that cannot be spawned", () => {
@@ -73,6 +83,6 @@ describe("resolveClaudeExecutable", () => {
 
     expect(
       resolveClaudeExecutable({ PATH: `${delimiter}${dir}${delimiter}` }),
-    ).toBe(join(dir, "claude"));
+    ).toBe(join(dir, EXECUTABLE));
   });
 });
