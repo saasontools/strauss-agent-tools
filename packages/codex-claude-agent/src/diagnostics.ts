@@ -263,7 +263,11 @@ export function ensureFeatureFlags(
   );
   const currentRoots =
     writableLine >= 0
-      ? [...lines[writableLine]!.matchAll(/"((?:\\.|[^"])*)"/g)].map(
+      ? // `[^"\\]` rather than `[^"]`: with the broader class an escape pair
+        // is matchable both as `\\.` and as two single characters, and that
+        // ambiguity inside a `*` is exponential backtracking on input like a
+        // quote followed by many `\\!` sequences. One class, one parse.
+        [...lines[writableLine]!.matchAll(/"((?:\\.|[^"\\])*)"/g)].map(
           (match) => JSON.parse(`"${match[1]}"`) as string,
         )
       : [];
