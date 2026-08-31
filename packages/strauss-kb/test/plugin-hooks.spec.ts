@@ -574,9 +574,21 @@ process.stdout.write("[]");
       mkdirSync(binDir, { recursive: true });
       const mjsPath = join(binDir, "strauss-kb.mjs");
       writeFileSync(mjsPath, forwardToRealCli);
-      const shim = join(binDir, "strauss-kb");
-      writeFileSync(shim, `#!/bin/sh\nexec node "${mjsPath}" "$@"\n`);
-      chmodSync(shim, 0o755);
+      // resolveLocalBin() looks for `strauss-kb.cmd` on win32 specifically
+      // (npm's own convention for a `.bin` shim there) and plain
+      // `strauss-kb` elsewhere — both need to exist, or this silently
+      // falls through to the PATH tier on whichever platform is missing
+      // its variant.
+      if (process.platform === "win32") {
+        writeFileSync(
+          join(binDir, "strauss-kb.cmd"),
+          `@echo off\r\nnode "%~dp0strauss-kb.mjs" %*\r\n`,
+        );
+      } else {
+        const shim = join(binDir, "strauss-kb");
+        writeFileSync(shim, `#!/bin/sh\nexec node "${mjsPath}" "$@"\n`);
+        chmodSync(shim, 0o755);
+      }
 
       const shims = makeBinShims({ "strauss-kb": decoyStraussKb });
       try {
