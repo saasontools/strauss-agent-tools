@@ -6,12 +6,36 @@ import { readFileNoFollow } from "../utils/secure-files.js";
 
 const execFileAsync = promisify(execFile);
 const PROCESS_PROBE_TIMEOUT_MS = 5_000;
+/**
+ * Windows has no cheap start-time source: the probe pays a PowerShell start
+ * plus a CIM query, which on a loaded CI runner has been measured past the
+ * 5s budget that suffices everywhere else. A run that cannot identify its own
+ * process fails outright, so this one gets room and a second attempt.
+ */
+const WINDOWS_PROBE_TIMEOUT_MS = 20_000;
 const TERMINATION_GRACE_MS = 2_000;
 
-export async function getProcessIdentity(
+export interface ProcessIdentityProbe {
+  identity?: string;
+  /** Why the probe came back empty. For error messages, never for control flow. */
+  reason?: string;
+}
+
+const describe = (error: unknown): string =>
+  error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+
+/**
+ * The identity of a process, and — when there is none — why.
+ *
+ * `getProcessIdentity` keeps the plain signature its six callers use. This
+ * variant exists because a failure here aborts a run with `E_EXECUTION`, and
+ * a swallowed cause makes that unfixable from a CI log: the reason a Windows
+ * probe came back empty is the whole diagnosis.
+ */
+export async function probeProcessIdentity(
   pid: number,
   signal?: AbortSignal,
-): Promise<string | undefined> {
+): Promise<ProcessIdentityProbe> {
   if (signal?.aborted) throw signal.reason;
   if (process.platform === "linux") {
     try {
@@ -19,29 +43,36 @@ export async function getProcessIdentity(
         await readFileNoFollow(`/proc/${pid}/stat`),
       );
       if (signal?.aborted) throw signal.reason;
-      return identity;
-    } catch {
+      return identity ? { identity } : { reason: "unparsable /proc stat" };
+    } catch (error) {
       if (signal?.aborted) throw signal.reason;
-      return undefined;
+      return { reason: describe(error) };
     }
   }
   if (process.platform === "win32") {
-    try {
-      const { stdout } = await execFileAsync(
-        "powershell.exe",
-        [
-          "-NoProfile",
-          "-NonInteractive",
-          "-Command",
-          `(Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}").CreationDate.ToUniversalTime().ToString('o')`,
-        ],
-        { timeout: PROCESS_PROBE_TIMEOUT_MS, signal },
-      );
-      return stdout.trim();
-    } catch {
-      if (signal?.aborted) throw signal.reason;
-      return undefined;
+    let reason = "";
+    // Twice: the first attempt on a busy runner is the one that times out.
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const { stdout } = await execFileAsync(
+          "powershell.exe",
+          [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            `(Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}").CreationDate.ToUniversalTime().ToString('o')`,
+          ],
+          { timeout: WINDOWS_PROBE_TIMEOUT_MS, signal },
+        );
+        const identity = stdout.trim();
+        if (identity) return { identity };
+        reason = "powershell returned no creation date";
+      } catch (error) {
+        if (signal?.aborted) throw signal.reason;
+        reason = `${describe(error)} (attempt ${attempt})`;
+      }
     }
+    return { reason };
   }
   try {
     const { stdout } = await execFileAsync(
@@ -49,11 +80,19 @@ export async function getProcessIdentity(
       ["-o", "lstart=", "-p", String(pid)],
       { timeout: PROCESS_PROBE_TIMEOUT_MS, signal },
     );
-    return stdout.trim() || undefined;
-  } catch {
+    const identity = stdout.trim();
+    return identity ? { identity } : { reason: "ps returned no start time" };
+  } catch (error) {
     if (signal?.aborted) throw signal.reason;
-    return undefined;
+    return { reason: describe(error) };
   }
+}
+
+export async function getProcessIdentity(
+  pid: number,
+  signal?: AbortSignal,
+): Promise<string | undefined> {
+  return (await probeProcessIdentity(pid, signal)).identity;
 }
 
 export function parseLinuxProcessStartTime(

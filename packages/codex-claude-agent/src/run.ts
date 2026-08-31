@@ -20,6 +20,7 @@ import {
   failJob,
   generateJobId,
   getProcessIdentity,
+  probeProcessIdentity,
   readJob,
   resolveJobPaths,
   terminateProcessTree,
@@ -522,16 +523,19 @@ async function runClaudeInternal(
       await createJob(root, request, jobId);
       jobExists = true;
     }
-    const workerIdentity = await getProcessIdentity(
-      process.pid,
-      controller.signal,
-    );
-    if (!workerIdentity) {
+    const worker = await probeProcessIdentity(process.pid, controller.signal);
+    if (!worker.identity) {
+      // Carry the probe's reason. Without it this is a dead end: the run stops
+      // before Claude starts and the log says only that identity failed.
       throw new RunnerError(
         "E_EXECUTION",
-        "Unable to verify the Claude worker process identity.",
+        `Unable to verify the Claude worker process identity: ${worker.reason ?? "no reason reported"}`,
+        {
+          hint: "The job's ownership guard needs the process start time; see the reason above.",
+        },
       );
     }
+    const workerIdentity = worker.identity;
     const claimed = await updateJob(
       root,
       jobId,
