@@ -6,6 +6,12 @@ on:
     paths:
       - "apps/strauss-kb-docs/**"
       - ".github/workflows/docs.yml"
+      # A dependency or Node bump changes the built site without touching the
+      # app directory, so the deploy has to follow them too or the published
+      # site drifts from what CI actually builds.
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".nvmrc"
   workflow_dispatch:
 
 permissions: {}
@@ -21,12 +27,13 @@ jobs:
   build:
     name: Build site
     runs-on: ubuntu-latest
+    # Read-only. Nothing in this job touches the Pages API: the site's url and
+    # baseUrl are hardcoded in docusaurus.config.ts rather than read from
+    # configure-pages' outputs, deliberately — the published URL is part of the
+    # site's own configuration and `docusaurus build` must produce identical
+    # output whether it runs here or on a laptop.
     permissions:
       contents: read
-      # Needed only by the `enablement: true` below, which calls the Pages API
-      # to turn Pages on for this repository. Once Pages is on, this could drop
-      # back to `contents: read` alone.
-      pages: write
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
@@ -48,16 +55,6 @@ jobs:
 
       - run: pnpm nx build strauss-kb-docs
 
-      # `enablement: true` asks the Pages API to turn Pages on if it is off.
-      # The action documents that this needs a token with `administration:write`
-      # — which GITHUB_TOKEN does not carry — so if the very first run fails
-      # here, switch Pages on once by hand (Settings → Pages → Source: GitHub
-      # Actions) and re-run. Every later run is a no-op.
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-        with:
-          enablement: true
-
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
@@ -78,6 +75,17 @@ jobs:
         uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
         with:
           egress-policy: audit
+
+      # Pages must be enabled once by hand before the first deploy: Settings →
+      # Pages → Source: GitHub Actions. `enablement: true` is deliberately not
+      # used — the action's own docs say it needs a token carrying
+      # `administration:write`, which GITHUB_TOKEN cannot be granted, so it
+      # would be a step that can only ever fail.
+      #
+      # configure-pages itself still runs, so the deployment resolves the
+      # repository's Pages settings before deploy-pages publishes into them.
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       # No checkout: this job deploys the artifact the build job uploaded and
       # never reads the repository.

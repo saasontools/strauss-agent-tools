@@ -361,34 +361,60 @@ base whole. Over budget, when the work centres on a record you can name, pack
 hands over that record's bounded neighbourhood instead.
 
 ```bash
-strauss-kb pack decision.cursor-v2 --hops 2 --max-nodes 20
+strauss-kb pack decision.cursor-v2 --hops 2 --max-nodes 4
 ```
 
-```markdown
+```text
 # KB Pack — decision.cursor-v2
-
 bundle: /repo/.strauss/kb
-budget: ~4120 of 25000 tokens, 7 records
-packed: 2026-08-16T09:14:00Z
+budget: ~358 of 25000 tokens, 4 records
+packed: 2026-08-31T22:54:18.986Z
 
-## Records (5)
+## Records (3)
 
 ### decision.cursor-v2 — Cursor pagination keyed on (created_at, id) [current]
-
+warnings: unverified
 anchors: src/api/list.ts#listOrders
 
 ## Decision
 
-…
+Cursor pagination keyed on (created_at, id)
+
+## Rationale
+
+Offset pagination skipped rows under concurrent inserts.
+
+## Rejected
+
+Keeping offsets and accepting the skew.
+
+### requirement.stable-ordering — The orders list must be stably ordered [unsettled]
+warnings: unsettled (proposed); unverified
+anchors: src/api/list.ts#listOrders
+
+## Claim
+
+Ordering is total, not just by created_at.
+
+### fact.index-on-created-at — orders has a composite index on (created_at, id) [current]
+warnings: unverified
+anchors: src/api/list.ts#listOrders
+
+## Claim
+
+The index exists and is used by the list query.
 
 ## Superseded (1)
-
-- decision.cursor-v1 → decision.cursor-v2 (2026-08-16T09:14:00Z)
+- decision.cursor-v1 → decision.cursor-v2 (2026-08-31T22:54:18.430Z)
 
 ## Excluded (1)
-
-- fact.index-on-created-at
+- open-question.pagination
 ```
+
+The header's `4 records` is `recordCount`, which counts everything the walk
+kept and adjudicated: the three whole records plus the one superseded stub.
+`Excluded` is separate — those were cut by `--max-nodes` before adjudication,
+so they are named but not counted.
 
 Three properties make it usable as an artifact rather than just a dump:
 

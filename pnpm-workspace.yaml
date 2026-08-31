@@ -51,18 +51,25 @@ overrides:
   # in the meantime.
   "protobufjs@>=8.0.0 <8.6.6": "8.6.6"
   "@opentelemetry/propagator-jaeger@<2.9.0": "2.9.0"
-  # CVE mitigation: RCE in serialize-javascript <7.0.3, transitive via
-  # copy-webpack-plugin and terser-webpack-plugin under Docusaurus. Those two
-  # only ever hand it plain build metadata, but the patched line is a major
-  # bump they have not taken yet, and the API they use is unchanged across it.
-  "serialize-javascript@<7.0.3": "7.1.1"
-auditConfig:
+  # CVE mitigation, both transitive via copy-webpack-plugin and
+  # terser-webpack-plugin under Docusaurus: RCE below 7.0.3, and a DoS below
+  # 7.0.5 — so the selector covers the higher of the two rather than only the
+  # first one found. Those plugins only ever hand it plain build metadata, but
+  # the patched line is a major bump they have not taken yet, and the API they
+  # use is unchanged across it.
+  "serialize-javascript@<7.0.5": "7.1.1"
+audit:
   # image-size has no patched release: both advisories say "patched versions:
   # none", and 2.0.2 is still the latest on npm. It reaches this workspace only
   # through @docusaurus/mdx-loader, which calls it at build time on images
-  # committed to this repository — there is no attacker-supplied JXL or HEIF in
-  # that path. Revisit when image-size ships a fix; the docs site build is the
-  # only consumer.
-  ignoreGhsas:
+  # committed to this repository — there is no attacker-supplied JXL, HEIF, or
+  # ICNS in that path. Revisit when image-size ships a fix; the docs site build
+  # is the only consumer.
+  #
+  # `audit.ignore`, not the older `auditConfig.ignoreGhsas`: pnpm renamed the
+  # setting in 11.16, and the old spelling stops being read in pnpm 12 — where
+  # it would silently stop applying rather than fail, which is the worst way for
+  # a security exception to expire.
+  ignore:
     - GHSA-5p2g-fcmc-qvqq
     - GHSA-w3rx-r6r6-pgpr

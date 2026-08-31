@@ -65,8 +65,12 @@ only choose distinct names.
 | Surface    | Entry point                                         | Who uses it                                   |
 | ---------- | --------------------------------------------------- | --------------------------------------------- |
 | CLI        | `strauss-kb`                                        | agent skills shelling out by name, and humans |
-| MCP server | `strauss-kb-mcp` (stdio)                            | any MCP client — 21 tools, one per verb       |
+| MCP server | `strauss-kb-mcp` (stdio)                            | any MCP client                                |
 | Library    | `import { KbStore } from "@saasontools/strauss-kb"` | programmatic callers, diff annotation         |
+
+The command table holds 22 verbs and projects 21 of them as MCP tools. The one
+verb with no tool is `sync-instructions` — file plumbing for hooks rather than
+an agent capability, and the capability it serves is `kb_context`.
 
 ```bash
 npm install -g @saasontools/strauss-kb
