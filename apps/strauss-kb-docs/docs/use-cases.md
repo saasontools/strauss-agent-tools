@@ -3,12 +3,12 @@ id: use-cases
 title: Use cases
 sidebar_label: Use cases
 sidebar_position: 4
-description: Recording decisions, querying before deciding, superseding, verifying, tracing, loading into agent context, and packing subgraphs.
+description: Recording decisions, querying before deciding, superseding, verifying, tracing, impact analysis, health sweeps, and loading into agent context.
 ---
 
 # Use cases
 
-Seven things a base is actually for. Each shows the CLI; the
+What a base is actually for. Each shows the CLI; the
 [MCP reference](./mcp-reference.md) has the equivalent tool call.
 
 ## Recording a decision
@@ -122,10 +122,14 @@ Read it before acting on `body` — a superseded record is usually the older,
 longer, more general one, so it is exactly what a ranker prefers.
 
 :::warning Never read record files directly
-`query`, `load`, `pack`, and `trace` are the supported ways to read a base. A
-raw file read bypasses supersession resolution and returns replaced records as
-if current.
+`load`, `catalog`, `query`, `pack`, and `trace` are the supported ways to read a
+base. A raw file read bypasses supersession resolution and returns replaced
+records as if current.
 :::
+
+A query cannot tell you that nothing was decided — it returns its nearest hit
+whatever the distance. When the question is _what exists_, `catalog` is the one
+that can support "no record covers this", because it names every record.
 
 ## Superseding
 
@@ -172,8 +176,91 @@ array is capped at 32.
 Both directions are written, so `validate` drops to catching hand-edits:
 
 ```bash
-strauss-kb validate || echo "problems above"
+strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 ```
+
+## "What breaks if I change this?"
+
+Ask **before** superseding, contradicting, or narrowing a record. The answer is
+the set of records whose claims were written assuming the current one holds —
+exactly what a diff cannot show you.
+
+The edges come from `strauss_links`, written on the record that makes the claim:
+
+```bash
+strauss-kb write fact <<'JSON'
+{
+  "slug": "region-key",
+  "title": "The cache key is prefixed with the region",
+  "why": "A region-less key serves one region another region's data.",
+  "sections": { "Claim": "Every key is prefixed with the region." },
+  "links": [
+    { "target": "requirement.tenant-isolation", "rel": "satisfies" },
+    { "target": "test-obligation.region-bleed", "rel": "verified_by" }
+  ]
+}
+JSON
+```
+
+Then:
+
+```bash
+strauss-kb impact fact.region-key
+```
+
+```json
+{
+  "root": "fact.region-key",
+  "impacted": [
+    {
+      "conceptId": "decision.single-cache-namespace",
+      "title": "One cache namespace per deployment",
+      "standing": "current",
+      "depth": 1,
+      "via": [
+        {
+          "source": "decision.single-cache-namespace",
+          "target": "fact.region-key",
+          "rel": "depends_on"
+        }
+      ]
+    }
+  ],
+  "stopped": ["decision.cache-v1"],
+  "truncated": false,
+  "unexpanded": []
+}
+```
+
+Three things to read carefully:
+
+- **`via` shows the edge as written, not as walked.** The walk runs against a
+  `depends_on` and along an `informs`, so without both ends named you could not
+  tell which way the dependence ran.
+- **`stopped` names where the walk halted.** A superseded or rejected record is
+  reported and not walked through — its declared edges no longer hold. Naming
+  the stopping points is what keeps the gap knowable.
+- **`truncated` is the honest flag.** The walk is unbounded by default, because
+  a blast radius silently cut at some depth looks exactly like a small one. Pass
+  `--depth N` and the result says so, with `unexpanded` naming what it skipped.
+
+Which direction each rel runs is the whole subtlety — see the
+[direction table](./specification.md#typed-causal-links). `A depends_on B` means
+B's dependants include A; `A informs B` means A's dependants include B. Naming
+`related_to`, or a rel that does not exist, in `--rels` is an **error** rather
+than an empty result: "nothing breaks" is the one answer you must never receive
+from a typo.
+
+For the flat question — who points at this, one hop, every rel — use
+`backlinks`:
+
+```bash
+strauss-kb backlinks fact.region-key
+```
+
+That is the one to reach for when reviewing or renaming a record and you need
+the exact edges rather than a causal closure. Every row carries its standing,
+because a backlink from a superseded record is not a live dependency.
 
 ## Moving a status, answering a question
 
@@ -216,6 +303,124 @@ re-reading your own output is not an independent check. The refusal lands in the
 log as `verify:refused`, so an audit sees the attempt as well as the rule. Set
 the actor with `STRAUSS_KB_ACTOR`; it is a self-declared label, not an
 authenticated identity.
+
+## Keeping anchors honest
+
+An [anchor](./specification.md#anchors) names where a record attaches in the
+code. Stamp it with a hash once the change has settled, and the base can tell
+you later when the code moved out from under it:
+
+```bash
+strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo
+```
+
+```json
+{
+  "conceptId": "decision.cas-not-lock",
+  "results": [
+    {
+      "file": "src/kb-store.ts",
+      "symbol": "KbStore.setStatus",
+      "state": "stamped",
+      "currentHash": "sha256:9f2c…"
+    }
+  ],
+  "verified": true
+}
+```
+
+Run it again later and the states become the answer: `match`, `drifted`, or
+`unresolved` with a reason — a deleted file is as much a broken anchor as a
+rewritten one. It **exits non-zero** on drift or an unresolvable hash-carrying
+anchor, so it works as a CI gate:
+
+```bash
+strauss-kb anchor-resolve decision.cas-not-lock || echo "the code moved"
+```
+
+A green run writes **nothing at all** — a matching anchor is left alone rather
+than re-dated, because rewriting the record on every clean run would fill the
+log with nothing. Pass `--restamp` when you do want the record to say when it
+was last checked, or `--rebaseline` to accept the current code as the new
+baseline.
+
+You do not have to run it to see drift, though. `load` and `query` re-resolve
+hash-carrying anchors as they read, and attach a `drifted` warning:
+
+```json
+{
+  "kind": "drifted",
+  "anchors": [
+    { "file": "src/kb-store.ts", "symbol": "KbStore.setStatus", "diffSize": 6 }
+  ]
+}
+```
+
+Anchors with no hash are never read, so a base nobody has stamped costs nothing.
+Point `--repo-root` at the checkout when the working directory is not it — and
+note that when it is omitted and _every_ anchor comes back missing, the finding
+is dropped rather than reported, because that pattern means you ran from the
+wrong directory, not that the repository lost every anchored file.
+
+## Sweeping a base for decay
+
+Decay is invisible from inside a single record. A stale record reads exactly
+like a live one, a question nobody answered reads exactly like one nobody asked,
+and a record nothing links to is reachable only by someone who already knows it
+is there. `doctor` is the question no reader thinks to ask:
+
+```bash
+strauss-kb doctor
+```
+
+```text
+# KB Doctor — /repo/.strauss/kb
+records: 24
+thresholds: expiring within 30d, unverified over 90d, aging over 90d
+checked: 2026-09-01T10:00:00.000Z
+
+  expired                 1  past its stale_after date
+  expiring                0  stale_after falls within the window
+  unverified              3  nobody has ever confirmed it, and it is old enough to matter
+  aging                   2  still open or still proposed long after it was written
+  orphaned                0  no other record links to it
+  broken-supersession     0  the supersession pointers do not resolve
+  superseded-but-cited    1  a live record's body links to one that no longer holds
+  drifted                 0  the code an anchor points at moved out from under its hash
+
+## expired (1)
+- fact.tls-cipher-list — The accepted cipher list: stale since 2026-06-01 (92 days ago)
+
+7 findings across 4 of 8 checks.
+```
+
+**Every group is reported even when empty.** A check that found nothing and a
+check that never ran look identical in a report that only lists findings, which
+is the whole value of a sweep.
+
+It is **read-only**: nothing is re-dated, re-verified, superseded, or deleted,
+because every finding is a judgment somebody has to make — whether a claim still
+holds, which question is worth answering, which island to link or drop.
+
+Reach for it when picking up a base someone else kept, before trusting one you
+have not touched in months, or on a schedule. In a pipeline:
+
+```bash
+strauss-kb doctor --strict              # exit 1 if anything has expired
+strauss-kb doctor --json | jq '.counts' # the object behind the table
+```
+
+`--strict` gates on **expiry alone**. The other checks report debt a reader
+decides about; an expired record is the base itself saying it would stop
+standing behind something, which is the one finding a pipeline can act on
+without a judgment call. Tighten the windows when a base deserves it:
+
+```bash
+strauss-kb doctor --unverified-days 30 --aging-days 45
+```
+
+`validate` is the narrower neighbour: it asks only whether pointers between
+records agree, where `doctor` asks whether the base is still worth trusting.
 
 ## Tracing history
 
@@ -262,9 +467,13 @@ those are the content, not noise. Narrow the walk by naming edges:
 strauss-kb trace decision.cursor-v2 supersession
 ```
 
-Valid edges are `supersession`, `anchor`, and `source`. Body links are excluded
-by design: they can reach most of a bundle from anywhere, which suits a bounded
-pack but floods a timeline.
+Valid edges are `typed-link`, `supersession`, `anchor`, and `source`. Body links
+are excluded by design: they can reach most of a bundle from anywhere, which
+suits a bounded pack but floods a timeline. A typed link is in for the opposite
+reason — it is a deliberate claim from a closed vocabulary rather than markdown
+a writer happened to type, and "we chose this because of that" is the history. A
+trace follows only the **causal** rels, so `related_to` is excluded on the same
+flooding grounds as body links.
 
 ## Loading a base into agent context
 
@@ -323,10 +532,11 @@ history is not.
 ### Tier 2 — bodies fetched when a question needs them
 
 ```bash
-strauss-kb load                    # the whole base, each record with its standing
-strauss-kb load decision           # one type
-strauss-kb load --budget 40000     # a wider ceiling
-strauss-kb load --all              # no ceiling at all
+strauss-kb load                     # the whole base, each record with its standing
+strauss-kb load decision            # one type
+strauss-kb load --budget 40000      # a wider token ceiling
+strauss-kb load --max-records 80    # a wider record gate
+strauss-kb load --all               # no ceiling at all
 ```
 
 Call it **at the point of use**, not once per session. If the visible context
@@ -338,10 +548,46 @@ Superseded records arrive as name, replacement and date stubs; their bodies no
 longer hold, and reading one later in a long session is the mistake the stub
 prevents. `trace` reaches them by id.
 
-`--all` is the deliberate-operator escape hatch — it bypasses the refusal and
-loads everything regardless of size — and is mutually exclusive with
-`--budget`. A reader that does not need every record is better served by a
-`type` filter, a `query`, or a `pack`.
+Place the result in the **stable prefix** — the system prompt, or the first turn
+— and reload only when the returned `digest` changes. A prompt cache matches a
+prefix byte-for-byte and the first differing token ends the match, so a volatile
+`query` result placed ahead of a stable load prices the whole base at full rate
+on every subsequent call. Query and pack results belong at the tail.
+
+`--all` is the deliberate-operator escape hatch — it bypasses both ceilings and
+loads everything regardless of size — and is mutually exclusive with `--budget`
+and `--max-records`. A reader that does not need every record is better served
+by a `type` filter, a `catalog`, or a `pack`.
+
+### When the load refuses
+
+Two ceilings can stop it: a 25,000-token budget, and a 40-record gate. The
+refusal names which, and points at the next rung down:
+
+```json
+{
+  "loaded": false,
+  "recordCount": 62,
+  "pageCount": 62,
+  "maxRecords": 40,
+  "refusedBy": ["pages"],
+  "message": "Refusing to load this base whole: 62 records is past the 40-record gate. …"
+}
+```
+
+The move is **not** to raise the ceiling. It is `catalog`:
+
+```bash
+strauss-kb catalog
+```
+
+One line per record — id, type, title, standing, stale flag — at roughly thirty
+tokens each. A base far past `load`'s gate still fits in one call, and seeing
+every id and title is what lets you name the record `pack` should centre on. It
+is the only read path with no ceiling, because it is where the others send you.
+
+Note that a **successful** load reports `pageCount` and `maxRecords` too, so a
+caller can see the line coming rather than discover it by being refused.
 
 A workspace can also block raw reads, so a base is only ever read through the
 tools:
@@ -428,8 +674,76 @@ Three properties make it usable as an artifact rather than just a dump:
   else. Two packs can be diffed, and a changed byte means changed knowledge.
 
 The walk follows body links (a `relatedConceptIds` entry is stored as one),
-supersession in both directions, shared code anchors, and shared sources.
-Defaults: `--hops 2`, `--max-nodes 20`, `--budget 25000`.
+typed causal links, supersession in both directions, shared code anchors, and
+shared sources. A pack takes the **whole** rel vocabulary including
+`related_to` — a neighbourhood is the one place a bibliography belongs, which is
+also where it differs from a trace. Defaults: `--hops 2`, `--max-nodes 20`,
+`--budget 25000`.
 
-With neither a budget problem nor a root record in hand, the question is a point
+With neither a size problem nor a root record in hand, the question is a point
 lookup — and that is [`query`](./cli-reference.md#query).
+
+## Writing from several worktrees at once
+
+Nothing special is required. One record per file means parallel writers never
+merge records — they only choose distinct names, and a collision is a 409 the
+caller answers rather than a silent last-write-wins.
+
+The one shared file is `log.jsonl`, and the store handles it declaratively: the
+first call that appends a log line writes a merge driver into the base's
+`.gitattributes`.
+
+```
+log.jsonl text eol=lf merge=union
+```
+
+With that in place, a local merge of two branches that both appended keeps both
+sides' lines instead of picking one. A `.gitattributes` you wrote yourself is
+respected — a file already giving `log.jsonl` any strategy, including a
+deliberate `merge=ours`, is left alone.
+
+A union merge does not preserve order, and can keep the same line twice after a
+cherry-pick or rebase. Neither is yours to handle: `log` sorts entries by
+timestamp and drops exact duplicates before returning them.
+
+:::warning The union driver does not fire on GitHub
+GitHub computes pull request merges through its own service, which does not read
+`.gitattributes` merge drivers. A PR merging two branches' `log.jsonl` appends
+gets git's ordinary line-level merge, or a conflict, even with the attribute in
+place. It fires for a merge run by a local git client.
+:::
+
+## Catching a hand-edit
+
+The store's guarantees hold because everything goes through one door, and a
+hand-edit is the case that does not. The plugin ships two hooks that close it
+from the outside.
+
+A **`PreToolUse` deny** blocks edits to the generated files sitting directly in
+a bundle — `INDEX.md`, `log.jsonl`, and `.index.sqlite` — with a reason that
+says why rather than just refusing: they are written by the store's write path,
+so a direct edit will be overwritten and can desync from the records it
+summarizes. Edit the underlying record instead, or write through the tools.
+
+A **`PostToolUse` validate** runs after any edit that lands inside a bundle and
+reports what broke, so a hand-edited supersession pointer surfaces in the same
+turn rather than at the next read. It is advisory, never blocking, and fails
+open — if its own plumbing breaks it says nothing rather than blocking a
+session.
+
+To turn the validate hook off for a session:
+
+```bash
+export STRAUSS_KB_NO_VALIDATE_HOOK=1
+```
+
+`0`, `false`, and unset all mean "not opted out" — only a truthy value disables
+it, because those are common ways to spell "not set" in a shared env file. It
+names the validate hook specifically; the deny hook is disabled through the
+runtime's own hook settings.
+
+Both recognise a bundle by path: a directory segment named `.kb`, or a `kb`
+segment under `.strauss`. A base pinned somewhere else is invisible to them, and
+a `Bash` write is a deliberate side door — a matcher wide enough to catch
+`INDEX.md` in a shell command would false-positive on any `Bash` call that
+merely mentions it.

@@ -24,6 +24,7 @@ describes that contract; the command _is_ it.
   <type>.<slug>.md    records
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
+  .gitattributes      merge      store-owned, written on first write
   .index.sqlite       search     derived, gitignored
 ```
 
@@ -40,8 +41,8 @@ treating them alike is how the history gets lost:
 | Repair  | rebuilt when it disagrees with the records | malformed lines reported, never rewritten   |
 | If lost | reconstructed free                         | gone                                        |
 
-The store excludes those three files from record listings, and repairs the index
-on read. Both hold only because everything goes through one door: the store is
+The store excludes the store-owned files from record listings, and repairs the
+index on read. Both hold only because everything goes through one door: the store is
 the sole _accessor_, not merely the sole writer.
 
 ### `INDEX.md`
@@ -79,9 +80,56 @@ One JSON object per line, appended with `O_APPEND`:
 | `conceptId` | yes      | the record acted on                                   |
 | `target`    | no       | the second id, where an operation relates two records |
 
-The schema is `.strict()`: unknown keys are a malformed line. Malformed lines
-are _reported_ with their 1-based position and never rewritten — rewriting an
-append-only log destroys the only copy of what it holds.
+The schema is `.strict()`: unknown keys are a malformed line, and `at` must be
+an ISO-8601 UTC datetime — a well-formed line carrying an unreadable date is
+malformed rather than sorted unpredictably. Malformed lines are _reported_ with
+their 1-based position and never rewritten — rewriting an append-only log
+destroys the only copy of what it holds.
+
+Reads are **sorted by `at`** and **deduplicated on exact equality**: the key is
+the whole parsed entry, so two entries differing only in their timestamp are
+both kept. Both exist to absorb what a union merge does to an append-only file,
+below.
+
+### `.gitattributes` and cross-worktree writes
+
+A committed base is routinely written from more than one worktree at once, and
+each appends to the same `log.jsonl`. Git's ordinary line-level merge is the
+wrong resolution for that: it picks a side, or conflicts, on lines both branches
+only ever meant to _add_.
+
+So the first call that appends a log line writes a merge driver for it:
+
+```
+log.jsonl text eol=lf merge=union
+```
+
+`union` is one of git's built-in drivers, so the attribute alone is enough —
+nothing else needs configuring. `eol=lf` pins line endings regardless of a
+checkout's `core.autocrlf`, so a Windows checkout cannot leave the file with
+endings mixed against the raw `\n` every append writes.
+
+The write is careful about a file that is already there. A missing
+`.gitattributes` is created exclusively, so a racing creator loses loudly rather
+than being truncated. An existing one that declares **no** merge strategy for
+`log.jsonl` gets the line appended. An existing one that already gives
+`log.jsonl` _any_ strategy — this one, or a deliberate `merge=ours` — is left
+alone rather than layered under a second, possibly conflicting declaration. The
+whole step is best-effort: a failure is logged and never fails the mutation that
+triggered it.
+
+A union merge does not preserve line order, and can occasionally keep the same
+line twice — a cherry-pick or rebase that carried one side's entry into the
+other's history before the merge. That is exactly what the reader's sort and
+exact-duplicate dedupe absorb, so neither is something a caller accounts for.
+
+:::warning This applies to a local `git merge`, not to GitHub
+GitHub computes pull request merges through its own service, which does not read
+`.gitattributes` merge-driver declarations. A PR merging two branches'
+`log.jsonl` appends gets git's ordinary line-level merge — or a conflict — even
+with the attribute in place. The union driver only fires for a merge run by a
+local git client.
+:::
 
 ## Records
 
@@ -141,7 +189,8 @@ either.
 | `strauss_status`        | enum         | see [Standing](#standing-and-adjudication). Parses with a default of `draft` |
 | `strauss_supersedes`    | string[]     | ids this record replaces                                                     |
 | `strauss_superseded_by` | string       | the id that replaced this one                                                |
-| `strauss_anchors`       | Anchor[]     | `{ file, symbol? }` — where the record attaches in the code                  |
+| `strauss_anchors`       | Anchor[]     | where the record attaches in the code — see [Anchors](#anchors)              |
+| `strauss_links`         | Link[]       | typed causal edges — see [Typed causal links](#typed-causal-links)           |
 | `strauss_verify`        | string[]     | checks that would confirm the record still holds                             |
 | `strauss_answered`      | `{ by, at }` | who resolved an open question, and when                                      |
 | `strauss_assumption`    | boolean      | the claim has no source                                                      |
@@ -157,15 +206,134 @@ a field, `sources` may be legitimately empty.
 
 ```yaml
 strauss_anchors:
-  - { file: src/kb-store.ts, symbol: KbStore.setStatus }
+  - file: src/kb-store.ts
+    symbol: KbStore.setStatus
+    hash: sha256:9f2c…
+    lines: 24
+    resolved_at: 2026-08-16T09:14:00Z
 ```
 
-Symbolic on purpose, and `strict()` — `file` is required, `symbol` optional, and
-nothing else is accepted. These are written while the code is still moving: a
+Symbolic on purpose, and `strict()` — `file` is required and nothing outside
+this table is accepted:
+
+| Field         | Required | Meaning                                                       |
+| ------------- | -------- | ------------------------------------------------------------- |
+| `file`        | yes      | the repo-relative path the concept names                      |
+| `symbol`      | no       | a symbol within it; absent means the anchor is about the file |
+| `hash`        | no       | `sha256:<64 hex>` over the anchored text as it was            |
+| `lines`       | no       | the **line count** of the text that hash was taken over       |
+| `resolved_at` | no       | ISO timestamp of the last successful resolution               |
+
+Anchors stay symbolic because they are written while the code is still moving: a
 `line: 379` recorded at minute five is wrong by minute forty, but
-`OrderService.cancel` survives every edit that does not rename it. A later pass
-resolves symbols to line ranges once the change has settled, and records that
-resolution as a `verified[]` entry.
+`OrderService.cancel` survives every edit that does not rename it. Once the
+change settles, a resolution pass stamps `hash`, `lines`, and `resolved_at`.
+
+`hash` carries its algorithm as a prefix so a future one can coexist with stored
+values. CRLF is normalized to LF before hashing, so checkout style cannot read
+as drift. `lines` exists because the anchor keeps a **hash, not the text**:
+without the line count at hash time, a drift report could say "changed" but
+never how much. It is a count, not a range — the three optional fields are all
+optional precisely so anchors written before this existed stay valid.
+
+#### Drift
+
+An anchor carrying a hash can be re-resolved and compared. Four states:
+
+| State        | Meaning                                         |
+| ------------ | ----------------------------------------------- |
+| `stamped`    | the anchor had no hash and one was just written |
+| `match`      | the code still hashes to what was recorded      |
+| `drifted`    | it resolves, and hashes to something else       |
+| `unresolved` | it no longer resolves at all                    |
+
+`unresolved` carries a reason: `file-missing`, `symbol-not-found`,
+`outside-repo`, `file-too-large`, or `file-unreadable`. A deleted file is as
+much a broken anchor as a rewritten one.
+
+**Drift is computed on read, never stored.** [`load`](./cli-reference.md#load)
+and [`query`](./cli-reference.md#query) re-resolve hash-carrying anchors against
+the working tree and attach a `drifted` warning to any record whose anchors no
+longer match:
+
+```json
+{
+  "kind": "drifted",
+  "anchors": [
+    { "file": "src/kb-store.ts", "symbol": "KbStore.setStatus", "diffSize": 6 }
+  ]
+}
+```
+
+`diffSize` is `null` when the anchor recorded no line count — size unknown, not
+zero. Anchors with **no** hash are never read, so a base nobody has stamped
+costs nothing. The whole step is an enrichment: any failure degrades to no
+drift information rather than failing the read.
+
+`--repo-root` says where the anchored source lives, defaulting to the working
+directory. When it is omitted and _every_ checked anchor comes back missing, the
+finding is discarded rather than reported — that pattern means the command ran
+from the wrong directory, not that the repository lost every anchored file.
+
+### Typed causal links
+
+`strauss_links` carries directed, typed edges between records. Every edge reads
+**source → target** and lives on the source's frontmatter, so
+`{ target: fact.b, rel: depends_on }` on record `A` says _A needs B_.
+
+```yaml
+strauss_links:
+  - { target: fact.index-on-created-at, rel: depends_on }
+  - { target: requirement.stable-ordering, rel: satisfies }
+```
+
+The vocabulary is **closed** — eight rels, and nothing else may be written:
+
+| `rel`         | Meaning                                                                                        | Dependant |
+| ------------- | ---------------------------------------------------------------------------------------------- | --------- |
+| `depends_on`  | The source needs the target to hold; the source breaks if the target changes                   | source    |
+| `constrains`  | The source bounds what the target may do; the target breaks if the constraint changes          | target    |
+| `informs`     | The source shaped the target without binding it; the target is what needs revisiting           | target    |
+| `blocks`      | The target cannot proceed until the source is settled; the target is what waits                | target    |
+| `invalidates` | The source makes the target no longer hold; the target is what stops holding                   | target    |
+| `verified_by` | The target is the check that confirms the source; the source's confirmation moves with it      | source    |
+| `satisfies`   | The source discharges the target's requirement; the source must change if the requirement does | source    |
+| `related_to`  | A pointer worth following, with no claim of dependence                                         | —         |
+
+The **dependant** column is the load-bearing one, and it is why a boolean could
+not express this: the direction of dependence does not follow the direction of
+the edge. `A depends_on B` puts the dependant at the source, so B's dependants
+include A. `A informs B` puts it at the target, so A's dependants include B. A
+walk that treated every inbound edge as a dependant would report the blast
+radius of `informs`, `blocks`, `invalidates`, and `constrains` **backwards** —
+naming the records that are safe and omitting the ones at risk.
+[`impact`](./cli-reference.md#impact) follows each rel in whichever direction
+its dependence runs. `related_to` asserts no dependence, so nothing propagates
+along it.
+
+Supersession is deliberately **not** a rel. It is a lifecycle: a record's
+standing changes, `strauss_supersedes` / `strauss_superseded_by` carry it in
+both directions, and the store settles the pair. Restating it as an edge would
+give one fact two spellings that can disagree.
+
+**Tolerant read, strict write.** The frontmatter schema keeps `rel` as a plain
+string, for the same reason `type` is open: a record carrying a rel this package
+does not know must stay _readable_, because a bundle cannot report a defect in a
+file it refuses to load. Rejecting it at parse time would make the record vanish
+from listings instead. So `composeRecord` refuses to **write** anything outside
+the vocabulary, and [`validate`](#validation-rules) is what turns a stored
+unknown rel into an error. `target` likewise is not required to resolve —
+records are routinely written before the ones they point at.
+
+The write path caps `links` at **64** entries and refuses a self-link outright,
+with `kb: <id> cannot <rel> itself — a link must name another record`. A
+self-link asserts a record depends on itself, which no walk can act on.
+
+Each link is also rendered into the body as one prose sentence from a fixed
+per-rel template — `Depends on [fact.b](fact.b.md).` — so an OKF reader that has
+never heard of `strauss_links` still gets the meaning. The frontmatter is
+authoritative; the sentence is its rendering, which is why a hand-written record
+carrying only the frontmatter still connects.
 
 ### Body
 
@@ -266,6 +434,7 @@ also in the results, so the thread is never lost.
 | `forked-chain`        | Two records claim to replace this one; picking either would be a guess, so every head is reported.                                                            |
 | `stale`               | `stale_after` is in the past.                                                                                                                                 |
 | `unverified`          | `verified[]` is empty.                                                                                                                                        |
+| `drifted`             | The code a hash-carrying anchor points at moved out from under it. Carries `anchors`, each with its `diffSize` and, where it no longer resolves, a reason.    |
 
 ## Supersession
 
@@ -369,6 +538,7 @@ unknown keys are rejected.
 | `verify`            | no       | checks that would confirm this still holds                               |
 | `tags`              | no       | free-text labels                                                         |
 | `relatedConceptIds` | no       | rendered as body links                                                   |
+| `links`             | no       | typed causal edges `{ target, rel }`, max 64. A self-link is refused     |
 | `supersedes`        | no       | ids this record replaces, max 32                                         |
 | `materiality`       | no       | `blocking` \| `important` \| `non-blocking`                              |
 | `confidence`        | no       | `low` \| `medium` \| `high`                                              |
@@ -393,18 +563,35 @@ Per-record shape is the schema's job and is enforced on **every read**. So
 `validate` covers only what a single record cannot see, and a problem it reports
 means someone edited a file by hand.
 
-| Check           | Reported when                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `type`          | the `type` is not one of the twelve — a note, since OKF permits any type                                                       |
-| `superseded_by` | a `superseded` record names no replacement, or names one that is missing                                                       |
-| `backlink`      | the replacement does not list this record in `strauss_supersedes`                                                              |
-| `supersedes`    | a named target is missing, or exists but is not marked `superseded`                                                            |
-| `assumption`    | `strauss_assumption` is set _and_ `sources` is non-empty — an assumption with sources is a fact that forgot to change its mind |
+| Check           | Severity | Reported when                                                                                                                  |
+| --------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `type`          | error    | the `type` is not one of the twelve — a note, since OKF permits any type                                                       |
+| `superseded_by` | error    | a `superseded` record names no replacement, or names one that is missing                                                       |
+| `backlink`      | error    | the replacement does not list this record in `strauss_supersedes`                                                              |
+| `supersedes`    | error    | a named target is missing, or exists but is not marked `superseded`                                                            |
+| `link_rel`      | error    | a `strauss_links` entry's `rel` is outside the closed vocabulary                                                               |
+| `link_target`   | error    | a link target is not a well-formed concept id — no write could ever produce that filename                                      |
+| `link_target`   | warning  | a well-formed link target is not in the bundle, or a record links to itself                                                    |
+| `assumption`    | error    | `strauss_assumption` is set _and_ `sources` is non-empty — an assumption with sources is a fact that forgot to change its mind |
 
-Each problem is `{ check, conceptId, note }`. The CLI exits **1** when the list
-is non-empty: a check that reports a problem succeeded as a command and failed
-as a check, and a shell caller can only see the difference through the exit
-code.
+Each problem is `{ check, conceptId, note, severity }`, where `severity` is
+`error` or `warning`. **Only errors fail the check** — the CLI exits **1** when
+at least one finding is an error, because a check that reports a problem
+succeeded as a command and failed as a check, and a shell caller can only see
+the difference through the exit code.
+
+The line between the two is whether time can fix it. An unknown `rel` is a claim
+no walk can ever traverse and no later write repairs; a malformed target names a
+file no write could produce. Both are wrong now and forever. A link to a record
+that does not exist **yet** is the ordinary state of a base being written — the
+same tolerance body links already have — so failing on it would train callers to
+ignore the exit code, which is the one signal a shell caller has.
+
+The typed-link checks live here rather than in the schema for a reason that
+looks backwards until you try the alternative: a frontmatter schema that rejected
+an unknown `rel` would make the offending file fail to parse, and a file that
+fails to parse is skipped by listings. The bundle would silently drop the record
+instead of reporting it, and the writer would never learn why.
 
 ## Retrieval
 
@@ -427,15 +614,86 @@ of nine probe queries returned exactly what substring returned.
 
 ### Budgets and refusals
 
-`load` **refuses rather than truncating** when a base exceeds its budget
-(25,000 tokens by default), returning `{ loaded: false, recordCount,
-approxTokens, budgetTokens }`. A truncated base is indistinguishable from a
-complete one, so a caller would answer "that was never decided" from a slice it
-did not know was a slice. `pack` and `context` refuse the same way at their own
-budgets.
+`load` **refuses rather than truncating** when a base exceeds a ceiling. A
+truncated base is indistinguishable from a complete one, so a caller would
+answer "that was never decided" from a slice it did not know was a slice. `pack`
+and `context` refuse the same way at their own budgets.
 
-A loaded result carries `tokensLoaded`, the estimate the budget is held against;
-`budgetTokens: null` marks that `all` was used and no ceiling was applied.
+Two ceilings, and they ask different questions:
+
+| Ceiling                        | Default | Held against                                                   |
+| ------------------------------ | ------- | -------------------------------------------------------------- |
+| `--max-records` / `maxRecords` | 40      | whole records handed back (`pageCount`); stubs are not counted |
+| `--budget` / `budgetTokens`    | 25,000  | the estimated size of what is handed back (`approxTokens`)     |
+
+The record gate is not a restatement of the budget. The budget asks whether the
+base will _fit_; the gate asks whether it is the right _shape_ to read whole. A
+base of many short records passes the budget and still reads as a skim, and the
+recall a whole read buys is the entire reason to prefer it over searching. The
+comparison is strictly greater, so a base sitting exactly at the gate loads.
+
+A refusal is:
+
+```json
+{
+  "loaded": false,
+  "recordCount": 62,
+  "pageCount": 62,
+  "approxTokens": 18400,
+  "budgetTokens": 25000,
+  "maxRecords": 40,
+  "refusedBy": ["pages"],
+  "message": "Refusing to load this base whole: 62 records is past the 40-record gate. …"
+}
+```
+
+`refusedBy` names every ceiling that tripped — `pages` and `tokens`, pages
+first. The `message` names the gate value, the next calls, and both escape
+hatches, because a caller told only "too big" raises the ceiling, which is the
+one move the ceiling exists to discourage, and a caller told nothing at all
+invents a raw file read, which is worse.
+
+A **successful** load reports `pageCount` and `maxRecords` too, symmetric with
+the refusal: a caller that can see how close it came can act before the base
+crosses the line, where one that only ever hears "refused" finds out by being
+refused. It also carries `tokensLoaded`, the estimate the budget is held
+against. `budgetTokens: null` and `maxRecords: null` mark that `all` was used
+and no ceiling was applied.
+
+:::note A base of 41 or more whole records now refuses
+The record gate is on by default, so a base that loaded before may refuse. That
+is the intended behaviour — the token budget cannot see shape — but it is a
+change in what an unchanged call returns. Raise `maxRecords`, or pass `all`, to
+restore the old result on a given call; the intended path past the gate is
+`catalog` then `pack`.
+:::
+
+### The load digest
+
+Every `load` result — refused or not — carries a `digest`: one SHA-256, hex, over
+every record it would hand back.
+
+Each current record contributes `<conceptId>:current:<hash of its canonical
+recomposed markdown>`, each superseded stub contributes
+`<conceptId>:superseded:<hash of the stub>`, the entries are sorted, joined, and
+hashed again. So the digest never depends on listing order, identical content
+digests identically across calls, and any record's body, frontmatter, or
+standing flipping changes it. A refused load carries the same digest computed
+over what _would_ have been handed back, so a caller narrowing a `type` filter
+after a refusal can tell whether that changed anything without loading it.
+
+It exists for [cache-stable placement](./mcp-reference.md#kb_load): hold `load`'s
+output in a stable prefix and reload only when the digest changes.
+
+:::caution A same-environment signal, not a cross-checkout proof
+The digest hashes each record's **canonical recomposed** form, not its on-disk
+bytes — deliberately different input from the write path's content-addressed
+check, and the two are never interchangeable. The frontmatter parser does not
+normalize the body's line endings, so a record authored with CRLF digests
+differently from the same record authored with LF. A bundle that has crossed a
+line-ending-translating `git checkout`, or been edited from two platforms, can
+digest differently for reasons that have nothing to do with what changed.
+:::
 
 Superseded records come back as **stubs** — `{ conceptId, title, supersededBy,
 at }` — not bodies. Standing is a qualifier on a body, and over a long session
@@ -445,17 +703,39 @@ reaches the content by id.
 
 ### Edges
 
-Four edge kinds connect records in one bundle:
+Five edge kinds connect records in one bundle:
 
-| Kind           | Two records are neighbours when                  |
-| -------------- | ------------------------------------------------ |
-| `body-link`    | one body links `](<concept-id>.md)` to the other |
-| `supersession` | either direction of a supersession pair          |
-| `anchor`       | they share a code anchor                         |
-| `source`       | they share a source                              |
+| Kind           | Two records are neighbours when                       | Directed |
+| -------------- | ----------------------------------------------------- | -------- |
+| `body-link`    | one body links `](<concept-id>.md)` to the other      | yes      |
+| `typed-link`   | one declares a `strauss_links` entry naming the other | yes      |
+| `supersession` | either direction of a supersession pair               | no       |
+| `anchor`       | they share a code anchor                              | no       |
+| `source`       | they share a source                                   | no       |
 
-`pack` walks all four. `trace` walks `supersession`, `anchor`, and `source` —
-body links can reach most of a bundle from anywhere, which suits a bounded pack
-but floods a timeline. There is no separate `related` kind, because
-`relatedConceptIds` is stored as a body link and a distinct kind would count the
-same markdown twice.
+`body-link` and `typed-link` are the edges a record itself **makes**, read off
+its own body or frontmatter. The other three are symmetric: they hold because
+both records name the same thing, so either end sees the other.
+
+`pack` walks all five, taking the whole rel vocabulary including `related_to` —
+a neighbourhood is the one place a bibliography belongs. `trace` walks
+`typed-link`, `supersession`, `anchor`, and `source`, and narrows the typed
+edges to the **causal** rels only.
+
+Body links stay out of a trace because they are cheap to make: a body link is
+any markdown a writer happened to type, where a `strauss_links` entry is a
+deliberate claim from a closed vocabulary. That is exactly the kind of edge a
+timeline should follow — "we chose this because of that" is the history.
+`related_to` is excluded from a trace for the same flooding reason body links
+are. There is no separate `related` kind, because `relatedConceptIds` is stored
+as a body link and a distinct kind would count the same markdown twice.
+
+A pair connected both ways — a declared link that is also written about — comes
+back with **both** kinds in `via`, which is the honest answer. An unknown rel is
+never traversed anywhere; it is a claim no walk can interpret, so `validate`
+reports it rather than a walk quietly acting on it.
+
+The **inbound** half of a typed edge is a different question, answered by
+[`backlinks`](./cli-reference.md#backlinks) and
+[`impact`](./cli-reference.md#impact) rather than by this walk, which only ever
+answers "what does this record point at".

@@ -47,6 +47,7 @@ one is marked as something explicitly _not_ adopted.
   <type>.<slug>.md    records
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
+  .gitattributes      merge      store-owned, written on first write
   .index.sqlite       search     derived, gitignored
 ```
 
@@ -68,7 +69,7 @@ only choose distinct names.
 | MCP server | `strauss-kb-mcp` (stdio)                            | any MCP client                                |
 | Library    | `import { KbStore } from "@saasontools/strauss-kb"` | programmatic callers, diff annotation         |
 
-The command table holds 22 verbs and projects 21 of them as MCP tools. The one
+The command table holds 27 verbs and projects 26 of them as MCP tools. The one
 verb with no tool is `sync-instructions` — file plumbing for hooks rather than
 an agent capability, and the capability it serves is `kb_context`.
 
@@ -99,9 +100,33 @@ And read it **at the point of use**. A base loaded at the start of a long
 conversation is summarised away by the end of it; reloading costs about three
 thousand tokens, which is cheaper than being wrong.
 
-When a base outgrows a context there are two rungs down, in order:
-[`pack`](./cli-reference.md#pack) hands over one record's bounded neighbourhood,
-and [`query`](./cli-reference.md#query) is the point lookup.
+### The three rungs, in one rule
+
+At or under the gate, `load` the base whole. Past it,
+[`catalog`](./cli-reference.md#catalog) to see every record in one line each,
+then [`pack`](./cli-reference.md#pack) the record the work centres on. For a
+lookup by wording — you already know roughly what the record says —
+[`query`](./cli-reference.md#query).
+
+```bash
+strauss-kb load                          # under the gate: everything, with standing
+strauss-kb catalog                       # past it: one line per record, ~30 tokens each
+strauss-kb pack decision.cursor-v2       # then the neighbourhood around the one that matters
+strauss-kb query cursor pagination       # or a point lookup by wording
+```
+
+The rungs are ordered by what they cost **and by what they can tell you**. A
+whole read gives perfect recall and can say _no record answers this_. A catalog
+keeps that second property at a fraction of the price — it names every record,
+so "nothing covers this" stays a supportable conclusion — and gives up the
+bodies. A query gives up both: it returns its nearest hit whatever the distance,
+so it can confirm what exists and never that something does not.
+
+`load` holds two ceilings and **refuses rather than truncating** past either: a
+25,000-token budget, and a 40-record gate. The gate is not a restatement of the
+budget — the budget asks whether the base will _fit_, the gate asks whether it
+is the right _shape_ to read whole, and a base of many short records passes the
+budget while still reading as a skim.
 
 ## Where to go next
 
