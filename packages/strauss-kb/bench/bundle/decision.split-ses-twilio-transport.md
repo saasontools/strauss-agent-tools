@@ -20,12 +20,12 @@ Transactional email leaves through Amazon SES with a dedicated IP pool. SMS leav
 
 ## Rationale
 
-SNS email offered no dedicated IP pool and no per-domain reputation view, and its SMS path could not register the alphanumeric sender ids several markets require. Splitting the channels buys both without going back to two email vendors.
+Email at this volume needs a dedicated IP pool and a per-domain reputation view, and several SMS markets require a registered alphanumeric sender id. No single provider supplies both, so each channel takes the provider that does its half well.
 
 ## Rejected
 
-Keeping SNS for email, which cannot supply a dedicated IP pool. Postmark, whose per-message price at the projected volume was several times the SES line.
+A single cloud messaging service for both channels, which supplies neither a dedicated IP pool nor alphanumeric sender registration. Postmark, whose per-message price at this volume is several times the SES line.
 
 ## Impact
 
-Two vendors again, deliberately. Bounce handling forks: SES publishes to a notification topic, Twilio to a status callback.
+Two vendor credentials and two rate-limit models. Bounce handling forks: SES publishes to a notification topic, Twilio to a status callback.

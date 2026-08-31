@@ -68,21 +68,34 @@ const SHIPPED_MANIFEST_FIELDS = [
   "type",
   "main",
   "module",
+  "browser",
   "types",
+  "typesVersions",
   "exports",
+  "imports",
   "bin",
   "files",
+  "sideEffects",
   "dependencies",
   "peerDependencies",
   "peerDependenciesMeta",
   "optionalDependencies",
+  "bundleDependencies",
   "engines",
   "os",
   "cpu",
+  "publishConfig",
+  // Install-time hooks run on the consumer's machine.
   "scripts.preinstall",
   "scripts.install",
   "scripts.postinstall",
   "scripts.prepare",
+  // Publish-time hooks decide what ends up *in* the tarball. `prepack` is the
+  // one that builds `dist` here, so a change to it changes what ships even
+  // though no source file moved.
+  "scripts.prepack",
+  "scripts.prepublish",
+  "scripts.prepublishOnly",
 ];
 
 const at = (object, path) =>

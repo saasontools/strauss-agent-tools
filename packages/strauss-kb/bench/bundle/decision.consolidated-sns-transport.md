@@ -16,7 +16,7 @@ strauss_owner: meridian-notify
 
 ## Decision
 
-Both notification channels publish to Amazon SNS topics; SNS delivers SMS directly and email via a subscription.
+Both notification channels publish to Amazon SNS topics; SNS delivers SMS directly and email through a subscription.
 
 ## Rationale
 
@@ -24,8 +24,8 @@ One vendor, one credential, one bill, and the fan-out already lives in the accou
 
 ## Rejected
 
-Keeping two specialist providers, which was double the integration surface for a volume that had not yet grown.
+A specialist provider per channel, which doubles the integration surface for a volume this size. A self-hosted SMTP relay, which puts the deliverability reputation problem on the team.
 
 ## Impact
 
-The bounce reconciliation job collapses to one source. Per-message templating moves into the publisher.
+Bounce reconciliation has a single source. Per-message templating lives in the publisher.

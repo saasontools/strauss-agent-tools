@@ -20,7 +20,7 @@ Each outgoing webhook carries an X-Meridian-Signature header holding a detached 
 
 ## Rationale
 
-A verification key that is not also a credential means a receiver leaking its configuration cannot forge events. Publishing keys makes rotation a fetch rather than a coordinated secret exchange with every tenant.
+A verification key that is not also a credential means a receiver leaking its configuration cannot forge events. Publishing the keys at a well-known endpoint makes rotation a fetch, which no receiver has to be told about in advance.
 
 ## Rejected
 
@@ -28,4 +28,4 @@ Mutual TLS, for the certificate lifecycle it pushes onto receivers. JWS with RS2
 
 ## Impact
 
-Receivers must switch verification libraries. The key-id header enables overlapping keys during rotation, which is what the rotation test obligation covers.
+Receivers verify with an Ed25519 library. The key-id header enables overlapping keys during rotation, which is what the rotation test obligation covers.

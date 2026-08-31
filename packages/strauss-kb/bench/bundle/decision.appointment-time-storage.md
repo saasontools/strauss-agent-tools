@@ -22,7 +22,7 @@ One canonical instant makes ordering, overlap detection, and reminder scheduling
 
 ## Rejected
 
-Storing the local time with its zone, which was seen as pushing conversion cost into every read.
+Storing the local time with its zone, which pushes conversion cost into every read.
 
 ## Impact
 

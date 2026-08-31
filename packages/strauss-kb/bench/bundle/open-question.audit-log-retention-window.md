@@ -1,6 +1,6 @@
 ---
 type: open-question
-title: "How long must audit log entries be retained?"
+title: How long must audit log entries be retained?
 tags:
   - audit
   - compliance
@@ -21,8 +21,8 @@ How long does the platform keep audit log entries before deleting them?
 
 ## Why it matters
 
-It sets the storage footprint of the audit table and whether the export feature is a convenience or the only way a customer meets an obligation.
+It sets the storage footprint of the audit table, and it decides whether the export feature is a convenience or the only way a customer meets an obligation.
 
 ## Default assumption
 
-Answered: 400 days. The reasoning and the alternatives considered are in the decision that settled it.
+None. The window is a policy question for whoever owns the compliance commitment.

@@ -15,6 +15,12 @@ import type { BenchTask } from "./model.js";
  *   must not be, so an arm cannot win by refusing everything.
  * - `aggregation` -- counting or listing across the whole bundle.
  *
+ * Cutting the other way, every question is `core` or `standing-only`. A core
+ * question's ground truth lives in record content, which every arm receives;
+ * a standing-only question asks about a field arms B and C do not get, so its
+ * answer is absent there rather than merely harder. Only core questions feed
+ * the headline A-B comparison -- see `TaskFamily` in `model.ts`.
+ *
  * Rubric patterns are deliberately loose on wording and tight on the token
  * that separates the current answer from the stale one.
  */
@@ -23,6 +29,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "cs-queue-backend",
     type: "current-state",
+    family: "core",
     question:
       "I am adding a new background job family for insurance-claim submission. Which queue technology should I write the new worker against?",
     rubric: {
@@ -35,6 +42,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "cs-access-tokens",
     type: "current-state",
+    family: "core",
     question:
       "A new internal service has to authenticate incoming API requests. What form does an access token take, and how does the service establish who the caller is?",
     rubric: {
@@ -47,6 +55,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "cs-tenant-isolation",
     type: "current-state",
+    family: "core",
     question:
       "I am writing the query layer for a new tenant-scoped table. How is one tenant's data kept separate from another's?",
     rubric: {
@@ -61,6 +70,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "cs-retry-policy",
     type: "current-state",
+    family: "core",
     question:
       "How many times is a failed webhook delivery retried, and how are the attempts spaced?",
     rubric: {
@@ -73,6 +83,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "cs-payload-cap",
     type: "current-state",
+    family: "core",
     question:
       "What is the largest webhook payload the platform will send before it truncates and swaps in a fetch URL?",
     rubric: {
@@ -85,6 +96,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "cs-webhook-signing",
     type: "current-state",
+    family: "core",
     question:
       "I am writing the integration guide section on verifying webhook signatures. What signature scheme do receivers verify against?",
     rubric: {
@@ -97,6 +109,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "cs-notification-transport",
     type: "current-state",
+    family: "core",
     question: "Which providers carry outbound email and outbound SMS today?",
     rubric: {
       expectActionable: true,
@@ -108,6 +121,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "cs-time-storage",
     type: "current-state",
+    family: "core",
     question:
       "When the scheduler persists a new appointment, what exactly goes into the time columns?",
     rubric: {
@@ -121,6 +135,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "ra-queue-backend",
     type: "rejected-alternative",
+    family: "core",
     question:
       "Somebody is about to re-propose Kafka for the job queue. Which alternatives were explicitly considered and rejected when the current queue technology was chosen?",
     rubric: {
@@ -133,6 +148,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "ra-datastore",
     type: "rejected-alternative",
+    family: "core",
     question:
       "Which datastores were considered and rejected in favour of the one the project uses?",
     rubric: {
@@ -145,6 +161,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "ra-api-protocol",
     type: "rejected-alternative",
+    family: "core",
     question:
       "Which API protocols were considered and rejected for the public API?",
     rubric: {
@@ -157,6 +174,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "ra-deployment",
     type: "rejected-alternative",
+    family: "core",
     question:
       "Which deployment targets were considered and rejected for running the services?",
     rubric: {
@@ -169,6 +187,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "ra-search",
     type: "rejected-alternative",
+    family: "core",
     question:
       "Which search backends were considered and rejected before the current one was chosen?",
     rubric: {
@@ -180,6 +199,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "ra-billing",
     type: "rejected-alternative",
+    family: "core",
     question:
       "Which billing options were considered and rejected for subscription billing?",
     rubric: {
@@ -192,6 +212,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "ra-observability",
     type: "rejected-alternative",
+    family: "core",
     question:
       "Which observability options were considered and rejected for the telemetry stack?",
     rubric: {
@@ -204,6 +225,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "ra-frontend",
     type: "rejected-alternative",
+    family: "core",
     question:
       "Which frontend frameworks were considered and rejected for the tenant dashboard?",
     rubric: {
@@ -218,6 +240,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "oq-eu-residency",
     type: "open-question",
+    family: "core",
     question:
       "A German customer's procurement team asks whether their patient data stays inside the EU. What does the project commit to, and can I answer them from these notes?",
     rubric: {
@@ -228,6 +251,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "oq-byo-smtp",
     type: "open-question",
+    family: "core",
     question:
       "Should I build the configuration screen that lets a tenant point outbound email at their own SMTP relay?",
     rubric: {
@@ -238,6 +262,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "oq-sla",
     type: "open-question",
+    family: "core",
     question:
       "I am writing the enterprise contract's availability clause. What uptime does the enterprise tier promise?",
     rubric: {
@@ -248,6 +273,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "oq-free-tier",
     type: "open-question",
+    family: "core",
     question:
       "I need to implement the free-tier limit check. Which quantity does it compare against?",
     rubric: {
@@ -258,6 +284,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "oq-push-provider",
     type: "open-question",
+    family: "core",
     question:
       "I am adding push delivery to the notification worker. Which push provider does it integrate with?",
     rubric: {
@@ -268,6 +295,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "oq-audit-retention-settled",
     type: "open-question",
+    family: "core",
     question:
       "I am implementing the nightly audit-log expiry job. How long are audit log entries kept?",
     rubric: {
@@ -279,6 +307,7 @@ export const TASKS: readonly BenchTask[] = [
   {
     id: "oq-node-runtime-settled",
     type: "open-question",
+    family: "core",
     question:
       "A dependency I want requires a newer JavaScript runtime. Which Node.js version do the services target?",
     rubric: {
@@ -288,10 +317,43 @@ export const TASKS: readonly BenchTask[] = [
     },
   },
 
-  // ---------------------------------------------------------- aggregation
+  // ------------------------------------------------- aggregation (core)
+  // Answerable from what every arm renders: the `type` and `author` header
+  // lines and the bodies. No arm has had the ground truth deleted.
+  {
+    id: "ag-risk-count",
+    type: "aggregation",
+    family: "core",
+    question:
+      "How many risks are recorded in these notes? Put the number in value.",
+    rubric: { expectActionable: true, numericValue: 4 },
+  },
+  {
+    id: "ag-decision-count",
+    type: "aggregation",
+    family: "core",
+    question:
+      "How many of these notes are decisions, counting every one of them? Put the number in value.",
+    rubric: { expectActionable: true, numericValue: 24 },
+  },
+  {
+    id: "ag-open-question-count",
+    type: "aggregation",
+    family: "core",
+    question:
+      "How many of these notes are questions rather than statements of what was settled? Put the number in value.",
+    rubric: { expectActionable: true, numericValue: 6 },
+  },
+
+  // ---------------------------------------- aggregation (standing-only)
+  // Each of these asks about a field arms B and C do not receive. They are
+  // excluded from the headline A-B comparison and reported separately: see
+  // the `TaskFamily` doc comment for why scoring them together would inflate
+  // the gap by construction.
   {
     id: "ag-superseded-ids",
     type: "aggregation",
+    family: "standing-only",
     question:
       "List the ids of every note here that no longer holds because a later note replaced it. Put the ids in concept_ids and a count in value.",
     rubric: {
@@ -310,26 +372,9 @@ export const TASKS: readonly BenchTask[] = [
     },
   },
   {
-    id: "ag-open-question-count",
-    type: "aggregation",
-    question:
-      "How many questions in these notes are still unanswered? Put the number in value.",
-    rubric: { expectActionable: true, numericValue: 5 },
-  },
-  {
-    id: "ag-aws-services",
-    type: "aggregation",
-    question:
-      "Which named AWS services does the architecture the project runs on today depend on? List them in value.",
-    rubric: {
-      expectActionable: true,
-      valueIncludes: ["ecs|fargate", "\\bses\\b|simple email service"],
-      valueExcludes: ["\\bsqs\\b", "\\bsns\\b"],
-    },
-  },
-  {
     id: "ag-blocking-ids",
     type: "aggregation",
+    family: "standing-only",
     question:
       "List the ids of every note flagged as blocking. Put the ids in concept_ids and a count in value.",
     rubric: {
@@ -343,38 +388,34 @@ export const TASKS: readonly BenchTask[] = [
     },
   },
   {
-    id: "ag-risk-count",
-    type: "aggregation",
-    question:
-      "How many risks are recorded in these notes? Put the number in value.",
-    rubric: { expectActionable: true, numericValue: 4 },
-  },
-  {
     id: "ag-standing-decision-count",
     type: "aggregation",
+    family: "standing-only",
     question:
       "Counting only the decisions that still hold, how many decision notes are there? Put the number in value.",
     rubric: { expectActionable: true, numericValue: 16 },
   },
   {
-    id: "ag-open-test-obligations",
+    id: "ag-aws-services",
     type: "aggregation",
+    family: "standing-only",
     question:
-      "List the ids of every test obligation that is still outstanding. Put the ids in concept_ids and a count in value.",
+      "Which named AWS services does the architecture the project runs on today depend on? List them in value.",
     rubric: {
       expectActionable: true,
-      conceptIdsEqual: [
-        "test-obligation.cross-tenant-read",
-        "test-obligation.webhook-key-rotation",
-      ],
+      valueIncludes: ["ecs|fargate", "\\bses\\b|simple email service"],
+      valueExcludes: ["\\bsqs\\b", "\\bsns\\b"],
     },
   },
 ];
 
+/** The headline set: every question whose ground truth survives every arm. */
+export const CORE_TASKS = TASKS.filter((task) => task.family === "core");
+
 /** The first `n` tasks, spread across all four types -- what a smoke run uses. */
 export function sampleTasks(
   n: number,
-  tasks: readonly BenchTask[] = TASKS,
+  tasks: readonly BenchTask[] = CORE_TASKS,
 ): BenchTask[] {
   const byType = new Map<string, BenchTask[]>();
   for (const task of tasks) {

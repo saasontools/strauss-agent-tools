@@ -22,7 +22,7 @@ Both were already in use by the pilot product and had usable deliverability repo
 
 ## Rejected
 
-A single provider for both channels, which at the time meant accepting the weaker of the two deliverability records.
+A single provider for both channels, which means accepting the weaker of the two deliverability records.
 
 ## Impact
 

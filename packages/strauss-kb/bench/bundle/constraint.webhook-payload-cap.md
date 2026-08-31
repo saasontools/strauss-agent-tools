@@ -14,11 +14,11 @@ strauss_owner: meridian-notify
 
 ## Claim
 
-A webhook payload the platform sends is at most 256 KB. Anything larger is truncated and the event carries a fetch URL instead.
+A webhook payload the platform sends is at most 256 KB. Anything larger is truncated and the event carries a fetch URL.
 
 ## Evidence
 
-The dispatcher's buffer pool is sized for 256 KB frames, and the two largest receivers documented a 512 KB body limit at the time.
+The dispatcher's buffer pool is sized for 256 KB frames, and the two largest receivers document a 512 KB body limit.
 
 ## Implication
 

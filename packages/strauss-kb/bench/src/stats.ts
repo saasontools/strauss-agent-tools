@@ -62,6 +62,58 @@ export function bootstrapCi(
   };
 }
 
+/**
+ * Percentile bootstrap on a *paired* difference: mean(a) - mean(b).
+ *
+ * The arms answer the same questions, so the pairing is real and using it
+ * matters. Between-question difficulty is the largest variance component in a
+ * 30-item set -- "which queue backend" is easy in every arm, "list every
+ * blocking record" is hard in every arm -- and resampling arms independently
+ * leaves all of it in both intervals. Resampling *questions* and taking both
+ * arms' outcomes for each drawn question cancels it, which is why a paired
+ * interval on the difference can exclude zero while the two per-arm intervals
+ * visibly overlap. The difference is the quantity the experiment is about;
+ * the per-arm numbers are context.
+ *
+ * `a` and `b` must be aligned: index `i` is the same question in both.
+ */
+export function bootstrapPairedDiff(
+  a: readonly number[],
+  b: readonly number[],
+  options: BootstrapOptions = {},
+): ConfidenceInterval {
+  const { iterations = 10_000, alpha = 0.05, seed = 20260901 } = options;
+  if (a.length !== b.length) {
+    throw new Error(
+      `paired bootstrap needs aligned samples: got ${a.length} and ${b.length}`,
+    );
+  }
+  const n = a.length;
+  if (n === 0)
+    return { mean: Number.NaN, lower: Number.NaN, upper: Number.NaN };
+
+  const deltas = a.map((value, index) => value - (b[index] ?? 0));
+  const mean = deltas.reduce((sum, value) => sum + value, 0) / n;
+  if (n === 1) return { mean, lower: mean, upper: mean };
+
+  const random = mulberry32(seed);
+  const means = new Float64Array(iterations);
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    let total = 0;
+    for (let draw = 0; draw < n; draw += 1) {
+      total += deltas[Math.floor(random() * n)] ?? 0;
+    }
+    means[iteration] = total / n;
+  }
+  means.sort();
+
+  return {
+    mean,
+    lower: percentile(means, alpha / 2),
+    upper: percentile(means, 1 - alpha / 2),
+  };
+}
+
 /** Nearest-rank percentile over an already-sorted array. */
 function percentile(sorted: Float64Array, quantile: number): number {
   const index = Math.min(

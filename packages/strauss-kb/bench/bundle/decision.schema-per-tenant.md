@@ -20,12 +20,12 @@ Each tenant is provisioned a dedicated Postgres schema inside the shared cluster
 
 ## Rationale
 
-Enterprise buyers ask for a per-tenant export and a per-tenant restore, and both are one command against a schema. Isolation stops depending on every query carrying a predicate correctly.
+Enterprise buyers ask for a per-tenant export and a per-tenant restore, and both are one command against a schema. Isolation is a property of the connection rather than of every query carrying its predicate correctly.
 
 ## Rejected
 
-A separate database per tenant, which exhausts the connection budget well before the tenant count target. Row-level security on the shared schema, which keeps the single-schema blast radius while adding planner cost.
+A separate database per tenant, which exhausts the connection budget well before the tenant count target. Row-level security, which adds planner cost to each query and leaves isolation resting on a policy nobody sees at the call site.
 
 ## Impact
 
-Migrations fan out across schemas and now run through a queued migrator. The connection pool is keyed by tenant. Schema count becomes an operational quantity to watch.
+Migrations fan out across schemas and run through a queued migrator. The connection pool is keyed by tenant. Schema count becomes an operational quantity to watch.

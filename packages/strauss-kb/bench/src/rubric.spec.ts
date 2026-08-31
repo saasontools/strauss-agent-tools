@@ -95,30 +95,51 @@ describe("scoreAnswer", () => {
   });
 
   it("compares an id list as a set, not a sequence", () => {
-    const expected = rubric("ag-open-test-obligations").conceptIdsEqual ?? [];
+    const blocking = rubric("ag-blocking-ids");
+    const expected = blocking.conceptIdsEqual ?? [];
     expect(
-      scoreAnswer(answer({ value: "2", conceptIds: [...expected].reverse() }), {
-        ...rubric("ag-open-test-obligations"),
-      }).correct,
+      scoreAnswer(
+        answer({ value: "4", conceptIds: [...expected].reverse() }),
+        blocking,
+      ).correct,
     ).toBe(true);
     expect(
-      scoreAnswer(answer({ value: "3", conceptIds: [...expected, "risk.x"] }), {
-        ...rubric("ag-open-test-obligations"),
-      }).correct,
+      scoreAnswer(
+        answer({ value: "5", conceptIds: [...expected, "risk.x"] }),
+        blocking,
+      ).correct,
+    ).toBe(false);
+    expect(
+      scoreAnswer(
+        answer({ value: "3", conceptIds: expected.slice(1) }),
+        blocking,
+      ).correct,
     ).toBe(false);
   });
 
   it("accepts a count however the model spells it", () => {
-    for (const value of ["5", "five", "5 open questions", "There are 5"]) {
+    for (const value of ["6", "six", "6 open questions", "There are 6"]) {
       expect(
         scoreAnswer(answer({ value }), rubric("ag-open-question-count"))
           .correct,
       ).toBe(true);
     }
     expect(
-      scoreAnswer(answer({ value: "6" }), rubric("ag-open-question-count"))
+      scoreAnswer(answer({ value: "5" }), rubric("ag-open-question-count"))
         .correct,
     ).toBe(false);
+    // The ground truth reaches past twelve, where the first word table stopped.
+    for (const value of ["16", "sixteen", "Sixteen decisions"]) {
+      expect(
+        scoreAnswer(answer({ value }), rubric("ag-standing-decision-count"))
+          .correct,
+      ).toBe(true);
+    }
+    for (const value of ["24", "twenty-four", "twenty four"]) {
+      expect(
+        scoreAnswer(answer({ value }), rubric("ag-decision-count")).correct,
+      ).toBe(true);
+    }
   });
 });
 
@@ -127,6 +148,11 @@ describe("parseCount", () => {
     expect(parseCount("16 decisions")).toBe(16);
     expect(parseCount("four")).toBe(4);
     expect(parseCount("Four risks")).toBe(4);
+    expect(parseCount("sixteen")).toBe(16);
+    expect(parseCount("nineteen records")).toBe(19);
+    expect(parseCount("twenty")).toBe(20);
+    expect(parseCount("twenty-four")).toBe(24);
+    expect(parseCount("Thirty one")).toBe(31);
     expect(parseCount("plenty")).toBeNull();
     expect(parseCount("")).toBeNull();
   });

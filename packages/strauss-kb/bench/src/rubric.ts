@@ -59,32 +59,70 @@ export function scoreAnswer(
 }
 
 /**
+ * Number words the rubric will accept in place of digits.
+ *
+ * The prompt and the tool schema both ask for digits, so a spelled-out count
+ * is off-spec -- but a benchmark that marks "sixteen" wrong is measuring
+ * formatting compliance, not whether the model can count records. The range
+ * covers every ground-truth count in the task set (4, 6, 9, 16, 24) with room
+ * either side; anything past twenty falls through to the digit path, which is
+ * where a model writing "twenty-four" lands anyway via the hyphenated form.
+ */
+const NUMBER_WORDS: Readonly<Record<string, number>> = {
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+};
+
+const TENS_WORDS: Readonly<Record<string, number>> = {
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90,
+};
+
+/**
  * Pulls a count out of a short answer.
  *
- * `value` is asked to be a bare number, but models write "5 open questions"
- * and "five". The first integer wins; the small number words are spelled out
- * because a benchmark that marks "five" wrong is measuring formatting.
+ * `value` is asked to be a bare number, but models write "5 open questions",
+ * "five", and "twenty-four". Digits win when present; otherwise the leading
+ * word, including the hyphenated compound forms.
  */
 export function parseCount(value: string): number | null {
   const digits = value.match(/-?\d+/);
   if (digits) return Number.parseInt(digits[0], 10);
 
-  const words: Record<string, number> = {
-    zero: 0,
-    one: 1,
-    two: 2,
-    three: 3,
-    four: 4,
-    five: 5,
-    six: 6,
-    seven: 7,
-    eight: 8,
-    nine: 9,
-    ten: 10,
-    eleven: 11,
-    twelve: 12,
-  };
-  const word = value.toLowerCase().match(/[a-z]+/);
-  if (word && word[0] in words) return words[word[0]] ?? null;
-  return null;
+  const lowered = value.toLowerCase();
+  const compound = lowered.match(/\b([a-z]+)[- ]([a-z]+)\b/);
+  if (compound) {
+    const tens = TENS_WORDS[compound[1] ?? ""];
+    const units = NUMBER_WORDS[compound[2] ?? ""];
+    if (tens !== undefined && units !== undefined && units < 10)
+      return tens + units;
+  }
+
+  const word = lowered.match(/[a-z]+/);
+  return word ? (NUMBER_WORDS[word[0]] ?? null) : null;
 }

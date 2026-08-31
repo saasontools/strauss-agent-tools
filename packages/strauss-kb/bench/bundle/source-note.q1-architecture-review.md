@@ -12,7 +12,7 @@ strauss_owner: meridian-platform
 
 ## Note
 
-The review re-opened isolation and time storage, accepted the queue migration as done, and left residency and the availability target to legal and to sales respectively.
+The review covered tenant isolation, appointment time storage, and the job queue. Data residency went to legal and the availability target to sales; neither came back with an answer inside the session.
 
 ## Where it came from
 

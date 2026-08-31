@@ -24,8 +24,8 @@ Immediate revocation is a contractual requirement for the enterprise tier, and t
 
 ## Rejected
 
-Keeping stateless tokens with a revocation bloom filter, which is eventually consistent in exactly the window that matters. Signed cookies, which do not work for the server-to-server integrations.
+Stateless tokens carrying their own claims plus a revocation bloom filter, which is eventually consistent in exactly the window that matters. Signed cookies, which do not work for the server-to-server integrations.
 
 ## Impact
 
-Services no longer verify signatures; they trust the gateway's internal headers. The session store is now on the critical path and is replicated across two availability zones.
+Services trust the gateway's internal headers and do no cryptographic work of their own. The session store sits on the critical path and is replicated across two availability zones.

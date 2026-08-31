@@ -1,16 +1,27 @@
 export { ARMS, ARM_IDS, CAREFUL_INSTRUCTION, applyArm } from "./arms.js";
 export type { ArmBundle, ArmRecord, ArmSpec } from "./arms.js";
 export { DEFAULT_BUNDLE_DIR, loadBundle } from "./bundle.js";
-export { estimate, main, parseArgs } from "./cli.js";
-export type { CliOptions } from "./cli.js";
 export {
+  NARRATION_PATTERNS,
+  SUPERSESSION_CHAINS,
+  type SupersessionPair,
+} from "./chains.js";
+export { CliUsageError, estimate, main, parseArgs } from "./cli.js";
+export type { CliOptions, Projection } from "./cli.js";
+export {
+  CACHE_READ_MULTIPLIER,
+  CACHE_WRITE_MULTIPLIER,
   DEFAULT_MODEL_IDS,
   MODELS,
-  estimateCost,
   findModel,
+  projectCost,
+  usageCost,
   type BenchModel,
+  type CellEstimate,
+  type CostProjection,
 } from "./models.js";
 export {
+  ANSWER_INSTRUCTIONS,
   ANSWER_TOOL_NAME,
   ANSWER_TOOL_SCHEMA,
   SYSTEM_PROMPT,
@@ -22,27 +33,45 @@ export {
 } from "./prompt.js";
 export { renderJson, renderReport } from "./report.js";
 export { parseCount, scoreAnswer } from "./rubric.js";
-export { runBench, summarize, type RunOptions } from "./runner.js";
-export { bootstrapCi, mulberry32, type BootstrapOptions } from "./stats.js";
-export { TASKS, sampleTasks } from "./tasks.js";
 export {
+  pairedDifferences,
+  runBench,
+  summarize,
+  type RunOptions,
+} from "./runner.js";
+export {
+  bootstrapCi,
+  bootstrapPairedDiff,
+  mulberry32,
+  type BootstrapOptions,
+} from "./stats.js";
+export { CORE_TASKS, TASKS, sampleTasks } from "./tasks.js";
+export {
+  EMPTY_USAGE,
   anthropicTransport,
+  isRetryable,
   mockTransport,
+  retryAfterMs,
+  withRetry,
   type BenchRequest,
   type BenchResponse,
   type MockTransport,
+  type RetryOptions,
   type Transport,
 } from "./transport.js";
 export type {
+  ArmDifference,
   ArmId,
   ArmSummary,
   BenchCell,
   BenchRecord,
   BenchRun,
   BenchTask,
+  CellUsage,
   ConfidenceInterval,
   ModelAnswer,
   Rubric,
   ScoredAnswer,
+  TaskFamily,
   TaskType,
 } from "./model.js";

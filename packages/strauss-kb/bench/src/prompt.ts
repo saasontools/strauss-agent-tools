@@ -21,8 +21,8 @@ export const ANSWER_TOOL_SCHEMA = {
       type: "string",
       description:
         "The shortest phrase, number, or comma-separated list that answers " +
-        "the question. No explanation, no hedging. Empty string if the notes " +
-        "do not settle the question.",
+        "the question. Write counts as digits. No explanation, no hedging. " +
+        "Empty string if the notes do not settle the question.",
     },
     actionable: {
       type: "boolean",
@@ -66,33 +66,57 @@ export function renderBundle(bundle: ArmBundle): string {
   return bundle.records.map(renderRecord).join("\n\n---\n\n");
 }
 
+/** How the model is told to fill each field. Constant, so it stays cacheable. */
+export const ANSWER_INSTRUCTIONS = [
+  `Answer by calling ${ANSWER_TOOL_NAME} with:`,
+  "",
+  "- answer: one or two sentences.",
+  "- value: the shortest phrase, number, or comma-separated list that answers",
+  "  the question. Write counts as digits. No explanation, no hedging. Leave it",
+  "  empty if the notes do not settle the question.",
+  "- actionable: true if the notes settle the question well enough to act on",
+  "  now; false if they leave it unsettled and a human has to decide.",
+  "- concept_ids: the ids of the notes your answer rests on.",
+].join("\n");
+
+/**
+ * The prompt for one (arm, task) pair, split at the cache breakpoint.
+ *
+ * `bundlePrefix` is everything constant within an arm -- the notes and, in arm
+ * B, the careful-reading instruction. `question` is what varies per call. The
+ * transport sends them as two content blocks with the breakpoint between, so
+ * an arm's thirty questions write the ~9k-token prefix once and read it back
+ * twenty-nine times.
+ */
 export type BenchPrompt = {
   system: string;
+  bundlePrefix: string;
+  question: string;
+  /** The two blocks concatenated -- what the model effectively reads. */
   user: string;
 };
 
-/**
- * Assembles the prompt for one (arm, task) pair.
- *
- * The bundle comes first and the question last, so a run against the real API
- * can cache the arm's prefix across all thirty questions.
- */
 export function buildPrompt(bundle: ArmBundle, task: BenchTask): BenchPrompt {
-  const sections = [
-    "# Project notes",
-    "",
-    renderBundle(bundle),
-    "",
+  const prefix = ["# Project notes", "", renderBundle(bundle)];
+  if (bundle.instruction) {
+    prefix.push("", `> ${bundle.instruction}`);
+  }
+
+  const question = [
     "# Question",
     "",
     task.question,
-  ];
+    "",
+    ANSWER_INSTRUCTIONS,
+  ].join("\n");
+  const bundlePrefix = prefix.join("\n");
 
-  if (bundle.instruction) {
-    sections.splice(3, 0, "", `> ${bundle.instruction}`);
-  }
-
-  return { system: SYSTEM_PROMPT, user: sections.join("\n") };
+  return {
+    system: SYSTEM_PROMPT,
+    bundlePrefix,
+    question,
+    user: `${bundlePrefix}\n\n${question}`,
+  };
 }
 
 /** Normalizes a tool-call payload into the answer shape the rubric scores. */

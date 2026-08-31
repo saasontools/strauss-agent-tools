@@ -20,7 +20,7 @@ A failed notification or webhook delivery is retried five times. The delay is ex
 
 ## Rationale
 
-The fixed-gap policy turned a receiver's brief outage into a synchronised stampede from every worker, and the three-attempt budget expired inside most receivers' own restart window.
+A receiver's brief outage lasts longer than a worker's patience, and workers retrying on a common schedule turn that outage into a synchronised stampede. Full jitter spreads the load, and a budget measured in minutes outlasts most receivers' own restart window.
 
 ## Rejected
 
@@ -28,4 +28,4 @@ Linear backoff, which spreads the stampede but does not outlast a restart. Unbou
 
 ## Impact
 
-Worst-case delivery latency rises to roughly eleven minutes. The dead-letter stream replaces the failure table and has its own replay command.
+Worst-case delivery latency is roughly eleven minutes. The dead-letter stream carries its own replay command, and its depth is alerted on.
