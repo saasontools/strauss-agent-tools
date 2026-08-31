@@ -33,17 +33,18 @@ Use free text or `--prompt-file`, plus any of: `--cwd`, `--worktree <none|existi
 
 Four of those have rules worth knowing before you guess:
 
-- `--timeout` takes a suffix: `90s`, `30m`, `1h`. A bare number is milliseconds, so `--timeout 1800000` and `--timeout 30m` are the same half hour. Default is 15m. Write the suffix.
-- `--worktree existing` requires `--worktree-path`; without it the run fails. `create` also wants `--worktree-path`, and takes `--ref` and `--branch`. `ephemeral` takes none of them — it picks its own path and branch.
-- `--budget` is US dollars, and `--max-turns` is a count. Neither takes a suffix.
-- `--cwd` is where the repository is; pass it whenever the session's directory is not the repository you mean.
+- `--timeout` **defaults to 15m** and takes a suffix: `90s`, `30m`, `1h`. A bare number is milliseconds, so `--timeout 1800000` and `--timeout 30m` are the same half hour. Write the suffix. Raise it for a large review or an implementation task; a run killed at the ceiling reports `E_TIMEOUT`, and an ephemeral worktree is kept rather than cleaned up so the partial work can be inspected.
+- `--cwd` is the directory the run works in. On its own it is enough — including when it points at a Git worktree, which needs no worktree flags to review or edit in place.
+- `--worktree` is for running somewhere **other than** `--cwd`. `existing` requires `--worktree-path` and that path must be a registered worktree of the same repository; `create` also requires `--worktree-path` and takes `--ref` and `--branch`; `ephemeral` takes none of them and picks its own path and branch. Passing `--worktree existing --worktree-path` equal to `--cwd` does nothing but re-state the directory.
+- `--budget` is US dollars (default 5), and `--max-turns` is a count. Neither takes a suffix.
 
 Examples:
 
 ```bash
 codex-claude-agent run --format markdown --read-only review the current authentication changes
 codex-claude-agent run --format markdown --edit --worktree ephemeral fix the failing tests
-codex-claude-agent run --format markdown --timeout 30m --cwd /path/to/repo \
-  --worktree existing --worktree-path /path/to/repo review the changes against origin/main
+codex-claude-agent run --format markdown --timeout 30m --cwd /path/to/worktree review the changes against origin/main
+codex-claude-agent run --format markdown --cwd /repo \
+  --worktree existing --worktree-path /repo-worktrees/feature investigate the regression
 codex-claude-agent run --json --schema findings.schema.json audit this diff
 ```

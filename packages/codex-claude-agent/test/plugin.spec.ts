@@ -106,7 +106,18 @@ describe("plugin manifests", () => {
 
     expect(skill).toContain("--timeout 30m");
     expect(skill).toMatch(/bare number is milliseconds/i);
-    expect(skill).toMatch(/`--worktree existing` requires `--worktree-path`/);
+    expect(skill).toMatch(/defaults to 15m/);
+    expect(skill).toMatch(/`existing` requires `--worktree-path`/);
+    // No single example may re-state --cwd as its worktree path: that is the
+    // redundant shape the field report arrived in, and an example is the part
+    // a model copies. Continuations are joined first so each command is one
+    // line, otherwise a pair could be matched across two different examples.
+    const commands = skill.replace(/\\\n\s*/g, " ").split("\n");
+    for (const command of commands) {
+      const cwd = /--cwd (\S+)/.exec(command)?.[1];
+      const worktreePath = /--worktree-path (\S+)/.exec(command)?.[1];
+      if (cwd && worktreePath) expect(worktreePath).not.toBe(cwd);
+    }
   });
 
   it("exposes the skill under the name the runtime invokes", () => {
