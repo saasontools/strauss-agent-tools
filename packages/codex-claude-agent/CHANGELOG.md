@@ -1,3 +1,14 @@
+## 0.1.2 (2026-08-31)
+
+### 🩹 Fixes
+
+- The CLI runs when npm reaches it through a bin symlink; 0.1.0 and 0.1.1 exited silently for every global install and npx invocation that was not a shell shim. ([3e7ce9e](https://github.com/saasontools/strauss-agent-tools/commit/3e7ce9e))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Opus 5
+
 ## 0.1.1 (2026-08-31)
 
 ### 🩹 Fixes
