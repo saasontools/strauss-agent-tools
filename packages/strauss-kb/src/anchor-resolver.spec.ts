@@ -50,6 +50,14 @@ const test = baseTest.extend<Ctx>({
   },
 });
 
+/**
+ * Creating a symlink on Windows needs elevation the runner does not have, so
+ * the containment cases that need one are POSIX-only — as the bin-symlink
+ * cases in `codex-claude-agent` already are. The rule they cover is not
+ * platform-specific; only the fixture is.
+ */
+const onPosix = test.skipIf(process.platform === "win32");
+
 function record(
   conceptId: string,
   anchors: NonNullable<KbRecord["frontmatter"]["strauss_anchors"]>,
@@ -521,7 +529,7 @@ describe("detectAnchorDrift", () => {
   // Lexical containment passes and the read still escapes: a bundle is
   // untrusted data, and without the realpath re-check `kb_load` would follow
   // an in-repo symlink to probe any file the process can read.
-  test("a symlink out of the repo is refused, not followed", async ({
+  onPosix("a symlink out of the repo is refused, not followed", async ({
     repo,
   }) => {
     const outside = mkdtempSync(join(tmpdir(), "strauss-kb-outside-"));
@@ -544,7 +552,9 @@ describe("detectAnchorDrift", () => {
     }
   });
 
-  test("a symlink that stays inside the repo is followed", async ({ repo }) => {
+  onPosix("a symlink that stays inside the repo is followed", async ({
+    repo,
+  }) => {
     write(repo, "src/orders.ts", SOURCE);
     symlinkSync(join(repo, "src", "orders.ts"), join(repo, "src", "alias.ts"));
     const anchor = { ...stamp("src/orders.ts", "totals", SOURCE) };
