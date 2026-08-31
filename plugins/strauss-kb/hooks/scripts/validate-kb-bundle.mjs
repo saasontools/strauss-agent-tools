@@ -19,19 +19,43 @@
  * the plugin README).
  *
  * Fails open throughout, like the plugin's other hooks: an unresolvable
- * CLI, a bundle that isn't there (yet), or any unexpected error produces no
- * output rather than noise or a stuck hook.
+ * CLI, a directory that doesn't actually look like a bundle, or any
+ * unexpected error (including a broken stdout pipe) produces no output
+ * rather than noise, a stuck hook, or a crash.
  */
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
-import { findBundleRoot } from "./kb-bundle.mjs";
+import { delimiter, dirname, join, resolve } from "node:path";
+import {
+  findBundleRoot,
+  looksLikeBundle,
+  sanitizeForContext,
+} from "./kb-bundle.mjs";
 
-const TIMEOUT_MS = 10_000;
+// A broken pipe (the hook harness closing stdout early) must not crash the
+// process — Node emits it asynchronously on the stream, past any try/catch.
+process.stdout.on("error", () => {});
+
+// Kept in lockstep with packages/strauss-kb/package.json's `version` by
+// hand — a test (test/plugin-hooks.spec.ts) fails loudly if they drift. A
+// floating range here (`@0.x`, as mcp.json legitimately uses for the MCP
+// server) would mean this hook runs whatever the registry serves *today*
+// against every single manual edit; pinning trades that for "update this
+// constant, in the same PR, whenever the package version moves."
+const PINNED_STRAUSS_KB_VERSION = "0.1.7";
+
+const CLI_TIMEOUT_MS = 10_000;
+// npx may need to resolve/fetch the package first; give it real room, but
+// bound it — this is also why hooks.json sets this entry's own `timeout`
+// well above this value.
+const NPX_TIMEOUT_MS = 60_000;
+
 const MAX_LISTED = 20;
+const MAX_NOTE_LEN = 200;
+const MAX_CONTEXT_LEN = 4000;
 
 function main() {
-  if (process.env.STRAUSS_KB_NO_VALIDATE_HOOK) return 0;
+  if (isOptedOut()) return 0;
 
   let input;
   try {
@@ -45,73 +69,182 @@ function main() {
 
   const cwd =
     typeof input?.cwd === "string" && input.cwd ? input.cwd : process.cwd();
-  const absolute = isAbsolute(filePath) ? filePath : resolve(cwd, filePath);
+  // Unconditional: path.resolve is a no-op on an already-absolute path
+  // beyond normalizing it (native separators, `..`/`.` collapsed), and a
+  // conditional here previously let an already-absolute-but-forward-slashed
+  // Windows path (`C:/Users/...`) skip normalization entirely, permanently
+  // no-opping this hook on that platform, and let a `..` segment reach
+  // `findBundleRoot` unresolved.
+  const absolute = resolve(cwd, filePath);
 
   const bundleRoot = findBundleRoot(absolute);
   if (!bundleRoot) return 0;
+  if (!looksLikeBundle(bundleRoot)) return 0;
 
-  const problems = runValidate(bundleRoot);
+  const problems = runValidate(bundleRoot, cwd);
   if (!problems || problems.length === 0) return 0;
 
-  const lines = problems
-    .slice(0, MAX_LISTED)
-    .map((p) => `- [${p.check}] ${p.conceptId}: ${p.note}`);
+  emit(bundleRoot, problems);
+  return 0;
+}
+
+function isOptedOut() {
+  const raw = (process.env.STRAUSS_KB_NO_VALIDATE_HOOK ?? "")
+    .trim()
+    .toLowerCase();
+  // "0" and "false" are common ways to mean "not set" in a shared env file —
+  // only an actually-truthy value opts out. Documented as `=1` in the README.
+  return raw !== "" && raw !== "0" && raw !== "false";
+}
+
+function emit(bundleRoot, problems) {
+  const lines = problems.slice(0, MAX_LISTED).map((p) => {
+    const check = sanitizeForContext(p.check, 40);
+    const conceptId = sanitizeForContext(p.conceptId, 80);
+    const note = sanitizeForContext(p.note, MAX_NOTE_LEN);
+    return `- [${check}] ${conceptId}: ${note}`;
+  });
   if (problems.length > MAX_LISTED) {
     lines.push(`- …and ${problems.length - MAX_LISTED} more`);
   }
 
+  let additionalContext =
+    `strauss-kb validate found ${problems.length} problem(s) in ` +
+    `${bundleRoot} after a manual edit — supersession links, backlinks, ` +
+    `or INDEX.md may now be out of sync:\n${lines.join("\n")}`;
+  if (additionalContext.length > MAX_CONTEXT_LEN) {
+    additionalContext = `${additionalContext.slice(0, MAX_CONTEXT_LEN - 1)}…`;
+  }
+
   process.stdout.write(
     JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: "PostToolUse",
-        additionalContext:
-          `strauss-kb validate found ${problems.length} problem(s) in ` +
-          `${bundleRoot} after a manual edit — supersession links, ` +
-          `backlinks, or INDEX.md may now be out of sync:\n${lines.join("\n")}`,
-      },
+      hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext },
     }),
   );
-  return 0;
 }
 
 /**
- * Runs `strauss-kb --bundle <root> validate`: PATH first, then `npx` against
- * the published package (same invocation the plugin's mcp.json already
- * uses, minus the server name). Returns the parsed problem array, or null if
- * the CLI could not be resolved or its output could not be read — callers
- * treat null the same as "nothing to report".
+ * Runs `strauss-kb --bundle <root> validate` and returns the parsed problem
+ * array, or null if nothing could be run or its output couldn't be read —
+ * callers treat null the same as "nothing to report".
+ *
+ * Three tiers, nearest-and-fastest first: this project's own pinned
+ * dependency (`node_modules/.bin/strauss-kb`, walked up from `cwd` the way
+ * Node itself resolves `node_modules`), a global install on PATH, and
+ * finally `npx` against the exact pinned version — never a floating range,
+ * so an edit doesn't quietly start running whatever the registry serves
+ * that day. A tier that *started* but timed out or was otherwise killed
+ * stops the chain rather than falling through: retrying a slow operation
+ * via a slower path (npx, which may need to fetch) just compounds the
+ * wait for no benefit. Only "never started at all" (not found) falls
+ * through to the next tier.
  */
-function runValidate(bundleRoot) {
+function runValidate(bundleRoot, cwd) {
   const args = ["--bundle", bundleRoot, "validate"];
-  const opts = {
-    encoding: "utf8",
-    timeout: TIMEOUT_MS,
-    shell: process.platform === "win32",
-  };
 
-  let result = spawnSync("strauss-kb", args, opts);
-  if (result.error || result.status === null) {
-    result = spawnSync(
-      "npx",
-      [
-        "-y",
-        "--@saasontools:registry=https://registry.npmjs.org",
-        "-p",
-        "@saasontools/strauss-kb@0.x",
-        "strauss-kb",
-        ...args,
-      ],
-      opts,
-    );
+  const localBin = resolveLocalBin(cwd);
+  if (localBin) {
+    const attempt = runCommand(localBin, args, CLI_TIMEOUT_MS, true);
+    if (attempt.started) return parseProblems(attempt);
   }
-  if (result.error || result.status === null) return null;
 
+  const primary = runCommand("strauss-kb", args, CLI_TIMEOUT_MS, false);
+  if (primary.started) return parseProblems(primary);
+
+  const npxArgs = [
+    "-y",
+    "--@saasontools:registry=https://registry.npmjs.org",
+    "-p",
+    `@saasontools/strauss-kb@${PINNED_STRAUSS_KB_VERSION}`,
+    "strauss-kb",
+    ...args,
+  ];
+  const fallback = runCommand("npx", npxArgs, NPX_TIMEOUT_MS, false);
+  if (!fallback.started) return null;
+  return parseProblems(fallback);
+}
+
+function parseProblems(attempt) {
   try {
-    const parsed = JSON.parse(result.stdout || "[]");
+    const parsed = JSON.parse(attempt.stdout || "[]");
     return Array.isArray(parsed) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-process.exit(main());
+/**
+ * Runs one command and classifies the outcome as `started` or not. "Not
+ * started" (`ENOENT`, or unresolvable on Windows — see below) is the only
+ * case worth trying a further fallback for; a `started` result covers both
+ * a normal exit (whatever its status — `validate` exits 1 when it found
+ * problems, and still wrote them to stdout) and one killed by the timeout,
+ * which the caller stops on rather than chaining further.
+ *
+ * No `shell: true` here, on any platform: this repo hand-builds an argv
+ * array (bundle paths can contain spaces, and — since they derive from an
+ * agent-controlled file path — potentially shell metacharacters), and
+ * `shell: true` would hand that array to cmd.exe/sh to re-parse rather than
+ * exec-ing it directly, turning a path into a command-injection surface. On
+ * Windows this means resolving the actual `.cmd`/`.exe` file ourselves
+ * (`spawnSync` there refuses to exec a bare `.cmd` shim without a shell,
+ * and the PATH lookup npm-installed CLIs need doesn't happen automatically
+ * without one either) and invoking that resolved file directly.
+ */
+function runCommand(command, args, timeoutMs, isResolvedPath) {
+  let target = command;
+  if (!isResolvedPath && process.platform === "win32") {
+    target = resolveOnWindowsPath(command);
+    if (!target) return { started: false, notFound: true, stdout: "" };
+  }
+
+  const result = spawnSync(target, args, {
+    encoding: "utf8",
+    timeout: timeoutMs,
+    shell: false,
+  });
+
+  // A signal means the process was actually running and got killed (by our
+  // own timeout, most likely) — it started. Anything else with `error` set
+  // (ENOENT and friends) never started at all.
+  if (result.error && !result.signal) {
+    return { started: false, notFound: true, stdout: "" };
+  }
+  return { started: true, notFound: false, stdout: result.stdout ?? "" };
+}
+
+function resolveLocalBin(cwd) {
+  const name = process.platform === "win32" ? "strauss-kb.cmd" : "strauss-kb";
+  let dir = resolve(cwd);
+  for (;;) {
+    const candidate = join(dir, "node_modules", ".bin", name);
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
+
+function resolveOnWindowsPath(name) {
+  const dirs = (process.env.PATH || process.env.Path || "")
+    .split(delimiter)
+    .filter(Boolean);
+  const exts = (process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";");
+  for (const dir of dirs) {
+    for (const ext of exts) {
+      const candidate = join(dir, name + ext);
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+function safeMain() {
+  try {
+    return main();
+  } catch {
+    return 0;
+  }
+}
+
+process.exit(safeMain());

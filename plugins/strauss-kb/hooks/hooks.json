@@ -39,7 +39,8 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/validate-kb-bundle.mjs\"",
-            "statusMessage": "Validating KB bundle"
+            "statusMessage": "Validating KB bundle",
+            "timeout": 65
           }
         ]
       }
