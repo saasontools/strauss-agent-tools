@@ -25,7 +25,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import {
   findBundleRoot,
   looksLikeBundle,
@@ -144,11 +144,11 @@ function runValidate(bundleRoot, cwd) {
 
   const localBin = resolveLocalBin(cwd);
   if (localBin) {
-    const attempt = runCommand(localBin, args, CLI_TIMEOUT_MS, true);
+    const attempt = runCommand(localBin, args, CLI_TIMEOUT_MS);
     if (attempt.started) return parseProblems(attempt);
   }
 
-  const primary = runCommand("strauss-kb", args, CLI_TIMEOUT_MS, false);
+  const primary = runCommand("strauss-kb", args, CLI_TIMEOUT_MS);
   if (primary.started) return parseProblems(primary);
 
   const npxArgs = [
@@ -159,7 +159,7 @@ function runValidate(bundleRoot, cwd) {
     "strauss-kb",
     ...args,
   ];
-  const fallback = runCommand("npx", npxArgs, NPX_TIMEOUT_MS, false);
+  const fallback = runCommand("npx", npxArgs, NPX_TIMEOUT_MS);
   if (!fallback.started) return null;
   return parseProblems(fallback);
 }
@@ -175,42 +175,42 @@ function parseProblems(attempt) {
 
 /**
  * Runs one command and classifies the outcome as `started` or not. "Not
- * started" (`ENOENT`, or unresolvable on Windows — see below) is the only
- * case worth trying a further fallback for; a `started` result covers both
- * a normal exit (whatever its status — `validate` exits 1 when it found
- * problems, and still wrote them to stdout) and one killed by the timeout,
- * which the caller stops on rather than chaining further.
+ * started" (`ENOENT`, no such command) is the only case worth trying a
+ * further fallback for; a `started` result covers both a normal exit
+ * (whatever its status — `validate` exits 1 when it found problems, and
+ * still wrote them to stdout) and one killed by the timeout, which the
+ * caller stops on rather than chaining further.
  *
- * No `shell: true` here, on any platform: this repo hand-builds an argv
- * array (bundle paths can contain spaces, and — since they derive from an
- * agent-controlled file path — potentially shell metacharacters), and
- * `shell: true` would hand that array to cmd.exe/sh to re-parse rather than
- * exec-ing it directly, turning a path into a command-injection surface. On
- * Windows this means resolving the actual `.cmd`/`.exe` file ourselves
- * (`spawnSync` there refuses to exec a bare `.cmd` shim without a shell,
- * and the PATH lookup npm-installed CLIs need doesn't happen automatically
- * without one either) and invoking that resolved file directly.
+ * `shell: true` on Windows only, matching what this exact scenario needs:
+ * both a bare `strauss-kb`/`npx` lookup and the `.bin` shims npm installs
+ * are `.cmd` files there, and `CreateProcess` cannot launch a batch file
+ * directly — Windows needs `cmd.exe` in the loop regardless (confirmed by
+ * CI: `shell: false` here made every one of these paths fail to start on
+ * `windows-latest`, full stop, not just the ones this repo controls the
+ * content of). This is not the naively-joined-string pattern a `shell:
+ * true` finding usually warns about: `args` is always passed as a plain
+ * array — `["--bundle", bundleRoot, "validate"]`, never a hand-built
+ * command line — and Node's own (security-patched, since Node ≥
+ * 18.20.2/20.12.2/21.7.2) array-argument escaping for the shell-plus-array
+ * signature is what actually quotes each element for cmd.exe, including a
+ * `bundleRoot` containing a space or a shell metacharacter. POSIX stays
+ * `shell: false` unconditionally, needing no shell for either a bare PATH
+ * lookup or a shebang script.
  */
-function runCommand(command, args, timeoutMs, isResolvedPath) {
-  let target = command;
-  if (!isResolvedPath && process.platform === "win32") {
-    target = resolveOnWindowsPath(command);
-    if (!target) return { started: false, notFound: true, stdout: "" };
-  }
-
-  const result = spawnSync(target, args, {
+function runCommand(command, args, timeoutMs) {
+  const result = spawnSync(command, args, {
     encoding: "utf8",
     timeout: timeoutMs,
-    shell: false,
+    shell: process.platform === "win32",
   });
 
   // A signal means the process was actually running and got killed (by our
   // own timeout, most likely) — it started. Anything else with `error` set
   // (ENOENT and friends) never started at all.
   if (result.error && !result.signal) {
-    return { started: false, notFound: true, stdout: "" };
+    return { started: false, stdout: "" };
   }
-  return { started: true, notFound: false, stdout: result.stdout ?? "" };
+  return { started: true, stdout: result.stdout ?? "" };
 }
 
 function resolveLocalBin(cwd) {
@@ -223,20 +223,6 @@ function resolveLocalBin(cwd) {
     if (parent === dir) return null;
     dir = parent;
   }
-}
-
-function resolveOnWindowsPath(name) {
-  const dirs = (process.env.PATH || process.env.Path || "")
-    .split(delimiter)
-    .filter(Boolean);
-  const exts = (process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";");
-  for (const dir of dirs) {
-    for (const ext of exts) {
-      const candidate = join(dir, name + ext);
-      if (existsSync(candidate)) return candidate;
-    }
-  }
-  return null;
 }
 
 function safeMain() {
