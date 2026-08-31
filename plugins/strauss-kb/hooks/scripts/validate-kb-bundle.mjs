@@ -187,21 +187,26 @@ function parseProblems(attempt) {
  * directly — Windows needs `cmd.exe` in the loop regardless (confirmed by
  * CI: `shell: false` here made every one of these paths fail to start on
  * `windows-latest`, full stop, not just the ones this repo controls the
- * content of). This is not the naively-joined-string pattern a `shell:
- * true` finding usually warns about: `args` is always passed as a plain
- * array — `["--bundle", bundleRoot, "validate"]`, never a hand-built
- * command line — and Node's own (security-patched, since Node ≥
- * 18.20.2/20.12.2/21.7.2) array-argument escaping for the shell-plus-array
- * signature is what actually quotes each element for cmd.exe, including a
- * `bundleRoot` containing a space or a shell metacharacter. POSIX stays
- * `shell: false` unconditionally, needing no shell for either a bare PATH
- * lookup or a shebang script.
+ * content of).
+ *
+ * That reintroduces the exact hazard a `shell: true` finding warns about,
+ * though, and for a documented reason: Node forces `windowsVerbatimArguments:
+ * true` the moment `shell` is set on Windows, which switches OFF Node's own
+ * argument escaping — the caller becomes responsible for it (confirmed by
+ * CI too: a `bundleRoot` containing a space broke without this). `args` is
+ * still always a plain array here, never a hand-built command line — but
+ * each element now has to survive both the CommandLineToArgvW boundary
+ * (quoteWindowsArg, below) that would otherwise split it on whitespace,
+ * and cmd.exe's own line parser, which keeps expanding `%…%` even inside a
+ * quoted argument. POSIX needs none of this: `shell: false` unconditionally,
+ * argv passed straight to execve, no shell in the loop to parse anything.
  */
 function runCommand(command, args, timeoutMs) {
-  const result = spawnSync(command, args, {
+  const win32 = process.platform === "win32";
+  const result = spawnSync(command, win32 ? args.map(quoteWindowsArg) : args, {
     encoding: "utf8",
     timeout: timeoutMs,
-    shell: process.platform === "win32",
+    shell: win32,
   });
 
   // A signal means the process was actually running and got killed (by our
@@ -211,6 +216,35 @@ function runCommand(command, args, timeoutMs) {
     return { started: false, stdout: "" };
   }
   return { started: true, stdout: result.stdout ?? "" };
+}
+
+/**
+ * Quotes one argv element for cmd.exe under `windowsVerbatimArguments:
+ * true` (see `runCommand`) — Node does none of this itself in that mode.
+ * Two independent things need handling: the CommandLineToArgvW boundary
+ * (every Windows program, including node.exe itself, parses its own argv
+ * this way, so an unquoted space would split one argument into two) and
+ * cmd.exe's line parser, which still performs `%NAME%` expansion on text
+ * inside double quotes — doubling every percent sign is the standard
+ * workaround, since no complete `%…%` pair can then survive from content
+ * this function did not itself introduce.
+ *
+ * This is deliberately not a general shell-metacharacter escaper: the one
+ * variable input here is `bundleRoot`, a filesystem path, and Windows path
+ * segments cannot contain `< > : " | ? *` to begin with — the characters
+ * that make cmd.exe injection dangerous elsewhere are largely not legal
+ * path content here regardless of what this function does.
+ */
+function quoteWindowsArg(arg) {
+  const str = String(arg).replace(/%/g, "%%");
+  if (str !== "" && !/[\s"]/.test(str)) return str;
+  // CommandLineToArgvW quoting: a run of backslashes immediately before a
+  // double quote (or at the very end, before the closing quote this adds)
+  // must be doubled, and the quote itself escaped.
+  const escaped = str
+    .replace(/(\\*)"/g, '$1$1\\"')
+    .replace(/(\\+)$/, "$1$1");
+  return `"${escaped}"`;
 }
 
 function resolveLocalBin(cwd) {
