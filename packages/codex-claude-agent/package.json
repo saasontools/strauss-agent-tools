@@ -1,6 +1,6 @@
 {
   "name": "@saasontools/codex-claude-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Delegate arbitrary coding tasks from Codex to Claude Code through the Claude Agent SDK: worktrees, tool policy, budgets, retries, tracked background jobs, and one structured RunResult",
   "license": "MIT",
   "author": "Assaf Kamil",
