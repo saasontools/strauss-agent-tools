@@ -54,6 +54,7 @@ bundling can `require()` it without depending on its Node version honouring
   <type>.<slug>.md    records
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
+  .gitattributes      merge      store-owned, written on first write
   .index.sqlite       search     derived, gitignored
 ```
 
@@ -75,6 +76,39 @@ alike is how the history gets lost:
 Repair-on-read, not coordination, is what lets both exist without a lock. The
 index is _eventually_ correct: a writer whose scan predated another's record
 publishes a briefly stale index, and the next read through the store settles it.
+
+### Cross-worktree writes
+
+A committed base is routinely written from more than one worktree at once —
+each records into the same `log.jsonl`, and a plain git merge of two branches
+that both appended lines resolves that file at the line level, same as any
+other text file. That is the wrong merge for an append-only log: git's default
+picks a side, or conflicts, on lines that both branches only ever meant to add
+to.
+
+So the first `write` to a base declares a merge driver for its log: it writes
+`log.jsonl merge=union` into the base's `.gitattributes` if that file does not
+exist yet, and appends the line if the file exists but does not already carry
+it — a `.gitattributes` a user put there first is respected, never overwritten
+wholesale. `union` is one of git's built-in merge drivers; the attribute alone
+is enough; nothing else needs configuring. With it, a merge of two branches
+that both appended to `log.jsonl` keeps both sides' lines instead of picking
+one.
+
+A union merge does not preserve line order — the merged file has both
+writers' entries, interleaved however git's merge visited them, not by when
+each was actually written. `kb_log`'s reader sorts entries by `at`
+(`kb-log.ts`) before returning them, so that interleaving is never something a
+caller has to account for.
+
+**This applies to a local `git merge`, not to GitHub.** GitHub computes pull
+request merges (and the merge/squash/rebase buttons) through its own service,
+which does not read `.gitattributes` merge-driver declarations — a PR that
+merges two branches' `log.jsonl` appends on GitHub gets git's ordinary
+line-level merge (or a conflict) even with the attribute in place. The union
+driver only fires for a merge actually run by a local git client, which covers
+worktrees pulling from and pushing to each other directly, but not a merge
+GitHub itself performs.
 
 ## Records
 

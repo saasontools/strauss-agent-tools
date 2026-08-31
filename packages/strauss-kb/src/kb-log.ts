@@ -66,5 +66,15 @@ export function parseLog(raw: string): KbLogReadResult {
     entries.push(parsed.data);
   });
 
+  // A union merge (see `kb-gitattributes.ts`) interleaves two worktrees'
+  // appends by whatever order git's merge happened to visit them in, not by
+  // when each entry was actually written. Sorting on `at` here means line
+  // order in the file is never load-bearing — only the timestamp is. `at` is
+  // `Date#toISOString`, so lexicographic order is chronological order; the
+  // sort is stable, so entries that share a timestamp keep their file order.
+  entries.sort((left, right) =>
+    left.at < right.at ? -1 : left.at > right.at ? 1 : 0,
+  );
+
   return { entries, malformed };
 }

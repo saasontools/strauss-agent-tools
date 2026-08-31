@@ -40,6 +40,11 @@ import {
   renderLogEntry,
   type KbLogEntry,
 } from "./kb-log.js";
+import {
+  appendUnionMergeLine,
+  GITATTRIBUTES_FILE,
+  hasUnionMergeLine,
+} from "./kb-gitattributes.js";
 
 /**
  * Default bundle, relative to the working directory. A scratch base lives here
@@ -155,6 +160,7 @@ export class KbStore {
     const target = this.recordPath(bundlePath, conceptId);
 
     await mkdir(root, { recursive: true });
+    await this.ensureGitattributes(root);
     await this.publish(
       target,
       stringifyMarkdownWithFrontmatter(input.body, frontmatter),
@@ -696,6 +702,55 @@ export class KbStore {
     } finally {
       // `rename` consumed the staging file; `link` left it behind.
       await unlink(staging).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Declares union merge for the log, so two worktrees writing the same
+   * bundle interleave their `log.jsonl` lines on merge rather than one
+   * side's appends silently losing to git's ordinary line-level merge.
+   *
+   * Runs on every `write`, not just a distinguished "first" one — there is
+   * no cheaper reliable signal for first-write than checking the file
+   * itself, and by the second write the check is a no-op `readFile`.
+   *
+   * A missing `.gitattributes` is created outright. One that exists but
+   * lacks the line gets the line appended rather than left alone: a bundle
+   * a user has already put a `.gitattributes` in front of is exactly the
+   * bundle most likely to be shared across worktrees, so leaving it without
+   * union merge is the worse failure mode of the two. Either way the file's
+   * existing content is never rewritten, only ever appended to.
+   *
+   * Best-effort, like `record`: failing to write this file must not fail
+   * the record write it guards.
+   */
+  private async ensureGitattributes(root: string): Promise<void> {
+    const target = join(root, GITATTRIBUTES_FILE);
+    try {
+      const existing = await readFile(target, "utf8").catch(() => null);
+      if (existing === null) {
+        await writeFile(target, appendUnionMergeLine(""), "utf8");
+        this.logger.info?.({
+          operation: "kb.gitattributes.ensure",
+          bundlePath: root,
+          outcome: "created",
+        });
+        return;
+      }
+      if (!hasUnionMergeLine(existing)) {
+        await appendFile(target, appendUnionMergeLine(existing), "utf8");
+        this.logger.info?.({
+          operation: "kb.gitattributes.ensure",
+          bundlePath: root,
+          outcome: "appended",
+        });
+      }
+    } catch (error) {
+      this.logger.warn?.({
+        operation: "kb.gitattributes.ensure",
+        outcome: "failed",
+        error: error instanceof Error ? error.message : "unknown",
+      });
     }
   }
 

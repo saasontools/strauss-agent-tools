@@ -72,6 +72,48 @@ replacement's first log format was `·`-delimited, with a splitter to read it
 back. Both are gone: the log is JSONL and the schema is emitted from Zod, so
 `strauss-kb schema` is the contract rather than a description of one.
 
+## Cross-worktree log safety
+
+`log.jsonl` is append-only and the one artifact nothing can rebuild, so how it
+merges across worktrees matters more than how any record file does. Records
+already don't need this: one concept id is one file, so two writers choosing
+distinct ids never merge at all, and `link`-based publish (above) turns the
+one case where they collide into a 409 rather than a merge. The log has no
+such escape — every writer appends into the same file by design — so it needs
+an actual merge strategy, not just atomicity per write.
+
+The append itself already had it: `record()` uses `appendFile`, which opens
+`O_APPEND` and is one `write(2)` for an entry this small, so two processes
+appending locally interleave whole lines, never a torn one. What was missing
+was git's merge of two worktrees' independently-appended logs — the default
+line-level merge can conflict, or silently keep one side, on lines that were
+never in conflict, since both sides only ever added, never edited, a line.
+
+The fix is `.gitattributes: log.jsonl merge=union`, written by `write()` on
+first use (`kb-store.ts#ensureGitattributes`). `union` is a merge driver git
+ships — nothing to configure beyond the attribute — that keeps both sides'
+added lines. The alternative considered and dropped was a lock file coordinating
+writes across worktrees the way `mutate`'s CAS coordinates a single record: it
+would need to span process boundaries and survive a crashed holder, which is
+the same stale-lock failure mode rejected above, for a smaller problem than
+the one it solves there.
+
+Two decisions worth naming because a later reader could reopen either:
+
+- **A `.gitattributes` that exists but lacks the line gets the line
+  appended, not left alone.** The alternative — leave a user's own file
+  untouched — reads as more conservative, but a bundle that already has a
+  `.gitattributes` in front of it is exactly the bundle most likely to be
+  shared across worktrees or forks, so leaving it without union merge is the
+  worse of the two failure modes.
+- **Union merge does not preserve line order, so `kb_log`'s reader sorts by
+  `at` rather than trusting file order.** Sorting there, once, is cheaper
+  than trying to make every future merge order-preserving.
+
+GitHub does not run merge drivers for a PR it merges server-side — see the
+README's "Cross-worktree writes" section. The driver only helps a merge a
+local git client actually performs.
+
 ## Rejected for now: a base registry
 
 Cross-base questions are unaskable by construction — supersession, traces, and
