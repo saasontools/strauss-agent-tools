@@ -56,11 +56,23 @@ function parseNumber(value: string, flag: string): number {
   return parsed;
 }
 
+/** Below this, a bare number is likelier a unit slip than an intent. */
+const SUSPICIOUS_BARE_MS = 60_000;
+
 function parseDuration(value: string): number {
   const match = /^(\d+(?:\.\d+)?)(ms|s|m|h)?$/.exec(value);
   if (!match)
     throw new RunnerError("E_INVALID_REQUEST", `Invalid timeout: ${value}`);
   const amount = Number(match[1]);
+  if (match[2] === undefined && amount > 0 && amount < SUSPICIOUS_BARE_MS) {
+    // `--timeout 1800` meaning half an hour is a mistake people actually make:
+    // it buys 1.8 seconds, and the run dies before Claude answers anything.
+    // Still honoured — the unit is documented and someone may mean it — but
+    // not silently. Stderr, so the --json contract on stdout is untouched.
+    process.stderr.write(
+      `Note: --timeout ${value} is ${(amount / 1000).toFixed(1)}s. Bare numbers are milliseconds; write ${value}s or 30m for longer.\n`,
+    );
+  }
   const multiplier =
     match[2] === "h"
       ? 3_600_000
@@ -596,7 +608,47 @@ async function hookCommand(args: string[]): Promise<void> {
   );
 }
 
+const USAGE = `codex-claude-agent — delegate a task to Claude Code
+
+Usage:
+  codex-claude-agent run [flags] <prompt>   delegate a task and report the result
+  codex-claude-agent status [job-id]        list tracked jobs, or follow one
+  codex-claude-agent result <job-id>        print a finished job's stored result
+  codex-claude-agent cancel <job-id>        stop a running job
+  codex-claude-agent setup                  check the host and update Codex config
+
+Common run flags:
+  --read-only | --edit          tool policy; read-only is the default
+  --cwd <dir>                   directory the run works in
+  --worktree <none|existing|create|ephemeral>
+                                run somewhere other than --cwd
+  --worktree-path <dir>         required by existing and create
+  --timeout <30m|90s|1h>        default 15m; a bare number is milliseconds
+  --budget <usd>                default 5
+  --max-turns <n>
+  --format <markdown|text>      or --json for one RunResult line on stdout
+  --background                  track the run as a job instead of waiting
+
+Docs: https://github.com/saasontools/strauss-agent-tools/tree/main/packages/codex-claude-agent
+`;
+
+/**
+ * `--help` is answered before anything dispatches, for every subcommand.
+ *
+ * `setup` mutates ~/.codex/config.toml and ignored flags it did not recognise,
+ * so `setup --help` — a question — performed the setup, adding a writable root
+ * for whatever directory it was asked from. A gesture whose entire purpose is
+ * "tell me what this does" must never be the thing that does it.
+ */
+function wantsHelp(argv: string[]): boolean {
+  return argv.some((arg) => arg === "--help" || arg === "-h");
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
+  if (argv.length === 0 || wantsHelp(argv)) {
+    process.stdout.write(USAGE);
+    return;
+  }
   const [command, ...args] = argv;
   switch (command) {
     case "run":

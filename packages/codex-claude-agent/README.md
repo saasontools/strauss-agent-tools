@@ -21,6 +21,13 @@ The front end for Codex — the `$claude` skill, the hooks, and the optional `cl
 
 `setup` is idempotent. It checks SDK/version, the Claude Code executable, auth, Git, and free disk, then enables `[features].hooks`, `[features].plugin_hooks`, and the repository's `.codex-claude` writable root in `~/.codex/config.toml`. Restart Codex after setup changes its config.
 
+`--help` (or `-h`, or no arguments) prints usage and does nothing else, on
+every subcommand. Worth stating because it was not always true: `setup --help`
+used to perform the setup it was being asked about. Bare `--timeout` numbers
+are milliseconds, and one small enough to be a unit slip — `--timeout 1800` is
+1.8 seconds, not the half hour it resembles — is honoured with a note on
+stderr.
+
 ## Examples
 
 Run in the current checkout:
