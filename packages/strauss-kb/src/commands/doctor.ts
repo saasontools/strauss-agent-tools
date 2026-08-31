@@ -49,15 +49,21 @@ export const doctorCommand = define({
         "Turn an expired record into a non-zero exit for the CLI. No effect on the report itself.",
       ),
   }),
+  // Presence, not truthiness: `--expiring-days ""` is a caller who meant
+  // something and mistyped it, and a falsy test would answer by quietly
+  // sweeping at the default. Passed through as given, the schema rejects it
+  // and says which field.
   fromArgv: (argv, path) => {
     const expiring = argvFlag(argv, "--expiring-days");
     const unverified = argvFlag(argv, "--unverified-days");
     const agingDays = argvFlag(argv, "--aging-days");
     return {
       bundlePath: path,
-      ...(expiring ? { expiringDays: Number(expiring) } : {}),
-      ...(unverified ? { unverifiedDays: Number(unverified) } : {}),
-      ...(agingDays ? { agingDays: Number(agingDays) } : {}),
+      ...(expiring !== undefined ? { expiringDays: Number(expiring) } : {}),
+      ...(unverified !== undefined
+        ? { unverifiedDays: Number(unverified) }
+        : {}),
+      ...(agingDays !== undefined ? { agingDays: Number(agingDays) } : {}),
       ...(argv.includes("--strict") ? { strict: true } : {}),
     };
   },

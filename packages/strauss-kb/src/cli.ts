@@ -11,12 +11,9 @@ import { KB_DIR, KbStore } from "./kb-store.js";
 import { VERSION } from "./version.js";
 
 export async function runKbCli(argv: string[]): Promise<void> {
-  const { bundle, rest: withFlags } = takeBundle(argv);
-  // Output shape, not an argument: stripped before the command sees argv, so a
-  // positional adapter never has to know the flag exists.
-  const json = withFlags.includes("--json");
-  const rest = withFlags.filter((argument) => argument !== "--json");
-  const name = rest[0] ?? "";
+  const { flags, literal } = takeLiteral(argv);
+  const { bundle, rest: withFlags } = takeBundle(flags);
+  const name = withFlags[0] ?? "";
 
   if (!name || name === "-h" || name === "--help") {
     process.stdout.write(usage());
@@ -33,6 +30,21 @@ export async function runKbCli(argv: string[]): Promise<void> {
 
   const command = KB_COMMANDS_BY_NAME.get(name);
   if (!command) die(`unknown command ${name}`);
+
+  // Output shape, not an argument: stripped before the command sees argv, so a
+  // positional adapter never has to know the flag exists. Refused rather than
+  // ignored where a command has only one form — a flag that silently does
+  // nothing teaches a caller that it worked.
+  const json = withFlags.includes("--json");
+  if (json && !command.render) {
+    die(`${name} takes no --json: its result is already the machine shape`);
+  }
+  const rest = [
+    ...(json
+      ? withFlags.filter((argument) => argument !== "--json")
+      : withFlags),
+    ...literal,
+  ];
 
   const raw = await command.fromArgv(rest, bundle, readStdin);
   const parsed = command.input.safeParse(raw);
@@ -70,6 +82,21 @@ export async function runKbCli(argv: string[]): Promise<void> {
         ? result
         : JSON.stringify(result, null, 2);
   process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
+}
+
+/**
+ * Everything after a bare `--` is text, never flags.
+ *
+ * Several verbs end in free prose — `no-decision`, `answer`, `query` — and a
+ * reason that happens to contain `--json` or `--bundle` would otherwise lose a
+ * word to the flag scan, or two. The sentinel is the usual escape, and the
+ * token itself is dropped while the order of everything else is kept, so the
+ * positional adapters still index the same way.
+ */
+function takeLiteral(argv: string[]): { flags: string[]; literal: string[] } {
+  const at = argv.indexOf("--");
+  if (at === -1) return { flags: argv, literal: [] };
+  return { flags: argv.slice(0, at), literal: argv.slice(at + 1) };
 }
 
 /**
@@ -125,6 +152,7 @@ function usage(): string {
     "",
     `  --bundle PATH  defaults to ./${KB_DIR}`,
     "  --json         the machine shape, where a command prints a table",
+    "  --             everything after it is text, not flags",
     "  --version      the installed package version",
     "  STRAUSS_KB_ACTOR names the writer in the log",
     "",

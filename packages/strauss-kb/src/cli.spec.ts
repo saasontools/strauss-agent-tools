@@ -137,6 +137,26 @@ describe("runKbCli", () => {
     expect(run.stderr).toContain("--bundle requires a path");
   });
 
+  // Several verbs end in free prose. Without the sentinel a reason mentioning
+  // a flag loses that word to the flag scan — silently, which is the worst way
+  // to lose part of a sentence someone wrote.
+  test("keeps flag-shaped words after -- as text", async () => {
+    await at([
+      "no-decision",
+      "--",
+      "Nothing",
+      "to",
+      "decide:",
+      "--json",
+      "already",
+      "prints",
+      "it.",
+    ]);
+
+    const record = await new KbStore().read(bundle, "decision.none");
+    expect(record?.body).toContain("--json already prints it.");
+  });
+
   test("reports which field failed validation", async () => {
     const run = await at(["status", "fact.cache-key-includes-region", "nope"]);
 
@@ -515,6 +535,24 @@ describe("runKbCli", () => {
       expect(
         report.groups.find((group) => group.check === "expired")?.findings,
       ).toMatchObject([{ conceptId: "fact.free-tier-cap" }]);
+    });
+
+    // A flag that silently does nothing teaches a caller that it worked.
+    test("refuses --json where the result is already the machine shape", async () => {
+      const run = await at(["list", "--json"]);
+
+      expect(run.stderr).toContain("list takes no --json");
+      expect(run.stdout).toBe("");
+    });
+
+    // Presence, not truthiness: a mistyped threshold is answered by the
+    // schema, never by quietly sweeping at the default.
+    test("rejects a threshold the schema will not take", async () => {
+      for (const value of ["0", "-1", "", "soon"]) {
+        const run = await at(["doctor", "--expiring-days", value]);
+        expect(run.stderr).toContain("doctor: expiringDays:");
+        expect(run.stdout).toBe("");
+      }
     });
 
     test("takes its thresholds from the CLI flags", async () => {

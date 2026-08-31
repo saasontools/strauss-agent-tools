@@ -236,12 +236,15 @@ strauss-kb [--bundle PATH] <command> [args]
 
   --bundle PATH  defaults to ./.strauss/kb
   --json         the machine shape, where a command prints a table
+  --             everything after it is text, not flags
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
 Results go to stdout as JSON — `index` and `pack` are markdown, which is what
 they are, and `doctor` prints a table unless `--json` asks for the object
-behind it. Errors
+behind it. `--json` is refused rather than ignored on the commands that have
+only one form, since a flag that quietly does nothing reads as one that
+worked; `--` ends flag parsing, for the verbs that end in free prose. Errors
 go to stderr and exit 1. `validate` and `doctor --strict` are the commands
 whose exit code is not just "did it run": a check that reports a problem
 succeeded as a command and failed as a check, so it exits 1 with its findings
@@ -430,6 +433,11 @@ it asks only whether pointers between records agree.
 | `broken-supersession`  | A chain that does not resolve: no replacement, a missing one, a cycle, a fork. |
 | `superseded-but-cited` | A record that still holds, whose body links to one that does not.              |
 
+The last check's name is for its common case: a rejected target counts too, and
+is the worse half — a superseded record at least names its replacement, while a
+rejected one is a well-formed assertion of what someone decided _not_ to do,
+cited by a record the reader trusts.
+
 ```bash
 strauss-kb doctor                       # the table
 strauss-kb doctor --json                # the object behind it
@@ -441,23 +449,38 @@ All seven groups are reported even when empty. A check that found nothing and
 a check that never ran look identical in a report that only lists findings,
 which is the whole value of a sweep.
 
-Four judgments the checks make, worth knowing before reading a report:
+Judgments the checks make, worth knowing before reading a report:
 
 - **Superseded and rejected records sit out the freshness checks.** A replaced
   record whose date has passed needs no repair, and reporting it would bury the
   records that do. They stay in the graph checks, where standing is not the
   question.
-- **Age is read from `generated.at`.** A record carrying no timestamp is not
-  reported as aging or unverified — without a start there is no duration, and
-  inventing one would flag every foreign record as overdue. Adjudication still
-  warns `unverified` on it at read time.
-- **`orphaned` counts incoming links only.** A record that cites five others
-  and is cited by none is precisely the island: reachable if you already know
-  it exists. Shared anchors and shared sources are co-location rather than
-  reference, so they do not rescue a record from this check.
+- **A date-only `stale_after` expires at UTC midnight.** `2026-09-01` parses as
+  `2026-09-01T00:00:00Z`, so a record goes stale at the start of its date: a
+  sweep run at exactly that instant still calls it expiring, and one a minute
+  later calls it expired. That is `adjudicate`'s comparison rather than a
+  second one — two readings of the same field disagreeing about the day would
+  be worse than either.
+- **Age is read from `generated.at`, exclusively.** A record carrying no
+  timestamp is not reported as aging or unverified — without a start there is
+  no duration, and inventing one would flag every foreign record as overdue
+  (adjudication still warns `unverified` on it at read time). Exactly N days
+  old is not yet "older than N".
+- **`orphaned` counts incoming links only, and reads supersession one way.** A
+  record that cites five others and is cited by none is precisely the island:
+  reachable if you already know it exists. The replacement references what it
+  replaced, never the reverse — taken symmetrically, a dead record would vouch
+  for its own replacement and an old→new pair nothing else touches would rescue
+  itself. Shared anchors and shared sources are co-location rather than
+  reference, so they do not rescue a record either.
 - **A record citing the one it replaced is not superseded-but-cited.** That
   link is the history working as designed, and reporting it would put a finding
   on every correctly performed supersession.
+- **A replacement pointer is checked whatever the status says.** The store
+  writes `strauss_status` and `strauss_superseded_by` in one mutation, so a
+  record left `accepted` while naming a replacement was hand-edited — and
+  adjudication reads it as current no matter what the pointer says, which is
+  what makes it worth naming.
 
 `--strict` gates on expiry alone. The other six report debt a reader decides
 about; an expired record is the base itself saying it would stop standing

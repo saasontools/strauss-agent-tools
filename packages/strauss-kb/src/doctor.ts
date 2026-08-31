@@ -1,5 +1,5 @@
 import { adjudicate, type KbStanding } from "./adjudicate.js";
-import { edgeNeighbours, type KbEdgeKind } from "./kb-edges.js";
+import { edgeNeighbours } from "./kb-edges.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 import { validateBundle } from "./validate.js";
 
@@ -46,7 +46,8 @@ const CHECK_HEADLINES: Record<KbDoctorCheck, string> = {
   aging: "still open or still proposed long after it was written",
   orphaned: "no other record links to it",
   "broken-supersession": "the supersession pointers do not resolve",
-  "superseded-but-cited": "a live record's body links to a superseded one",
+  "superseded-but-cited":
+    "a live record's body links to one that no longer holds",
 };
 
 export type KbDoctorFinding = {
@@ -90,12 +91,6 @@ export type KbDoctorOptions = {
   agingDays?: number;
   now?: Date;
 };
-
-// Which edges count as "something links to this". Anchors and shared sources
-// are co-location rather than reference — two records about the same file were
-// never pointed at each other by anyone — so a record reachable only that way
-// is exactly the island this check exists to name.
-const REFERENCE_EDGES: readonly KbEdgeKind[] = ["body-link", "supersession"];
 
 const DAY_MS = 86_400_000;
 
@@ -162,6 +157,12 @@ function group(
  * An unreadable `stale_after` counts as expired rather than being skipped.
  * A date nobody can parse is a date nobody can trust, and treating it as
  * absent would silently exempt the record from the only check that ages it.
+ *
+ * `stale_after` is written date-only, which `Date.parse` reads as UTC
+ * midnight — so a record goes stale at the start of its date, and a sweep run
+ * at 00:00:00Z on that very date still counts it as expiring rather than
+ * expired. That is `adjudicate`'s comparison, not a second one: two readings
+ * of the same field disagreeing about the day would be worse than either.
  */
 function expired(
   hits: ReturnType<typeof adjudicate>,
@@ -274,14 +275,30 @@ function aging(
  * exists, which is the thing nobody does. Standing is not a filter here
  * because the question is about the graph, not about force: a rejected record
  * nothing points at is as lost as a current one.
+ *
+ * Supersession is read in one direction only — the replacement references what
+ * it replaced, never the other way. `kb-edges` deliberately reports the pair
+ * symmetrically, which is right for a walk and wrong here: taken symmetrically,
+ * a dead record vouches for its own replacement, so an old→new pair nothing
+ * else touches would rescue itself and never report. Read one way, the
+ * replaced record stays reachable through its history and the replacement has
+ * to earn its own inbound link.
  */
 function orphaned(bundle: KbRecord[]): KbDoctorFinding[] {
+  const present = new Set(bundle.map((record) => record.conceptId));
   const referenced = new Set<string>();
   for (const record of bundle) {
-    for (const kind of REFERENCE_EDGES) {
-      for (const neighbour of edgeNeighbours(record, bundle, kind)) {
-        referenced.add(neighbour.conceptId);
-      }
+    for (const neighbour of edgeNeighbours(record, bundle, "body-link")) {
+      referenced.add(neighbour.conceptId);
+    }
+    // Both spellings of one statement — "X replaced R" — whichever side of the
+    // pair stores it. Either way it is X that references R.
+    for (const replaced of record.frontmatter.strauss_supersedes ?? []) {
+      referenced.add(replaced);
+    }
+    const replacement = record.frontmatter.strauss_superseded_by;
+    if (replacement && present.has(replacement)) {
+      referenced.add(record.conceptId);
     }
   }
   return bundle
@@ -326,6 +343,25 @@ function brokenSupersession(
     if (record) add(record, problem.note);
   }
 
+  // Both `validate` and the chain walk below reach a `strauss_superseded_by`
+  // only through a record whose status is already `superseded` — so a record
+  // left `accepted` while pointing at a replacement is invisible to both, and
+  // adjudication reads it as current no matter what the pointer says. That is
+  // precisely the hand-edit this check exists for: the store writes the status
+  // and the pointer in one mutation, so the two can only disagree off-tool.
+  for (const record of bundle) {
+    const replacement = record.frontmatter.strauss_superseded_by;
+    if (!replacement) continue;
+    if (!byId.has(replacement)) {
+      add(record, `replacement ${replacement} is missing`);
+    } else if (record.frontmatter.strauss_status !== "superseded") {
+      add(
+        record,
+        `names ${replacement} as its replacement but is not marked superseded`,
+      );
+    }
+  }
+
   for (const hit of adjudicated) {
     for (const warning of hit.warnings) {
       if (warning.kind === "broken-chain") {
@@ -356,6 +392,12 @@ function brokenSupersession(
  * reader trusts it, and the link reads as support for a claim its target has
  * already stopped making. One finding per pair, because each is its own edit.
  *
+ * Rejected targets count as well as superseded ones. The check's name is for
+ * the common case, but the failure is "cites something that no longer holds",
+ * and a live record citing a rejected one is the worse half — a superseded
+ * record at least names its replacement, while a rejected one is a well-formed
+ * assertion of what someone decided *not* to do.
+ *
  * A record citing the very record it replaced is exempt. That link is the
  * history working as designed — `relatedConceptIds` on a superseding write
  * renders as exactly this edge — and reporting it would put a finding on every
@@ -371,14 +413,19 @@ function supersededButCited(
     const standing = standings.get(record.conceptId);
     if (standing === "superseded" || standing === "rejected") continue;
     for (const target of edgeNeighbours(record, bundle, "body-link")) {
-      if (standings.get(target.conceptId) !== "superseded") continue;
+      const targetStanding = standings.get(target.conceptId);
+      if (targetStanding !== "superseded" && targetStanding !== "rejected") {
+        continue;
+      }
       if (replaces(record, target)) continue;
       const replacement = target.frontmatter.strauss_superseded_by;
       findings.push(
         finding(
           record,
-          `cites superseded ${target.conceptId}${
-            replacement && byId.has(replacement)
+          `cites ${targetStanding} ${target.conceptId}${
+            targetStanding === "superseded" &&
+            replacement &&
+            byId.has(replacement)
               ? ` — replaced by ${replacement}`
               : ""
           }`,

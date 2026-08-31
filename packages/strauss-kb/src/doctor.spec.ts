@@ -221,11 +221,11 @@ describe("doctor", () => {
       expiring: 1,
       unverified: 3,
       aging: 2,
-      orphaned: 2,
+      orphaned: 3,
       "broken-supersession": 1,
       "superseded-but-cited": 1,
     });
-    expect(report.findingCount).toBe(11);
+    expect(report.findingCount).toBe(12);
     expect(report.healthy).toBe(false);
   });
 
@@ -312,12 +312,35 @@ describe("doctor", () => {
 
     const report = doctor(await store.list(bundle), { now: NOW });
 
-    // decision.root cites seven records and is cited back by fact.old-note;
-    // decision.new-way is reached through the supersession pair.
+    // decision.root cites six records and is cited back by fact.old-note.
+    // decision.new-way is not rescued by the record it replaced: the only
+    // thing pointing at it is decision.old-way, which no longer holds, so the
+    // live half of that pair has no inbound link of its own.
     expect(ids(report, "orphaned")).toEqual([
       "constraint.dangling",
+      "decision.new-way",
       "fact.island",
     ]);
+  });
+
+  // Taken symmetrically, as a graph walk takes it, a supersession pair vouches
+  // for itself: the dead record points at the live one, the live one points
+  // back, and an island of two never reports.
+  test("does not let a superseded record rescue its replacement", () => {
+    const report = doctor(
+      [
+        record("decision.old-way", {
+          strauss_status: "superseded",
+          strauss_superseded_by: "decision.new-way",
+        }),
+        record("decision.new-way", {
+          strauss_supersedes: ["decision.old-way"],
+        }),
+      ],
+      { now: NOW },
+    );
+
+    expect(ids(report, "orphaned")).toEqual(["decision.new-way"]);
   });
 
   test("names a supersession that does not resolve", async ({
@@ -418,7 +441,13 @@ describe("doctor", () => {
 
     expect(report.counts.expired).toBe(0);
     expect(report.counts.unverified).toBe(0);
-    expect(ids(report, "orphaned")).toEqual(["decision.turned-down"]);
+    // fact.replaced keeps its inbound link from the record that replaced it;
+    // fact.current has none of its own, which is the graph question, not the
+    // standing one.
+    expect(ids(report, "orphaned")).toEqual([
+      "decision.turned-down",
+      "fact.current",
+    ]);
   });
 
   // A date nobody can parse is a date nobody can trust; skipping it would
@@ -450,6 +479,117 @@ describe("doctor", () => {
 
     expect(report.counts.unverified).toBe(0);
     expect(report.counts.aging).toBe(0);
+  });
+
+  // The store writes the status and the pointer in one mutation, so the two
+  // can only disagree off-tool — and adjudication reads such a record as
+  // current whatever the pointer says, which is what makes it worth naming.
+  test("names a dangling replacement pointer whatever the status says", () => {
+    const report = doctor(
+      [
+        record("fact.points-nowhere", {
+          strauss_superseded_by: "fact.never-written",
+        }),
+        record("fact.points-at-a-live-one", {
+          strauss_superseded_by: "fact.still-here",
+        }),
+        record("fact.still-here"),
+      ],
+      { now: NOW },
+    );
+
+    expect(note(report, "broken-supersession", "fact.points-nowhere")).toBe(
+      "replacement fact.never-written is missing",
+    );
+    expect(
+      note(report, "broken-supersession", "fact.points-at-a-live-one"),
+    ).toBe(
+      "names fact.still-here as its replacement but is not marked superseded",
+    );
+  });
+
+  // A superseded record at least names its replacement. A rejected one is a
+  // well-formed assertion of what someone decided not to do, cited by a record
+  // a reader trusts.
+  test("reports a live record citing a rejected one", () => {
+    const report = doctor(
+      [
+        record(
+          "decision.live",
+          {},
+          "Relates to [decision.turned-down](decision.turned-down.md).\n",
+        ),
+        record("decision.turned-down", { strauss_status: "rejected" }),
+      ],
+      { now: NOW },
+    );
+
+    expect(note(report, "superseded-but-cited", "decision.live")).toBe(
+      "cites rejected decision.turned-down",
+    );
+  });
+
+  // `stale_after` is date-only, which Date.parse reads as UTC midnight — so a
+  // record goes stale at the start of its date, not the end of it.
+  test("puts a stale_after of today on the expiring side at UTC midnight", () => {
+    const today = [record("fact.due", { stale_after: "2026-09-01" })];
+
+    const atMidnight = doctor(today, { now: NOW });
+    expect(ids(atMidnight, "expired")).toEqual([]);
+    expect(note(atMidnight, "expiring", "fact.due")).toBe(
+      "goes stale 2026-09-01 (in 0 days)",
+    );
+
+    const laterThatDay = doctor(today, {
+      now: new Date("2026-09-01T12:00:00Z"),
+    });
+    expect(ids(laterThatDay, "expiring")).toEqual([]);
+    expect(note(laterThatDay, "expired", "fact.due")).toBe(
+      "stale since 2026-09-01 (0 days ago)",
+    );
+  });
+
+  test("holds the window and age thresholds at exactly N days", () => {
+    const dateAfter = (days: number) =>
+      new Date(NOW.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+    const daysBefore = (days: number) =>
+      new Date(NOW.getTime() - days * 86_400_000).toISOString();
+
+    // Inclusive at the horizon, silent one day past it.
+    const window = doctor(
+      [
+        record("fact.at-the-edge", { stale_after: dateAfter(30) }),
+        record("fact.past-the-edge", { stale_after: dateAfter(31) }),
+      ],
+      { now: NOW },
+    );
+    expect(ids(window, "expiring")).toEqual(["fact.at-the-edge"]);
+
+    // Exclusive at the threshold: N days old is not yet "older than N".
+    const age = doctor(
+      [
+        record("fact.exactly-ninety", {
+          generated: { by: WRITER, at: daysBefore(90) },
+        }),
+        record("fact.ninety-one", {
+          generated: { by: WRITER, at: daysBefore(91) },
+        }),
+        record("open-question.exactly-ninety", {
+          strauss_status: "open",
+          generated: { by: WRITER, at: daysBefore(90) },
+        }),
+        record("open-question.ninety-one", {
+          strauss_status: "open",
+          generated: { by: WRITER, at: daysBefore(91) },
+        }),
+      ],
+      { now: NOW },
+    );
+    expect(ids(age, "unverified")).toEqual([
+      "fact.ninety-one",
+      "open-question.ninety-one",
+    ]);
+    expect(ids(age, "aging")).toEqual(["open-question.ninety-one"]);
   });
 
   test("reports a supersession cycle and a fork", () => {
