@@ -115,10 +115,20 @@ export type KbLinkRelSpec = {
   /** Sentence stem: `<phrase> [target](target.md).` */
   phrase: string;
   /**
-   * Whether a change to the target can break the source. `kb_impact` walks
-   * these inbound and transitively; the rest are pointers, not dependencies.
+   * Which end of the edge breaks when the other end changes.
+   *
+   * This is the rel's *direction of dependence*, and it does not follow the
+   * edge's direction — which is exactly why a boolean cannot express it.
+   * `A depends_on B` puts the dependant at the source: A breaks when B moves.
+   * `A informs B` puts it at the target: B was shaped by A, so B is what needs
+   * revisiting when A moves. A walk that treated both as "inbound" would
+   * report the blast radius of `informs`, `blocks`, `invalidates` and
+   * `constrains` backwards.
+   *
+   * `null` means the rel asserts no dependence in either direction, so nothing
+   * propagates along it. `related_to` is the only such rel.
    */
-  causal: boolean;
+  dependant: "source" | "target" | null;
 };
 
 export const KB_LINK_RELS = [
@@ -136,51 +146,66 @@ export type KbLinkRel = (typeof KB_LINK_RELS)[number];
 
 export const LINK_RELS: Readonly<Record<KbLinkRel, KbLinkRelSpec>> = {
   depends_on: {
-    purpose: "The source needs the target to hold",
+    purpose:
+      "The source needs the target to hold; the source breaks if the target changes",
     phrase: "Depends on",
-    causal: true,
+    dependant: "source",
   },
   constrains: {
-    purpose: "The source bounds what the target may do",
+    purpose:
+      "The source bounds what the target may do; the target breaks if the constraint changes",
     phrase: "Constrains",
-    causal: true,
+    dependant: "target",
   },
   informs: {
-    purpose: "The source shaped the target without binding it",
+    purpose:
+      "The source shaped the target without binding it; the target is what needs revisiting",
     phrase: "Informs",
-    causal: true,
+    dependant: "target",
   },
   blocks: {
-    purpose: "The target cannot proceed until the source is settled",
+    purpose:
+      "The target cannot proceed until the source is settled; the target is what waits",
     phrase: "Blocks",
-    causal: true,
+    dependant: "target",
   },
   invalidates: {
-    purpose: "The source makes the target no longer hold",
+    purpose:
+      "The source makes the target no longer hold; the target is what stops holding",
     phrase: "Invalidates",
-    causal: true,
+    dependant: "target",
   },
   verified_by: {
-    purpose: "The target is the check that confirms the source",
+    purpose:
+      "The target is the check that confirms the source; the source's confirmation moves with it",
     phrase: "Verified by",
-    causal: true,
+    dependant: "source",
   },
   satisfies: {
-    purpose: "The source discharges the target's requirement",
+    purpose:
+      "The source discharges the target's requirement; the source must change if the requirement does",
     phrase: "Satisfies",
-    causal: true,
+    dependant: "source",
   },
   related_to: {
     purpose: "A pointer worth following, with no claim of dependence",
     phrase: "Relates to",
-    causal: false,
+    dependant: null,
   },
 };
 
-/** The rels a change can propagate along. `kb_impact`'s default edge set. */
+/**
+ * The rels that carry a direction of dependence, and therefore the only ones
+ * anything can propagate along. `kb_impact`'s default edge set, and what
+ * `trace` follows.
+ *
+ * Derived from the table rather than restated, so a rel cannot be causal in one
+ * place and inert in another; the cast is a non-emptiness assertion for
+ * `z.enum`, and a test holds the contents to the table.
+ */
 export const KB_CAUSAL_LINK_RELS = KB_LINK_RELS.filter(
-  (rel) => LINK_RELS[rel].causal,
-);
+  (rel) => LINK_RELS[rel].dependant !== null,
+) as [KbLinkRel, ...KbLinkRel[]];
 
 export function isKbLinkRel(value: string): value is KbLinkRel {
   return Object.prototype.hasOwnProperty.call(LINK_RELS, value);

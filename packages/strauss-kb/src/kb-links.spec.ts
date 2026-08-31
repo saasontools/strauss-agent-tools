@@ -4,12 +4,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test as baseTest } from "vitest";
 import { composeRecord, type ComposeInput } from "./compose.js";
-import { KbRecordNotFoundError } from "./kb-errors.js";
+import { KbRecordNotFoundError, KbUnknownLinkRelError } from "./kb-errors.js";
 import { edgeNeighbours } from "./kb-edges.js";
 import { backlinks, impact } from "./kb-links/index.js";
 import type { KbLink, KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 import { KbStore } from "./kb-store.js";
 import { pack } from "./pack.js";
+import {
+  KB_CAUSAL_LINK_RELS,
+  KB_LINK_RELS,
+  LINK_RELS,
+} from "./record-types.js";
+import { trace } from "./trace.js";
 import { validateBundle } from "./validate.js";
 
 interface Ctx {
@@ -127,11 +133,46 @@ describe("strauss_links on the record", () => {
     ).toThrow();
   });
 
+  // Inert rather than wrong, but there is no reason to store it: every walk
+  // skips it, so it would read like a claim and mean nothing.
+  test("compose refuses a link to the record's own id", () => {
+    expect(() =>
+      fact("selfish", {
+        links: [{ target: "fact.selfish", rel: "depends_on" }],
+      }),
+    ).toThrow(/cannot depends_on itself/);
+  });
+
+  // The direction of dependence is per-rel and does not follow the edge, so
+  // the table is the contract every walk reads.
+  test("each rel declares which end depends on the other", () => {
+    expect(
+      Object.fromEntries(
+        KB_LINK_RELS.map((rel) => [rel, LINK_RELS[rel].dependant]),
+      ),
+    ).toEqual({
+      depends_on: "source",
+      verified_by: "source",
+      satisfies: "source",
+      constrains: "target",
+      informs: "target",
+      blocks: "target",
+      invalidates: "target",
+      related_to: null,
+    });
+  });
+
+  test("the causal rels are exactly those carrying a dependence", () => {
+    expect(KB_CAUSAL_LINK_RELS).toEqual(
+      KB_LINK_RELS.filter((rel) => LINK_RELS[rel].dependant !== null),
+    );
+    expect(KB_CAUSAL_LINK_RELS).not.toContain("related_to");
+  });
+
   // Supersession is a lifecycle, not an edge: it already has two frontmatter
   // keys the store writes together, and a rel would be a second spelling that
   // can disagree with the first.
-  test("the vocabulary has no supersession rel", async () => {
-    const { KB_LINK_RELS } = await import("./record-types.js");
+  test("the vocabulary has no supersession rel", () => {
     expect(KB_LINK_RELS).toEqual([
       "depends_on",
       "constrains",
@@ -181,6 +222,25 @@ describe("validateBundle over typed links", () => {
     ]);
   });
 
+  // Time can fix an absent target; it can never fix an id no write could
+  // produce, so the two findings differ in severity.
+  test("a malformed target id is an error, not a warning", () => {
+    expect(
+      validateBundle([
+        record("fact.a", [{ target: "Not A Concept Id", rel: "informs" }]),
+      ]),
+    ).toEqual([
+      {
+        check: "link_target",
+        conceptId: "fact.a",
+        note: expect.stringContaining(
+          'target "Not A Concept Id" is not a valid',
+        ),
+        severity: "error",
+      },
+    ]);
+  });
+
   test("a self-link is a warning, not a parse failure", () => {
     expect(
       validateBundle([record("fact.a", [{ target: "fact.a", rel: "blocks" }])]),
@@ -224,8 +284,9 @@ describe("validateBundle over typed links", () => {
 });
 
 describe("impact", () => {
-  // A depends_on B, B depends_on C. Changing C reaches B, then A.
-  test("walks inbound edges transitively", () => {
+  // depends_on puts the dependant at the SOURCE: A needs B, so B's change
+  // reaches A, then whatever needs A. The walk runs against the edge.
+  test("follows a source-dependant rel against the edge, transitively", () => {
     const bundle = [
       record("fact.a", [{ target: "fact.b", rel: "depends_on" }]),
       record("fact.b", [{ target: "fact.c", rel: "depends_on" }]),
@@ -236,13 +297,15 @@ describe("impact", () => {
     expect(ids(result)).toEqual(["fact.b", "fact.a"]);
     expect(result.impacted.map((entry) => entry.depth)).toEqual([1, 2]);
     expect(result.impacted[0]?.via).toEqual([
-      { from: "fact.b", rel: "depends_on" },
+      { source: "fact.b", target: "fact.c", rel: "depends_on" },
     ]);
+    expect(result.truncated).toBe(false);
+    expect(result.unexpanded).toEqual([]);
   });
 
-  // The edge lives on the source and reads source → target, so the record that
-  // declared the dependence is downstream of its target, never upstream.
-  test("does not walk outbound", () => {
+  // ...and the other end stays safe. B needing C does not put C at risk when B
+  // moves.
+  test("a source-dependant rel does not propagate the other way", () => {
     const bundle = [
       record("fact.a", [{ target: "fact.b", rel: "depends_on" }]),
       record("fact.b"),
@@ -252,18 +315,102 @@ describe("impact", () => {
     expect(ids(impact("fact.b", bundle))).toEqual(["fact.a"]);
   });
 
+  // informs/blocks/invalidates/constrains put the dependant at the TARGET, so
+  // the walk runs ALONG the edge. Treating these as inbound — the bug this
+  // suite exists to pin — reports the blast radius exactly backwards.
+  test.each([
+    ["informs"],
+    ["blocks"],
+    ["invalidates"],
+    ["constrains"],
+  ] as const)("%s puts the dependant at the target", (rel) => {
+    const bundle = [
+      record("fact.a", [{ target: "fact.b", rel }]),
+      record("fact.b"),
+    ];
+
+    // A informs B: change A, and B is what needs revisiting.
+    expect(ids(impact("fact.a", bundle))).toEqual(["fact.b"]);
+    expect(impact("fact.a", bundle).impacted[0]?.via).toEqual([
+      { source: "fact.a", target: "fact.b", rel },
+    ]);
+    // Change B, and A — which merely informed it — is untouched.
+    expect(ids(impact("fact.b", bundle))).toEqual([]);
+  });
+
+  test.each([["verified_by"], ["satisfies"]] as const)(
+    "%s puts the dependant at the source",
+    (rel) => {
+      const bundle = [
+        record("fact.a", [{ target: "fact.b", rel }]),
+        record("fact.b"),
+      ];
+
+      expect(ids(impact("fact.b", bundle))).toEqual(["fact.a"]);
+      expect(ids(impact("fact.a", bundle))).toEqual([]);
+    },
+  );
+
+  // A chain that changes direction mid-walk: C informs B, and A depends_on B.
+  // Changing C reaches B along the edge, then A against it.
+  test("mixes both directions in one transitive walk", () => {
+    const bundle = [
+      record("fact.a", [{ target: "fact.b", rel: "depends_on" }]),
+      record("fact.b"),
+      record("fact.c", [{ target: "fact.b", rel: "informs" }]),
+    ];
+
+    const result = impact("fact.c", bundle);
+    expect(ids(result)).toEqual(["fact.b", "fact.a"]);
+    expect(result.impacted.map((entry) => entry.depth)).toEqual([1, 2]);
+  });
+
   test("ignores related_to, which claims no dependence", () => {
     const bundle = [
       record("fact.a", [{ target: "fact.b", rel: "related_to" }]),
-      record("fact.c", [{ target: "fact.b", rel: "constrains" }]),
+      record("fact.c", [{ target: "fact.b", rel: "depends_on" }]),
       record("fact.b"),
     ];
 
     expect(ids(impact("fact.b", bundle))).toEqual(["fact.c"]);
-    // ...unless the caller asks for it outright.
-    expect(ids(impact("fact.b", bundle, { rels: ["related_to"] }))).toEqual([
+  });
+
+  // Silently returning nothing for a rel the walk cannot follow is the one
+  // answer a caller must never get from a typo.
+  test("refuses a rels option the walk cannot follow", () => {
+    const bundle = [record("fact.a")];
+
+    expect(() => impact("fact.a", bundle, { rels: ["causes"] })).toThrow(
+      KbUnknownLinkRelError,
+    );
+    // A real rel, but an inert one — it could only ever return an empty set.
+    expect(() => impact("fact.a", bundle, { rels: ["related_to"] })).toThrow(
+      KbUnknownLinkRelError,
+    );
+  });
+
+  test("narrows to the rels asked for", () => {
+    const bundle = [
+      record("fact.a", [{ target: "fact.c", rel: "depends_on" }]),
+      record("fact.b", [{ target: "fact.c", rel: "satisfies" }]),
+      record("fact.c"),
+    ];
+
+    expect(ids(impact("fact.c", bundle, { rels: ["depends_on"] }))).toEqual([
       "fact.a",
     ]);
+  });
+
+  // An unknown rel is untraversable everywhere. Unlike a bad `rels` option,
+  // this one is stored data — it is reported by kb_validate, not thrown here.
+  test("never traverses an unknown rel stored on a record", () => {
+    const bundle = [
+      record("fact.a", [{ target: "fact.b", rel: "causes" }]),
+      record("fact.b"),
+    ];
+
+    expect(ids(impact("fact.b", bundle))).toEqual([]);
+    expect(ids(impact("fact.a", bundle))).toEqual([]);
   });
 
   // Adjudicated, not filtered: the superseded record is in the answer with its
@@ -288,8 +435,8 @@ describe("impact", () => {
 
   test("stops at a rejected record too", () => {
     const bundle = [
-      record("fact.behind", [{ target: "fact.no", rel: "blocks" }]),
-      record("fact.no", [{ target: "fact.c", rel: "blocks" }], "rejected"),
+      record("fact.behind", [{ target: "fact.no", rel: "depends_on" }]),
+      record("fact.no", [{ target: "fact.c", rel: "depends_on" }], "rejected"),
       record("fact.c"),
     ];
 
@@ -305,32 +452,34 @@ describe("impact", () => {
       record("fact.b", [{ target: "fact.a", rel: "constrains" }]),
     ];
 
-    const result = impact("fact.a", bundle);
-    expect(ids(result)).toEqual(["fact.b"]);
+    const result = impact("fact.b", bundle);
+    expect(ids(result)).toEqual(["fact.a"]);
+    // Reached both ways: A depends on B, and B constrains A.
+    expect(result.impacted[0]?.via).toEqual([
+      { source: "fact.a", target: "fact.b", rel: "depends_on" },
+      { source: "fact.b", target: "fact.a", rel: "constrains" },
+    ]);
     expect(result.impacted[0]?.depth).toBe(1);
-
-    // Two rels between the same pair both survive into `via`.
-    const doubled = impact("fact.b", [
-      record("fact.a", [
-        { target: "fact.b", rel: "depends_on" },
-        { target: "fact.b", rel: "informs" },
-      ]),
-      record("fact.b"),
-    ]);
-    expect(doubled.impacted[0]?.via).toEqual([
-      { from: "fact.a", rel: "depends_on" },
-      { from: "fact.a", rel: "informs" },
-    ]);
   });
 
-  test("honours a depth cap", () => {
+  // A cut walk must say it was cut: otherwise it reads as a complete blast
+  // radius that happened to be small.
+  test("reports truncation and what it left unexpanded", () => {
     const bundle = [
       record("fact.a", [{ target: "fact.b", rel: "depends_on" }]),
       record("fact.b", [{ target: "fact.c", rel: "depends_on" }]),
       record("fact.c"),
     ];
 
-    expect(ids(impact("fact.c", bundle, { depth: 1 }))).toEqual(["fact.b"]);
+    const cut = impact("fact.c", bundle, { depth: 1 });
+    expect(ids(cut)).toEqual(["fact.b"]);
+    expect(cut.truncated).toBe(true);
+    expect(cut.unexpanded).toEqual(["fact.b"]);
+
+    // A cap the walk never reaches is not a truncation.
+    const whole = impact("fact.c", bundle, { depth: 5 });
+    expect(whole.truncated).toBe(false);
+    expect(whole.unexpanded).toEqual([]);
   });
 
   // A blast radius of "nothing" for a record that isn't there is the most
@@ -406,17 +555,81 @@ describe("typed links in the shared edge inventory", () => {
     ).toEqual([]);
   });
 
-  // pack walks every edge kind, so a declared dependency is in the
-  // neighbourhood even when the body never mentions it.
-  test("pack reaches a record named only in frontmatter", () => {
+  // An unknown rel is not a claim any walk can interpret, so no walk follows
+  // it anywhere — the edge inventory is where that is enforced once.
+  test("an unknown rel is never traversed", () => {
     const bundle = [
-      record("fact.a", [{ target: "fact.b", rel: "depends_on" }]),
+      record("fact.a", [{ target: "fact.b", rel: "causes" }]),
       record("fact.b"),
     ];
 
+    expect(edgeNeighbours(bundle[0] as KbRecord, bundle, "typed-link")).toEqual(
+      [],
+    );
     expect(pack(bundle, "fact.a").records.map((r) => r.conceptId)).toEqual([
       "fact.a",
-      "fact.b",
     ]);
+    expect(
+      trace("fact.a", bundle).map((step) => step.record.conceptId),
+    ).toEqual(["fact.a"]);
+  });
+
+  test("honours a narrowed rel list", () => {
+    const bundle = [
+      record("fact.a", [
+        { target: "fact.b", rel: "depends_on" },
+        { target: "fact.c", rel: "related_to" },
+      ]),
+      record("fact.b"),
+      record("fact.c"),
+    ];
+
+    expect(
+      edgeNeighbours(bundle[0] as KbRecord, bundle, "typed-link", [
+        "depends_on",
+      ]).map((r) => r.conceptId),
+    ).toEqual(["fact.b"]);
+  });
+
+  // pack walks every edge kind, so a declared dependency is in the
+  // neighbourhood even when the body never mentions it — and a neighbourhood
+  // is the one place a bibliography belongs, so related_to counts here.
+  test("pack reaches records named only in frontmatter, related_to included", () => {
+    const bundle = [
+      record("fact.a", [
+        { target: "fact.b", rel: "depends_on" },
+        { target: "fact.c", rel: "related_to" },
+      ]),
+      record("fact.b"),
+      record("fact.c"),
+    ];
+
+    expect(
+      pack(bundle, "fact.a")
+        .records.map((r) => r.conceptId)
+        .sort(),
+    ).toEqual(["fact.a", "fact.b", "fact.c"]);
+  });
+
+  // A trace is a history, and related_to reaches whatever a writer thought
+  // worth mentioning — the same flooding body-link is excluded for.
+  test("trace follows causal typed links but not related_to", () => {
+    const bundle = [
+      record("fact.a", [
+        { target: "fact.b", rel: "depends_on" },
+        { target: "fact.c", rel: "related_to" },
+      ]),
+      record("fact.b"),
+      record("fact.c"),
+    ];
+
+    const reached = trace("fact.a", bundle).map(
+      (step) => step.record.conceptId,
+    );
+    expect(reached.sort()).toEqual(["fact.a", "fact.b"]);
+    expect(
+      trace("fact.a", bundle).find((step) => step.record.conceptId === "fact.b")
+        ?.via,
+    ).toEqual(["typed-link"]);
   });
 });

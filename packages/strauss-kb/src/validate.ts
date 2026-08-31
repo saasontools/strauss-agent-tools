@@ -1,4 +1,4 @@
-import type { KbRecord } from "./kb-record.schema.js";
+import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 import { isKbLinkRel, isKbRecordType, KB_LINK_RELS } from "./record-types.js";
 
 /**
@@ -90,9 +90,21 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
         );
       }
 
-      // A warning, not an error: writing a record before the one it points at
-      // is ordinary, and the same tolerance body links already have.
-      if (link.target === conceptId) {
+      // A target is an error or a warning depending on whether time can fix
+      // it. An id that does not match the concept-id pattern can never name a
+      // record — no write could produce that filename — so it is a defect
+      // now and forever. A well-formed id that is simply absent is the
+      // ordinary state of a base being written, and the same tolerance body
+      // links already have.
+      if (!KB_CONCEPT_ID_PATTERN.test(link.target)) {
+        report(
+          "link_target",
+          conceptId,
+          `target "${link.target}" is not a valid concept id — expected <type>.<slug>, both kebab-case`,
+        );
+      } else if (link.target === conceptId) {
+        // The composer refuses this outright; reaching it means a hand-edit,
+        // and a self-link is inert rather than wrong — nothing traverses it.
         report(
           "link_target",
           conceptId,

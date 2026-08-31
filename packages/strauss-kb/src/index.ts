@@ -13,6 +13,7 @@ export {
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
   KbSelfVerificationError,
+  KbUnknownLinkRelError,
   KbWriteConflictError,
 } from "./kb-errors.js";
 export {
@@ -134,6 +135,7 @@ export {
 export {
   edgeNeighbours,
   neighbours,
+  DEFAULT_TYPED_LINK_RELS,
   KB_EDGE_KINDS,
   type KbEdgeKind,
   type KbNeighbour,
@@ -156,6 +158,7 @@ export {
   type KbImpactResult,
   type KbImpactedRecord,
   type KbInboundEdge,
+  type KbLinkEdge,
 } from "./kb-links/index.js";
 export {
   validateBundle,

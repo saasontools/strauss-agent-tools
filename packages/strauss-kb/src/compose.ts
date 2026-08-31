@@ -147,6 +147,20 @@ export function composeRecord(
   if (parsed.owner) frontmatter.strauss_owner = parsed.owner;
   if (parsed.supersedes?.length)
     frontmatter.strauss_supersedes = parsed.supersedes;
+  // Refused on the write path, where the record's own id is known and the
+  // caller can still fix it. A self-link asserts a record depends on itself,
+  // which nothing can act on: every walk skips it, so it would sit in the
+  // frontmatter reading like a claim while meaning nothing. `kb_validate`
+  // keeps it a warning, because by the time a hand-edit has produced one the
+  // choice is between reporting it and refusing to load the file.
+  const selfLink = parsed.links?.find(
+    (link) => link.target === `${type}.${parsed.slug}`,
+  );
+  if (selfLink) {
+    throw new Error(
+      `kb: ${type}.${parsed.slug} cannot ${selfLink.rel} itself — a link must name another record`,
+    );
+  }
   if (parsed.links?.length) frontmatter.strauss_links = parsed.links;
 
   const blocks: string[] = [];

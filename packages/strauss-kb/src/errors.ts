@@ -26,6 +26,7 @@ export enum ErrorTypes {
   KbPackBudgetExceeded = "KbPackBudgetExceeded",
   KbRecordNotFound = "KbRecordNotFound",
   KbSelfVerification = "KbSelfVerification",
+  KbUnknownLinkRel = "KbUnknownLinkRel",
   KbWriteConflict = "KbWriteConflict",
 }
 

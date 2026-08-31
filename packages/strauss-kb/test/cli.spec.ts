@@ -198,6 +198,12 @@ describe("built CLI round trip", () => {
           { target: "fact.not-yet", rel: "related_to" },
         ],
       });
+      // Target-dependant rel: the walk runs ALONG this edge, so changing
+      // fact.shared-key reaches fact.downstream.
+      write("downstream");
+      write("advisory", {
+        links: [{ target: "fact.downstream", rel: "informs" }],
+      });
     });
 
     it("refuses a rel outside the closed vocabulary", () => {
@@ -223,7 +229,7 @@ describe("built CLI round trip", () => {
       ]);
     });
 
-    it("walks impact inbound and transitively", () => {
+    it("walks impact transitively, in each rel's direction of dependence", () => {
       const { status, stdout } = at(["impact", "fact.shared-key"]);
 
       expect(status).toBe(0);
@@ -234,7 +240,53 @@ describe("built CLI round trip", () => {
           { conceptId: "fact.gateway", depth: 2 },
         ],
         stopped: [],
+        truncated: false,
+        unexpanded: [],
       });
+    });
+
+    // `advisory informs downstream` puts the dependant at the target, so the
+    // walk runs along the edge rather than against it.
+    it("follows a target-dependant rel along the edge", () => {
+      expect(json(at(["impact", "fact.advisory"]).stdout)).toMatchObject({
+        impacted: [{ conceptId: "fact.downstream", depth: 1 }],
+      });
+      expect(json(at(["impact", "fact.downstream"]).stdout)).toMatchObject({
+        impacted: [],
+      });
+    });
+
+    it("parses --depth and reports the cut", () => {
+      expect(
+        json(at(["impact", "fact.shared-key", "--depth", "1"]).stdout),
+      ).toMatchObject({
+        impacted: [{ conceptId: "fact.router", depth: 1 }],
+        truncated: true,
+        unexpanded: ["fact.router"],
+      });
+    });
+
+    it("parses a comma-separated --rels", () => {
+      expect(
+        json(at(["impact", "fact.shared-key", "--rels", "depends_on"]).stdout),
+      ).toMatchObject({
+        impacted: [{ conceptId: "fact.router" }, { conceptId: "fact.gateway" }],
+      });
+
+      // satisfies is a real rel but nothing in this base uses it.
+      expect(
+        json(at(["impact", "fact.shared-key", "--rels", "satisfies"]).stdout),
+      ).toMatchObject({ impacted: [] });
+    });
+
+    // Silently empty would be indistinguishable from "nothing breaks".
+    it("refuses a --rels the walk cannot follow", () => {
+      const unknown = at(["impact", "fact.shared-key", "--rels", "causes"]);
+      expect(unknown.status).toBe(1);
+      expect(unknown.stderr).toContain("strauss-kb: error:");
+
+      const inert = at(["impact", "fact.shared-key", "--rels", "related_to"]);
+      expect(inert.status).toBe(1);
     });
 
     it("lists backlinks one hop, with the rel and standing", () => {

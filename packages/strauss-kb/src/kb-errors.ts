@@ -94,6 +94,33 @@ export class KbPackBudgetExceededError extends BaseError {
   }
 }
 
+/**
+ * A `rels` option naming something the walk can never follow.
+ *
+ * Refused rather than ignored. Silently dropping an unrecognised rel would
+ * return an empty impact set — "nothing breaks" — which is the one answer a
+ * caller must never receive from a typo, and is indistinguishable from a
+ * genuine result. `related_to` is refused here too: it is a real rel, but it
+ * asserts no dependence, so asking impact to follow it can only ever produce
+ * that same empty set.
+ */
+export class KbUnknownLinkRelError extends BaseError {
+  constructor(
+    readonly rel: string,
+    readonly expected: readonly string[],
+  ) {
+    super({
+      message: `kb: ${rel} is not a rel a walk can follow — expected one of ${expected.join(", ")}`,
+      errorType: ErrorTypes.KbUnknownLinkRel,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { rel, expected: expected.join(", ") },
+    });
+  }
+}
+
 export class KbInvalidConceptIdError extends BaseError {
   constructor(message: string, details: Record<string, string>) {
     super({

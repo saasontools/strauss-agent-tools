@@ -13,4 +13,5 @@ export type {
   KbImpactResult,
   KbImpactedRecord,
   KbInboundEdge,
+  KbLinkEdge,
 } from "./model.js";

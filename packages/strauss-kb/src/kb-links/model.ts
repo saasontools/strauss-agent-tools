@@ -33,10 +33,24 @@ export type KbBacklinksResult = {
   backlinks: KbBacklink[];
 };
 
+/**
+ * One typed edge as the impact walk traversed it, both ends named.
+ *
+ * `from`/`rel` alone would not say which end depended on which: the walk
+ * follows `depends_on` against the edge and `informs` along it, so a reader of
+ * `via` needs the edge as it is written, not as it was walked.
+ */
+export type KbLinkEdge = {
+  source: string;
+  target: string;
+  rel: string;
+};
+
 export type KbImpactOptions = {
   /**
-   * Which rels the walk follows. Defaults to the causal ones — every rel but
-   * `related_to`, which is a pointer rather than a dependence.
+   * Which rels the walk follows. Defaults to every rel that carries a
+   * direction of dependence. A rel outside that set — unknown, or the inert
+   * `related_to` — is refused rather than ignored.
    */
   rels?: readonly string[];
   /**
@@ -53,8 +67,8 @@ export type KbImpactedRecord = {
   warnings: KbWarning[];
   /** Hops from the record asked about. 1 is a direct dependant. */
   depth: number;
-  /** Every inbound edge that reached it, nearest first. */
-  via: KbInboundEdge[];
+  /** Every edge that reached it, nearest first. */
+  via: KbLinkEdge[];
 };
 
 export type KbImpactResult = {
@@ -67,4 +81,13 @@ export type KbImpactResult = {
    * caller can see where the walk stopped instead of inferring an end.
    */
   stopped: string[];
+  /**
+   * Whether the depth cap ended the walk with dependants still to expand. A
+   * blast radius that was cut must say so — otherwise it reads as a complete
+   * one that happened to be small, which is the failure `stopped` also exists
+   * to prevent.
+   */
+  truncated: boolean;
+  /** The records the depth cap left unexpanded. Empty unless `truncated`. */
+  unexpanded: string[];
 };

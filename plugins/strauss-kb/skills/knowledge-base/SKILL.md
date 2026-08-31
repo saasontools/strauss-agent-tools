@@ -90,27 +90,33 @@ the answer.
 ## "What breaks if I change this?"
 
 ```bash
-strauss-kb impact fact.region-key       # inbound causal links, transitively
+strauss-kb impact fact.region-key       # the transitive set of dependants
 strauss-kb backlinks fact.region-key    # every inbound edge, one hop, any rel
 ```
 
 Records can declare typed causal edges in `links`. An edge lives on the source
-and reads source → target — `{ "target": "fact.region-key", "rel":
-"depends_on" }` on a decision says the decision needs that fact — so outbound
-edges are on the record you are already holding, and these two commands compute
-the inbound direction.
+and reads source → target: `{ "target": "fact.region-key", "rel":
+"depends_on" }` on a decision says the decision needs that fact.
 
 Run `impact` before superseding, contradicting, or narrowing a record: the
 answer is the set of records written on the assumption that the current one
 holds, which is exactly what a diff cannot show you. Every row carries its
 standing; a superseded or rejected record is reported and not walked through,
-and each such stopping point is named under `stopped`.
+and each such stopping point is named under `stopped`. Unbounded unless you
+pass `--depth`, and a walk that a depth cut ends says so with `truncated`.
 
-The eight rels are `depends_on`, `constrains`, `informs`, `blocks`,
-`invalidates`, `verified_by`, `satisfies`, `related_to`. The vocabulary is
-closed — anything else is rejected at write — and `related_to` is the one
-`impact` does not follow, because it claims no dependence. There is no
-supersession rel: that is a lifecycle, and `strauss-kb supersede` owns it.
+**Which end depends on which is per-rel, and it is not always the source.**
+Write the rel that matches the dependence you mean:
+
+| Rel                                              | `A <rel> B` — who breaks when the other changes |
+| ------------------------------------------------ | ----------------------------------------------- |
+| `depends_on`, `verified_by`, `satisfies`         | **A** — so B's impact includes A                |
+| `constrains`, `informs`, `blocks`, `invalidates` | **B** — so A's impact includes B                |
+| `related_to`                                     | neither; `impact` does not follow it            |
+
+The vocabulary is closed — anything else is rejected at write, and no walk
+follows an unknown rel. There is no supersession rel: that is a lifecycle, and
+`strauss-kb supersede` owns it.
 
 ```json
 "links": [
