@@ -95,6 +95,20 @@ describe("plugin manifests", () => {
     }
   });
 
+  it("documents the flag rules a caller would otherwise guess wrong", () => {
+    // From a real Codex session: it wrote `--timeout 1800000` and worked out
+    // the unit by hand, and hit the worktree-path requirement as a failed run.
+    // Both are in the CLI already; the skill just never said so.
+    const skill = readFileSync(
+      join(pluginRoot, "skills", "claude", "SKILL.md"),
+      "utf8",
+    );
+
+    expect(skill).toContain("--timeout 30m");
+    expect(skill).toMatch(/bare number is milliseconds/i);
+    expect(skill).toMatch(/`--worktree existing` requires `--worktree-path`/);
+  });
+
   it("exposes the skill under the name the runtime invokes", () => {
     const skill = readFileSync(
       join(pluginRoot, "skills", "claude", "SKILL.md"),
@@ -269,6 +283,32 @@ describe("UserPromptSubmit hook", () => {
       }
     },
   );
+
+  onPosix("swallows a failing runner instead of erroring every prompt", () => {
+    // The notice is a courtesy on someone else's prompt. An unreachable
+    // registry or a runner that errors must not put a failure in front of the
+    // user once per turn — this hook exits 0 and says nothing.
+    const { dir, path } = shims([]);
+    const state = stateWithJob();
+    try {
+      writeFileSync(join(dir, "npx"), "#!/bin/sh\necho boom >&2\nexit 1\n", {
+        mode: 0o755,
+      });
+
+      const result = runHook("unread-result.sh", "", {
+        PATH: path,
+        CODEX_CLAUDE_AGENT_STATE_DIR: state,
+        CODEX_CLAUDE_AGENT_NESTED: "",
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
 
   onPosix("stays out of a nested run", () => {
     const result = runHook("unread-result.sh", "", {

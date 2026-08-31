@@ -25,11 +25,16 @@ fi
 # pinned to npmjs because a project that maps @saasontools elsewhere would
 # otherwise 404, and --omit=optional keeps the Agent SDK's ~245 MB bundled
 # Claude Code binary out of it — the runner spawns the user's own install.
+#
+# Best effort, both paths. This is an optional courtesy notice on someone
+# else's prompt: an unreachable registry, an offline machine, or a runner that
+# errors must not put a failure in front of the user once per turn. Stdout is
+# the notice and is kept; stderr and the exit code are not ours to surface.
 if command -v codex-claude-agent >/dev/null 2>&1; then
-  codex-claude-agent hook unread
+  codex-claude-agent hook unread 2>/dev/null || true
 else
   npx -y --omit=optional \
     --@saasontools:registry=https://registry.npmjs.org \
     -p "@saasontools/codex-claude-agent@0.x" \
-    -- codex-claude-agent hook unread
+    -- codex-claude-agent hook unread 2>/dev/null || true
 fi

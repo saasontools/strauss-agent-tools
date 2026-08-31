@@ -1,11 +1,11 @@
 # codex-claude-agent
 
 Delegate a task from Codex to Claude Code and get a structured result back.
-`$claude review the auth changes` runs Claude Code through the Claude Agent
+`$codex-claude-agent:claude review the auth changes` runs Claude Code through the Claude Agent
 SDK — read-only by default, optionally in a throwaway Git worktree, under a
 turn/budget/time ceiling — and relays what it found.
 
-This plugin is the front end: a `$claude` skill, session hooks, and an optional
+This plugin is the front end: a `claude` skill, session hooks, and an optional
 Codex agent.
 
 ## Install
@@ -56,7 +56,7 @@ specific executable if you keep several.
 
 | Piece                                | Where                                |
 | ------------------------------------ | ------------------------------------ |
-| The `$claude` skill                  | `skills/claude/SKILL.md`             |
+| The `claude` skill                   | `skills/claude/SKILL.md`             |
 | Session-id capture for job ownership | `hooks/session-start.sh`             |
 | Finished-job notice on next prompt   | `hooks/unread-result.sh`             |
 | Optional `claude-delegate` agent     | `.codex/agents/claude-delegate.toml` |
@@ -80,13 +80,21 @@ cp .codex/agents/claude-delegate.toml <repo>/.codex/agents/
 
 ## Using it
 
+Codex addresses a plugin's skill by its qualified name, so the invocation
+carries the plugin in front of it:
+
 ```
-$claude review the current authentication changes
-$claude --edit --worktree ephemeral fix the failing tests
-$claude --background audit this diff against our error-handling rules
-$claude status
-$claude result <job-id>
+$codex-claude-agent:claude review the current authentication changes
+$codex-claude-agent:claude --edit --worktree ephemeral fix the failing tests
+$codex-claude-agent:claude --background audit this diff against our error-handling rules
+$codex-claude-agent:claude status
+$codex-claude-agent:claude result <job-id>
 ```
+
+Durations take a suffix — `--timeout 30m`, `1h`, `90s` — and a bare number is
+milliseconds. `--worktree existing` and `create` both require
+`--worktree-path`; `ephemeral` picks its own path and branch. The skill spells
+these out so the model does not have to guess them one failed run at a time.
 
 Read-only is the default; `--edit` is the only thing that lets Claude write,
 and `--worktree ephemeral` keeps those writes off your checkout. Background

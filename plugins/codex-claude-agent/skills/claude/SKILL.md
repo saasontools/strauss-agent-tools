@@ -31,10 +31,19 @@ When a downstream step needs stable fields, pass `--json` and parse only the las
 
 Use free text or `--prompt-file`, plus any of: `--cwd`, `--worktree <none|existing|create|ephemeral>`, `--worktree-path`, `--ref`, `--branch`, `--edit`, `--read-only`, `--model`, `--effort`, `--max-turns`, `--budget`, `--timeout`, `--schema`, `--agents`, `--resume`, `--fork`, `--background`, `--wait`, `--format`, and `--stream`.
 
+Four of those have rules worth knowing before you guess:
+
+- `--timeout` takes a suffix: `90s`, `30m`, `1h`. A bare number is milliseconds, so `--timeout 1800000` and `--timeout 30m` are the same half hour. Default is 15m. Write the suffix.
+- `--worktree existing` requires `--worktree-path`; without it the run fails. `create` also wants `--worktree-path`, and takes `--ref` and `--branch`. `ephemeral` takes none of them — it picks its own path and branch.
+- `--budget` is US dollars, and `--max-turns` is a count. Neither takes a suffix.
+- `--cwd` is where the repository is; pass it whenever the session's directory is not the repository you mean.
+
 Examples:
 
 ```bash
 codex-claude-agent run --format markdown --read-only review the current authentication changes
 codex-claude-agent run --format markdown --edit --worktree ephemeral fix the failing tests
+codex-claude-agent run --format markdown --timeout 30m --cwd /path/to/repo \
+  --worktree existing --worktree-path /path/to/repo review the changes against origin/main
 codex-claude-agent run --json --schema findings.schema.json audit this diff
 ```
