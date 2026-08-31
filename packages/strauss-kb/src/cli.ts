@@ -11,7 +11,11 @@ import { KB_DIR, KbStore } from "./kb-store.js";
 import { VERSION } from "./version.js";
 
 export async function runKbCli(argv: string[]): Promise<void> {
-  const { bundle, rest } = takeBundle(argv);
+  const { bundle, rest: withFlags } = takeBundle(argv);
+  // Output shape, not an argument: stripped before the command sees argv, so a
+  // positional adapter never has to know the flag exists.
+  const json = withFlags.includes("--json");
+  const rest = withFlags.filter((argument) => argument !== "--json");
   const name = rest[0] ?? "";
 
   if (!name || name === "-h" || name === "--help") {
@@ -54,18 +58,18 @@ export async function runKbCli(argv: string[]): Promise<void> {
 
   // A check reporting a problem succeeded as a command and failed as a check;
   // the command says which, rather than the dispatcher knowing their names.
-  if (command.failsWhen?.(result)) process.exitCode = 1;
+  if (command.failsWhen?.(result, parsed.data)) process.exitCode = 1;
   // An empty string is deliberate silence — `context` with nothing pinned
   // runs from hooks at every session start, and even a bare newline is noise
   // injected into a fresh context.
   if (result === "") return;
-  process.stdout.write(
-    typeof result === "string"
-      ? result.endsWith("\n")
+  const text =
+    command.render && !json
+      ? command.render(result)
+      : typeof result === "string"
         ? result
-        : `${result}\n`
-      : `${JSON.stringify(result, null, 2)}\n`,
-  );
+        : JSON.stringify(result, null, 2);
+  process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
 }
 
 /**
@@ -120,6 +124,7 @@ function usage(): string {
     ),
     "",
     `  --bundle PATH  defaults to ./${KB_DIR}`,
+    "  --json         the machine shape, where a command prints a table",
     "  --version      the installed package version",
     "  STRAUSS_KB_ACTOR names the writer in the log",
     "",

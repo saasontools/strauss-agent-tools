@@ -224,6 +224,8 @@ strauss-kb [--bundle PATH] <command> [args]
   index                                    The index, rebuilt if it disagrees with the records.
   log                                      What touched what, and when.
   validate                                 Cross-record checks. Exits 1 when it reports a problem.
+  doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--strict]
+                                           Health sweep: what expired, went unconfirmed, aged, or was orphaned.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
   pin [bundle-path] [flags]                Pin a base. --mode, --profiles, --frozen; --local/--user pick the layer.
@@ -233,14 +235,17 @@ strauss-kb [--bundle PATH] <command> [args]
   sync-instructions <file>                 Plant the context block between sentinels in an instruction file.
 
   --bundle PATH  defaults to ./.strauss/kb
+  --json         the machine shape, where a command prints a table
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
 Results go to stdout as JSON — `index` and `pack` are markdown, which is what
-they are. Errors
-go to stderr and exit 1. `validate` is the one command whose exit code is not
-just "did it run": a check that reports a problem succeeded as a command and
-failed as a check, so it exits 1 with its findings on stdout.
+they are, and `doctor` prints a table unless `--json` asks for the object
+behind it. Errors
+go to stderr and exit 1. `validate` and `doctor --strict` are the commands
+whose exit code is not just "did it run": a check that reports a problem
+succeeded as a command and failed as a check, so it exits 1 with its findings
+on stdout.
 
 ```bash
 strauss-kb --bundle .strauss/kb write fact <<'JSON'
@@ -262,7 +267,8 @@ strauss-kb validate || echo "problems above"
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_pack`, `kb_query`,
-`kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
+`kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_doctor`,
+`kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
 `kb_pins` and `kb_context` read the workspace pin manifests instead. The one
@@ -400,6 +406,63 @@ return a record the base openly claims is replaced. A cycle terminates with
 fact; a missing replacement is `broken-chain` with no head — the case that needs
 the most care, because returning the stale record unmarked looks exactly like
 success.
+
+## Health
+
+`doctor` sweeps a whole base and reports what has decayed. It is read-only —
+nothing is re-dated, re-verified, superseded, or deleted — because every
+finding is a judgment somebody has to make: whether a claim still holds, which
+question is worth answering, which island to link or drop.
+
+It exists because decay is invisible from inside a single record. A stale
+record reads exactly like a live one, a question nobody answered reads exactly
+like one nobody asked, and a record nothing links to is reachable only by
+someone who already knows it is there. `validate` is the narrower neighbour:
+it asks only whether pointers between records agree.
+
+| Check                  | Reports                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `expired`              | `stale_after` is in the past — or is not a readable date, which is no better.  |
+| `expiring`             | `stale_after` falls inside the next `--expiring-days` (30).                    |
+| `unverified`           | `verified[]` is empty and the record is over `--unverified-days` (90) old.     |
+| `aging`                | Still `open` or `proposed` after `--aging-days` (90).                          |
+| `orphaned`             | No other record links to it, by body link or supersession.                     |
+| `broken-supersession`  | A chain that does not resolve: no replacement, a missing one, a cycle, a fork. |
+| `superseded-but-cited` | A record that still holds, whose body links to one that does not.              |
+
+```bash
+strauss-kb doctor                       # the table
+strauss-kb doctor --json                # the object behind it
+strauss-kb doctor --strict              # exit 1 if anything has expired
+strauss-kb doctor --unverified-days 30  # a stricter confirmation window
+```
+
+All seven groups are reported even when empty. A check that found nothing and
+a check that never ran look identical in a report that only lists findings,
+which is the whole value of a sweep.
+
+Four judgments the checks make, worth knowing before reading a report:
+
+- **Superseded and rejected records sit out the freshness checks.** A replaced
+  record whose date has passed needs no repair, and reporting it would bury the
+  records that do. They stay in the graph checks, where standing is not the
+  question.
+- **Age is read from `generated.at`.** A record carrying no timestamp is not
+  reported as aging or unverified — without a start there is no duration, and
+  inventing one would flag every foreign record as overdue. Adjudication still
+  warns `unverified` on it at read time.
+- **`orphaned` counts incoming links only.** A record that cites five others
+  and is cited by none is precisely the island: reachable if you already know
+  it exists. Shared anchors and shared sources are co-location rather than
+  reference, so they do not rescue a record from this check.
+- **A record citing the one it replaced is not superseded-but-cited.** That
+  link is the history working as designed, and reporting it would put a finding
+  on every correctly performed supersession.
+
+`--strict` gates on expiry alone. The other six report debt a reader decides
+about; an expired record is the base itself saying it would stop standing
+behind something, which is the one finding a pipeline can act on without a
+judgment call.
 
 ## Living in an agent session
 
