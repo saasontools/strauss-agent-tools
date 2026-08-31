@@ -15,7 +15,9 @@ export { generateJobId, resolveJobPaths, type JobPaths } from "./paths.js";
 export {
   getProcessIdentity,
   parseLinuxProcessStartTime,
+  probeProcessIdentity,
   terminateProcessTree,
+  type ProcessIdentityProbe,
 } from "./processes.js";
 export { garbageCollectJobs } from "./retention.js";
 export {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { open, readFile, type FileHandle } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -677,10 +678,36 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 }
 
-if (
-  process.argv[1] &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
+/**
+ * Is this file the process entry point?
+ *
+ * Both sides go through realpath, because npm installs a bin as a symlink
+ * (`node_modules/.bin/codex-claude-agent -> ../@scope/pkg/dist/cli.js`) and
+ * `process.argv[1]` is then the link, not the target. Comparing the two
+ * unresolved made every symlinked invocation — `npm i -g`, `npx`, a local
+ * `.bin` — fall through and exit 0 in silence, while `node dist/cli.js` and
+ * npm's shell-shim install shape both worked. The CLI shipped that way in
+ * 0.1.0 and 0.1.1.
+ *
+ * The guard itself has to stay: the test suite imports `main` from this
+ * module, and without it every import would run the CLI.
+ */
+function isProcessEntry(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  const canonical = (target: string) => {
+    try {
+      return realpathSync(target);
+    } catch {
+      return target;
+    }
+  };
+  return (
+    canonical(path.resolve(entry)) === canonical(fileURLToPath(import.meta.url))
+  );
+}
+
+if (isProcessEntry()) {
   void (async () => {
     let telemetry: Awaited<
       ReturnType<(typeof import("./telemetry.js"))["initializeTelemetry"]>
