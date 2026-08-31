@@ -1,0 +1,86 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/strauss-kb-docs/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+# One deployment at a time, and never cancel one mid-flight: a cancelled Pages
+# deployment leaves the site on whatever was published before it, which is fine,
+# but a cancelled *upload* wastes the run for no benefit.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Needed only by the `enablement: true` below, which calls the Pages API
+      # to turn Pages on for this repository. Once Pages is on, this could drop
+      # back to `contents: read` alone.
+      pages: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm nx build strauss-kb-docs
+
+      # `enablement: true` asks the Pages API to turn Pages on if it is off.
+      # The action documents that this needs a token with `administration:write`
+      # — which GITHUB_TOKEN does not carry — so if the very first run fails
+      # here, switch Pages on once by hand (Settings → Pages → Source: GitHub
+      # Actions) and re-run. Every later run is a no-op.
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        with:
+          enablement: true
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: apps/strauss-kb-docs/build
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write # create the Pages deployment
+      id-token: write # let Pages verify the deployment's origin
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        with:
+          egress-policy: audit
+
+      # No checkout: this job deploys the artifact the build job uploaded and
+      # never reads the repository.
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
