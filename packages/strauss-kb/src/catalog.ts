@@ -17,10 +17,36 @@ export type KbCatalogResult = {
   entries: KbCatalogEntry[];
   /** Every record the catalog names, filter applied. */
   recordCount: number;
-  /** How many of those still hold — the count the load gate is held against. */
+  /**
+   * How many records hold each standing. Sums to `recordCount` — every record
+   * has exactly one standing, so the reader can see that nothing went missing.
+   */
+  standings: Record<KbStanding, number>;
+  /**
+   * What `load` would hand over as whole records, and therefore exactly what
+   * its record gate counts: everything except the superseded, which arrive as
+   * one-line stubs and are not pages. A catalog reader comparing this to the
+   * gate can predict a refusal before making the call.
+   */
+  pageCount: number;
+  /** Shorthand for `standings.current` — records that simply hold. */
   currentCount: number;
+  /** Shorthand for `standings.superseded`. */
   supersededCount: number;
+  /**
+   * Records whose `stale_after` has passed. A flag over the standings rather
+   * than one of them — a current record can be stale — so this deliberately
+   * does not participate in the sum.
+   */
   staleCount: number;
+};
+
+const EMPTY_STANDINGS: Record<KbStanding, number> = {
+  current: 0,
+  superseded: 0,
+  rejected: 0,
+  unsettled: 0,
+  open: 0,
 };
 
 /**
@@ -39,8 +65,19 @@ export type KbCatalogResult = {
  * live one. A superseded entry names its replacement, so the line the reader
  * should follow instead is already in front of them.
  *
- * Deliberately timestamp-free and sorted by type then title, so two catalogs of
- * an unchanged base are byte-identical and can be diffed.
+ * Unbounded, alone among the read paths. `load` and `pack` refuse past a
+ * ceiling because a partial body set reads as a complete one; a catalog has no
+ * such failure — it is the rung a caller lands on *because* something else
+ * refused, and a second refusal there would leave nowhere to go. The cost is
+ * linear and cheap: roughly thirty tokens a record, so a thousand-record base
+ * is about 30k and five thousand about 150k. Past that the `type` filter
+ * narrows it, and no ceiling is needed to make that available.
+ *
+ * Deterministic given a fixed `now`: no timestamp is emitted, and the ordering
+ * is total down to the concept id, so two catalogs of an unchanged base within
+ * one `stale_after` window are byte-identical and diff to nothing. The default
+ * clock is the wall clock, so a line can still flip to stale as a date passes —
+ * pass `now` when byte-equality has to hold across that boundary.
  */
 export function catalog(
   bundle: KbRecord[],
@@ -64,13 +101,16 @@ export function catalog(
     }))
     .sort(byTypeThenTitle);
 
+  const standings = { ...EMPTY_STANDINGS };
+  for (const entry of entries) standings[entry.standing] += 1;
+
   return {
     entries,
     recordCount: entries.length,
-    currentCount: entries.filter((entry) => entry.standing === "current")
-      .length,
-    supersededCount: entries.filter((entry) => entry.standing === "superseded")
-      .length,
+    standings,
+    pageCount: entries.length - standings.superseded,
+    currentCount: standings.current,
+    supersededCount: standings.superseded,
     staleCount: entries.filter((entry) => entry.stale).length,
   };
 }
@@ -78,10 +118,22 @@ export function catalog(
 /** Concept id is the tiebreak, so the order is total and therefore stable. */
 function byTypeThenTitle(left: KbCatalogEntry, right: KbCatalogEntry): number {
   return (
-    left.type.localeCompare(right.type) ||
-    (left.title ?? "").localeCompare(right.title ?? "") ||
-    left.conceptId.localeCompare(right.conceptId)
+    byCodeUnit(left.type, right.type) ||
+    byCodeUnit(left.title ?? "", right.title ?? "") ||
+    byCodeUnit(left.conceptId, right.conceptId)
   );
+}
+
+/**
+ * Code-unit order, not `localeCompare`.
+ *
+ * `localeCompare` without an explicit locale reads the host's, so the same
+ * base sorts differently on two machines — and this output's whole contract is
+ * that two catalogs of an unchanged base diff to nothing. A collation nobody
+ * configured is not worth a determinism claim that quietly does not hold.
+ */
+function byCodeUnit(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 /**

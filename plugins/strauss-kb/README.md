@@ -60,7 +60,7 @@ and the package update from different places and neither prompts for the
 other:
 
 ```bash
-npm install -g @saasontools/strauss-kb@^0.1.6
+npm install -g @saasontools/strauss-kb@^0.1.8
 ```
 
 Skew is quiet by design: the SessionStart hook fails open, so an outdated

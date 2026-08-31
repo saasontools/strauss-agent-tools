@@ -88,6 +88,17 @@ describe("catalog", () => {
     expect(result.currentCount).toBe(3);
     expect(result.supersededCount).toBe(1);
     expect(result.staleCount).toBe(1);
+    // Every record accounted for exactly once.
+    expect(result.standings).toEqual({
+      current: 3,
+      superseded: 1,
+      rejected: 1,
+      unsettled: 0,
+      open: 0,
+    });
+    expect(Object.values(result.standings).reduce((sum, n) => sum + n, 0)).toBe(
+      result.recordCount,
+    );
     expect(result.entries).toContainEqual({
       conceptId: "fact.region-key",
       type: "fact",
@@ -178,7 +189,99 @@ describe("catalog", () => {
     expect(await store.catalog(bundle)).toMatchObject({
       entries: [],
       recordCount: 0,
+      pageCount: 0,
     });
+  });
+
+  // The catalog's whole claim to be a load-refusal predictor rests on this
+  // number meaning exactly what the gate counts. Two accountings would drift.
+  describe("pageCount predicts load's gate", () => {
+    test("equals load's pageCount, superseded records excluded", async ({
+      store,
+      bundle,
+    }) => {
+      await seed(store, bundle);
+
+      const listing = await store.catalog(bundle);
+      const loaded = await store.load(bundle);
+
+      expect(loaded.loaded).toBe(true);
+      if (!loaded.loaded) return;
+      expect(listing.pageCount).toBe(loaded.pageCount);
+      expect(listing.pageCount).toBe(
+        listing.recordCount - listing.supersededCount,
+      );
+    });
+
+    test("agrees with load under a type filter too", async ({
+      store,
+      bundle,
+    }) => {
+      await seed(store, bundle);
+
+      const listing = await store.catalog(bundle, { type: "decision" });
+      const loaded = await store.load(bundle, { type: "decision" });
+
+      expect(loaded.loaded).toBe(true);
+      if (!loaded.loaded) return;
+      expect(listing.pageCount).toBe(loaded.pageCount);
+    });
+
+    // The number is only useful if acting on it is right: a catalog reporting
+    // one page over the gate must correspond to a load that actually refuses.
+    test("a pageCount over the gate is exactly when load refuses", async ({
+      store,
+      bundle,
+    }) => {
+      await seed(store, bundle);
+      const listing = await store.catalog(bundle);
+
+      expect(
+        (await store.load(bundle, { maxRecords: listing.pageCount })).loaded,
+      ).toBe(true);
+      expect(
+        (await store.load(bundle, { maxRecords: listing.pageCount - 1 }))
+          .loaded,
+      ).toBe(false);
+    });
+  });
+
+  // localeCompare without a locale reads the host's collation, so the same
+  // base would sort differently on two machines and the determinism claim
+  // would quietly stop holding.
+  test("orders by code unit, not by host collation", async ({
+    store,
+    bundle,
+  }) => {
+    for (const { slug, title } of [
+      { slug: "lower-apple", title: "apple" },
+      { slug: "upper-apple", title: "Apple" },
+      { slug: "upper-banana", title: "Banana" },
+    ]) {
+      await store.write(
+        bundle,
+        composeRecord(
+          "fact",
+          {
+            slug,
+            title,
+            why: "Ordering only.",
+            sections: { Claim: "Ordering only." },
+          },
+          WRITTEN_BY,
+          WRITTEN_AT,
+        ),
+      );
+    }
+
+    const titles = (await store.catalog(bundle)).entries.map(
+      (entry) => entry.title,
+    );
+
+    // Code-unit order puts every capital ahead of every lowercase. A locale
+    // collation interleaves them — and picks a different order per host,
+    // which is what the determinism claim cannot survive.
+    expect(titles).toEqual(["Apple", "Banana", "apple"]);
   });
 
   test("staleness is measured against the clock it is given", async ({

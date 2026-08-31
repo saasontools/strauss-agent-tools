@@ -94,6 +94,28 @@ export class KbPackBudgetExceededError extends BaseError {
   }
 }
 
+/**
+ * A flag that takes a value, given none.
+ *
+ * `strauss-kb load --max-records` used to read the next argv entry, find
+ * nothing, and quietly fall back to the default — so a caller who meant to
+ * raise a ceiling got the ceiling they were trying to move, and a typo looked
+ * exactly like success. Refusing is the only way that stays visible.
+ */
+export class KbMissingFlagValueError extends BaseError {
+  constructor(readonly flag: string) {
+    super({
+      message: `kb: ${flag} needs a value — pass ${flag} <value> or ${flag}=<value>`,
+      errorType: ErrorTypes.KbMissingFlagValue,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { flag },
+    });
+  }
+}
+
 export class KbInvalidConceptIdError extends BaseError {
   constructor(message: string, details: Record<string, string>) {
     super({
