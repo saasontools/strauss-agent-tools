@@ -79,6 +79,10 @@ describe("runClaude foreground integration", () => {
         retryOptions: { sleep: async () => undefined },
       },
     );
+    // Asserted first, and on its own: `toMatchObject` elides the rest of the
+    // object, so a failure here once read `{ ok: false, …(8) }` with the code
+    // and message hidden — undiagnosable from a CI log. This prints the error.
+    expect(result.error).toBeUndefined();
     expect(result).toMatchObject({
       ok: true,
       result: "Done.",
