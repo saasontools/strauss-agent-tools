@@ -258,31 +258,26 @@ describe("UserPromptSubmit hook", () => {
     }
   });
 
-  onPosix(
-    "falls back to the published package when nothing is installed",
-    () => {
-      const { dir, path } = shims(["npx"]);
-      const state = stateWithJob();
-      try {
-        const result = runHook("unread-result.sh", "", {
-          PATH: path,
-          CODEX_CLAUDE_AGENT_STATE_DIR: state,
-          CODEX_CLAUDE_AGENT_NESTED: "",
-        });
+  onPosix("stays silent rather than fetching the runner per prompt", () => {
+    // Deliberately NOT the npx fallback the skill uses. Measured against the
+    // published 0.1.0 with a warm cache, npx costs 7.5-9.0s per invocation
+    // against 0.4s for an installed binary, and this hook runs every prompt.
+    const { dir, path } = shims(["npx"]);
+    const state = stateWithJob();
+    try {
+      const result = runHook("unread-result.sh", "", {
+        PATH: path,
+        CODEX_CLAUDE_AGENT_STATE_DIR: state,
+        CODEX_CLAUDE_AGENT_NESTED: "",
+      });
 
-        expect(result.status).toBe(0);
-        // The range, not a bare name: the plugin tracks 0.x releases. And
-        // --omit=optional, without which npx drags in the SDK's ~245 MB bundled
-        // Claude Code binary that this runner never spawns.
-        expect(result.stdout).toContain("@saasontools/codex-claude-agent@0.x");
-        expect(result.stdout).toContain("--omit=optional");
-        expect(result.stdout.trim()).toMatch(/codex-claude-agent hook unread$/);
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-        rmSync(state, { recursive: true, force: true });
-      }
-    },
-  );
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
 
   onPosix("swallows a failing runner instead of erroring every prompt", () => {
     // The notice is a courtesy on someone else's prompt. An unreachable
@@ -291,9 +286,11 @@ describe("UserPromptSubmit hook", () => {
     const { dir, path } = shims([]);
     const state = stateWithJob();
     try {
-      writeFileSync(join(dir, "npx"), "#!/bin/sh\necho boom >&2\nexit 1\n", {
-        mode: 0o755,
-      });
+      writeFileSync(
+        join(dir, "codex-claude-agent"),
+        "#!/bin/sh\necho boom >&2\nexit 1\n",
+        { mode: 0o755 },
+      );
 
       const result = runHook("unread-result.sh", "", {
         PATH: path,
