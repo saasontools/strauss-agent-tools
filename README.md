@@ -11,16 +11,21 @@ MCPB bundles for Claude Desktop.
 
 ## Packages
 
-| Package                                                                      | Description                                                 | npm                                                                                                                                                   |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@saasontools/nx-plugin`](packages/nx-plugin)                               | Nx generators for scaffolding MCP servers and agent plugins | [![npm](https://img.shields.io/npm/v/%40saasontools%2Fnx-plugin)](https://www.npmjs.com/package/@saasontools/nx-plugin)                               |
-| [`@saasontools/gemini-deep-research-mcp`](packages/gemini-deep-research-mcp) | Gemini Deep Research MCP server                             | [![npm](https://img.shields.io/npm/v/%40saasontools%2Fgemini-deep-research-mcp)](https://www.npmjs.com/package/@saasontools/gemini-deep-research-mcp) |
+| Package                                                                      | Description                                                                                             | npm                                                                                                                                                   |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`@saasontools/nx-plugin`](packages/nx-plugin)                               | Nx generators for scaffolding MCP servers and agent plugins                                             | [![npm](https://img.shields.io/npm/v/%40saasontools%2Fnx-plugin)](https://www.npmjs.com/package/@saasontools/nx-plugin)                               |
+| [`@saasontools/gemini-deep-research-mcp`](packages/gemini-deep-research-mcp) | Gemini Deep Research MCP server                                                                         | [![npm](https://img.shields.io/npm/v/%40saasontools%2Fgemini-deep-research-mcp)](https://www.npmjs.com/package/@saasontools/gemini-deep-research-mcp) |
+| [`@saasontools/strauss-kb`](packages/strauss-kb)                             | Knowledge base of markdown records with standing, supersession, and trace: library, CLI, and MCP server | [![npm](https://img.shields.io/npm/v/%40saasontools%2Fstrauss-kb)](https://www.npmjs.com/package/@saasontools/strauss-kb)                             |
+| [`@saasontools/codex-claude-agent`](packages/codex-claude-agent)             | Runner that delegates a Codex task to Claude Code through the Claude Agent SDK                          | [![npm](https://img.shields.io/npm/v/%40saasontools%2Fcodex-claude-agent)](https://www.npmjs.com/package/@saasontools/codex-claude-agent)             |
 
 ## Plugins
 
-| Plugin                                                 | Description                                           |
-| ------------------------------------------------------ | ----------------------------------------------------- |
-| [`gemini-deep-research`](plugins/gemini-deep-research) | Deep research via the Gemini Deep Research MCP server |
+| Plugin                                                 | Description                                                                                        |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| [`gemini-deep-research`](plugins/gemini-deep-research) | Deep research via the Gemini Deep Research MCP server                                              |
+| [`gemini-infographics`](plugins/gemini-infographics)   | Generate infographic images with Gemini image models                                               |
+| [`strauss-kb`](plugins/strauss-kb)                     | Durable project knowledge with standing, supersession, and trace                                   |
+| [`codex-claude-agent`](plugins/codex-claude-agent)     | Delegate work from Codex to Claude Code, in a worktree, with tracked jobs (Codex marketplace only) |
 
 ## Install
 

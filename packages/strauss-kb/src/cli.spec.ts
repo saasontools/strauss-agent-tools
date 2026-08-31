@@ -138,6 +138,26 @@ describe("runKbCli", () => {
     expect(run.stderr).toContain("--bundle requires a path");
   });
 
+  // Several verbs end in free prose. Without the sentinel a reason mentioning
+  // a flag loses that word to the flag scan — silently, which is the worst way
+  // to lose part of a sentence someone wrote.
+  test("keeps flag-shaped words after -- as text", async () => {
+    await at([
+      "no-decision",
+      "--",
+      "Nothing",
+      "to",
+      "decide:",
+      "--json",
+      "already",
+      "prints",
+      "it.",
+    ]);
+
+    const record = await new KbStore().read(bundle, "decision.none");
+    expect(record?.body).toContain("--json already prints it.");
+  });
+
   test("reports which field failed validation", async () => {
     const run = await at(["status", "fact.cache-key-includes-region", "nope"]);
 
@@ -522,6 +542,182 @@ describe("runKbCli", () => {
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
+  });
+
+  // The sweep prints for a person by default and for a program on request,
+  // and the two have to be the same run: a table a caller cannot re-derive
+  // from the JSON would be a second report to keep in step.
+  describe("doctor", () => {
+    const expiring = async (staleAfter: string) => {
+      await new KbStore().write(
+        bundle,
+        composeRecord(
+          "fact",
+          {
+            slug: "free-tier-cap",
+            title: "The free tier caps at 1000 calls",
+            why: "A wrong cap prices the plan wrong.",
+            sections: { Claim: "1000 calls a month." },
+            stale_after: staleAfter,
+          },
+          "seed",
+          "2026-08-01T02:00:00Z",
+        ),
+      );
+    };
+
+    test("prints a table naming every check", async () => {
+      const run = await at(["doctor"]);
+
+      expect(run.stdout).toContain("# KB Doctor —");
+      for (const check of [
+        "expired",
+        "expiring",
+        "unverified",
+        "aging",
+        "orphaned",
+        "broken-supersession",
+        "superseded-but-cited",
+        "drifted",
+      ]) {
+        expect(run.stdout).toContain(check);
+      }
+      expect(run.exitCode).toBeUndefined();
+    });
+
+    // The eighth check, end to end: the same fixture `anchor-resolve` gates on
+    // shows up in the sweep as a named record, and read-only — doctor reports
+    // the drift and leaves the re-stamp to the verb that writes.
+    test("lists a record whose anchored code moved, against --repo-root", async () => {
+      const repo = mkdtempSync(join(tmpdir(), "strauss-kb-doctor-repo-"));
+      try {
+        const file = "src/cache/order-cache.ts";
+        const source = [
+          "export function orderKey(region: string): string {",
+          "  return `${region}:orders`;",
+          "}",
+          "",
+        ].join("\n");
+        mkdirSync(dirname(join(repo, file)), { recursive: true });
+        writeFileSync(join(repo, file), source);
+
+        const resolved = resolveAnchor(source, { file, symbol: "orderKey" })!;
+        await new KbStore().write(
+          bundle,
+          composeRecord(
+            "decision",
+            {
+              slug: "region-in-key",
+              title: "The region prefixes the key",
+              why: "A region-less key serves the wrong region's data.",
+              anchors: [
+                {
+                  file,
+                  symbol: "orderKey",
+                  hash: hashAnchorText(resolved.text),
+                  resolved_at: "2026-08-01T02:00:00Z",
+                  lines: resolved.endLine - resolved.startLine + 1,
+                },
+              ],
+            },
+            "seed",
+            "2026-08-01T02:00:00Z",
+          ),
+        );
+
+        const clean = await at(["doctor", "--json", "--repo-root", repo]);
+        expect(
+          (parsed(clean) as { counts: Record<string, number> }).counts.drifted,
+        ).toBe(0);
+
+        writeFileSync(
+          join(repo, file),
+          source.replace("`${region}:orders`", "`orders`"),
+        );
+
+        const swept = await at(["doctor", "--repo-root", repo]);
+        expect(swept.stdout).toContain("## drifted (1)");
+        expect(swept.stdout).toContain("decision.region-in-key");
+        expect(swept.stdout).toContain(`${file}:orderKey`);
+        // Read-only: a sweep never re-stamps what it reports.
+        const after = await new KbStore().read(bundle, "decision.region-in-key");
+        expect(after?.frontmatter.strauss_anchors?.[0]?.hash).toBe(
+          hashAnchorText(resolved.text),
+        );
+        expect(swept.exitCode).toBeUndefined();
+      } finally {
+        rmSync(repo, { recursive: true, force: true });
+      }
+    });
+
+    test("prints the report object under --json", async () => {
+      await expiring("2020-01-01");
+
+      const report = parsed(await at(["doctor", "--json"])) as {
+        counts: Record<string, number>;
+        groups: { check: string; findings: { conceptId: string }[] }[];
+        thresholds: Record<string, number>;
+        healthy: boolean;
+      };
+
+      expect(report.thresholds).toEqual({
+        expiringDays: 30,
+        unverifiedDays: 90,
+        agingDays: 90,
+      });
+      expect(report.groups).toHaveLength(8);
+      expect(report.counts.expired).toBe(1);
+      expect(report.healthy).toBe(false);
+      expect(
+        report.groups.find((group) => group.check === "expired")?.findings,
+      ).toMatchObject([{ conceptId: "fact.free-tier-cap" }]);
+    });
+
+    // A flag that silently does nothing teaches a caller that it worked.
+    test("refuses --json where the result is already the machine shape", async () => {
+      const run = await at(["list", "--json"]);
+
+      expect(run.stderr).toContain("list takes no --json");
+      expect(run.stdout).toBe("");
+    });
+
+    // Presence, not truthiness: a mistyped threshold is answered by the
+    // schema, never by quietly sweeping at the default.
+    test("rejects a threshold the schema will not take", async () => {
+      for (const value of ["0", "-1", "", "soon"]) {
+        const run = await at(["doctor", "--expiring-days", value]);
+        expect(run.stderr).toContain("doctor: expiringDays:");
+        expect(run.stdout).toBe("");
+      }
+    });
+
+    test("takes its thresholds from the CLI flags", async () => {
+      // Far enough out to be invisible at the default 30-day window.
+      await expiring("2099-01-01");
+
+      const wide = parsed(
+        await at(["doctor", "--json", "--expiring-days", "40000"]),
+      ) as { counts: Record<string, number> };
+      const narrow = parsed(await at(["doctor", "--json"])) as {
+        counts: Record<string, number>;
+      };
+
+      expect(wide.counts.expiring).toBe(1);
+      expect(narrow.counts.expiring).toBe(0);
+    });
+
+    // Read-only, so the exit code is the only thing a pipeline can gate on —
+    // and only expiry, which the base itself already said would stop holding.
+    test("exits non-zero under --strict only when something has expired", async () => {
+      expect((await at(["doctor", "--strict"])).exitCode).toBeUndefined();
+
+      await expiring("2020-01-01");
+
+      expect((await at(["doctor"])).exitCode).toBeUndefined();
+      const strict = await at(["doctor", "--strict"]);
+      expect(strict.exitCode).toBe(1);
+      expect(strict.stdout).toContain("stale since 2020-01-01");
+    });
   });
 
   test("answers schema and types without touching a base", async () => {

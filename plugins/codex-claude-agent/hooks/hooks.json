@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$PLUGIN_ROOT/hooks/session-start.sh\"",
+            "statusMessage": "Initializing Claude delegate"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$PLUGIN_ROOT/hooks/unread-result.sh\"",
+            "statusMessage": "Checking Claude delegate results"
+          }
+        ]
+      }
+    ]
+  }
+}

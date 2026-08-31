@@ -3,6 +3,12 @@
   "name": "plugin-strauss-kb",
   "projectType": "library",
   "targets": {
+    "lint": {
+      "command": "eslint .",
+      "options": {
+        "cwd": "plugins/strauss-kb"
+      }
+    },
     "validate": {
       "command": "claude plugin validate .",
       "options": {

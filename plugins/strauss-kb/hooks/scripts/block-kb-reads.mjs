@@ -75,7 +75,8 @@ function main() {
     return 0;
   }
 
-  const cwd = typeof input?.cwd === "string" && input.cwd ? input.cwd : process.cwd();
+  const cwd =
+    typeof input?.cwd === "string" && input.cwd ? input.cwd : process.cwd();
   const toolInput = input?.tool_input ?? {};
 
   // Read carries file_path; Glob and Grep carry an optional path. A Grep or
@@ -88,7 +89,9 @@ function main() {
 
   const dirs = kbDirs(cwd);
   for (const candidate of candidates) {
-    const target = isAbsolute(candidate) ? resolve(candidate) : resolve(cwd, candidate);
+    const target = isAbsolute(candidate)
+      ? resolve(candidate)
+      : resolve(cwd, candidate);
     if (dirs.some((dir) => isInside(target, dir))) {
       process.stderr.write(`${REDIRECT}\n`);
       return 2;

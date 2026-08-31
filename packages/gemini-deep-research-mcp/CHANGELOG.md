@@ -1,3 +1,14 @@
+## 0.1.3 (2026-08-30)
+
+### 🩹 Fixes
+
+- Stop log redaction from eating the first word of the next line ([cc7ad69](https://github.com/saasontools/strauss-agent-tools/commit/cc7ad69))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Opus 5
+
 ## 0.1.2 (2026-08-20)
 
 ### 🩹 Fixes

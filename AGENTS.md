@@ -23,7 +23,10 @@ Codex, and Agent Plugins 1.0 clients from the marketplace files at
 
 - **No `project.json` under `packages/*`** — Nx infers targets from npm
   scripts; keep scripts the source of truth. Only `plugins/*` carry a
-  `project.json`, and only for the `validate` target.
+  `project.json`: every plugin for its `validate` target, plus `lint` (and
+  `typecheck`, where the scripts are `// @ts-check`ed) for every plugin that
+  ships executable scripts. A shipped script with no target is a file CI never
+  looks at.
 - **New packages start at `0.1.0`** — the generators do this. Below 1.0 Nx
   shifts every relative bump down a level (`patch` and `minor` both give
   `0.1.1`, `major` gives `0.2.0`), so write plans as `patch` and reach 1.0.0
@@ -40,6 +43,10 @@ Codex, and Agent Plugins 1.0 clients from the marketplace files at
 - **pnpm build scripts are an explicit allowlist** (`allowBuilds` in
   pnpm-workspace.yaml) — a new dep with a build script fails cold installs
   until it is listed there.
+- **A package may add a scoped `AGENTS.md`** for rules that only hold inside
+  it — `packages/codex-claude-agent/AGENTS.md` carries the job-module and
+  secure-file invariants of that runner. Scoped, never contradicting: anything
+  that applies repo-wide belongs in this file.
 - **Multi-responsibility source files become folder modules.** When a file
   under `src/` accumulates more than one responsibility, split it into a
   directory of single-responsibility modules (`model.ts` for types/schemas,

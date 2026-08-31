@@ -1,0 +1,156 @@
+{
+  "$id": "https://saasontools.github.io/strauss-agent-tools/schemas/codex-claude-agent/run-result.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "worktree": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "created": {
+          "type": "boolean"
+        },
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": ["path", "created", "removed"],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "string"
+    },
+    "structured": {},
+    "usage": {
+      "type": "object",
+      "properties": {
+        "turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "costUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": ["turns", "durationMs"],
+      "additionalProperties": false
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "W_DIRTY_TREE",
+              "W_WORKTREE_RETAINED",
+              "W_TOOL_DENIED",
+              "W_RETRY",
+              "W_LARGE_DIFF",
+              "W_NO_CLAUDE_MD",
+              "W_BUDGET_80PCT"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "required": ["code", "message"],
+        "additionalProperties": false
+      }
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "E_AUTH",
+            "E_SDK_MISSING",
+            "E_SDK_VERSION",
+            "E_CLAUDE_MISSING",
+            "E_NOT_GIT_REPO",
+            "E_WORKTREE_NOT_FOUND",
+            "E_WORKTREE_EXISTS",
+            "E_BRANCH_EXISTS",
+            "E_DETACHED_HEAD",
+            "E_NESTED",
+            "E_TIMEOUT",
+            "E_CANCELLED",
+            "E_MAX_TURNS",
+            "E_MAX_BUDGET",
+            "E_STRUCTURED_OUTPUT",
+            "E_TRANSIENT_API",
+            "E_EXECUTION",
+            "E_INVALID_REQUEST",
+            "E_UNKNOWN"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "attempts": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cause": {
+          "type": "string"
+        }
+      },
+      "required": ["code", "message", "hint", "retryable", "attempts"],
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "resultPath": {
+          "type": "string"
+        },
+        "logPath": {
+          "type": "string"
+        }
+      },
+      "required": ["resultPath", "logPath"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["ok", "jobId", "cwd", "usage", "warnings"],
+  "additionalProperties": false
+}

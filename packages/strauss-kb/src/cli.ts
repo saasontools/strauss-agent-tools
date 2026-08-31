@@ -8,18 +8,43 @@
 import { join } from "node:path";
 import { KB_COMMANDS, KB_COMMANDS_BY_NAME } from "./commands/index.js";
 import { KB_DIR, KbStore } from "./kb-store.js";
+import { VERSION } from "./version.js";
 
 export async function runKbCli(argv: string[]): Promise<void> {
-  const { bundle, rest } = takeBundle(argv);
-  const name = rest[0] ?? "";
+  const { flags, literal } = takeLiteral(argv);
+  const { bundle, rest: withFlags } = takeBundle(flags);
+  const name = withFlags[0] ?? "";
 
   if (!name || name === "-h" || name === "--help") {
     process.stdout.write(usage());
     return;
   }
 
+  // The plugin in front of this CLI updates from a marketplace while the CLI
+  // updates from npm, and neither prompts for the other. Answering "which one
+  // is installed" is what makes that skew diagnosable instead of mysterious.
+  if (name === "--version" || name === "-v") {
+    process.stdout.write(`${VERSION}\n`);
+    return;
+  }
+
   const command = KB_COMMANDS_BY_NAME.get(name);
   if (!command) die(`unknown command ${name}`);
+
+  // Output shape, not an argument: stripped before the command sees argv, so a
+  // positional adapter never has to know the flag exists. Refused rather than
+  // ignored where a command has only one form — a flag that silently does
+  // nothing teaches a caller that it worked.
+  const json = withFlags.includes("--json");
+  if (json && !command.render) {
+    die(`${name} takes no --json: its result is already the machine shape`);
+  }
+  const rest = [
+    ...(json
+      ? withFlags.filter((argument) => argument !== "--json")
+      : withFlags),
+    ...literal,
+  ];
 
   const raw = await command.fromArgv(rest, bundle, readStdin);
   const parsed = command.input.safeParse(raw);
@@ -45,18 +70,33 @@ export async function runKbCli(argv: string[]): Promise<void> {
 
   // A check reporting a problem succeeded as a command and failed as a check;
   // the command says which, rather than the dispatcher knowing their names.
-  if (command.failsWhen?.(result)) process.exitCode = 1;
+  if (command.failsWhen?.(result, parsed.data)) process.exitCode = 1;
   // An empty string is deliberate silence — `context` with nothing pinned
   // runs from hooks at every session start, and even a bare newline is noise
   // injected into a fresh context.
   if (result === "") return;
-  process.stdout.write(
-    typeof result === "string"
-      ? result.endsWith("\n")
+  const text =
+    command.render && !json
+      ? command.render(result)
+      : typeof result === "string"
         ? result
-        : `${result}\n`
-      : `${JSON.stringify(result, null, 2)}\n`,
-  );
+        : JSON.stringify(result, null, 2);
+  process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
+}
+
+/**
+ * Everything after a bare `--` is text, never flags.
+ *
+ * Several verbs end in free prose — `no-decision`, `answer`, `query` — and a
+ * reason that happens to contain `--json` or `--bundle` would otherwise lose a
+ * word to the flag scan, or two. The sentinel is the usual escape, and the
+ * token itself is dropped while the order of everything else is kept, so the
+ * positional adapters still index the same way.
+ */
+function takeLiteral(argv: string[]): { flags: string[]; literal: string[] } {
+  const at = argv.indexOf("--");
+  if (at === -1) return { flags: argv, literal: [] };
+  return { flags: argv.slice(0, at), literal: argv.slice(at + 1) };
 }
 
 /**
@@ -111,6 +151,9 @@ function usage(): string {
     ),
     "",
     `  --bundle PATH  defaults to ./${KB_DIR}`,
+    "  --json         the machine shape, where a command prints a table",
+    "  --             everything after it is text, not flags",
+    "  --version      the installed package version",
     "  STRAUSS_KB_ACTOR names the writer in the log",
     "",
   ].join("\n");

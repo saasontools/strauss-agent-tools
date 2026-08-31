@@ -483,8 +483,11 @@ export class KbStore {
    * skipped inside `detectAnchorDrift`, so a base nobody has stamped pays no
    * fs cost here. `repoRoot` defaults to the working directory — the CLI runs
    * at the repo root, and the MCP server's cwd is the workspace.
+   *
+   * Public because `doctor` needs the same map with the same degradation: a
+   * sweep that failed to read the tree should report no drift, not fail.
    */
-  private async detectDrift(
+  async detectDrift(
     records: KbRecord[],
     repoRoot?: string,
   ): Promise<Map<string, KbAnchorDriftEntry[]> | undefined> {

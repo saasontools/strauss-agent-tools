@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "plugin-codex-claude-agent",
+  "projectType": "library",
+  "targets": {
+    "validate": {
+      "command": "claude plugin validate .",
+      "options": {
+        "cwd": "plugins/codex-claude-agent"
+      }
+    }
+  }
+}

@@ -103,6 +103,17 @@ describe("anchorResolveCommand", () => {
     )) as Output;
   }
 
+  /** The exit-code gate reads the result only; the input is along for the ride. */
+  const fails = (output: Output) =>
+    anchorResolveCommand.failsWhen?.(
+      output,
+      anchorResolveCommand.input.parse({
+        bundlePath: bundle,
+        conceptId: ID,
+        repoRoot: repo,
+      }),
+    );
+
   test("an unchanged fixture matches every anchor and appends one verified event", async () => {
     writeSource(SOURCE);
     const anchor = stamped("totals", SOURCE);
@@ -123,7 +134,7 @@ describe("anchorResolveCommand", () => {
       ],
       verified: true,
     });
-    expect(anchorResolveCommand.failsWhen?.(output)).toBe(false);
+    expect(fails(output)).toBe(false);
 
     const record = await new KbStore().read(bundle, ID);
     expect(record?.frontmatter.verified).toEqual([
@@ -155,7 +166,7 @@ describe("anchorResolveCommand", () => {
       diffSize: 1,
     });
     expect(output.results[0]?.currentHash).not.toBe(anchor.hash);
-    expect(anchorResolveCommand.failsWhen?.(output)).toBe(true);
+    expect(fails(output)).toBe(true);
 
     const record = await new KbStore().read(bundle, ID);
     expect(record?.frontmatter.verified).toEqual([]);
@@ -205,7 +216,7 @@ describe("anchorResolveCommand", () => {
         },
       ],
     });
-    expect(anchorResolveCommand.failsWhen?.(output)).toBe(false);
+    expect(fails(output)).toBe(false);
   });
 
   test("an anchor without a hash is stamped, and the record now carries it", async () => {

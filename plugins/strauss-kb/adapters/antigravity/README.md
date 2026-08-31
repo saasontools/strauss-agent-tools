@@ -16,12 +16,12 @@ shell out to `strauss-kb` / `strauss-kb-mcp` by name.
 
 ## What each piece does
 
-| File              | Layer                                                                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mcp_config.json` | Registers `strauss-kb-mcp` (stdio, no env). Tool descriptions travel with every request, so they survive compaction when nothing else does. |
-| `hooks.json`      | `PreInvocation` injects the pinned index each turn. File-read blocking ships as a script but is not wired — opt in below.                   |
-| `scripts/`        | Thin JSON-protocol wrappers around `strauss-kb context` and the shared path-matching logic.                                                 |
-| `rules/`          | The usage doctrine — Antigravity's analogue of a skill; rules are re-read where conversations are not.                                      |
+| File              | Layer                                                                                                                                                                                                           |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mcp_config.json` | Registers `strauss-kb-mcp` over stdio, launched with `npx` against the published package so it tracks releases. Tool descriptions travel with every request, so they survive compaction when nothing else does. |
+| `hooks.json`      | `PreInvocation` injects the pinned index each turn. File-read blocking ships as a script but is not wired — opt in below.                                                                                       |
+| `scripts/`        | Thin JSON-protocol wrappers around `strauss-kb context` and the shared path-matching logic.                                                                                                                     |
+| `rules/`          | The usage doctrine — Antigravity's analogue of a skill; rules are re-read where conversations are not.                                                                                                          |
 
 **Per-turn injection is always-inject, deliberately.** Antigravity has no
 session-start event — `PreInvocation` fires every turn — so the hook emits the

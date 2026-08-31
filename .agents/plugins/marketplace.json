@@ -9,6 +9,11 @@
   },
   "plugins": [
     {
+      "name": "codex-claude-agent",
+      "source": "./plugins/codex-claude-agent",
+      "description": "Delegate reviews, investigations, and implementation work from Codex to Claude Code, in a worktree, with budgets and tracked background jobs."
+    },
+    {
       "name": "gemini-deep-research",
       "source": "./plugins/gemini-deep-research",
       "description": "Run deep, citation-backed research with Google Gemini Deep Research."
@@ -27,6 +32,11 @@
       "name": "strauss-kb",
       "source": "./plugins/strauss-kb",
       "description": "Keep durable project knowledge as markdown records with standing, supersession, and trace."
+    },
+    {
+      "name": "gemini-infographics",
+      "source": "./plugins/gemini-infographics",
+      "description": "Generate Gemini (nano-banana) infographic images from a JSON spec, with model configuration and latest-model fallback."
     }
   ]
 }
