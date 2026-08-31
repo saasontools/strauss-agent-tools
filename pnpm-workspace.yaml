@@ -2,6 +2,10 @@
 # markdown directories consumed as-is by agent clients, with no install-time build.
 packages:
   - "packages/*"
+  # apps/* are private, never-published workspace projects — the documentation
+  # site lives here rather than under packages/ so `nx release` (projects:
+  # packages/*) and npm publishing cannot reach it.
+  - "apps/*"
 # An optional peer dependency has to stay optional. With this on, pnpm resolves
 # @saasontools/strauss-kb's optional search backend and drags native SQLite,
 # a llama runtime, and four tree-sitter grammars into every install — including
@@ -18,6 +22,10 @@ allowBuilds:
   protobufjs: false
   esbuild: true
   unrs-resolver: true
+  # core-js (transitive under Docusaurus/babel) only prints a funding notice
+  # from its postinstall — nothing is compiled, so skipping it changes nothing
+  # about the built site.
+  core-js: false
 # The Claude Agent SDK ships the Claude Code binary as a per-platform optional
 # dependency — ~245 MB, installed on every machine and in every CI run, and a
 # second copy of a CLI the user already has. @saasontools/codex-claude-agent
@@ -43,3 +51,18 @@ overrides:
   # in the meantime.
   "protobufjs@>=8.0.0 <8.6.6": "8.6.6"
   "@opentelemetry/propagator-jaeger@<2.9.0": "2.9.0"
+  # CVE mitigation: RCE in serialize-javascript <7.0.3, transitive via
+  # copy-webpack-plugin and terser-webpack-plugin under Docusaurus. Those two
+  # only ever hand it plain build metadata, but the patched line is a major
+  # bump they have not taken yet, and the API they use is unchanged across it.
+  "serialize-javascript@<7.0.3": "7.1.1"
+auditConfig:
+  # image-size has no patched release: both advisories say "patched versions:
+  # none", and 2.0.2 is still the latest on npm. It reaches this workspace only
+  # through @docusaurus/mdx-loader, which calls it at build time on images
+  # committed to this repository — there is no attacker-supplied JXL or HEIF in
+  # that path. Revisit when image-size ships a fix; the docs site build is the
+  # only consumer.
+  ignoreGhsas:
+    - GHSA-5p2g-fcmc-qvqq
+    - GHSA-w3rx-r6r6-pgpr
