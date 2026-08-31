@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { stringifyMarkdownWithFrontmatter } from "../src/markdown.js";
 
 /**
  * The hook scripts are the enforcement layer and the most likely place for a
@@ -25,6 +26,25 @@ const pluginRoot = resolve(
   "../../../plugins/strauss-kb",
 );
 const claudeBlock = join(pluginRoot, "hooks", "scripts", "block-kb-reads.mjs");
+const validateHook = join(
+  pluginRoot,
+  "hooks",
+  "scripts",
+  "validate-kb-bundle.mjs",
+);
+const denyGeneratedHook = join(
+  pluginRoot,
+  "hooks",
+  "scripts",
+  "deny-kb-generated-edits.mjs",
+);
+// The built CLI, exercised through a PATH shim exactly as the hook resolves
+// it — a true integration test of the argv the hook constructs, not a
+// restatement of what `validate-kb-bundle.mjs` is supposed to do.
+const cliMain = resolve(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "../dist/cli-main.js",
+);
 const agBlock = join(
   pluginRoot,
   "adapters",
@@ -190,6 +210,300 @@ describe("Claude Code PreToolUse hook script", () => {
   });
 });
 
+/**
+ * A temp PATH prefix of fake executables, one per `name`, each execing a
+ * node script with the given body. Mirrors the withShim pattern below for
+ * the Antigravity inject test — a `.cmd` launcher on Windows, a shebang'd sh
+ * script elsewhere — so the hook's own PATH-resolution logic is exercised,
+ * not bypassed.
+ */
+function makeBinShims(bins: Record<string, string>): {
+  path: string;
+  cleanup: () => void;
+} {
+  const dir = mkdtempSync(join(tmpdir(), "strauss-kb-bin-shims-"));
+  for (const [name, body] of Object.entries(bins)) {
+    writeFileSync(join(dir, `${name}.mjs`), body);
+    if (process.platform === "win32") {
+      writeFileSync(
+        join(dir, `${name}.cmd`),
+        `@echo off\r\nnode "%~dp0${name}.mjs" %*\r\n`,
+      );
+    } else {
+      const shim = join(dir, name);
+      writeFileSync(
+        shim,
+        `#!/bin/sh\nexec node "$(dirname "$0")/${name}.mjs" "$@"\n`,
+      );
+      chmodSync(shim, 0o755);
+    }
+  }
+  return {
+    path: dir,
+    cleanup: () => rmSync(dir, { recursive: true, force: true }),
+  };
+}
+
+// A `strauss-kb` shim that forwards straight to the real built CLI —
+// exercises the hook's own argv against the real `validate` command.
+const forwardToRealCli = `
+import { spawnSync } from "node:child_process";
+const r = spawnSync(process.execPath, [${JSON.stringify(cliMain)}, ...process.argv.slice(2)], { stdio: "inherit" });
+process.exit(r.status ?? 1);
+`;
+
+// A fake `npx` that only understands the invocation this hook issues:
+// [...flags, "strauss-kb", ...realArgs]. Everything after the literal
+// "strauss-kb" token is forwarded to the real CLI, so the fallback path is
+// proven without ever reaching the network.
+const npxForwardingToRealCli = `
+import { spawnSync } from "node:child_process";
+const argv = process.argv.slice(2);
+const at = argv.indexOf("strauss-kb");
+const rest = at === -1 ? [] : argv.slice(at + 1);
+const r = spawnSync(process.execPath, [${JSON.stringify(cliMain)}, ...rest], { stdio: "inherit" });
+process.exit(r.status ?? 1);
+`;
+
+const postToolUse = (
+  filePath: string,
+  cwd: string,
+  env: NodeJS.ProcessEnv = {},
+) => ({
+  stdin: JSON.stringify({
+    hook_event_name: "PostToolUse",
+    tool_name: "Edit",
+    tool_input: { file_path: filePath },
+    cwd,
+  }),
+  env,
+});
+
+describe("Claude Code PostToolUse validate hook script", () => {
+  let badBundle: string;
+  let goodBundle: string;
+
+  beforeAll(() => {
+    badBundle = mkdtempSync(join(tmpdir(), "strauss-kb-validate-bad-"));
+    mkdirSync(join(badBundle, ".strauss", "kb"), { recursive: true });
+    // Hand-broken: superseded but the replacement it names does not exist —
+    // exactly the kind of drift a manual edit introduces that `kb_write` /
+    // `kb_supersede` cannot.
+    writeFileSync(
+      join(badBundle, ".strauss", "kb", "fact.a.md"),
+      stringifyMarkdownWithFrontmatter("body", {
+        type: "fact",
+        strauss_status: "superseded",
+        strauss_superseded_by: "fact.missing",
+      }),
+    );
+
+    goodBundle = mkdtempSync(join(tmpdir(), "strauss-kb-validate-good-"));
+    mkdirSync(join(goodBundle, ".strauss", "kb"), { recursive: true });
+    writeFileSync(
+      join(goodBundle, ".strauss", "kb", "fact.b.md"),
+      stringifyMarkdownWithFrontmatter("body", { type: "fact" }),
+    );
+  });
+
+  afterAll(() => {
+    rmSync(badBundle, { recursive: true, force: true });
+    rmSync(goodBundle, { recursive: true, force: true });
+  });
+
+  it("surfaces validate's problems as additionalContext, via the real CLI on PATH", () => {
+    const shims = makeBinShims({ "strauss-kb": forwardToRealCli });
+    try {
+      const { stdin, env } = postToolUse(
+        join(badBundle, ".strauss", "kb", "fact.a.md"),
+        badBundle,
+      );
+      const result = run(validateHook, stdin, {
+        ...env,
+        PATH: `${shims.path}${delimiter}${process.env.PATH}`,
+      });
+
+      expect(result.status).toBe(0);
+      const parsed = JSON.parse(result.stdout) as {
+        hookSpecificOutput: {
+          hookEventName: string;
+          additionalContext: string;
+        };
+      };
+      expect(parsed.hookSpecificOutput.hookEventName).toBe("PostToolUse");
+      expect(parsed.hookSpecificOutput.additionalContext).toContain(
+        "1 problem(s)",
+      );
+      expect(parsed.hookSpecificOutput.additionalContext).toContain("fact.a");
+      expect(parsed.hookSpecificOutput.additionalContext).toContain(
+        "superseded_by",
+      );
+    } finally {
+      shims.cleanup();
+    }
+  });
+
+  it("falls back to npx when strauss-kb isn't resolvable on PATH", () => {
+    const shims = makeBinShims({ npx: npxForwardingToRealCli });
+    try {
+      const { stdin, env } = postToolUse(
+        join(badBundle, ".strauss", "kb", "fact.a.md"),
+        badBundle,
+      );
+      const result = run(validateHook, stdin, {
+        ...env,
+        PATH: `${shims.path}${delimiter}${process.env.PATH}`,
+      });
+
+      expect(result.status).toBe(0);
+      expect(
+        JSON.parse(result.stdout).hookSpecificOutput.additionalContext,
+      ).toContain("1 problem(s)");
+    } finally {
+      shims.cleanup();
+    }
+  });
+
+  it("prints nothing for a clean bundle", () => {
+    const shims = makeBinShims({ "strauss-kb": forwardToRealCli });
+    try {
+      const { stdin, env } = postToolUse(
+        join(goodBundle, ".strauss", "kb", "fact.b.md"),
+        goodBundle,
+      );
+      const result = run(validateHook, stdin, {
+        ...env,
+        PATH: `${shims.path}${delimiter}${process.env.PATH}`,
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+    } finally {
+      shims.cleanup();
+    }
+  });
+
+  it("prints nothing for a bundle directory that does not exist yet", () => {
+    const freshRoot = mkdtempSync(join(tmpdir(), "strauss-kb-validate-fresh-"));
+    const shims = makeBinShims({ "strauss-kb": forwardToRealCli });
+    try {
+      const { stdin, env } = postToolUse(
+        join(freshRoot, ".strauss", "kb", "fact.new.md"),
+        freshRoot,
+      );
+      const result = run(validateHook, stdin, {
+        ...env,
+        PATH: `${shims.path}${delimiter}${process.env.PATH}`,
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+    } finally {
+      shims.cleanup();
+      rmSync(freshRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("exits before ever touching PATH for a path outside any bundle", () => {
+    const { stdin, env } = postToolUse(
+      join(badBundle, "src", "app.ts"),
+      badBundle,
+    );
+    const result = run(validateHook, stdin, { ...env, PATH: "/nonexistent" });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+
+  it("honors STRAUSS_KB_NO_VALIDATE_HOOK, without touching PATH either", () => {
+    const { stdin, env } = postToolUse(
+      join(badBundle, ".strauss", "kb", "fact.a.md"),
+      badBundle,
+      { STRAUSS_KB_NO_VALIDATE_HOOK: "1" },
+    );
+    const result = run(validateHook, stdin, { ...env, PATH: "/nonexistent" });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+
+  it("fails open on malformed stdin", () => {
+    const result = run(validateHook, "not json");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+});
+
+describe("Claude Code PreToolUse deny-generated-edits hook script", () => {
+  const preToolUse = (filePath: string, toolName = "Write") =>
+    JSON.stringify({
+      hook_event_name: "PreToolUse",
+      tool_name: toolName,
+      tool_input: { file_path: filePath },
+      cwd: workspace,
+    });
+
+  it.each(["INDEX.md", "log.jsonl", ".index.sqlite"])(
+    "denies a direct edit to %s inside a bundle",
+    (name) => {
+      const result = run(
+        denyGeneratedHook,
+        preToolUse(join(workspace, ".strauss", "kb", name)),
+      );
+
+      expect(result.status).toBe(0);
+      const parsed = JSON.parse(result.stdout) as {
+        hookSpecificOutput: {
+          hookEventName: string;
+          permissionDecision: string;
+          permissionDecisionReason: string;
+        };
+      };
+      expect(parsed.hookSpecificOutput).toMatchObject({
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+      });
+      expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain(
+        name,
+      );
+    },
+  );
+
+  it("denies through MultiEdit too — the check is on the basename, not the tool", () => {
+    const result = run(
+      denyGeneratedHook,
+      preToolUse(join(workspace, ".strauss", "kb", "INDEX.md"), "MultiEdit"),
+    );
+
+    expect(
+      JSON.parse(result.stdout).hookSpecificOutput.permissionDecision,
+    ).toBe("deny");
+  });
+
+  it("allows an ordinary record file in the same bundle", () => {
+    const result = run(
+      denyGeneratedHook,
+      preToolUse(join(workspace, ".strauss", "kb", "fact.new.md")),
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+
+  it("allows a same-named file outside any bundle", () => {
+    const result = run(denyGeneratedHook, preToolUse("INDEX.md"));
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+
+  it("fails open on malformed stdin", () => {
+    const result = run(denyGeneratedHook, "not json");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+  });
+});
+
 describe("Antigravity PreToolUse hook script", () => {
   it("denies with a JSON decision, whatever the field is called", () => {
     const call = JSON.stringify({
@@ -285,13 +599,25 @@ describe("plugin config files parse", () => {
     const claudeHooks = parse("hooks/hooks.json") as {
       hooks: Record<string, { matcher?: string }[]>;
     };
-    // The plugin wires SessionStart only. File-read blocking ships as a
-    // script but stays opt-in — blocking reads on project paths is workspace
-    // policy, so no PreToolUse entry here.
-    expect(Object.keys(claudeHooks.hooks)).toEqual(["SessionStart"]);
+    // SessionStart context injection, plus the two record-edit hooks (deny
+    // direct edits to generated files, validate the bundle after the rest).
+    // File-read blocking ships as a script but stays opt-in — blocking reads
+    // on project paths is workspace policy — so no PreToolUse entry for
+    // that one here.
+    expect(Object.keys(claudeHooks.hooks)).toEqual([
+      "SessionStart",
+      "PreToolUse",
+      "PostToolUse",
+    ]);
     expect(
       claudeHooks.hooks.SessionStart!.map((group) => group.matcher),
     ).toEqual(["startup|resume|clear", "compact"]);
+    expect(claudeHooks.hooks.PreToolUse!.map((group) => group.matcher)).toEqual(
+      ["Write|Edit|MultiEdit"],
+    );
+    expect(
+      claudeHooks.hooks.PostToolUse!.map((group) => group.matcher),
+    ).toEqual(["Write|Edit|MultiEdit"]);
 
     expect(parse(".claude-plugin/plugin.json")).toMatchObject({
       name: "strauss-kb",

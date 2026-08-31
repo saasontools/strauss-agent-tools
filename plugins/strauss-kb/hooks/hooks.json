@@ -19,6 +19,30 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/deny-kb-generated-edits.mjs\"",
+            "statusMessage": "Checking KB generated-file edit"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/validate-kb-bundle.mjs\"",
+            "statusMessage": "Validating KB bundle"
+          }
+        ]
+      }
     ]
   }
 }

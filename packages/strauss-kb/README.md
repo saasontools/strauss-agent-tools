@@ -460,6 +460,8 @@ What each runtime gets (configs in the
 | Session-start injection   | SessionStart hook  | SessionStart hook                           | PreInvocation, per turn    |
 | Post-compact re-injection | ✓ `compact` source | ✓ client-side; instruction-only when hosted | moot — injected every turn |
 | File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
+| Manual-edit validation    | PostToolUse hook   | ✗                                           | ✗                          |
+| Generated-file edit guard | PreToolUse hook    | ✗                                           | ✗                          |
 | Instruction file          | CLAUDE.md          | AGENTS.md                                   | AGENTS.md + rules/         |
 
 One more thing agents add: file tools. A raw read of a record file bypasses
