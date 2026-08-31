@@ -8,7 +8,25 @@ import {
   type KbRecordFrontmatter,
   type KbRecordType,
 } from "./kb-record.schema.js";
-import { RECORD_TYPES } from "./record-types.js";
+import { KB_LINK_RELS, LINK_RELS, RECORD_TYPES } from "./record-types.js";
+
+/**
+ * One typed causal edge, as a producer states it.
+ *
+ * Strict where `kbLinkSchema` is tolerant, and the pairing is deliberate — the
+ * same split `kbVerifiedEventSchema` makes against `kbActorStampSchema`. What
+ * this package writes must be inside the closed vocabulary; what it reads may
+ * not be, because a foreign record has to stay loadable long enough for
+ * `kb_validate` to say what is wrong with it.
+ */
+export const composeLinkSchema = z
+  .object({
+    target: kbConceptIdSchema,
+    rel: z.enum(KB_LINK_RELS),
+  })
+  .strict();
+
+export type ComposeLink = z.infer<typeof composeLinkSchema>;
 
 export const composeInputSchema = z
   .object({
@@ -41,6 +59,25 @@ export const composeInputSchema = z
     tags: z.array(z.string().min(1)).optional(),
     /** Concept ids this record relates to; rendered as body links. */
     relatedConceptIds: z.array(kbConceptIdSchema).optional(),
+    /**
+     * Typed causal edges, source → target: `{ target: "fact.b", rel:
+     * "depends_on" }` on record A says A needs B. Stored in frontmatter and
+     * also rendered as one prose sentence each, so the meaning survives a
+     * reader that knows only OKF.
+     *
+     * The vocabulary is spelled into the description rather than restated in
+     * prose beside it: `kb_schema` emits this, and a writer choosing a rel
+     * reads what each one means from the same table the walk uses.
+     */
+    links: z
+      .array(composeLinkSchema)
+      .max(64)
+      .optional()
+      .describe(
+        `Typed causal edges, source → target — a link on this record says this record <rel> the target. ${KB_LINK_RELS.map(
+          (rel) => `${rel}: ${LINK_RELS[rel].purpose}`,
+        ).join("; ")}.`,
+      ),
     /** Concept ids this record replaces. The store settles the backlinks. */
     supersedes: z.array(kbConceptIdSchema).max(32).optional(),
     materiality: z.enum(KB_MATERIALITIES).optional(),
@@ -110,6 +147,7 @@ export function composeRecord(
   if (parsed.owner) frontmatter.strauss_owner = parsed.owner;
   if (parsed.supersedes?.length)
     frontmatter.strauss_supersedes = parsed.supersedes;
+  if (parsed.links?.length) frontmatter.strauss_links = parsed.links;
 
   const blocks: string[] = [];
   for (const heading of spec.sections) {
@@ -123,6 +161,20 @@ export function composeRecord(
   for (const related of parsed.relatedConceptIds ?? []) {
     blocks.push(`Relates to [${related}](${related}.md).`);
   }
+
+  // One sentence per typed link, from a fixed template per rel. The frontmatter
+  // is where a walk reads the edge, but frontmatter it does not recognise is
+  // exactly what a plain-OKF consumer ignores — so the same claim is also
+  // stated as prose around a markdown link, which is OKF's own spelling for a
+  // typed relationship ("the specific kind conveyed by the surrounding prose").
+  // Fixed rather than free text so the sentence cannot say something the rel
+  // does not.
+  for (const link of parsed.links ?? []) {
+    blocks.push(
+      `${LINK_RELS[link.rel].phrase} [${link.target}](${link.target}.md).`,
+    );
+  }
+
   if (parsed.sources?.length) {
     blocks.push(
       parsed.sources

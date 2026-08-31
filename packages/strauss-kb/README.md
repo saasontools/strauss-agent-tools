@@ -114,6 +114,7 @@ OKF version defining the same name cannot collide:
 | `strauss_status`                                               | `draft`, `proposed`, `accepted`, `open`, `resolved`, `rejected`, `superseded`. Parses with a default of `draft`.                           |
 | `strauss_supersedes` / `strauss_superseded_by`                 | Both directions of a supersession, written together.                                                                                       |
 | `strauss_anchors`                                              | `{ file, symbol? }` — where the record attaches in the code. Symbolic, because a line number written mid-change is wrong by the end of it. |
+| `strauss_links`                                                | `{ target, rel }` — a typed causal edge, source → target. See [Links](#links).                                                             |
 | `strauss_assumption`                                           | The claim has no source, said as a field rather than as a fake entry in `sources`.                                                         |
 | `strauss_answered`                                             | Who resolved an open question, and when.                                                                                                   |
 | `strauss_verify`                                               | Checks that would confirm the record still holds.                                                                                          |
@@ -121,7 +122,8 @@ OKF version defining the same name cannot collide:
 
 Edges are markdown links in the body, as OKF specifies — untyped, with the kind
 conveyed by the surrounding prose. Broken links are legal: records are routinely
-written before the ones they point at exist.
+written before the ones they point at exist. `strauss_links` adds a typed layer
+over that, described below.
 
 Twelve record types differ only in what their body answers and where they start
 in the lifecycle — `fact`, `requirement`, `constraint`, `decision`,
@@ -155,6 +157,67 @@ Read-modify-write checks a content digest immediately before publishing.
 A lock file. It closes the window and adds a stale-hold failure mode that is
 worse than the residue.
 ```
+
+## Links
+
+`strauss_links` is a typed causal edge: `{ target, rel }`, where `rel` comes
+from a closed vocabulary of eight.
+
+| `rel`         | Means                                                  | Renders as    |
+| ------------- | ------------------------------------------------------ | ------------- |
+| `depends_on`  | The source needs the target to hold                    | `Depends on`  |
+| `constrains`  | The source bounds what the target may do               | `Constrains`  |
+| `informs`     | The source shaped the target without binding it        | `Informs`     |
+| `blocks`      | The target cannot proceed until the source is settled  | `Blocks`      |
+| `invalidates` | The source makes the target no longer hold             | `Invalidates` |
+| `verified_by` | The target is the check that confirms the source       | `Verified by` |
+| `satisfies`   | The source discharges the target's requirement         | `Satisfies`   |
+| `related_to`  | A pointer worth following, with no claim of dependence | `Relates to`  |
+
+**Direction.** An edge lives on the source record's frontmatter and reads
+source → target. `A depends_on B` means A needs B. So a record's outbound edges
+are on the record itself, and the inbound ones are what the two read commands
+below compute.
+
+**Supersession is not in the vocabulary.** It is a lifecycle, not an edge:
+`strauss_supersedes`/`strauss_superseded_by` already carry it in both
+directions, with the store writing the pair. A rel would be a second spelling
+of the same fact, free to disagree with the first.
+
+**The vocabulary is closed, and enforced at two different points.** `kb_write`
+rejects a rel outside it outright — this package will not write one. A record
+that already carries one is still _read_, because a frontmatter schema strict
+enough to reject it would make the file fail to parse, and a file that fails to
+parse is skipped rather than reported; the bundle would drop the record instead
+of telling you why. `kb_validate` is where it becomes an `error`. A link whose
+target is not in the bundle is a `warning` instead: writing a record before the
+one it points at is ordinary, and only errors fail the check's exit code.
+
+Each link is also rendered into the body as one prose sentence from a fixed
+template — `Depends on [fact.region-key](fact.region-key.md).` — which is OKF's
+own spelling for a typed relationship, so a consumer that has never heard of
+`strauss_links` still reads the meaning.
+
+```yaml
+strauss_links:
+  - { target: fact.region-key, rel: depends_on }
+  - { target: test-obligation.region-bleed, rel: verified_by }
+```
+
+**Reading them.** `kb_impact <id>` answers "what breaks if this changes": the
+inbound closure over causal rels — every rel but `related_to`, which claims no
+dependence. `kb_backlinks <id>` is the flat counterpart: every inbound edge,
+one hop, every rel, with the rel it was made with. Both carry standing on every
+row, and `kb_impact` reports a superseded or rejected record without walking
+through it — its own declared edges no longer hold — naming each such stopping
+point under `stopped` so the end of the walk is knowable rather than inferred.
+Cycles are ordinary (`A depends_on B`, `B constrains A`) and terminate.
+
+Typed links also join the shared edge inventory, so `kb_pack` includes a record
+named only in frontmatter and `kb_trace` follows a declared dependency. Body
+links are still excluded from `trace` — any markdown a writer typed can reach
+most of a bundle — where a `strauss_links` entry is a deliberate claim from a
+closed vocabulary, which is exactly what a timeline should follow.
 
 ## Writes
 
@@ -220,6 +283,9 @@ strauss-kb [--bundle PATH] <command> [args]
                                            The bounded neighbourhood around one record, every cut named.
   query <text...>                          Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
+  impact <concept-id> [--depth N] [--rels a,b]
+                                           What breaks if this changes: inbound causal links, transitively.
+  backlinks <concept-id>                   Who points at this record — one hop, every rel.
   list [type]                              Every record, optionally narrowed to one type.
   index                                    The index, rebuilt if it disagrees with the records.
   log                                      What touched what, and when.
@@ -262,7 +328,8 @@ strauss-kb validate || echo "problems above"
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_pack`, `kb_query`,
-`kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
+`kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`, `kb_index`, `kb_log`,
+`kb_validate`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
 `kb_pins` and `kb_context` read the workspace pin manifests instead. The one

@@ -16,8 +16,9 @@ markdown records carrying standing, supersession, and history.
   rather than guessing — and never conclude "nothing was decided" when all
   you hold is an index line.
 - Read records only through the strauss-kb MCP tools: `kb_load`, `kb_query`,
-  `kb_trace`. A raw file read bypasses supersession resolution, and a
-  superseded or rejected record file reads exactly like a current one.
+  `kb_trace`, `kb_impact`, `kb_backlinks`. A raw file read bypasses
+  supersession resolution, and a superseded or rejected record file reads
+  exactly like a current one.
 - Record what a later reader could not reconstruct from the code — decisions
   with their rejected alternatives, constraints, risks, open questions. An
   unsourced claim is an `assumption`, never a `fact` with a vague source.

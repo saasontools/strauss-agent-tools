@@ -1,7 +1,4 @@
-import {
-  KB_CONCEPT_ID_PATTERN,
-  type KbRecord,
-} from "./kb-record.schema.js";
+import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 
 /**
  * The edges between records in one bundle, defined once.
@@ -13,9 +10,25 @@ import {
  * There is no separate `related` kind: compose.ts renders `relatedConceptIds`
  * as body links (`Relates to [id](id.md).`), so in stored form a related edge
  * IS a body link, and a distinct kind would count the same markdown twice.
+ *
+ * `typed-link` is not that case, despite compose.ts also rendering a sentence
+ * per link. The edge is `strauss_links` in the frontmatter — the authoritative,
+ * typed form — and the sentence is its rendering for a reader that only knows
+ * OKF. A record can carry the frontmatter without the prose (hand-written, or
+ * from a producer we did not write), so reading only the body would miss it.
+ * A pair connected both ways comes back with both kinds in `via`, which is the
+ * honest answer: it was declared, and it was written about.
+ *
+ * `body-link` and `typed-link` are DIRECTED — the edges a record itself makes,
+ * read off its own body or frontmatter. `supersession`, `anchor` and `source`
+ * are symmetric: they hold between two records because both name the same
+ * thing, so either end sees the other. Callers wanting the inbound half of a
+ * typed edge use `kb-links/` (`kb_backlinks`, `kb_impact`) rather than this
+ * module, which answers "what does this record point at".
  */
 export const KB_EDGE_KINDS = [
   "body-link",
+  "typed-link",
   "supersession",
   "anchor",
   "source",
@@ -74,6 +87,21 @@ export function edgeNeighbours(
     case "body-link": {
       const targets = new Set(
         [...from.body.matchAll(BODY_LINK_TARGET)].map((match) => match[1]),
+      );
+      if (!targets.size) return [];
+      return bundle.filter(
+        (candidate) =>
+          candidate.conceptId !== from.conceptId &&
+          targets.has(candidate.conceptId),
+      );
+    }
+
+    // Outbound only, like `body-link`, and for the same reason: this is what
+    // the record declares about itself. A missing target is legal — the walk
+    // skips it, and `kb_validate` is what reports it as a warning.
+    case "typed-link": {
+      const targets = new Set(
+        (from.frontmatter.strauss_links ?? []).map((link) => link.target),
       );
       if (!targets.size) return [];
       return bundle.filter(

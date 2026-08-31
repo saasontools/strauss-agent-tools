@@ -6,7 +6,9 @@
  */
 import { DECISION_TYPE } from "../decision-record.js";
 import { answerCommand } from "./answer.js";
+import { backlinksCommand } from "./backlinks.js";
 import { contextCommand } from "./context.js";
+import { impactCommand } from "./impact.js";
 import { listCommand } from "./list.js";
 import { loadCommand } from "./load.js";
 import { logCommand } from "./log.js";
@@ -41,6 +43,8 @@ export const KB_COMMANDS: KbCommand[] = [
   packCommand,
   queryCommand,
   traceCommand,
+  impactCommand,
+  backlinksCommand,
   listCommand,
   readIndexCommand,
   logCommand,

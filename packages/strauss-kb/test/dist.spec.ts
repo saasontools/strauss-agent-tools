@@ -19,6 +19,8 @@ const API = [
   "matchToDiff",
   "adjudicate",
   "trace",
+  "impact",
+  "backlinks",
   "validateBundle",
   "kbRecordFrontmatterSchema",
   "RECORD_TYPES",

@@ -65,6 +65,27 @@ export const kbAnchorSchema = z
   })
   .strict();
 
+/**
+ * One typed causal edge, as the frontmatter stores it.
+ *
+ * Read-side, and therefore tolerant: `rel` is a plain string here even though
+ * the vocabulary is closed, for the same reason `type` is. A record carrying a
+ * rel we do not know must stay readable — rejecting it at parse time would
+ * make the file vanish from `list()`, and a bundle cannot report a defect in a
+ * record it refuses to load. `kb_validate` is what turns an unknown rel into
+ * an error; `composeRecord` is what stops one being written in the first place.
+ *
+ * `target` is likewise not required to resolve. Records are routinely written
+ * before the ones they point at exist, so a dangling target is a validation
+ * warning rather than a parse failure.
+ */
+export const kbLinkSchema = z
+  .object({
+    target: z.string().min(1),
+    rel: z.string().min(1),
+  })
+  .passthrough();
+
 export const KB_RECORD_TYPES = [
   "fact",
   "requirement",
@@ -145,6 +166,11 @@ export const kbRecordFrontmatterSchema = z
     strauss_anchors: z.array(kbAnchorSchema).optional(),
     strauss_verify: z.array(z.string().min(1)).optional(),
 
+    // Typed causal edges, source → target, living on the source. `A depends_on
+    // B` means A needs B, so `kb_impact` walks these inbound: what breaks if B
+    // changes is whatever declared a dependence on it.
+    strauss_links: z.array(kbLinkSchema).optional(),
+
     // Total after parsing, tolerant before it. Our producers must supply a
     // status — an absent one would leave every reader inventing its own default
     // — but OKF calls a concept carrying only `type` fully conformant, so
@@ -172,6 +198,7 @@ export type KbSource = z.infer<typeof kbSourceSchema>;
 export type KbActorStamp = z.infer<typeof kbActorStampSchema>;
 export type KbVerifiedEvent = z.infer<typeof kbVerifiedEventSchema>;
 export type KbAnchor = z.infer<typeof kbAnchorSchema>;
+export type KbLink = z.infer<typeof kbLinkSchema>;
 export type KbRecordFrontmatter = z.infer<typeof kbRecordFrontmatterSchema>;
 
 export type KbRecord = {

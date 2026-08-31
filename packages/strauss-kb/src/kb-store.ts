@@ -35,6 +35,13 @@ import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
 import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
 import {
+  backlinks,
+  impact,
+  type KbBacklinksResult,
+  type KbImpactOptions,
+  type KbImpactResult,
+} from "./kb-links/index.js";
+import {
   LOG_FILE,
   parseLog,
   renderLogEntry,
@@ -525,6 +532,23 @@ export class KbStore {
     options: KbPackOptions = {},
   ): Promise<KbPackResult> {
     return pack(await this.list(bundlePath), rootId, options);
+  }
+
+  /** What breaks if this record changes. See `kb-links/impact.ts`. */
+  async impact(
+    bundlePath: string,
+    targetId: string,
+    options: KbImpactOptions = {},
+  ): Promise<KbImpactResult> {
+    return impact(targetId, await this.list(bundlePath), options);
+  }
+
+  /** Who points at this record, one hop. See `kb-links/backlinks.ts`. */
+  async backlinks(
+    bundlePath: string,
+    targetId: string,
+  ): Promise<KbBacklinksResult> {
+    return backlinks(targetId, await this.list(bundlePath));
   }
 
   /**

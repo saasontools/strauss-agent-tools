@@ -71,7 +71,8 @@ This plugin is built against **0.1.6**.
 ## What it adds
 
 **MCP server** — `strauss-kb-mcp` over stdio, no API key, one tool per
-command (`kb_load`, `kb_query`, `kb_write`, … see the package README).
+command (`kb_load`, `kb_query`, `kb_impact`, `kb_backlinks`, `kb_write`, … see
+the package README).
 
 **Skill** — `knowledge-base`: how to read standing, load before search, when
 to write. Skills are re-read where conversations are not, so this survives

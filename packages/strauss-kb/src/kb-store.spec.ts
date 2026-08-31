@@ -351,6 +351,7 @@ describe("KbStore", () => {
       check: "supersedes",
       conceptId: "fact.auth-retries",
       note: "target fact.does-not-exist is missing",
+      severity: "error",
     });
   });
 
@@ -971,6 +972,7 @@ describe("validateBundle", () => {
         check: "superseded_by",
         conceptId: "fact.orphan",
         note: "superseded with no replacement",
+        severity: "error",
       },
     ]);
   });
@@ -991,6 +993,7 @@ describe("validateBundle", () => {
         check: "type",
         conceptId: "glossary.term",
         note: 'unrecognised type "glossary"',
+        severity: "error",
       },
     ]);
   });

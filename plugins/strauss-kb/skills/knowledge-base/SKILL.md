@@ -37,7 +37,8 @@ bodies are not. Small or critical bases arrive whole (`mode: full` in
   line.
 - **Only the tools read a base.** A raw file read bypasses supersession
   resolution — a superseded or rejected record file reads exactly like a
-  current one. `kb_load`, `kb_query`, and `kb_trace` are the door.
+  current one. `kb_load`, `kb_query`, `kb_trace`, `kb_impact`, and
+  `kb_backlinks` are the door.
 
 ## Reading: load before you search
 
@@ -85,6 +86,38 @@ shared code anchors, and shared sources. It deliberately includes the rejected
 alternatives and the superseded earlier understanding — in a history those are
 the content, and a trace without them has kept the conclusion and thrown away
 the answer.
+
+## "What breaks if I change this?"
+
+```bash
+strauss-kb impact fact.region-key       # inbound causal links, transitively
+strauss-kb backlinks fact.region-key    # every inbound edge, one hop, any rel
+```
+
+Records can declare typed causal edges in `links`. An edge lives on the source
+and reads source → target — `{ "target": "fact.region-key", "rel":
+"depends_on" }` on a decision says the decision needs that fact — so outbound
+edges are on the record you are already holding, and these two commands compute
+the inbound direction.
+
+Run `impact` before superseding, contradicting, or narrowing a record: the
+answer is the set of records written on the assumption that the current one
+holds, which is exactly what a diff cannot show you. Every row carries its
+standing; a superseded or rejected record is reported and not walked through,
+and each such stopping point is named under `stopped`.
+
+The eight rels are `depends_on`, `constrains`, `informs`, `blocks`,
+`invalidates`, `verified_by`, `satisfies`, `related_to`. The vocabulary is
+closed — anything else is rejected at write — and `related_to` is the one
+`impact` does not follow, because it claims no dependence. There is no
+supersession rel: that is a lifecycle, and `strauss-kb supersede` owns it.
+
+```json
+"links": [
+  { "target": "fact.region-key", "rel": "depends_on" },
+  { "target": "test-obligation.region-bleed", "rel": "verified_by" }
+]
+```
 
 ## Writing
 

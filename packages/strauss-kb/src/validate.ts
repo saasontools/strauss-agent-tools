@@ -1,10 +1,23 @@
 import type { KbRecord } from "./kb-record.schema.js";
-import { isKbRecordType } from "./record-types.js";
+import { isKbLinkRel, isKbRecordType, KB_LINK_RELS } from "./record-types.js";
+
+/**
+ * Whether a finding is a defect or a note.
+ *
+ * `error` fails the check and the CLI's exit code with it; `warning` is
+ * reported and does not. The line between them is whether the bundle is
+ * currently wrong or merely incomplete: an unknown `rel` is a claim no walk can
+ * ever traverse and no later write will fix, while a link to a record that does
+ * not exist yet is the normal state of a base being written — records are
+ * routinely written before the ones they point at.
+ */
+export type KbValidationSeverity = "error" | "warning";
 
 export type KbValidationProblem = {
   check: string;
   conceptId: string;
   note: string;
+  severity: KbValidationSeverity;
 };
 
 /**
@@ -14,12 +27,23 @@ export type KbValidationProblem = {
  * nothing here re-states it. What a schema cannot see is whether one record's
  * pointers agree with another's — and since `supersede()` now writes both
  * directions, a disagreement means someone edited a file by hand.
+ *
+ * The typed-link checks are here rather than in the schema for a reason that
+ * looks backwards until you try the alternative: a frontmatter schema that
+ * rejected an unknown `rel` would make the offending file fail to parse, and a
+ * file that fails to parse is skipped by `list()` — so the bundle would drop
+ * the record instead of reporting it, and the writer would never learn why.
+ * Tolerant read, strict write (`composeRecord`), enforced here.
  */
 export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
   const byId = new Map(records.map((record) => [record.conceptId, record]));
   const problems: KbValidationProblem[] = [];
-  const report = (check: string, conceptId: string, note: string) =>
-    problems.push({ check, conceptId, note });
+  const report = (
+    check: string,
+    conceptId: string,
+    note: string,
+    severity: KbValidationSeverity = "error",
+  ) => problems.push({ check, conceptId, note, severity });
 
   for (const record of records) {
     const { conceptId, frontmatter: fm } = record;
@@ -49,6 +73,39 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
         report("supersedes", conceptId, `target ${old} is missing`);
       } else if (previous.frontmatter.strauss_status !== "superseded") {
         report("supersedes", conceptId, `${old} is not marked superseded`);
+      }
+    }
+
+    for (const link of fm.strauss_links ?? []) {
+      // The vocabulary is closed, and this is where that is enforced. An
+      // unknown rel is not a record another producer wrote in good faith the
+      // way an unknown `type` is — `rel` is this package's own extension, so
+      // there is no spec under which a foreign spelling is legitimate, and
+      // every walk over the graph would silently skip it.
+      if (!isKbLinkRel(link.rel)) {
+        report(
+          "link_rel",
+          conceptId,
+          `unknown rel "${link.rel}" on link to ${link.target} — expected one of ${KB_LINK_RELS.join(", ")}`,
+        );
+      }
+
+      // A warning, not an error: writing a record before the one it points at
+      // is ordinary, and the same tolerance body links already have.
+      if (link.target === conceptId) {
+        report(
+          "link_target",
+          conceptId,
+          `links to itself (${link.rel})`,
+          "warning",
+        );
+      } else if (!byId.has(link.target)) {
+        report(
+          "link_target",
+          conceptId,
+          `target ${link.target} is not in the bundle`,
+          "warning",
+        );
       }
     }
 

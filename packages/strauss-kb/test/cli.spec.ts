@@ -144,6 +144,7 @@ describe("built CLI round trip", () => {
         check: "superseded_by",
         conceptId: "fact.cache-key-includes-region",
         note: "superseded with no replacement",
+        severity: "error",
       },
     ]);
   });
@@ -161,6 +162,92 @@ describe("built CLI round trip", () => {
     expect(status).toBe(1);
     expect(stderr).toContain("strauss-kb: error:");
     expect(stderr).not.toContain("at Object.");
+  });
+
+  // Its own base: this one is written to be mid-flight, with a link to a
+  // record that does not exist yet, and the suite above shares one bundle.
+  describe("typed causal links", () => {
+    let links: string;
+
+    const at = (args: string[], stdin = "") =>
+      run(["--bundle", links, ...args], stdin);
+
+    const write = (slug: string, extra: Record<string, unknown> = {}) =>
+      at(
+        ["write", "fact"],
+        JSON.stringify({
+          slug,
+          title: `Fact ${slug}`,
+          why: "Something observed.",
+          sections: { Claim: "The claim." },
+          ...extra,
+        }),
+      );
+
+    beforeAll(() => {
+      links = join(base, "kb-links");
+      write("shared-key");
+      write("router", {
+        links: [{ target: "fact.shared-key", rel: "depends_on" }],
+      });
+      write("gateway", {
+        links: [
+          { target: "fact.router", rel: "depends_on" },
+          // Written before its target exists — the ordinary case, and the one
+          // that must not fail the check.
+          { target: "fact.not-yet", rel: "related_to" },
+        ],
+      });
+    });
+
+    it("refuses a rel outside the closed vocabulary", () => {
+      const { status, stderr } = write("bad", {
+        links: [{ target: "fact.shared-key", rel: "causes" }],
+      });
+
+      expect(status).toBe(1);
+      expect(stderr).toContain("strauss-kb: error:");
+    });
+
+    it("exits zero when the only findings are warnings", () => {
+      const { status, stdout } = at(["validate"]);
+
+      expect(status).toBe(0);
+      expect(json(stdout)).toEqual([
+        {
+          check: "link_target",
+          conceptId: "fact.gateway",
+          note: "target fact.not-yet is not in the bundle",
+          severity: "warning",
+        },
+      ]);
+    });
+
+    it("walks impact inbound and transitively", () => {
+      const { status, stdout } = at(["impact", "fact.shared-key"]);
+
+      expect(status).toBe(0);
+      expect(json(stdout)).toMatchObject({
+        root: "fact.shared-key",
+        impacted: [
+          { conceptId: "fact.router", depth: 1 },
+          { conceptId: "fact.gateway", depth: 2 },
+        ],
+        stopped: [],
+      });
+    });
+
+    it("lists backlinks one hop, with the rel and standing", () => {
+      const { status, stdout } = at(["backlinks", "fact.router"]);
+
+      expect(status).toBe(0);
+      expect(json(stdout)).toMatchObject({
+        target: "fact.router",
+        backlinks: [
+          { from: "fact.gateway", rel: "depends_on", standing: "current" },
+        ],
+      });
+    });
   });
 
   it("emits the JSON Schema for the format without touching a base", () => {
