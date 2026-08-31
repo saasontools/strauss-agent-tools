@@ -219,17 +219,118 @@ describe("runKbCli", () => {
     });
   });
 
-  test("--all loads regardless of budget, and is rejected alongside --budget", async () => {
+  test("--all loads regardless of budget, and is rejected alongside a ceiling", async () => {
     expect(parsed(await at(["load", "--all"]))).toMatchObject({
       loaded: true,
       recordCount: 2,
       budgetTokens: null,
     });
 
-    const run = await at(["load", "--all", "--budget", "1"]);
-    expect(run.stderr).toContain(
-      "(root): all and budgetTokens are mutually exclusive",
-    );
+    for (const ceiling of [
+      ["--budget", "1"],
+      ["--max-records", "1"],
+    ]) {
+      const run = await at(["load", "--all", ...ceiling]);
+      expect(run.stderr).toContain(
+        "(root): all is mutually exclusive with budgetTokens and maxRecords",
+      );
+    }
+  });
+
+  // The page-count gate: a base of short records fits the token budget and
+  // still reads as a skim, so the count refuses on its own.
+  test("--max-records gates the load and the refusal says what to call next", async () => {
+    const refused = parsed(await at(["load", "--max-records", "1"])) as {
+      message: string;
+    };
+
+    expect(refused).toMatchObject({
+      loaded: false,
+      pageCount: 2,
+      maxRecords: 1,
+      refusedBy: ["pages"],
+    });
+    expect(refused.message).toContain("2 records is past the 1-record gate");
+    expect(refused.message).toContain("kb_catalog");
+    expect(refused.message).toContain("kb_pack");
+    expect(refused.message).toContain("kb_query");
+  });
+
+  test("exactly at the gate loads; --all bypasses it", async () => {
+    expect(parsed(await at(["load", "--max-records", "2"]))).toMatchObject({
+      loaded: true,
+      recordCount: 2,
+    });
+    expect(parsed(await at(["load", "--all"]))).toMatchObject({ loaded: true });
+  });
+
+  describe("catalog", () => {
+    test("names every record in one line, sorted by type then title", async () => {
+      const { stdout, exitCode } = await at(["catalog"]);
+
+      expect(exitCode).toBeUndefined();
+      expect(stdout).toContain("# KB Catalog");
+      expect(stdout).toContain(`bundle: ${bundle}`);
+      expect(stdout).toContain(
+        "2 records · 1 current · 0 superseded · 0 stale",
+      );
+      expect(stdout).toContain(
+        "- fact.cache-key-includes-region · fact · The cache key includes the region · current",
+      );
+      expect(stdout).toContain(
+        "- open-question.retry-scope · open-question · Which failures should the client retry? · open",
+      );
+      // The listing is a menu; the bodies stay where they were.
+      expect(stdout).not.toContain("Every key is prefixed with the region.");
+      expect(stdout).toContain("kb_pack <conceptId>");
+    });
+
+    test("shows a superseded record with the replacement to read instead", async () => {
+      const store = new KbStore();
+      await store.write(
+        bundle,
+        composeRecord(
+          "decision",
+          {
+            slug: "retry-timeouts-only",
+            title: "Retry timeouts only",
+            why: "Retrying every failure repeats non-idempotent writes.",
+          },
+          "seed",
+          "2026-08-02T00:00:00Z",
+        ),
+      );
+      await store.supersede(
+        bundle,
+        "open-question.retry-scope",
+        "decision.retry-timeouts-only",
+        "seed",
+      );
+
+      const { stdout } = await at(["catalog"]);
+
+      expect(stdout).toContain(
+        "- open-question.retry-scope · open-question · Which failures should the client retry? · superseded → decision.retry-timeouts-only",
+      );
+      expect(stdout).toContain("1 superseded");
+    });
+
+    test("narrows to a type", async () => {
+      const { stdout } = await at(["catalog", "fact"]);
+
+      expect(stdout).toContain("# KB Catalog — fact");
+      expect(stdout).toContain("1 record · 1 current");
+      expect(stdout).not.toContain("open-question.retry-scope");
+    });
+
+    // No timestamp, and a total ordering, so two catalogs of an unchanged
+    // base diff to nothing.
+    test("is byte-identical across runs over an unchanged base", async () => {
+      const first = await at(["catalog"]);
+      const second = await at(["catalog"]);
+
+      expect(second.stdout).toBe(first.stdout);
+    });
   });
 
   test("--all still resolves a positional type", async () => {

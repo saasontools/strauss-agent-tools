@@ -215,7 +215,9 @@ strauss-kb [--bundle PATH] <command> [args]
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
-  load [type] [--budget N | --all]         Hand over the whole base, each record with its standing.
+  load [type] [--budget N] [--max-records N] [--all]
+                                           Hand over the whole base, each record with its standing.
+  catalog [type]                           Every record in one line — id, type, title, standing, stale flag.
   pack <conceptId> [--hops N] [--max-nodes N] [--budget N]
                                            The bounded neighbourhood around one record, every cut named.
   query <text...>                          Search; every match arrives flagged with its standing.
@@ -236,8 +238,8 @@ strauss-kb [--bundle PATH] <command> [args]
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
-Results go to stdout as JSON — `index` and `pack` are markdown, which is what
-they are. Errors
+Results go to stdout as JSON — `index`, `catalog` and `pack` are markdown,
+which is what they are. Errors
 go to stderr and exit 1. `validate` is the one command whose exit code is not
 just "did it run": a check that reports a problem succeeded as a command and
 failed as a check, so it exits 1 with its findings on stdout.
@@ -261,7 +263,8 @@ strauss-kb validate || echo "problems above"
 
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_pack`, `kb_query`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_catalog`,
+`kb_pack`, `kb_query`,
 `kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
@@ -346,28 +349,74 @@ Read for a question, not for a session: a base loaded at the start of a long
 conversation is summarised away by the end of it, and reloading costs about
 three thousand tokens. Read it again at the point of use.
 
-`load` refuses rather than truncating when a base exceeds its budget (25,000
-tokens by default). A truncated base is indistinguishable from a complete one,
-so a caller would answer "that was never decided" from a slice it did not know
-was a slice. `context` refuses the same way at its own, tighter budget (4,000
-by default). Superseded records come back as name, replacement and date only —
+**The three rungs, in one rule.** At or under the gate, `load` the base whole.
+Past it, `catalog` to see every record in one line each, then `pack` the record
+the work centres on. For a lookup by wording — you already know roughly what
+the record says — `query`.
+
+```bash
+strauss-kb load                          # under the gate: everything, with standing
+strauss-kb catalog                       # past it: one line per record, ~30 tokens each
+strauss-kb pack decision.cursor-v2       # then the neighbourhood around the one that matters
+strauss-kb query cursor pagination       # or a point lookup by wording
+```
+
+The rungs are ordered by what they cost and by what they can tell you. A whole
+read gives perfect recall and can say _no record answers this_. A catalog keeps
+that second property at a fraction of the price — it names every record, so
+"nothing covers this" stays a supportable conclusion — and gives up the bodies.
+A query gives up both: it returns its nearest hit whatever the distance, so it
+can confirm what exists and never that something does not.
+
+`load` refuses rather than truncating when a base exceeds either of its two
+ceilings. A truncated base is indistinguishable from a complete one, so a
+caller would answer "that was never decided" from a slice it did not know was a
+slice. `context` refuses the same way at its own, tighter budget (4,000 by
+default). Superseded records come back as name, replacement and date only —
 their bodies no longer hold, and a body read later in a long session outlives
 the qualifier that said so. `trace` still reaches them by id.
 
-`--all` (`all: true` over MCP) is the escape hatch: it bypasses the refusal
-outright and hands back the entire bundle whatever its size. A loaded result
+The two ceilings are independent, and either refuses on its own:
+
+| Ceiling                        | Default | Held against                                                   |
+| ------------------------------ | ------- | -------------------------------------------------------------- |
+| `--max-records` / `maxRecords` | 40      | whole records handed back (`pageCount`); stubs are not counted |
+| `--budget` / `budgetTokens`    | 25,000  | the estimated size of what is handed back (`approxTokens`)     |
+
+The record gate is not a restatement of the budget. The budget asks whether the
+base will fit; the gate asks whether it is the right shape to read whole. A base
+of many short records passes the budget and still reads as a skim, and the
+recall a whole read buys is the entire reason to prefer it over searching. A
+refusal reports both counts, names every ceiling it tripped in `refusedBy`, and
+carries a `message` that names the gate value and the next calls — because a
+caller told only "too big" raises the ceiling, which is the one move the ceiling
+exists to discourage.
+
+`--all` (`all: true` over MCP) is the escape hatch: it bypasses **both**
+ceilings and hands back the entire bundle whatever its size. A loaded result
 carries `tokensLoaded`, the same estimate the budget is held against, and
 `budgetTokens: null` marks that no ceiling was applied; `--all` is mutually
-exclusive with `--budget`. That refusal is the guardrail an agent needs so a
-wide base does not silently consume its whole context; `--all` is for a
-deliberate operator who has decided the size is worth the tokens, not a
-setting to reach for by default. A reader that does not actually need every
-record is better served by a narrower `type` filter or a `query` than by
-turning the guardrail off.
+exclusive with `--budget` and `--max-records`, because a ceiling and "no
+ceiling" in one call is a contradiction rather than a preference. The refusal
+is the guardrail an agent needs so a wide base does not silently consume its
+whole context; `--all` is for a deliberate operator who has decided the size is
+worth the tokens, not a setting to reach for by default. A reader that does not
+actually need every record is better served by a narrower `type` filter, a
+`catalog`, or a `query` than by turning the guardrail off.
 
-**Pack is the middle rung.** Under budget, load the base whole — perfect
-recall beats any ranking. Over budget, when the work centres on a record you
-can name, `pack` hands over that record's bounded neighbourhood instead:
+**Catalog is the rung that keeps the base knowable.** One line per record —
+concept id, type, title, standing, and a stale flag — sorted by type then title,
+at roughly thirty tokens each: a base far past `load`'s gate still fits in one
+call. Superseded records are listed with the replacement that stands in their
+place, so the line to follow instead is already in view. It is deterministic —
+no timestamp, and a total ordering down to the concept id — so two catalogs of
+an unchanged base are byte-identical and diff to nothing. What it does not carry
+is bodies; `load`, `pack` and `trace` fetch those.
+
+**Pack is the middle rung.** Under the ceilings, load the base whole — perfect
+recall beats any ranking. Past them, when the work centres on a record you
+can name (the catalog is how you name it), `pack` hands over that record's
+bounded neighbourhood instead:
 everything within `--hops` of the root, walked over the base's edges — body
 links (a `relatedConceptIds` entry is stored as one), supersession in both
 directions, shared code anchors, and shared sources — ranked and cut to
@@ -378,7 +427,7 @@ one is not, and past its own token budget `pack` refuses exactly as `load`
 does — naming what was already cut, so the caller can narrow the walk or
 raise the ceiling. Below the header, the only place a timestamp appears, the
 output is byte-identical across runs over an unchanged base: two packs diff,
-and a changed byte means changed knowledge. With neither a budget problem nor
+and a changed byte means changed knowledge. With neither a size problem nor
 a root record in hand, the question is a point lookup, and that is `query`.
 
 **Flag, never filter.** `query` returns every hit with its standing, because a
