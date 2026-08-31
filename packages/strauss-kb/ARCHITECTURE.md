@@ -89,26 +89,73 @@ was git's merge of two worktrees' independently-appended logs — the default
 line-level merge can conflict, or silently keep one side, on lines that were
 never in conflict, since both sides only ever added, never edited, a line.
 
-The fix is `.gitattributes: log.jsonl merge=union`, written by `write()` on
-first use (`kb-store.ts#ensureGitattributes`). `union` is a merge driver git
-ships — nothing to configure beyond the attribute — that keeps both sides'
-added lines. The alternative considered and dropped was a lock file coordinating
-writes across worktrees the way `mutate`'s CAS coordinates a single record: it
-would need to span process boundaries and survive a crashed holder, which is
-the same stale-lock failure mode rejected above, for a smaller problem than
-the one it solves there.
+The fix is `.gitattributes: log.jsonl text eol=lf merge=union`, written by
+`record()` — every path that appends a log line (`write`, `setStatus`,
+`verify`, `supersede`), not `write()` alone — on first use
+(`kb-store.ts#ensureGitattributes`). `union` is a merge driver git ships —
+nothing to configure beyond the attribute — that keeps both sides' added
+lines; `eol=lf` closes a second divergence path, below. The alternative
+considered and dropped was a lock file coordinating writes across worktrees
+the way `mutate`'s CAS coordinates a single record: it would need to span
+process boundaries and survive a crashed holder, which is the same
+stale-lock failure mode rejected above, for a smaller problem than the one it
+solves there.
 
-Two decisions worth naming because a later reader could reopen either:
+Decisions worth naming because a later reader could reopen them:
 
-- **A `.gitattributes` that exists but lacks the line gets the line
-  appended, not left alone.** The alternative — leave a user's own file
-  untouched — reads as more conservative, but a bundle that already has a
-  `.gitattributes` in front of it is exactly the bundle most likely to be
-  shared across worktrees or forks, so leaving it without union merge is the
-  worse of the two failure modes.
+- **A `.gitattributes` that exists but declares no merge strategy for the
+  log gets the line appended, not left alone.** The alternative — leave a
+  user's own file untouched — reads as more conservative, but a bundle that
+  already has a `.gitattributes` in front of it is exactly the bundle most
+  likely to be shared across worktrees or forks, so leaving it without union
+  merge is the worse of the two failure modes. A file that _does_ already
+  declare a merge strategy for `log.jsonl` — this one or a user's own, such
+  as `merge=ours` — is left alone entirely: gitattributes resolves repeated
+  lines for one pattern by "last one wins", so appending a second `merge=`
+  line would silently override rather than coexist. Recognizing "already
+  declared" needed a real tokenizer (`hasMergeDeclaration`) rather than
+  exact-string matching against the line this module writes — the first cut
+  missed a tab or doubled space between tokens (false negative, a harmless
+  duplicate line) and could never recognize a user's own `merge=ours` as a
+  decision already made (the one case where appending anything is wrong).
+- **A `.gitattributes` that fails to _read_ is never treated as "missing".**
+  The first cut folded every `readFile` failure — permissions, a transient
+  `EMFILE`, the path being a directory — into "doesn't exist yet" and took
+  the create branch, which is a truncating write: a real `.gitattributes`
+  hit by a transient read error would be silently replaced with just the
+  union-merge line. Only `ENOENT` means missing; anything else is reported
+  as a failure and the file is left exactly as it was. The create branch
+  also uses `wx` (exclusive create) rather than a plain write, so a
+  concurrent writer that created the file between the read and this write
+  fails loudly into the same best-effort catch instead of the second writer
+  truncating the first one's file.
 - **Union merge does not preserve line order, so `kb_log`'s reader sorts by
   `at` rather than trusting file order.** Sorting there, once, is cheaper
-  than trying to make every future merge order-preserving.
+  than trying to make every future merge order-preserving. `at` is now
+  validated as an actual ISO-8601 timestamp (`z.iso.datetime()`, matching
+  exactly what `record()` writes) rather than any non-empty string — a value
+  that parses as JSON and matches the schema's shape but isn't really a
+  timestamp would otherwise sort unpredictably instead of failing, and
+  `parseLog` already has a place for "well-formed but wrong" to go: reported
+  as malformed, same as any other schema mismatch, never silently repaired.
+- **A union merge can keep the exact same line twice** — a cherry-pick or
+  rebase that carried one worktree's entry into the other's history before
+  the merge, not two independent writes agreeing by chance: `record()` mints
+  its own `at` per call, so two entries equal on every field including `at`
+  cannot be genuine. `parseLog` dedupes entries that are byte-for-byte equal
+  after parsing and keeps everything else, including two entries that agree
+  on every field except `at` — that pair is two real events. The
+  alternative — leave duplicates visible and call it "genuine repeat
+  ambiguity" — was rejected: there's no ambiguity to preserve, since the
+  only way to produce an exact duplicate is the merge itself.
+- **A read-then-append race across processes on the append branch — two
+  processes both reading a `.gitattributes` without the line, both
+  appending it — is left unguarded, not a reason to lock.** `appendFile` is
+  `O_APPEND`, so the outcome is two copies of the same line, never a torn
+  write, and `hasMergeDeclaration` sees a duplicate declaration as "already
+  declared" on the very next call. Cheap residue, not corruption — the same
+  trade the lock-file alternative above was rejected for, at a smaller
+  scale.
 
 GitHub does not run merge drivers for a PR it merges server-side — see the
 README's "Cross-worktree writes" section. The driver only helps a merge a

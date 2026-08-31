@@ -86,20 +86,27 @@ other text file. That is the wrong merge for an append-only log: git's default
 picks a side, or conflicts, on lines that both branches only ever meant to add
 to.
 
-So the first `write` to a base declares a merge driver for its log: it writes
-`log.jsonl merge=union` into the base's `.gitattributes` if that file does not
-exist yet, and appends the line if the file exists but does not already carry
-it — a `.gitattributes` a user put there first is respected, never overwritten
-wholesale. `union` is one of git's built-in merge drivers; the attribute alone
-is enough; nothing else needs configuring. With it, a merge of two branches
+So the first write to a base (through `write`, or whichever call happens to
+append the first log line) declares a merge driver for its log: it writes
+`log.jsonl text eol=lf merge=union` into the base's `.gitattributes` if that
+file does not exist yet, and appends the line if the file exists but declares
+no merge strategy for `log.jsonl` yet — a `.gitattributes` a user put there
+first is respected, never overwritten wholesale, and a line that already
+gives `log.jsonl` _any_ merge strategy — this one or the user's own choice
+such as `merge=ours` — is left alone rather than layered under a second,
+possibly conflicting one. `union` is one of git's built-in merge drivers; the
+attribute alone is enough; nothing else needs configuring. `eol=lf` pins line
+endings to `\n` regardless of a checkout's `core.autocrlf`, so a Windows
+checkout normalizing the file on checkout can't leave it with mixed endings
+against the raw `\n` every append writes. With it, a merge of two branches
 that both appended to `log.jsonl` keeps both sides' lines instead of picking
 one.
 
-A union merge does not preserve line order — the merged file has both
-writers' entries, interleaved however git's merge visited them, not by when
-each was actually written. `kb_log`'s reader sorts entries by `at`
-(`kb-log.ts`) before returning them, so that interleaving is never something a
-caller has to account for.
+A union merge does not preserve line order, and can occasionally keep the
+same line twice (a cherry-pick or rebase that carried one side's entry into
+the other's history before the merge). `kb_log`'s reader (`kb-log.ts`) sorts
+entries by `at` and drops exact duplicates before returning them, so neither
+is something a caller has to account for.
 
 **This applies to a local `git merge`, not to GitHub.** GitHub computes pull
 request merges (and the merge/squash/rebase buttons) through its own service,

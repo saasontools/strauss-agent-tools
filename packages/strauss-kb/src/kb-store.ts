@@ -43,7 +43,7 @@ import {
 import {
   appendUnionMergeLine,
   GITATTRIBUTES_FILE,
-  hasUnionMergeLine,
+  hasMergeDeclaration,
 } from "./kb-gitattributes.js";
 
 /**
@@ -160,7 +160,6 @@ export class KbStore {
     const target = this.recordPath(bundlePath, conceptId);
 
     await mkdir(root, { recursive: true });
-    await this.ensureGitattributes(root);
     await this.publish(
       target,
       stringifyMarkdownWithFrontmatter(input.body, frontmatter),
@@ -710,26 +709,57 @@ export class KbStore {
    * bundle interleave their `log.jsonl` lines on merge rather than one
    * side's appends silently losing to git's ordinary line-level merge.
    *
-   * Runs on every `write`, not just a distinguished "first" one — there is
-   * no cheaper reliable signal for first-write than checking the file
-   * itself, and by the second write the check is a no-op `readFile`.
+   * Called from `record` — every path that appends a log line, not just
+   * `write` — so a bundle only ever mutated through `setStatus`/`verify`/
+   * `supersede` still gets it. There is no cheaper reliable signal for
+   * "first write" than checking the file itself, and after the first call
+   * the check is a no-op `readFile`.
    *
-   * A missing `.gitattributes` is created outright. One that exists but
-   * lacks the line gets the line appended rather than left alone: a bundle
-   * a user has already put a `.gitattributes` in front of is exactly the
-   * bundle most likely to be shared across worktrees, so leaving it without
-   * union merge is the worse failure mode of the two. Either way the file's
-   * existing content is never rewritten, only ever appended to.
+   * A missing `.gitattributes` is created outright, with `wx` (exclusive
+   * create) rather than a plain write: if another process's `write()` won a
+   * race and created the file between the `readFile` below and this call,
+   * `wx` fails instead of truncating what that writer just wrote, and the
+   * failure is swallowed by the catch below same as any other best-effort
+   * miss. A file that exists but declares no merge strategy for the log
+   * gets the line appended, never a wholesale rewrite; one that already
+   * declares any merge strategy — this one or a user's own — is left alone
+   * entirely (see `hasMergeDeclaration`).
    *
-   * Best-effort, like `record`: failing to write this file must not fail
-   * the record write it guards.
+   * `readFile` failing is `existing === null` only for `ENOENT` — genuinely
+   * missing. Any other error (a permission problem, a transient `EMFILE`,
+   * the path being a directory) is *not* "missing" and must not fall into
+   * the create branch, which would truncate whatever is actually there with
+   * just the union-merge line: that is the file-destroying bug this
+   * function exists to avoid, not commit. An unreadable existing file is
+   * therefore left untouched and reported as a failure like any other.
+   *
+   * Two processes racing the append branch — both read a file without the
+   * line, both append it — is possible and left unguarded: `appendFile` is
+   * `O_APPEND`, so the result is two copies of the same line rather than a
+   * torn write, and `hasMergeDeclaration` sees a duplicate declaration as
+   * "already declared" on the next call. A cheap-to-detect, harmless-to-
+   * leave residue, not a reason to add a cross-process lock (see
+   * `ARCHITECTURE.md`'s rejection of one for the same trade on records).
+   *
+   * Best-effort, like the log append it precedes: failing to write this
+   * file must not fail the mutation it guards.
    */
   private async ensureGitattributes(root: string): Promise<void> {
     const target = join(root, GITATTRIBUTES_FILE);
     try {
-      const existing = await readFile(target, "utf8").catch(() => null);
+      let existing: string | null;
+      try {
+        existing = await readFile(target, "utf8");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        existing = null;
+      }
+
       if (existing === null) {
-        await writeFile(target, appendUnionMergeLine(""), "utf8");
+        await writeFile(target, appendUnionMergeLine(""), {
+          encoding: "utf8",
+          flag: "wx",
+        });
         this.logger.info?.({
           operation: "kb.gitattributes.ensure",
           bundlePath: root,
@@ -737,7 +767,7 @@ export class KbStore {
         });
         return;
       }
-      if (!hasUnionMergeLine(existing)) {
+      if (!hasMergeDeclaration(existing)) {
         await appendFile(target, appendUnionMergeLine(existing), "utf8");
         this.logger.info?.({
           operation: "kb.gitattributes.ensure",
@@ -759,6 +789,7 @@ export class KbStore {
     root: string,
     entry: Omit<KbLogEntry, "at"> & { at?: string },
   ): Promise<void> {
+    await this.ensureGitattributes(root);
     const line = renderLogEntry({ at: new Date().toISOString(), ...entry });
     await appendFile(join(root, LOG_FILE), line, "utf8").catch((error) => {
       this.logger.warn?.({
