@@ -450,6 +450,31 @@ fact; a missing replacement is `broken-chain` with no head — the case that nee
 the most care, because returning the stale record unmarked looks exactly like
 success.
 
+**Placement is cache economics, not just token count.** `load`'s output
+belongs in the stable prefix — the system prompt, or the first turn — and gets
+reloaded only when its content actually changed; `query` and `pack` results
+belong at the tail, after it, because they differ every call. Two things make
+that split pay for itself rather than just tidying the transcript. A provider
+prompt cache discounts a request by roughly 0.1x on the prefix it can match
+byte-for-byte against a prior call — the first token that differs from a
+previous call ends the match, so one volatile result ahead of a stable load
+would price the whole base at full rate on every call after the first. And a
+long context privileges its beginning: attention over a long context is not
+uniform, and content near the start is attended to more reliably than content
+buried mid-transcript, so the base that is supposed to anchor a session's
+answers earns that only by sitting where it is read most reliably, not by
+merely being present somewhere in it.
+
+`load`'s result carries a `digest` — one sha256 over every record it would
+hand back, current and superseded alike, sorted so it never depends on
+listing order — for exactly this: identical bundle content digests
+identically across calls, and any record changing (body, frontmatter, or a
+supersession flipping its standing) flips it. A caller holding `load`'s
+output in a stable prefix reloads when `digest` changes and otherwise leaves
+the prefix alone; a refused load carries the same digest, computed over what
+would have been handed back, so a caller narrowing a `type` filter after a
+refusal can tell whether that changed anything without loading it.
+
 ## Living in an agent session
 
 Long sessions lose a knowledge base twice over: attention decays, and

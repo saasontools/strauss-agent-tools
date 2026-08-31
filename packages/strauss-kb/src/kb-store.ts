@@ -98,6 +98,15 @@ export type KbLoadResult =
       tokensLoaded: number;
       /** `null` when loaded via `all`: no ceiling was applied. */
       budgetTokens: number | null;
+      /**
+       * Sha256 over the bundle's content — every record's own digest plus
+       * standing, sorted by concept id so the result never depends on listing
+       * order. Identical content, identical digest, run to run; any record's
+       * body, frontmatter, or standing changing flips it. This is the signal a
+       * caller holding `load`'s output in a cache-stable prefix reloads on —
+       * see the README's Retrieval section.
+       */
+      digest: string;
     }
   | {
       loaded: false;
@@ -111,6 +120,13 @@ export type KbLoadResult =
       refusedBy: KbLoadRefusal[];
       /** The refusal in words, naming the ceilings and what to call next. */
       message: string;
+      /**
+       * Same digest a successful load would carry, computed over what would
+       * have been handed back. Cheap here — adjudication already ran before
+       * the refusal — and it lets a caller notice a refused bundle's content
+       * changed (say, after a narrower `type` filter) without loading it.
+       */
+      digest: string;
     };
 
 /** `pages` is the record-count gate; `tokens` the estimate-versus-budget one. */
@@ -544,6 +560,10 @@ export class KbStore {
       if (approxTokens > budgetTokens) refusedBy.push("tokens");
     }
 
+    // Adjudication has already run either way, so this costs nothing extra —
+    // computed once and carried on whichever branch returns.
+    const bundleDigestValue = bundleDigest(records, superseded);
+
     if (refusedBy.length) {
       return {
         loaded: false,
@@ -561,6 +581,7 @@ export class KbStore {
           budgetTokens,
           type: options.type,
         }),
+        digest: bundleDigestValue,
       };
     }
 
@@ -571,6 +592,7 @@ export class KbStore {
       budgetTokens: options.all ? null : budgetTokens,
       records,
       superseded,
+      digest: bundleDigestValue,
     };
   }
 
@@ -924,4 +946,39 @@ function normalizeActor(id: string): string {
 
 function digest(contents: string): string {
   return createHash("sha256").update(contents).digest("hex");
+}
+
+/**
+ * `load`'s bundle digest: one sha256 over every record `load` would hand
+ * back, current and superseded alike.
+ *
+ * Each record is hashed the same way `mutate`'s CAS check hashes a record —
+ * `digest()` over its canonical composed form — so a record's contribution
+ * here is the same digest a concurrent writer would race against. Superseded
+ * entries hash their stub (standing is part of the bundle's content: a record
+ * flipping from current to superseded must flip the digest even though its
+ * own body did not change). Entries are labelled by concept id and sorted
+ * before joining, so the result depends only on content, never on listing or
+ * adjudication order — the same bundle digests the same on every run.
+ */
+function bundleDigest(
+  records: KbAdjudicated[],
+  superseded: KbSupersededStub[],
+): string {
+  const entries = [
+    ...records.map(
+      (hit) =>
+        `${hit.record.conceptId}:current:${digest(
+          stringifyMarkdownWithFrontmatter(
+            hit.record.body,
+            hit.record.frontmatter,
+          ),
+        )}`,
+    ),
+    ...superseded.map(
+      (entry) =>
+        `${entry.conceptId}:superseded:${digest(JSON.stringify(entry))}`,
+    ),
+  ].sort();
+  return digest(entries.join("\n"));
 }
