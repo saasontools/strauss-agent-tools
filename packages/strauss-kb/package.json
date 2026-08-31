@@ -55,12 +55,17 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "bench": "tsx bench/run.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "gray-matter": "^4.0.3",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.72.1",
+    "tsx": "^4.23.13"
   },
   "peerDependencies": {
     "@tobilu/qmd": "*"
