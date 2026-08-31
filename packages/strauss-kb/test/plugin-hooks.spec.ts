@@ -87,12 +87,35 @@ afterAll(() => {
   rmSync(workspace, { recursive: true, force: true });
 });
 
+/**
+ * `process.env` is case-insensitive on Windows (the real variable is
+ * usually spelled `Path`, not `PATH`), but a plain object spread doesn't
+ * know that: `{ ...process.env, PATH: "…" }` on Windows produces an object
+ * with *both* a `Path` key (the real, untouched system PATH, from the
+ * spread) and a `PATH` key (the override) — two entries in the child's
+ * environment block that differ only by case. Which one actually wins the
+ * search order is undefined, and in practice the override loses at least
+ * some of the time, silently sending the shims below into a real system
+ * PATH they were built to exclude. Collapsing every case-variant of `PATH`
+ * down to one key (keeping whichever value the merge would have produced
+ * last) fixes that without every call site needing to know about it.
+ */
 function run(script: string, stdin: string, env: NodeJS.ProcessEnv = {}) {
+  const merged: NodeJS.ProcessEnv = { ...process.env, ...env };
+  const pathKeys = Object.keys(merged).filter(
+    (k) => k.toUpperCase() === "PATH",
+  );
+  if (pathKeys.length > 1) {
+    const value = merged[pathKeys[pathKeys.length - 1]!];
+    for (const key of pathKeys) delete merged[key];
+    merged.PATH = value;
+  }
+
   const result = spawnSync(process.execPath, [script], {
     input: stdin,
     encoding: "utf8",
     cwd: workspace,
-    env: { ...process.env, ...env },
+    env: merged,
   });
   return {
     status: result.status,
