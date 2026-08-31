@@ -1,11 +1,11 @@
 # codex-claude-agent
 
 Delegate a task from Codex to Claude Code and get a structured result back.
-`$claude review the auth changes` runs Claude Code through the Claude Agent
+`$codex-claude-agent:claude review the auth changes` runs Claude Code through the Claude Agent
 SDK — read-only by default, optionally in a throwaway Git worktree, under a
 turn/budget/time ceiling — and relays what it found.
 
-This plugin is the front end: a `$claude` skill, session hooks, and an optional
+This plugin is the front end: a `claude` skill, session hooks, and an optional
 Codex agent.
 
 ## Install
@@ -15,13 +15,15 @@ Add this repository as a Codex marketplace
 
 The plugin directory ships manifests and markdown; the runner itself is the
 [`@saasontools/codex-claude-agent`](../../packages/codex-claude-agent) npm
-package. **You do not have to install it.** When it is not on `PATH`, the
-skill and the hook reach it through `npx -y --omit=optional -p
+package. **You do not have to install it.** When it is not on `PATH`, the skill
+reaches it through `npx -y --omit=optional -p
 @saasontools/codex-claude-agent@0.x`, which tracks every 0.x release without
 anyone updating anything.
 
-Installing it is still worth one command — it is faster, and it is what the
-skill's examples type:
+Install it anyway. npx re-resolves the version range on every invocation, which
+measures at 7.5-9.0s against 0.4s for an installed binary — worth little on a
+delegated run that takes minutes, and worth a lot on the finished-job notice,
+which is why that hook skips npx entirely and goes quiet instead:
 
 ```bash
 npm install -g --omit=optional @saasontools/codex-claude-agent
@@ -56,7 +58,7 @@ specific executable if you keep several.
 
 | Piece                                | Where                                |
 | ------------------------------------ | ------------------------------------ |
-| The `$claude` skill                  | `skills/claude/SKILL.md`             |
+| The `claude` skill                   | `skills/claude/SKILL.md`             |
 | Session-id capture for job ownership | `hooks/session-start.sh`             |
 | Finished-job notice on next prompt   | `hooks/unread-result.sh`             |
 | Optional `claude-delegate` agent     | `.codex/agents/claude-delegate.toml` |
@@ -67,9 +69,12 @@ runner started never re-enters the plugin.
 
 The unread-result hook runs on every prompt, so it is ordered to cost nothing
 until it can't: it tests for the runner's state directory first and exits when
-no job has ever been started, then prefers an installed CLI, and only falls
-back to `npx` after that. A session that never delegates in the background
-never spawns anything.
+no job has ever been started, then calls an installed CLI. It does **not** fall
+back to `npx` the way the skill does — measured against the published package
+with a warm cache, npx costs 7.5-9.0s per invocation against 0.4s for an
+installed binary, and eight seconds per turn is not a price a courtesy notice
+gets to charge. Without the CLI on `PATH` the hook stays silent, which is the
+one thing `npm i -g` buys you that the skill's npx fallback does not.
 
 The agent file is a Codex project agent, not something the plugin registers.
 Copy it in to get `claude-delegate` as a selectable agent:
@@ -80,13 +85,21 @@ cp .codex/agents/claude-delegate.toml <repo>/.codex/agents/
 
 ## Using it
 
+Codex addresses a plugin's skill by its qualified name, so the invocation
+carries the plugin in front of it:
+
 ```
-$claude review the current authentication changes
-$claude --edit --worktree ephemeral fix the failing tests
-$claude --background audit this diff against our error-handling rules
-$claude status
-$claude result <job-id>
+$codex-claude-agent:claude review the current authentication changes
+$codex-claude-agent:claude --edit --worktree ephemeral fix the failing tests
+$codex-claude-agent:claude --background audit this diff against our error-handling rules
+$codex-claude-agent:claude status
+$codex-claude-agent:claude result <job-id>
 ```
+
+Durations take a suffix — `--timeout 30m`, `1h`, `90s` — and a bare number is
+milliseconds. `--worktree existing` and `create` both require
+`--worktree-path`; `ephemeral` picks its own path and branch. The skill spells
+these out so the model does not have to guess them one failed run at a time.
 
 Read-only is the default; `--edit` is the only thing that lets Claude write,
 and `--worktree ephemeral` keeps those writes off your checkout. Background

@@ -18,9 +18,9 @@
     "capabilities": ["Interactive", "Write"],
     "websiteURL": "https://github.com/saasontools/strauss-agent-tools/tree/main/plugins/codex-claude-agent",
     "defaultPrompt": [
-      "Use $claude to review my current changes",
-      "Use $claude to investigate this failure",
-      "Use $claude --edit to implement this task"
+      "Use $codex-claude-agent:claude to review my current changes",
+      "Use $codex-claude-agent:claude to investigate this failure",
+      "Use $codex-claude-agent:claude --edit to implement this task"
     ]
   }
 }

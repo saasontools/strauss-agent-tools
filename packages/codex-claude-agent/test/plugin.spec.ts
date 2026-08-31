@@ -95,6 +95,31 @@ describe("plugin manifests", () => {
     }
   });
 
+  it("documents the flag rules a caller would otherwise guess wrong", () => {
+    // From a real Codex session: it wrote `--timeout 1800000` and worked out
+    // the unit by hand, and hit the worktree-path requirement as a failed run.
+    // Both are in the CLI already; the skill just never said so.
+    const skill = readFileSync(
+      join(pluginRoot, "skills", "claude", "SKILL.md"),
+      "utf8",
+    );
+
+    expect(skill).toContain("--timeout 30m");
+    expect(skill).toMatch(/bare number is milliseconds/i);
+    expect(skill).toMatch(/defaults to 15m/);
+    expect(skill).toMatch(/`existing` requires `--worktree-path`/);
+    // No single example may re-state --cwd as its worktree path: that is the
+    // redundant shape the field report arrived in, and an example is the part
+    // a model copies. Continuations are joined first so each command is one
+    // line, otherwise a pair could be matched across two different examples.
+    const commands = skill.replace(/\\\n\s*/g, " ").split("\n");
+    for (const command of commands) {
+      const cwd = /--cwd (\S+)/.exec(command)?.[1];
+      const worktreePath = /--worktree-path (\S+)/.exec(command)?.[1];
+      if (cwd && worktreePath) expect(worktreePath).not.toBe(cwd);
+    }
+  });
+
   it("exposes the skill under the name the runtime invokes", () => {
     const skill = readFileSync(
       join(pluginRoot, "skills", "claude", "SKILL.md"),
@@ -244,31 +269,54 @@ describe("UserPromptSubmit hook", () => {
     }
   });
 
-  onPosix(
-    "falls back to the published package when nothing is installed",
-    () => {
-      const { dir, path } = shims(["npx"]);
-      const state = stateWithJob();
-      try {
-        const result = runHook("unread-result.sh", "", {
-          PATH: path,
-          CODEX_CLAUDE_AGENT_STATE_DIR: state,
-          CODEX_CLAUDE_AGENT_NESTED: "",
-        });
+  onPosix("stays silent rather than fetching the runner per prompt", () => {
+    // Deliberately NOT the npx fallback the skill uses. Measured against the
+    // published 0.1.0 with a warm cache, npx costs 7.5-9.0s per invocation
+    // against 0.4s for an installed binary, and this hook runs every prompt.
+    const { dir, path } = shims(["npx"]);
+    const state = stateWithJob();
+    try {
+      const result = runHook("unread-result.sh", "", {
+        PATH: path,
+        CODEX_CLAUDE_AGENT_STATE_DIR: state,
+        CODEX_CLAUDE_AGENT_NESTED: "",
+      });
 
-        expect(result.status).toBe(0);
-        // The range, not a bare name: the plugin tracks 0.x releases. And
-        // --omit=optional, without which npx drags in the SDK's ~245 MB bundled
-        // Claude Code binary that this runner never spawns.
-        expect(result.stdout).toContain("@saasontools/codex-claude-agent@0.x");
-        expect(result.stdout).toContain("--omit=optional");
-        expect(result.stdout.trim()).toMatch(/codex-claude-agent hook unread$/);
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-        rmSync(state, { recursive: true, force: true });
-      }
-    },
-  );
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
+
+  onPosix("swallows a failing runner instead of erroring every prompt", () => {
+    // The notice is a courtesy on someone else's prompt. An unreachable
+    // registry or a runner that errors must not put a failure in front of the
+    // user once per turn — this hook exits 0 and says nothing.
+    const { dir, path } = shims([]);
+    const state = stateWithJob();
+    try {
+      writeFileSync(
+        join(dir, "codex-claude-agent"),
+        "#!/bin/sh\necho boom >&2\nexit 1\n",
+        { mode: 0o755 },
+      );
+
+      const result = runHook("unread-result.sh", "", {
+        PATH: path,
+        CODEX_CLAUDE_AGENT_STATE_DIR: state,
+        CODEX_CLAUDE_AGENT_NESTED: "",
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
 
   onPosix("stays out of a nested run", () => {
     const result = runHook("unread-result.sh", "", {

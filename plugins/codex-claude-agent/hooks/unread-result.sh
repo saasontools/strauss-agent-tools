@@ -20,16 +20,18 @@ if [[ -z "$(find "$state_root/repositories" -maxdepth 3 -name '*.json' -print -q
   exit 0
 fi
 
-# An installed CLI is used when present; otherwise the published package is
-# fetched on demand, so the plugin works with nothing installed. The scope is
-# pinned to npmjs because a project that maps @saasontools elsewhere would
-# otherwise 404, and --omit=optional keeps the Agent SDK's ~245 MB bundled
-# Claude Code binary out of it — the runner spawns the user's own install.
+# PATH only, and silent when the runner is not installed.
+#
+# The skill falls back to `npx -p @saasontools/codex-claude-agent@0.x`, which is
+# right there: a delegated run takes minutes, so resolving the package first is
+# noise. It is wrong here. Measured against the published 0.1.0 with a warm npx
+# cache, that same fallback costs 7.5-9.0s per invocation — npx re-resolves the
+# version range against the registry every time — against 0.4s for an installed
+# binary. This hook runs on every prompt, so the fallback would put eight
+# seconds in front of the user, per turn, for a courtesy notice.
+#
+# Best effort even so: stdout is the notice and is kept, while a runner that
+# errors keeps its stderr and its exit code to itself.
 if command -v codex-claude-agent >/dev/null 2>&1; then
-  codex-claude-agent hook unread
-else
-  npx -y --omit=optional \
-    --@saasontools:registry=https://registry.npmjs.org \
-    -p "@saasontools/codex-claude-agent@0.x" \
-    -- codex-claude-agent hook unread
+  codex-claude-agent hook unread 2>/dev/null || true
 fi

@@ -30,11 +30,21 @@ codex-claude-agent run --read-only review the current diff
 codex-claude-agent run --edit implement the requested fix
 ```
 
-Use a registered worktree:
+Use a registered worktree. `existing` and `create` both require
+`--worktree-path`; `ephemeral` picks its own:
 
 ```bash
 codex-claude-agent run --cwd /repo --worktree existing \
   --worktree-path /repo-worktrees/feature investigate the regression
+```
+
+Durations take a suffix — `90s`, `30m`, `1h` — and a bare number is
+milliseconds, so `--timeout 30m` and `--timeout 1800000` agree. The default is
+15m. `--budget` is US dollars (default 5) and `--max-turns` is a count; neither
+takes a suffix.
+
+```bash
+codex-claude-agent run --timeout 30m --budget 2.50 --max-turns 40 review the release diff
 ```
 
 Create a persistent worktree and branch:
