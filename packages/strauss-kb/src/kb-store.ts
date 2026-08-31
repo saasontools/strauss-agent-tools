@@ -95,9 +95,18 @@ export type KbLoadResult =
       /** Named only. Their bodies are reachable through `trace`. */
       superseded: KbSupersededStub[];
       recordCount: number;
+      /** Whole records handed over — what the record gate counts. */
+      pageCount: number;
       tokensLoaded: number;
       /** `null` when loaded via `all`: no ceiling was applied. */
       budgetTokens: number | null;
+      /**
+       * The gate this load cleared, `null` under `all`. Reported on the way
+       * through and not only on refusal: a caller that can see how close it
+       * came can act before the base crosses the line, where one that only
+       * ever hears "refused" finds out by being refused.
+       */
+      maxRecords: number | null;
       /**
        * Sha256 over the bundle's content — every record's own digest plus
        * standing, sorted by concept id so the result never depends on listing
@@ -591,8 +600,10 @@ export class KbStore {
     return {
       loaded: true,
       recordCount: wanted.length,
+      pageCount,
       tokensLoaded: approxTokens,
       budgetTokens: options.all ? null : budgetTokens,
+      maxRecords: options.all ? null : maxRecords,
       records,
       superseded,
       digest: bundleDigestValue,
@@ -900,12 +911,20 @@ function refusalMessage(refusal: {
   }
   const scope = refusal.type ? ` of type ${refusal.type}` : "";
 
+  // Both escape hatches are named, and named last. A caller that cannot find
+  // them invents its own workaround — usually a raw file read, which is the
+  // one thing this package exists to prevent — but a caller that meets them
+  // first reaches for them instead of the rung it should be on.
+  const hatches = refusal.refusedBy.includes("pages")
+    ? `raise maxRecords (currently ${refusal.maxRecords}) if you have judged this base worth reading whole, or all=true to bypass both ceilings outright`
+    : `raise budgetTokens (currently ${refusal.budgetTokens}), or all=true to bypass both ceilings outright`;
+
   return [
     `Refusing to load this base whole: ${reasons.join(", and ")}.`,
     "Nothing was truncated — a partial base is indistinguishable from a complete one.",
     `Call kb_catalog for one line per record${scope} (id, type, title, standing), then kb_pack on the record the work centres on for its bounded neighbourhood.`,
     "For a lookup by wording, kb_query. A narrower type filter may also bring the base under the gate.",
-    "kb_load with all=true bypasses both ceilings and is for a deliberate operator who has decided the size is worth the tokens.",
+    `If you do need every record: ${hatches} — both are for a deliberate operator who has decided the size is worth the tokens, not a first resort.`,
   ].join(" ");
 }
 

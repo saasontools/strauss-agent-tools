@@ -1302,6 +1302,42 @@ describe("load", () => {
       expect(result.message).toContain("1-token budget");
     });
 
+    // Symmetric with the refusal. A caller that can see how close it came can
+    // act before the base crosses the line.
+    test("a successful load reports the ceilings it cleared", async ({
+      store,
+      bundle,
+    }) => {
+      await store.write(bundle, fact("kept"));
+      await store.write(bundle, fact("dropped"));
+      await store.supersede(bundle, "fact.dropped", "fact.kept");
+
+      const result = await store.load(bundle);
+
+      expect(result.loaded).toBe(true);
+      if (!result.loaded) return;
+      expect(result.recordCount).toBe(2);
+      // The stub is a record the caller was told about, but not a page.
+      expect(result.pageCount).toBe(1);
+      expect(result.maxRecords).toBe(DEFAULT_LOAD_MAX_RECORDS);
+      expect(result.budgetTokens).toBe(25_000);
+    });
+
+    test("all reports both ceilings as null, not as their defaults", async ({
+      store,
+      bundle,
+    }) => {
+      await store.write(bundle, fact("kept"));
+
+      const result = await store.load(bundle, { all: true });
+
+      expect(result.loaded).toBe(true);
+      if (!result.loaded) return;
+      expect(result.maxRecords).toBeNull();
+      expect(result.budgetTokens).toBeNull();
+      expect(result.pageCount).toBe(1);
+    });
+
     test("all bypasses the gate as it bypasses the budget", async ({
       store,
       bundle,

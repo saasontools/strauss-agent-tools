@@ -17,6 +17,7 @@ export {
 } from "./catalog.js";
 export {
   KbInvalidConceptIdError,
+  KbMissingFlagValueError,
   KbPackBudgetExceededError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,

@@ -244,6 +244,12 @@ go to stderr and exit 1. `validate` is the one command whose exit code is not
 just "did it run": a check that reports a problem succeeded as a command and
 failed as a check, so it exits 1 with its findings on stdout.
 
+A flag that takes a value accepts either spelling — `--budget 4000` or
+`--budget=4000` — and a flag given no value is an error rather than a fall back
+to the default. `strauss-kb load --max-records` quietly returning the default 40
+would hand the caller the exact ceiling they were trying to move, and a trailing
+typo would be indistinguishable from success.
+
 ```bash
 strauss-kb --bundle .strauss/kb write fact <<'JSON'
 {
@@ -388,14 +394,27 @@ base will fit; the gate asks whether it is the right shape to read whole. A base
 of many short records passes the budget and still reads as a skim, and the
 recall a whole read buys is the entire reason to prefer it over searching. A
 refusal reports both counts, names every ceiling it tripped in `refusedBy`, and
-carries a `message` that names the gate value and the next calls — because a
-caller told only "too big" raises the ceiling, which is the one move the ceiling
-exists to discourage.
+carries a `message` that names the gate value, the next calls, and both escape
+hatches — because a caller told only "too big" raises the ceiling, which is the
+one move the ceiling exists to discourage, and a caller told nothing at all
+invents a raw file read, which is worse.
+
+A **successful** load reports `pageCount` and `maxRecords` too, symmetric with
+the refusal. A caller that can see how close it came can act before the base
+crosses the line; one that only ever hears "refused" finds out by being refused.
+
+> **Upgrading from 0.1.7.** The record gate is on by default, so a base of 41 or
+> more whole records that loaded before now refuses. That is the intended
+> behaviour — the token budget cannot see shape — but it is a change in what an
+> unchanged call returns. Pass a higher `maxRecords`, or `all: true`, to restore
+> the old result on a given call; the intended path past the gate is `catalog`
+> then `pack`.
 
 `--all` (`all: true` over MCP) is the escape hatch: it bypasses **both**
 ceilings and hands back the entire bundle whatever its size. A loaded result
-carries `tokensLoaded`, the same estimate the budget is held against, and
-`budgetTokens: null` marks that no ceiling was applied; `--all` is mutually
+carries `tokensLoaded`, the same estimate the budget is held against, and both
+`budgetTokens: null` and `maxRecords: null` mark that no ceiling was applied;
+`--all` is mutually
 exclusive with `--budget` and `--max-records`, because a ceiling and "no
 ceiling" in one call is a contradiction rather than a preference. The refusal
 is the guardrail an agent needs so a wide base does not silently consume its
@@ -408,10 +427,25 @@ actually need every record is better served by a narrower `type` filter, a
 concept id, type, title, standing, and a stale flag — sorted by type then title,
 at roughly thirty tokens each: a base far past `load`'s gate still fits in one
 call. Superseded records are listed with the replacement that stands in their
-place, so the line to follow instead is already in view. It is deterministic —
-no timestamp, and a total ordering down to the concept id — so two catalogs of
-an unchanged base are byte-identical and diff to nothing. What it does not carry
+place, so the line to follow instead is already in view. The header counts every
+record by standing (the counts sum to the record count, so nothing goes missing
+silently), reports staleness separately as the overlay it is — a current record
+can be stale — and gives the `pageCount` the record gate is held against, so a
+reader can see a refusal coming rather than discover it. What it does not carry
 is bodies; `load`, `pack` and `trace` fetch those.
+
+Alone among the read paths, `catalog` has no ceiling and never refuses. It is
+where the others send you, so a refusal here would leave nowhere to go. The cost
+is linear and predictable at roughly thirty tokens a record — a hundred records
+is about 3k, a thousand about 30k, five thousand about 150k — and on a base of
+that last size the `type` filter is the tool, not a ceiling.
+
+Output is deterministic **given a fixed clock**: no timestamp is emitted, and
+the ordering is total down to the concept id, compared by code unit rather than
+`localeCompare` so two machines agree. Two catalogs of an unchanged base
+therefore diff to nothing — with one exception, a stale flag flipping as a
+record's `stale_after` date passes. Pass an explicit `now` (library callers) when
+byte-equality has to hold across that boundary.
 
 **Pack is the middle rung.** Under the ceilings, load the base whole — perfect
 recall beats any ranking. Past them, when the work centres on a record you
