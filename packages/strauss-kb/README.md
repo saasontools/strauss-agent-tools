@@ -475,6 +475,20 @@ the prefix alone; a refused load carries the same digest, computed over what
 would have been handed back, so a caller narrowing a `type` filter after a
 refusal can tell whether that changed anything without loading it.
 
+"Identical content" means identical after recomposition, not identical
+on-disk bytes — the digest is hashed over each record's canonical recomposed
+form, not the raw file, so it is not a substitute for the write path's own
+content-addressed check and the two should never be compared to each other.
+One real-world gap follows from that: gray-matter, the parser underneath,
+does not normalize the body's line endings, so a record authored with CRLF
+line endings digests differently from the same record authored with LF even
+though both read as the same text. That makes the digest a same-environment
+signal — reload-or-not for one client talking to one checkout of a bundle —
+not a proof that two checkouts on different machines hold the same content;
+a bundle that has crossed a line-ending-translating `git checkout` or been
+edited from two platforms can digest differently for reasons that have
+nothing to do with what changed.
+
 ## Living in an agent session
 
 Long sessions lose a knowledge base twice over: attention decays, and

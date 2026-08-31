@@ -102,9 +102,12 @@ export type KbLoadResult =
        * Sha256 over the bundle's content — every record's own digest plus
        * standing, sorted by concept id so the result never depends on listing
        * order. Identical content, identical digest, run to run; any record's
-       * body, frontmatter, or standing changing flips it. This is the signal a
-       * caller holding `load`'s output in a cache-stable prefix reloads on —
-       * see the README's Retrieval section.
+       * body, frontmatter, or standing changing flips it. Hashed over each
+       * record's canonical recomposed form (see `bundleDigest` below), not
+       * the on-disk bytes, so it is a same-environment reload signal, not a
+       * cross-checkout content proof — see the README's Retrieval section.
+       * This is the signal a caller holding `load`'s output in a cache-stable
+       * prefix reloads on.
        */
       digest: string;
     }
@@ -952,14 +955,24 @@ function digest(contents: string): string {
  * `load`'s bundle digest: one sha256 over every record `load` would hand
  * back, current and superseded alike.
  *
- * Each record is hashed the same way `mutate`'s CAS check hashes a record —
- * `digest()` over its canonical composed form — so a record's contribution
- * here is the same digest a concurrent writer would race against. Superseded
- * entries hash their stub (standing is part of the bundle's content: a record
- * flipping from current to superseded must flip the digest even though its
- * own body did not change). Entries are labelled by concept id and sorted
- * before joining, so the result depends only on content, never on listing or
- * adjudication order — the same bundle digests the same on every run.
+ * Each record is hashed over its *canonical recomposed* form —
+ * `stringifyMarkdownWithFrontmatter(body, frontmatter)`, the same `digest()`
+ * helper `mutate`'s CAS check uses, but not the same input. CAS hashes the
+ * raw bytes read off disk; this hashes what `matter.stringify` regenerates
+ * from the already-parsed body and frontmatter, which is not guaranteed
+ * byte-identical to those raw bytes (YAML re-serialization can reformat the
+ * frontmatter block, and gray-matter's parser does not normalize the body's
+ * line endings — see the README's Retrieval section). The two digests are
+ * deliberately independent and not interchangeable: this one exists to be
+ * stable across recomposition quirks a caller doing string comparison would
+ * otherwise trip on, not to detect a concurrent on-disk write.
+ *
+ * Superseded entries hash their stub (standing is part of the bundle's
+ * content: a record flipping from current to superseded must flip the digest
+ * even though its own body did not change). Entries are labelled by concept
+ * id and sorted before joining, so the result depends only on content, never
+ * on listing or adjudication order — the same bundle digests the same on
+ * every run, within the caveats above.
  */
 function bundleDigest(
   records: KbAdjudicated[],
