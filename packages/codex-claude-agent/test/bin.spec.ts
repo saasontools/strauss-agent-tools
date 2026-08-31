@@ -20,6 +20,14 @@ const distCli = resolve(
   "../dist/cli.js",
 );
 
+/**
+ * The symlink shape is POSIX-only. Windows npm writes `.cmd` and `.ps1` shims
+ * that invoke node with the real path, so `argv[1]` was never the link there
+ * and the bug being guarded against could not occur — and a bare symlink to a
+ * `.js` file is not executable on Windows, so spawning it fails outright.
+ */
+const onPosix = it.skipIf(process.platform === "win32");
+
 function run(command: string, args: string[] = []) {
   const result = spawnSync(command, args, { encoding: "utf8" });
   return {
@@ -30,7 +38,7 @@ function run(command: string, args: string[] = []) {
 }
 
 describe("the built CLI as an install exposes it", () => {
-  it("runs when reached through a bin symlink", () => {
+  onPosix("runs when reached through a bin symlink", () => {
     // npm links `node_modules/.bin/<name>` at the entry file, so argv[1] is
     // the link and import.meta.url is its target. Comparing those two without
     // resolving them is what made `npm i -g` and `npx` silent no-ops.
@@ -55,7 +63,7 @@ describe("the built CLI as an install exposes it", () => {
     expect(result.stdout).toContain("Usage:");
   });
 
-  it("still answers a subcommand through the symlink", () => {
+  onPosix("still answers a subcommand through the symlink", () => {
     // Not just the help path: the guard gates every command, so a subcommand
     // has to prove it reaches the dispatch too.
     const dir = mkdtempSync(join(tmpdir(), "codex-claude-agent-bin-"));
