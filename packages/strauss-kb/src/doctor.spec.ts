@@ -702,6 +702,27 @@ describe("doctor", () => {
       });
     });
 
+    // "0 lines apart" reads as "nothing happened" — the one drift most worth
+    // naming plainly, since a same-size rewrite is invisible to a line count.
+    test("names a same-size rewrite as changed rather than zero apart", async () => {
+      const bundle = [anchored("decision.totals-shape")];
+      const edited = SOURCE.replace(
+        "  return orders.length;",
+        "  return orders.size;",
+      );
+
+      await inRepo(edited, async (repoRoot) => {
+        const report = doctor(bundle, {
+          now: NOW,
+          anchorDrift: await detectAnchorDrift(bundle, { repoRoot }),
+        });
+
+        expect(note(report, "drifted", "decision.totals-shape")).toBe(
+          "1 anchor no longer matches: src/orders.ts:totals (content changed, same line count)",
+        );
+      });
+    });
+
     // Same repair, same group: the file was renamed, so one anchor drifted and
     // its neighbour vanished — which happened is in the note.
     test("reports an anchor whose symbol is gone in the same group", async () => {

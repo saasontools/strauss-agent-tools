@@ -34,6 +34,7 @@ import { INDEX_FILE, indexIsStale, renderIndex } from "./kb-index.js";
 import { adjudicate, type KbAdjudicated } from "./adjudicate.js";
 import {
   detectAnchorDrift,
+  looksLikeWrongRepoRoot,
   type KbAnchorDriftEntry,
 } from "./anchor-resolver.js";
 import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
@@ -486,15 +487,34 @@ export class KbStore {
    *
    * Public because `doctor` needs the same map with the same degradation: a
    * sweep that failed to read the tree should report no drift, not fail.
+   *
+   * When no root was given and not one anchored file was found, the finding is
+   * discarded. A base read from somewhere other than the tree it describes
+   * misses every file at once, and that shape is far likelier to be a wrong
+   * default root than a repository where every anchored file was deleted on
+   * the same day. Reporting it would put a drift warning on every record in
+   * the base, which teaches a reader to ignore the warning — the one outcome
+   * worse than not having it. One file found anywhere makes the root
+   * plausible, and the misses become findings again; an explicit `repoRoot` is
+   * taken at its word either way.
    */
   async detectDrift(
     records: KbRecord[],
     repoRoot?: string,
   ): Promise<Map<string, KbAnchorDriftEntry[]> | undefined> {
     try {
-      return await detectAnchorDrift(records, {
+      const drift = await detectAnchorDrift(records, {
         repoRoot: repoRoot ?? process.cwd(),
       });
+      if (repoRoot === undefined && looksLikeWrongRepoRoot(drift)) {
+        this.logger.warn?.({
+          operation: "kb.anchor-drift",
+          outcome: "skipped",
+          reason: "no anchored file found under the default repo root",
+        });
+        return undefined;
+      }
+      return drift;
     } catch (error) {
       this.logger.warn?.({
         operation: "kb.anchor-drift",

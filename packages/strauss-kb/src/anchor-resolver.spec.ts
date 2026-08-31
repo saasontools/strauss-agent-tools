@@ -1,5 +1,11 @@
 /* eslint-disable no-empty-pattern -- vitest fixtures require object destructuring */
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+  mkdirSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, test as baseTest } from "vitest";
@@ -7,6 +13,8 @@ import {
   anchorFilePath,
   detectAnchorDrift,
   hashAnchorText,
+  looksLikeWrongRepoRoot,
+  MAX_ANCHOR_FILE_BYTES,
   regexResolver,
   resolveAnchor,
 } from "./anchor-resolver.js";
@@ -164,6 +172,170 @@ describe("regexResolver", () => {
   test("returns null for a symbol not in the source", () => {
     expect(regexResolver.resolve(SOURCE, "MissingThing")).toBeNull();
   });
+
+  // A span that stops at the header hashes as stable over every edit to the
+  // body — the failure mode that makes a stale anchor read as fresh evidence.
+  test("a destructured signature does not end the span on its own braces", () => {
+    const source = [
+      "export function build({ a, b }: Options): number {",
+      "  return a + b;",
+      "}",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "build")).toEqual({
+      text: source.trimEnd(),
+      startLine: 1,
+      endLine: 3,
+    });
+  });
+
+  test("a multi-line signature keeps the span open to the real body", () => {
+    const source = [
+      "export function build(",
+      "  a: number,",
+      "  b: number,",
+      "): number {",
+      "  return a + b;",
+      "}",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "build")?.endLine).toBe(6);
+  });
+
+  test("a closing brace inside a string or a comment does not end the span", () => {
+    const source = [
+      "export function render(): string {",
+      '  const close = "}";',
+      "  // the } here is prose",
+      "  /* and the } here",
+      "     is still prose } */",
+      "  return close;",
+      "}",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "render")?.endLine).toBe(7);
+  });
+
+  test("a brace inside a template literal does not open or close the span", () => {
+    const source = [
+      "export function greet(name: string): string {",
+      "  return `hello ${name} }`;",
+      "}",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "greet")?.endLine).toBe(3);
+  });
+
+  // False stability again: an unbalanced brace means the lexer lost the
+  // thread, and any span it invents would hash as evidence.
+  test("a block left open at end of file is unresolved, not a guess", () => {
+    const source = ["export function broken(): void {", "  start();", ""].join(
+      "\n",
+    );
+
+    expect(regexResolver.resolve(source, "broken")).toBeNull();
+  });
+
+  test("a name that is only a substring of another does not match", () => {
+    const source = [
+      "export function precancel(id: string): void {",
+      "  queue(id);",
+      "}",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "cancel")).toBeNull();
+  });
+
+  // `findIndex` over one loose pattern used to land on whichever line came
+  // first, which for a symbol used above its own definition is a call site.
+  test("prefers the declaration over a call site that appears above it", () => {
+    const source = [
+      "export function boot(): void {",
+      "  totals([]);",
+      "}",
+      "",
+      "export function totals(orders: Order[]): number {",
+      "  return orders.length;",
+      "}",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "totals")?.startLine).toBe(5);
+  });
+
+  test("scopes a dotted symbol to the lines under its parent", () => {
+    const source = [
+      "class Orders {",
+      "  cancel(id: string): void {",
+      "    this.a(id);",
+      "  }",
+      "}",
+      "",
+      "class Invoices {",
+      "  cancel(id: string): void {",
+      "    this.b(id);",
+      "  }",
+      "}",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "Invoices.cancel")?.startLine).toBe(8);
+    expect(regexResolver.resolve(source, "Orders.cancel")?.startLine).toBe(2);
+  });
+
+  // Two lines of equally good shape mean the resolver cannot tell which one
+  // the record meant, and a guessed anchor hashes as evidence.
+  test("two declarations of the same name are ambiguous, not a coin flip", () => {
+    const source = [
+      "function handle(a: number): void {",
+      "  a;",
+      "}",
+      "",
+      "function handle(a: string): void {",
+      "  a;",
+      "}",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "handle")).toBeNull();
+  });
+
+  // Brace counting over Python captures the `def` line and nothing else — a
+  // signature hash that never sees a body change.
+  test("captures a Python block by indentation", () => {
+    const source = [
+      "import os",
+      "",
+      "def totals(orders):",
+      "    # a comment",
+      "    return len(orders)",
+      "",
+      "def other():",
+      "    pass",
+      "",
+    ].join("\n");
+
+    expect(regexResolver.resolve(source, "totals")).toEqual({
+      text: [
+        "def totals(orders):",
+        "    # a comment",
+        "    return len(orders)",
+      ].join("\n"),
+      startLine: 3,
+      endLine: 5,
+    });
+  });
+
+  test("a Python header with no body under it is unresolved", () => {
+    const source = ["def totals(orders):", "", ""].join("\n");
+
+    expect(regexResolver.resolve(source, "totals")).toBeNull();
+  });
 });
 
 describe("hashAnchorText", () => {
@@ -179,9 +351,14 @@ describe("hashAnchorText", () => {
 });
 
 describe("resolveAnchor", () => {
+  // The trailing newline terminates the last line rather than starting an
+  // empty one — counting it would make every whole-file anchor's `lines` one
+  // larger than the file, and every `diffSize` off by that much.
   test("an anchor without a symbol is the whole normalized file", () => {
     const resolved = resolveAnchor("a\r\nb\n", { file: "src/a.ts" });
-    expect(resolved).toEqual({ text: "a\nb\n", startLine: 1, endLine: 3 });
+    expect(resolved).toEqual({ text: "a\nb\n", startLine: 1, endLine: 2 });
+    expect(resolveAnchor("a\nb", { file: "src/a.ts" })?.endLine).toBe(2);
+    expect(resolveAnchor("", { file: "src/a.ts" })?.endLine).toBe(1);
   });
 
   test("an anchor with a symbol goes through the resolver", () => {
@@ -341,6 +518,86 @@ describe("detectAnchorDrift", () => {
     expect(drift.size).toBe(0);
   });
 
+  // Lexical containment passes and the read still escapes: a bundle is
+  // untrusted data, and without the realpath re-check `kb_load` would follow
+  // an in-repo symlink to probe any file the process can read.
+  test("a symlink out of the repo is refused, not followed", async ({
+    repo,
+  }) => {
+    const outside = mkdtempSync(join(tmpdir(), "strauss-kb-outside-"));
+    try {
+      writeFileSync(join(outside, "secret.ts"), SOURCE, "utf8");
+      mkdirSync(join(repo, "src"), { recursive: true });
+      symlinkSync(join(outside, "secret.ts"), join(repo, "src", "link.ts"));
+
+      const anchor = { ...stamp("src/link.ts", "totals", SOURCE) };
+      const drift = await detectAnchorDrift([record("fact.link", [anchor])], {
+        repoRoot: repo,
+      });
+
+      expect(drift.get("fact.link")?.[0]).toMatchObject({
+        state: "unresolved",
+        reason: "outside-repo",
+      });
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("a symlink that stays inside the repo is followed", async ({ repo }) => {
+    write(repo, "src/orders.ts", SOURCE);
+    symlinkSync(join(repo, "src", "orders.ts"), join(repo, "src", "alias.ts"));
+    const anchor = { ...stamp("src/orders.ts", "totals", SOURCE) };
+
+    const drift = await detectAnchorDrift(
+      [record("fact.alias", [{ ...anchor, file: "src/alias.ts" }])],
+      { repoRoot: repo },
+    );
+
+    expect(drift.get("fact.alias")?.[0]?.state).toBe("match");
+  });
+
+  // A permission error or a directory where a file should be is not evidence
+  // that code moved. Reporting it as `file-missing` would put a drift finding
+  // on a record nothing is wrong with.
+  test("a directory where a file should be is unreadable, not missing", async ({
+    repo,
+  }) => {
+    mkdirSync(join(repo, "src", "orders.ts"), { recursive: true });
+    const anchor = stamp("src/orders.ts", "totals", SOURCE);
+
+    const drift = await detectAnchorDrift([record("fact.dir", [anchor])], {
+      repoRoot: repo,
+    });
+
+    expect(drift.get("fact.dir")?.[0]).toMatchObject({
+      state: "unresolved",
+      reason: "file-unreadable",
+    });
+  });
+
+  // Anchors point at source. Reading a checked-in artefact into memory on a
+  // read path is a cost with no finding behind it.
+  test("a file past the size cap is reported rather than read", async ({
+    repo,
+  }) => {
+    write(repo, "src/huge.ts", "x".repeat(MAX_ANCHOR_FILE_BYTES + 1));
+    const anchor = {
+      file: "src/huge.ts",
+      hash: hashAnchorText(SOURCE),
+      lines: 3,
+    };
+
+    const drift = await detectAnchorDrift([record("fact.huge", [anchor])], {
+      repoRoot: repo,
+    });
+
+    expect(drift.get("fact.huge")?.[0]).toMatchObject({
+      state: "unresolved",
+      reason: "file-too-large",
+    });
+  });
+
   test("a leading ./ on the anchor path still resolves", async ({ repo }) => {
     write(repo, "src/orders.ts", SOURCE);
     const anchor = {
@@ -353,5 +610,39 @@ describe("detectAnchorDrift", () => {
     });
 
     expect(drift.get("fact.dotted")?.[0]?.state).toBe("match");
+  });
+});
+
+// A base read from somewhere other than the tree it describes misses every
+// anchored file at once. Reported as drift it would flag the whole base, which
+// teaches a reader to ignore the warning.
+describe("looksLikeWrongRepoRoot", () => {
+  const entry = (over: Record<string, unknown> = {}) => ({
+    file: "src/a.ts",
+    state: "unresolved" as const,
+    storedHash: hashAnchorText("x"),
+    diffSize: null,
+    reason: "file-missing" as const,
+    ...over,
+  });
+
+  test("is true only when every checked anchor missed its file", () => {
+    expect(
+      looksLikeWrongRepoRoot(new Map([["fact.a", [entry(), entry()]]])),
+    ).toBe(true);
+  });
+
+  test("is false once any file was found, and on an empty map", () => {
+    expect(
+      looksLikeWrongRepoRoot(
+        new Map([["fact.a", [entry(), entry({ state: "drifted" })]]]),
+      ),
+    ).toBe(false);
+    expect(
+      looksLikeWrongRepoRoot(
+        new Map([["fact.a", [entry({ reason: "symbol-not-found" })]]]),
+      ),
+    ).toBe(false);
+    expect(looksLikeWrongRepoRoot(new Map())).toBe(false);
   });
 });

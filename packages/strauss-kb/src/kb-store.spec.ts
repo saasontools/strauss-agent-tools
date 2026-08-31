@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, vi, test as baseTest } from "vitest";
-import { hashAnchorText } from "./anchor-resolver.js";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
 import { composeRecord, type ComposeInput } from "./compose.js";
 import {
   composeDecisionRecord,
@@ -1244,6 +1244,13 @@ describe("load", () => {
   });
 });
 
+/** What a whole-file anchor's `lines` is, per `resolveAnchor`. */
+function anchorLines(source: string): number {
+  const resolved = resolveAnchor(source, { file: "src/order.ts" });
+  if (!resolved) throw new Error("fixture did not resolve");
+  return resolved.endLine - resolved.startLine + 1;
+}
+
 describe("load anchor drift", () => {
   const SOURCE = [
     "export function total(items: number[]): number {",
@@ -1263,7 +1270,9 @@ describe("load anchor drift", () => {
             file: "src/order.ts",
             hash: hashAnchorText(SOURCE),
             resolved_at: "2026-08-26T10:00:00Z",
-            lines: SOURCE.split("\n").length,
+            // Counted the way the resolver counts, so `diffSize` measures the
+            // edit rather than a disagreement about trailing newlines.
+            lines: anchorLines(SOURCE),
           },
         ],
       }),
@@ -1316,6 +1325,65 @@ describe("load anchor drift", () => {
     await store.write(bundle, decision());
 
     const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records[0]?.warnings.some((w) => w.kind === "drifted")).toBe(
+      false,
+    );
+  });
+
+  // A base read from somewhere other than the tree it describes misses every
+  // anchored file. Reporting that as drift would flag every record at once,
+  // which teaches a reader to ignore the warning.
+  test("says nothing when no root was given and no anchored file was found", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+    rmSync(join(bundle, "src"), { recursive: true, force: true });
+
+    // No repoRoot: the default is the working directory, which holds none of
+    // this fixture's anchored files.
+    const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records[0]?.warnings.some((w) => w.kind === "drifted")).toBe(
+      false,
+    );
+  });
+
+  // An explicit root is taken at its word: the caller said where the code is,
+  // so a file that is not there is a deleted file, which is a real finding.
+  test("reports a missing file when the caller named the root", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+    rmSync(join(bundle, "src"), { recursive: true, force: true });
+
+    const result = await store.load(bundle, { repoRoot: bundle });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    const drifted = result.records[0]?.warnings.find(
+      (w) => w.kind === "drifted",
+    );
+    expect(drifted).toBeDefined();
+    if (drifted?.kind !== "drifted") return;
+    expect(drifted.anchors[0]).toMatchObject({ reason: "file-missing" });
+  });
+
+  // One file found anywhere makes the root plausible again, so the misses
+  // beside it go back to being findings.
+  test("reports misses once any anchored file was found", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+
+    const result = await store.load(bundle, { repoRoot: bundle });
 
     expect(result.loaded).toBe(true);
     if (!result.loaded) return;

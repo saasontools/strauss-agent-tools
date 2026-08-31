@@ -1,9 +1,10 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { hashAnchorText, resolveAnchor } from "../anchor-resolver.js";
 import { composeRecord } from "../compose.js";
+import { pinBase } from "../kb-pins/index.js";
 import { KbStore } from "../kb-store.js";
 import type { KbAnchor } from "../kb-record.schema.js";
 import { anchorResolveCommand } from "./anchor-resolve.js";
@@ -34,6 +35,7 @@ type Output = {
   verified: boolean;
   verifyRefused?: string;
   note?: string;
+  frozen?: boolean;
 };
 
 describe("anchorResolveCommand", () => {
@@ -144,6 +146,34 @@ describe("anchorResolveCommand", () => {
         note: "anchor-resolve: 1/1 anchors match (regex resolver)",
       },
     ]);
+    // Left exactly as it was: a matching anchor is unchanged, and re-dating it
+    // on every green run would write a record, a log line, and a git diff
+    // saying only that a check ran.
+    expect(record?.frontmatter.strauss_anchors?.[0]?.resolved_at).toBe(
+      anchor.resolved_at,
+    );
+  });
+
+  test("--restamp is what refreshes resolved_at on a match", async () => {
+    writeSource(SOURCE);
+    await seed([stamped("totals", SOURCE)]);
+
+    await run({ restamp: true });
+
+    const record = await new KbStore().read(bundle, ID);
+    expect(record?.frontmatter.strauss_anchors?.[0]?.resolved_at).toBe(NOW);
+  });
+
+  // The anchor predates hashing, so there is a transition to record even
+  // though the hash itself did not move.
+  test("a match on an anchor with no resolved_at stamps the date once", async () => {
+    writeSource(SOURCE);
+    const { resolved_at: _dropped, ...undated } = stamped("totals", SOURCE);
+    await seed([undated]);
+
+    await run({});
+
+    const record = await new KbStore().read(bundle, ID);
     expect(record?.frontmatter.strauss_anchors?.[0]?.resolved_at).toBe(NOW);
   });
 
@@ -193,7 +223,10 @@ describe("anchorResolveCommand", () => {
     });
   });
 
-  test("a bogus symbol is an unresolved finding, not a throw", async () => {
+  // A stored hash that no longer resolves is a broken anchor, not an absence:
+  // the symbol was renamed or the file deleted, and exiting zero on it would
+  // let the one edit that destroys an anchor pass the gate meant to catch it.
+  test("a stamped symbol that vanished is an unresolved finding that still fails the gate", async () => {
     writeSource(SOURCE);
     await seed([
       {
@@ -216,6 +249,51 @@ describe("anchorResolveCommand", () => {
         },
       ],
     });
+    expect(fails(output)).toBe(true);
+  });
+
+  // Nothing was ever stamped, so nothing broke: an unstamped anchor is a
+  // backlog item, and failing CI on it would gate on work not yet done.
+  // Frozen refuses writes, not reads. A concluded base is exactly where a
+  // caller most wants to ask whether the code moved, and throwing would deny
+  // the report along with the stamp.
+  test("a frozen base still gets its report, with nothing stamped", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "strauss-kb-resolve-ws-"));
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(workspace);
+    try {
+      writeSource(SOURCE);
+      await seed([{ file: FILE, symbol: "totals" }]);
+      await pinBase(new KbStore(), workspace, bundle, NOW, {
+        layer: "local",
+        frozen: true,
+      });
+
+      const output = await run({});
+
+      expect(output).toMatchObject({
+        frozen: true,
+        note: "base is frozen: nothing was stamped",
+        results: [{ state: "stamped" }],
+      });
+      const record = await new KbStore().read(bundle, ID);
+      expect(record?.frontmatter.strauss_anchors?.[0]?.hash).toBeUndefined();
+    } finally {
+      cwd.mockRestore();
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  test("an unstamped symbol that does not resolve does not fail the gate", async () => {
+    writeSource(SOURCE);
+    await seed([{ file: FILE, symbol: "MissingThing" }]);
+
+    const output = await run({});
+
+    expect(output.results[0]).toMatchObject({
+      state: "unresolved",
+      reason: "symbol-not-found",
+    });
+    expect(output.results[0]?.storedHash).toBeUndefined();
     expect(fails(output)).toBe(false);
   });
 

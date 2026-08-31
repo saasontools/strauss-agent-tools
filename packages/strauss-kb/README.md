@@ -231,41 +231,80 @@ states per anchor:
   and timestamp are written onto it. This is the write path for hashes:
   `write` callers record symbols, not digests, and the first resolve backfills
   the baseline once the code settles.
-- **match** — the code still hashes to the stored value. `resolved_at` is
-  refreshed.
+- **match** — the code still hashes to the stored value, and nothing is
+  written. A green run that re-dated the record would produce a mutation, a log
+  line, and a git diff saying only that a check ran; `--restamp` refreshes
+  `resolved_at` when you do want the record to say when it was last checked.
+  An anchor that carries no `resolved_at` at all is stamped once, since that is
+  a transition rather than a no-op.
 - **drifted** — the code moved out from under the stored hash. The result
   carries both hashes and `diffSize`, the absolute line-count change (`null`
-  when the anchor recorded no `lines` — size unknown, not zero). The stored
-  baseline is kept, unless `--rebaseline` accepts the current code as the new
-  one.
-- **unresolved** — the file is missing, the symbol not found, or the anchor's
-  path points outside the repository root (`outside-repo`). A finding, not
-  an error: drift detection runs over bases whose code has moved, and moved
-  code is exactly what it exists to report. The outside-repo case is a
-  containment rule, not a convenience: bundles are data, and an anchor must
-  not be able to read files beyond the repo it describes.
+  when the anchor recorded no `lines` — size unknown, not zero; `0` means a
+  rewrite the line count cannot see). The stored baseline is kept, unless
+  `--rebaseline` accepts the current code as the new one.
+- **unresolved** — the anchor could not be compared, with the reason attached:
+  `file-missing`, `symbol-not-found`, `outside-repo`, `file-too-large` (past
+  1 MiB — anchors point at source, and reading an artefact into memory on a
+  read path is cost with no finding behind it), or `file-unreadable` (a
+  permission error, or a directory where a file should be). A finding, not an
+  error: drift detection runs over bases whose code has moved, and moved code
+  is exactly what it exists to report.
 
-The CLI exits non-zero when any anchor drifted, so a CI gate can run it bare.
-On a `--frozen` base the report still runs — drift reporting is a read; only a
-stamp, refresh, or rebaseline is refused.
+Containment is a rule, not a convenience: bundles are data, and an anchor must
+not read files beyond the repo it describes. It is checked twice — lexically,
+then again against the real path after symlinks are followed. A symlink inside
+the repository pointing out of it passes the first check and defeats the whole
+rule, which would let an untrusted bundle use `kb_load` to probe for files
+anywhere the process can read.
 
-A fully clean run — at least one match, nothing drifted or unresolved — appends
-a `verified[]` event (`anchor-resolve: N/N anchors match`), because code still
-hashing to what it did when the record was written is real evidence the record
-still holds. The same verifier-identity rule as `verify` applies: a resolve run
-by the record's own generator reports `verifyRefused: "self-verification"`
+The CLI exits non-zero when an anchor drifted **or** when one that carries a
+hash no longer resolves. A deleted file is as much a broken anchor as a
+rewritten one, and exiting zero on it would let the single edit that destroys
+an anchor pass the gate that exists to catch it. An anchor nobody ever stamped
+is still just unstamped, and does not fail. On a `--frozen` base the report
+still runs and comes back with `frozen: true` and nothing written — drift
+reporting is a read; only a stamp, refresh, or rebaseline is refused.
+
+A fully clean run — every anchor `match`, none drifted, unresolved, or freshly
+stamped — appends a `verified[]` event (`anchor-resolve: N/M anchors match`),
+because code still hashing to what it did when the record was written is real
+evidence the record still holds. A freshly stamped anchor is a baseline nobody
+has checked against anything, so a run that invents a hash does not also
+verify with it. The same verifier-identity rule as `verify` applies: a resolve
+run by the record's own generator reports `verifyRefused: "self-verification"`
 instead of verifying. The drift report stands either way; only the stamp is
 refused.
 
-Resolution is a v1 heuristic: a regex resolver matches the symbol's last dotted
-segment (`KbStore.setStatus` matches on `setStatus`) against declaration-shaped
-lines and captures the block by brace counting — deterministic, blind to
-strings and comments, good enough until a real parser takes the seat. It sits
-behind an `AnchorResolver` interface — source string in, range out, pure — so a
-tree-sitter or codegraph resolver later slots in without touching the drift
-machinery. An anchor with no symbol is about the whole file and hashes all of
-it, and line endings are normalised before hashing so checkout style cannot
-read as drift.
+Resolution is a v1 heuristic, and its bias throughout is that a wrong answer is
+worse than no answer — a span that stops short of the code it claims to cover
+hashes as stable while the code moves underneath it, and a stable hash is read
+as evidence. The regex resolver matches the symbol's last dotted segment
+(`KbStore.setStatus` matches on `setStatus`) and:
+
+- **ranks candidate lines by shape** — a declaration beats an assignment, which
+  beats a call-shaped line, which beats a bare mention — so an anchor lands on
+  where a symbol is defined rather than the first place it is used;
+- **scopes a dotted symbol to its nearest parent**, preferring the candidate
+  closest below a mention of the parent name within fifty lines, which is what
+  separates two classes in one file that both declare `cancel`;
+- **refuses to guess**: two candidates of equally good shape mean the resolver
+  cannot tell which one the record meant, and it returns `unresolved`;
+- **strips strings, template literals, and comments before counting braces**,
+  and closes a block only where depth returns to zero at end of line — so
+  `function f({ a, b }) {` does not end its span on its own signature, and a
+  `}` inside a string does not truncate it. A regex literal containing a brace
+  still fools it, and `#` is left alone because TypeScript spells private
+  fields with it;
+- **captures Python by indentation**, since brace counting over a `def` line
+  would hash a signature that never sees a body change;
+- **returns `unresolved` rather than a short span** when a brace never opens or
+  is still open at end of file, or when a Python header has no body under it.
+
+It sits behind an `AnchorResolver` interface — source string in, range out,
+pure — so a tree-sitter or codegraph resolver later slots in without touching
+the drift machinery. An anchor with no symbol is about the whole file and
+hashes all of it, and line endings are normalised before hashing so checkout
+style cannot read as drift.
 
 Drift also surfaces where records are read: `kb_load` and `kb_query` re-check
 every hash-carrying anchor of the records they return and attach a
@@ -274,6 +313,17 @@ may describe code that no longer exists in that form. This is an enrichment: a
 filesystem failure degrades to no drift reported rather than failing the read.
 `kb_doctor` lists every drifted anchor base-wide from that same warning — its
 `drifted` check, below.
+
+Every command that reports drift takes `--repo-root` (`repoRoot`), because the
+default is the working directory and a base is not always inside the tree it
+describes. When no root was given **and not one anchored file was found**, the
+whole finding is discarded rather than reported: a bundle read from elsewhere
+misses every file at once, and that shape is far likelier to be a wrong default
+root than a repository where every anchored file was deleted on the same day.
+Reporting it would put a drift warning on every record in the base, which
+teaches a reader to ignore the warning — the one outcome worse than not having
+it. One file found anywhere makes the root plausible and the misses become
+findings again; an explicit `--repo-root` is taken at its word either way.
 
 ## CLI
 
@@ -287,12 +337,13 @@ strauss-kb [--bundle PATH] <command> [args]
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
-  anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline]
-                                           Resolve anchors against the working tree: stamp, refresh, or report drift.
-  load [type] [--budget N | --all]         Hand over the whole base, each record with its standing.
+  anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]
+                                           Resolve anchors against the working tree: stamp, or report drift.
+  load [type] [--budget N | --all] [--repo-root PATH]
+                                           Hand over the whole base, each record with its standing.
   pack <conceptId> [--hops N] [--max-nodes N] [--budget N]
                                            The bounded neighbourhood around one record, every cut named.
-  query <text...>                          Search; every match arrives flagged with its standing.
+  query <text...> [--repo-root PATH]       Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
   list [type]                              Every record, optionally narrowed to one type.
   index                                    The index, rebuilt if it disagrees with the records.
@@ -508,6 +559,9 @@ it asks only whether pointers between records agree.
 | `broken-supersession`  | A chain that does not resolve: no replacement, a missing one, a cycle, a fork. |
 | `superseded-but-cited` | A record that still holds, whose body links to one that does not.              |
 | `drifted`              | A hash-carrying anchor whose code moved, or whose file or symbol is gone.      |
+
+Pass `doctor --repo-root PATH` when the base does not sit inside the tree it
+describes; without it the sweep looks under the working directory.
 
 `superseded-but-cited`'s name is for its common case: a rejected target counts
 too, and is the worse half — a superseded record at least names its

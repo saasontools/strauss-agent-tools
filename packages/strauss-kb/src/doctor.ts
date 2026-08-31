@@ -480,8 +480,13 @@ function drifted(hits: ReturnType<typeof adjudicate>): KbDoctorFinding[] {
               ? `${anchor.file}:${anchor.symbol}`
               : anchor.file;
             if (anchor.reason) return `${at} (${anchor.reason})`;
-            return anchor.diffSize === null
-              ? `${at} (changed, size unrecorded)`
+            if (anchor.diffSize === null) {
+              return `${at} (changed, size unrecorded)`;
+            }
+            // A same-size rewrite is the drift most worth naming plainly:
+            // "0 lines apart" reads as "nothing happened".
+            return anchor.diffSize === 0
+              ? `${at} (content changed, same line count)`
               : `${at} (${anchor.diffSize} line${anchor.diffSize === 1 ? "" : "s"} apart)`;
           })
           .join(", ")}`,

@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { adjudicate } from "./adjudicate.js";
-import { hashAnchorText } from "./anchor-resolver.js";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
 import { composeRecord } from "./compose.js";
 import { KbStore } from "./kb-store.js";
 import { trace } from "./trace.js";
@@ -300,7 +300,10 @@ describe("query anchor drift", () => {
               file: "src/order.ts",
               hash: hashAnchorText(SOURCE),
               resolved_at: "2026-08-26T10:00:00Z",
-              lines: SOURCE.split("\n").length,
+              // Counted the way the resolver counts, so `diffSize` measures
+              // the edit rather than a trailing-newline disagreement.
+              lines:
+                resolveAnchor(SOURCE, { file: "src/order.ts" })?.endLine ?? 0,
             },
           ],
         },
