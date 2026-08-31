@@ -1,6 +1,6 @@
 {
   "name": "codex-claude-agent",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Delegate reviews, investigations, and implementation work from Codex to Claude Code, in a worktree, with budgets and tracked background jobs.",
   "author": {
     "name": "Assaf Kamil"
