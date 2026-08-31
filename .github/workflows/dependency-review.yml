@@ -28,6 +28,14 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
+          # image-size has no patched release — both advisories say "patched
+          # versions: none", and 2.0.2 is still latest on npm. It reaches this
+          # repository only through @docusaurus/mdx-loader, which calls it at
+          # docs-build time on images committed here, so no attacker-supplied
+          # JXL, HEIF, or ICNS ever reaches the parsers. Mirrored by
+          # auditConfig.ignoreGhsas in pnpm-workspace.yaml; drop both when a fix
+          # ships.
+          allow-ghsas: GHSA-5p2g-fcmc-qvqq, GHSA-w3rx-r6r6-pgpr
           deny-licenses: >-
             AGPL-1.0-only, AGPL-1.0-or-later, AGPL-3.0-only, AGPL-3.0-or-later,
             GPL-2.0-only, GPL-2.0-or-later, GPL-3.0-only, GPL-3.0-or-later
