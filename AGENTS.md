@@ -31,9 +31,18 @@ Codex, and Agent Plugins 1.0 clients from the marketplace files at
   skips build/test/typecheck on docs-only changes through two Nx layers, and
   both are needed: `noMarkdown` in `nx.json` keeps markdown out of a task's
   _hash_, while `.nxignore` keeps it out of _affectedness_ (which is path-based
-  and ignores inputs entirely). If you add a project that compiles or publishes
-  markdown, keep it out of `.nxignore` and override its `build.inputs` back to
-  `["default", "^noMarkdown"]` — `apps/strauss-kb-docs` is the worked example.
+  and ignores target inputs entirely). `build`, `test`, `typecheck` **and**
+  `lint` all inherit `noMarkdown` from `targetDefaults`, so a project that
+  needs its markdown back must override every target that reads it, not just
+  `build`. To add a project whose markdown is source:
+  - **Under `packages/`** — you need _both_ halves. Add an explicit
+    `!packages/<name>/**/*.md` negation line to `.nxignore` (after the
+    `packages/**/*.md` line), _and_ override the target's `inputs` to
+    `["default", "^noMarkdown"]` in the project's `nx` config. The negation
+    alone only restores affectedness; the override alone only restores the
+    hash.
+  - **Outside `packages/`** — `.nxignore` never matched it, so only the
+    `inputs` override matters. `apps/strauss-kb-docs` is the worked example.
 - **New packages start at `0.1.0`** — the generators do this. Below 1.0 Nx
   shifts every relative bump down a level (`patch` and `minor` both give
   `0.1.1`, `major` gives `0.2.0`), so write plans as `patch` and reach 1.0.0

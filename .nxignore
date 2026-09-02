@@ -20,6 +20,9 @@
 #   - apps/strauss-kb-docs/**  — the Docusaurus site's markdown IS its source.
 #   - plugins/**               — a plugin's commands and skills are markdown,
 #                                and that markdown is what it ships.
-# Anything added later that compiles, tests or publishes markdown must stay
-# out of this list too.
+# A package added later whose markdown IS source needs an explicit negation
+# below the rule, e.g. `!packages/some-docs-pkg/**/*.md`, AND an `inputs`
+# override on its targets back to ["default", "^noMarkdown"] — the negation
+# alone only restores affectedness, the override alone only restores the task
+# hash. See AGENTS.md.
 packages/**/*.md

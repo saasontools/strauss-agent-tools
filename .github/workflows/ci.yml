@@ -101,9 +101,18 @@ jobs:
         with:
           main-branch-name: main
 
-      # Affected rather than run-many: a docs-only commit touches no project,
-      # so this matrix costs two runner startups instead of two full Windows
-      # and macOS builds. The job still reports its own status, so it stays a
-      # usable required check — unlike a `paths:`-filtered workflow, which
-      # never reports at all and leaves the check pending forever.
-      - run: pnpm nx affected -t build test
+      # Affected rather than run-many: a commit that only edits documentation
+      # under `packages/*` touches no project at all, so this matrix costs two
+      # runner startups instead of two full Windows and macOS builds. The job
+      # still reports its own status, so it stays a usable required check —
+      # unlike a `paths:`-filtered workflow, which never reports at all and
+      # leaves the check pending forever.
+      #
+      # strauss-kb-docs is excluded because this job exists for one reason:
+      # MCP servers run on user machines and path handling is where they
+      # break. The Docusaurus site ships to GitHub Pages from one Linux
+      # runner, so building it on Windows and macOS proves nothing — and
+      # unlike the packages, its markdown IS source, so without this exclude
+      # every prose edit to the docs would drag two extra `docusaurus build`
+      # runs along with it. The site is still built and deployed by docs.yml.
+      - run: pnpm nx affected -t build test --exclude strauss-kb-docs
