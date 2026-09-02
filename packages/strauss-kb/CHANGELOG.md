@@ -1,3 +1,14 @@
+## 0.1.9 (2026-09-02)
+
+### 🩹 Fixes
+
+- cross-worktree log safety: union merge for log.md and atomic appends ([dd6ec3a](https://github.com/saasontools/strauss-agent-tools/commit/dd6ec3a))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.8 (2026-09-02)
 
 ### 🩹 Fixes
