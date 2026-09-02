@@ -568,18 +568,15 @@ Judgments the checks make, worth knowing before reading a report:
   record left `accepted` while naming a replacement was hand-edited — and
   adjudication reads it as current no matter what the pointer says, which is
   what makes it worth naming.
-- **`drifted` reports and never repairs.** It reads the same drift comparison
+- **`drifted` reports and never repairs.** It reads the same comparison
   `kb_load` and `kb_query` do, so the sweep and the read paths cannot disagree
-  about what drift is — but the re-stamp belongs to `anchor-resolve`, which is
-  the verb that writes. Unresolvable anchors ride in this group rather than a
-  ninth check, because the repair is the same edit and the cause is usually one
-  event: a file was renamed, so one anchor drifted and its neighbour vanished.
-  Which happened is in the note. Anchors carrying no hash are never read, so a
-  base nobody has stamped costs nothing here, and `--strict` does not gate on
-  drift — `anchor-resolve` already exits non-zero on it, against a repo root
-  the caller named.
+  about what drift is; the re-stamp belongs to `anchor-resolve`. Unresolvable
+  anchors ride in this group rather than a ninth check — the repair is the same
+  edit, and the note says which happened. Anchors carrying no hash are never
+  read, and `--strict` does not gate on drift: `anchor-resolve` already exits
+  non-zero on it.
 
-`--strict` gates on expiry alone. The other six report debt a reader decides
+`--strict` gates on expiry alone. The other seven report debt a reader decides
 about; an expired record is the base itself saying it would stop standing
 behind something, which is the one finding a pipeline can act on without a
 judgment call.

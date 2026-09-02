@@ -32,7 +32,7 @@ export const anchorResolveCommand = define({
   usage:
     "anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]",
   description:
-    "Resolve a record's anchors against the working tree: stamp a hash onto anchors that lack one, and report drift where the code moved out from under a stored hash. An unreadable file or unfindable symbol is a finding, not an error. Exits non-zero when an anchor drifted or when one that carries a hash no longer resolves — a deleted file is as much a broken anchor as a rewritten one — so a CI gate can run it; --rebaseline accepts the current code as the new baseline. An anchor that still matches is left alone rather than re-dated, so a green run writes nothing at all; --restamp refreshes `resolved_at` when you want the record to say when it was last checked. An anchor whose `repo` names another repository is skipped as `foreign-repo` — not read, not stamped, and not counted against the record; `repo` and `ref` are the author's to write and this command never touches them.",
+    "Resolve a record's anchors against the working tree: stamp a hash onto anchors that lack one, report drift where the code moved. kb_verify's mechanical counterpart. Exits non-zero on drift, or on a hash-carrying anchor that no longer resolves; --rebaseline accepts the current code, --restamp re-dates anchors that still match, and an anchor naming another repository is skipped as `foreign-repo`.",
   input: z.object({
     bundlePath,
     conceptId,
@@ -42,7 +42,7 @@ export const anchorResolveCommand = define({
       .boolean()
       .optional()
       .describe(
-        "Refresh `resolved_at` on anchors that already match. Off by default: a matching anchor is unchanged, and rewriting the record on every green run would fill the log with nothing.",
+        "Refresh `resolved_at` on anchors that already match. Off by default, so a green run writes nothing.",
       ),
   }),
   fromArgv: (argv, path) => ({
