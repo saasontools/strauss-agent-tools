@@ -1,3 +1,25 @@
+## 0.1.9 (2026-09-02)
+
+### 🩹 Fixes
+
+- cross-worktree log safety: union merge for log.md and atomic appends ([dd6ec3a](https://github.com/saasontools/strauss-agent-tools/commit/dd6ec3a))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
+## 0.1.8 (2026-09-02)
+
+### 🩹 Fixes
+
+- kb_doctor: a read-only health sweep for expired, unverified, aging, and orphaned records. ([74d1b48](https://github.com/saasontools/strauss-agent-tools/commit/74d1b48))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.7 (2026-08-26)
 
 ### 🚀 Features
