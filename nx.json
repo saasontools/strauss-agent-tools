@@ -1,23 +1,63 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "defaultBase": "main",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    // Root files a project's tasks genuinely read. Nx's built-in default for
+    // `sharedGlobals` is an empty list, so before this existed a lockfile or
+    // `tsconfig.base.json` change invalidated nothing and marked nothing
+    // affected. Listing a `{workspaceRoot}` fileset here also registers it as
+    // an implicit dependency of every project that uses this input, which is
+    // what makes a dependency bump rebuild the world.
+    //
+    // Deliberately absent: `.prettierrc`/`.prettierignore` and
+    // `commitlint.config.js` — no build, test, typecheck or lint target reads
+    // them (formatting runs from lint-staged, not from an Nx target).
+    "sharedGlobals": [
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/pnpm-workspace.yaml",
+      "{workspaceRoot}/.nvmrc",
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/eslint.config.js"
+    ],
+    // `default` minus the project's own markdown. Nothing compiled, tested,
+    // typechecked or linted in this repo reads a markdown file: tsup builds
+    // from `src/`, vitest writes its own fixtures into temp dirs, and eslint
+    // has no markdown processor configured. So a README or ARCHITECTURE.md
+    // edit must not change a task hash.
+    //
+    // The one project where markdown IS source is the Docusaurus site at
+    // `apps/strauss-kb-docs` — its `docs/**/*.md` is the thing being built.
+    // The exclusion is therefore opt-out-able per project: that app overrides
+    // `build.inputs` back to `["default", "^noMarkdown"]` in the `nx` key of
+    // its own package.json. Any future markdown-consuming project must do the
+    // same.
+    "noMarkdown": ["default", "!{projectRoot}/**/*.md"]
+  },
   "targetDefaults": {
     "build": {
       "cache": true,
       "dependsOn": ["^build"],
+      "inputs": ["noMarkdown", "^noMarkdown"],
       "outputs": ["{projectRoot}/dist"]
     },
     "typecheck": {
-      "cache": true
+      "cache": true,
+      "inputs": ["noMarkdown", "^noMarkdown"]
     },
     "test": {
       "cache": true,
       "dependsOn": ["build"],
+      "inputs": ["noMarkdown", "^noMarkdown"],
       "outputs": ["{projectRoot}/coverage"]
     },
     "lint": {
-      "cache": true
+      "cache": true,
+      "inputs": ["noMarkdown", "^noMarkdown"]
     },
+    // `claude plugin validate` reads a plugin's commands and skills, which are
+    // markdown — so this target keeps the default inputs. It is uncached and
+    // CI runs it with `run-many`, so it is unaffected by any of the above.
     "validate": {
       "cache": false
     }

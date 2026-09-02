@@ -1,0 +1,25 @@
+# Files Nx must not see at all — neither when hashing a task nor when deciding
+# what a commit affected.
+#
+# Why this exists on top of the `noMarkdown` named input in nx.json:
+# `namedInputs` only control a task's *cache hash*. Affectedness is computed
+# separately and is purely path-based — Nx marks a project affected when any
+# file under its root changed, whatever the target's inputs say. CI has no
+# shared Nx cache (no Nx Cloud, no cache action), so on a cold runner a
+# markdown-only commit would still schedule and really run every build and
+# test. Only `.nxignore` removes those files from the touched-file set, and
+# with it the tasks disappear instead of being replayed.
+#
+# Scope is deliberately narrow: `packages/*` markdown is documentation and
+# nothing else. tsup builds from `src/`, vitest synthesises its own fixtures
+# into temp dirs, and no package reads a checked-in `.md` at build or test
+# time. Root markdown (AGENTS.md, README.md, ...) already affects nothing —
+# it belongs to no project root and is not in `sharedGlobals`.
+#
+# NOT ignored, on purpose:
+#   - apps/strauss-kb-docs/**  — the Docusaurus site's markdown IS its source.
+#   - plugins/**               — a plugin's commands and skills are markdown,
+#                                and that markdown is what it ships.
+# Anything added later that compiles, tests or publishes markdown must stay
+# out of this list too.
+packages/**/*.md
