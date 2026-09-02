@@ -49,11 +49,25 @@ export type KbCommand<Shape extends z.ZodRawShape = z.ZodRawShape> = {
     input: z.infer<z.ZodObject<Shape>>,
   ): Promise<unknown>;
   /**
+   * A human-readable form of the result, for the CLI. Where it exists the CLI
+   * prints it and `--json` asks for the machine shape instead; MCP always gets
+   * the machine shape, since a tool result is parsed rather than read.
+   *
+   * Separate from `run` rather than rendered inside it — as `pack` does, whose
+   * result *is* a document — because a command whose result is a report needs
+   * both forms: the table for a person, and the object for `failsWhen` and for
+   * anything downstream.
+   */
+  render?(result: unknown): string;
+  /**
    * Turns a result into a non-zero exit for the CLI. A check that reports a
    * problem has succeeded as a command and failed as a check, and a shell
    * caller can only see the difference through the exit code.
+   *
+   * The input comes too, so a command can make the exit conditional on a flag
+   * the caller passed rather than on the result alone.
    */
-  failsWhen?(result: unknown): boolean;
+  failsWhen?(result: unknown, input: z.infer<z.ZodObject<Shape>>): boolean;
 };
 
 export const bundlePath = z

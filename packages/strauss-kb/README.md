@@ -54,6 +54,7 @@ bundling can `require()` it without depending on its Node version honouring
   <type>.<slug>.md    records
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
+  .gitattributes      merge      store-owned, written on first write
   .index.sqlite       search     derived, gitignored
 ```
 
@@ -75,6 +76,46 @@ alike is how the history gets lost:
 Repair-on-read, not coordination, is what lets both exist without a lock. The
 index is _eventually_ correct: a writer whose scan predated another's record
 publishes a briefly stale index, and the next read through the store settles it.
+
+### Cross-worktree writes
+
+A committed base is routinely written from more than one worktree at once —
+each records into the same `log.jsonl`, and a plain git merge of two branches
+that both appended lines resolves that file at the line level, same as any
+other text file. That is the wrong merge for an append-only log: git's default
+picks a side, or conflicts, on lines that both branches only ever meant to add
+to.
+
+So the first write to a base (through `write`, or whichever call happens to
+append the first log line) declares a merge driver for its log: it writes
+`log.jsonl text eol=lf merge=union` into the base's `.gitattributes` if that
+file does not exist yet, and appends the line if the file exists but declares
+no merge strategy for `log.jsonl` yet — a `.gitattributes` a user put there
+first is respected, never overwritten wholesale, and a line that already
+gives `log.jsonl` _any_ merge strategy — this one or the user's own choice
+such as `merge=ours` — is left alone rather than layered under a second,
+possibly conflicting one. `union` is one of git's built-in merge drivers; the
+attribute alone is enough; nothing else needs configuring. `eol=lf` pins line
+endings to `\n` regardless of a checkout's `core.autocrlf`, so a Windows
+checkout normalizing the file on checkout can't leave it with mixed endings
+against the raw `\n` every append writes. With it, a merge of two branches
+that both appended to `log.jsonl` keeps both sides' lines instead of picking
+one.
+
+A union merge does not preserve line order, and can occasionally keep the
+same line twice (a cherry-pick or rebase that carried one side's entry into
+the other's history before the merge). `kb_log`'s reader (`kb-log.ts`) sorts
+entries by `at` and drops exact duplicates before returning them, so neither
+is something a caller has to account for.
+
+**This applies to a local `git merge`, not to GitHub.** GitHub computes pull
+request merges (and the merge/squash/rebase buttons) through its own service,
+which does not read `.gitattributes` merge-driver declarations — a PR that
+merges two branches' `log.jsonl` appends on GitHub gets git's ordinary
+line-level merge (or a conflict) even with the attribute in place. The union
+driver only fires for a merge actually run by a local git client, which covers
+worktrees pulling from and pushing to each other directly, but not a merge
+GitHub itself performs.
 
 ## Records
 
@@ -226,6 +267,8 @@ strauss-kb [--bundle PATH] <command> [args]
   index                                    The index, rebuilt if it disagrees with the records.
   log                                      What touched what, and when.
   validate                                 Cross-record checks. Exits 1 when it reports a problem.
+  doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--strict]
+                                           Health sweep: what expired, went unconfirmed, aged, or was orphaned.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
   pin [bundle-path] [flags]                Pin a base. --mode, --profiles, --frozen; --local/--user pick the layer.
@@ -235,20 +278,24 @@ strauss-kb [--bundle PATH] <command> [args]
   sync-instructions <file>                 Plant the context block between sentinels in an instruction file.
 
   --bundle PATH  defaults to ./.strauss/kb
+  --json         the machine shape, where a command prints a table
+  --             everything after it is text, not flags
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
-Results go to stdout as JSON — `index`, `catalog` and `pack` are markdown,
-which is what they are. Errors
-go to stderr and exit 1. `validate` is the one command whose exit code is not
-just "did it run": a check that reports a problem succeeded as a command and
-failed as a check, so it exits 1 with its findings on stdout.
+Results go to stdout as JSON — `index`, `catalog` and `pack` are markdown, which is what
+they are, and `doctor` prints a table unless `--json` asks for the object
+behind it. `--json` is refused rather than ignored on the commands that have
+only one form, since a flag that quietly does nothing reads as one that
+worked; `--` ends flag parsing, for the verbs that end in free prose. Errors
+go to stderr and exit 1. `validate` and `doctor --strict` are the commands
+whose exit code is not just "did it run": a check that reports a problem
+succeeded as a command and failed as a check, so it exits 1 with its findings
+on stdout.
 
-A flag that takes a value accepts either spelling — `--budget 4000` or
-`--budget=4000` — and a flag given no value is an error rather than a fall back
-to the default. `strauss-kb load --max-records` quietly returning the default 40
-would hand the caller the exact ceiling they were trying to move, and a trailing
-typo would be indistinguishable from success.
+A flag accepts either spelling — `--budget 4000` or `--budget=4000` — and a
+flag given no value is an error rather than a silent fallback to the default,
+so a trailing typo cannot look like success.
 
 ```bash
 strauss-kb --bundle .strauss/kb write fact <<'JSON'
@@ -270,8 +317,8 @@ strauss-kb validate || echo "problems above"
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_catalog`,
-`kb_pack`, `kb_query`,
-`kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`, `kb_schema`, `kb_types`,
+`kb_pack`, `kb_query`, `kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`,
+`kb_doctor`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
 `kb_pins` and `kb_context` read the workspace pin manifests instead. The one
@@ -356,9 +403,8 @@ conversation is summarised away by the end of it, and reloading costs about
 three thousand tokens. Read it again at the point of use.
 
 **The three rungs, in one rule.** At or under the gate, `load` the base whole.
-Past it, `catalog` to see every record in one line each, then `pack` the record
-the work centres on. For a lookup by wording — you already know roughly what
-the record says — `query`.
+Past it, `catalog` then `pack` the record that matters. For a lookup by
+wording, `query`.
 
 ```bash
 strauss-kb load                          # under the gate: everything, with standing
@@ -367,102 +413,69 @@ strauss-kb pack decision.cursor-v2       # then the neighbourhood around the one
 strauss-kb query cursor pagination       # or a point lookup by wording
 ```
 
-The rungs are ordered by what they cost and by what they can tell you. A whole
-read gives perfect recall and can say _no record answers this_. A catalog keeps
-that second property at a fraction of the price — it names every record, so
-"nothing covers this" stays a supportable conclusion — and gives up the bodies.
-A query gives up both: it returns its nearest hit whatever the distance, so it
-can confirm what exists and never that something does not.
+A whole read gives perfect recall and can say _no record answers this_, which
+no ranker can. `catalog` keeps that at a fraction of the cost by naming every
+record instead of every body; `query` gives up both, returning its nearest hit
+whatever the distance.
 
-`load` refuses rather than truncating when a base exceeds either of its two
-ceilings. A truncated base is indistinguishable from a complete one, so a
-caller would answer "that was never decided" from a slice it did not know was a
-slice. `context` refuses the same way at its own, tighter budget (4,000 by
-default). Superseded records come back as name, replacement and date only —
-their bodies no longer hold, and a body read later in a long session outlives
-the qualifier that said so. `trace` still reaches them by id.
-
-The two ceilings are independent, and either refuses on its own:
+`load` refuses rather than truncating past either of two independent
+ceilings — a truncated base reads as a complete one, so a caller would answer
+"never decided" from a slice it did not know was a slice. `context` refuses
+the same way at its own, tighter budget (4,000 by default). Superseded records
+come back as name, replacement and date only; `trace` still reaches them by
+id.
 
 | Ceiling                        | Default | Held against                                                   |
 | ------------------------------ | ------- | -------------------------------------------------------------- |
 | `--max-records` / `maxRecords` | 40      | whole records handed back (`pageCount`); stubs are not counted |
 | `--budget` / `budgetTokens`    | 25,000  | the estimated size of what is handed back (`approxTokens`)     |
 
-The record gate is not a restatement of the budget. The budget asks whether the
-base will fit; the gate asks whether it is the right shape to read whole. A base
-of many short records passes the budget and still reads as a skim, and the
-recall a whole read buys is the entire reason to prefer it over searching. A
-refusal reports both counts, names every ceiling it tripped in `refusedBy`, and
-carries a `message` that names the gate value, the next calls, and both escape
-hatches — because a caller told only "too big" raises the ceiling, which is the
-one move the ceiling exists to discourage, and a caller told nothing at all
-invents a raw file read, which is worse.
+The gate is not a restatement of the budget: many short records can fit the
+token budget and still read as a skim rather than a whole. A refusal reports
+both counts, names every tripped ceiling in `refusedBy`, and carries a
+`message` naming the gate and the next calls. A successful load reports
+`pageCount` and `maxRecords` too, so a caller can see how close it came before
+crossing the line.
 
-A **successful** load reports `pageCount` and `maxRecords` too, symmetric with
-the refusal. A caller that can see how close it came can act before the base
-crosses the line; one that only ever hears "refused" finds out by being refused.
+> **Upgrading from 0.1.7.** The record gate is on by default, so a base of 41+
+> whole records that loaded before now refuses. Pass a higher `maxRecords` or
+> `all: true` to restore the old result; the intended path past the gate is
+> `catalog` then `pack`.
 
-> **Upgrading from 0.1.7.** The record gate is on by default, so a base of 41 or
-> more whole records that loaded before now refuses. That is the intended
-> behaviour — the token budget cannot see shape — but it is a change in what an
-> unchanged call returns. Pass a higher `maxRecords`, or `all: true`, to restore
-> the old result on a given call; the intended path past the gate is `catalog`
-> then `pack`.
-
-`--all` (`all: true` over MCP) is the escape hatch: it bypasses **both**
-ceilings and hands back the entire bundle whatever its size. A loaded result
-carries `tokensLoaded`, the same estimate the budget is held against, and both
-`budgetTokens: null` and `maxRecords: null` mark that no ceiling was applied;
-`--all` is mutually
-exclusive with `--budget` and `--max-records`, because a ceiling and "no
-ceiling" in one call is a contradiction rather than a preference. The refusal
-is the guardrail an agent needs so a wide base does not silently consume its
-whole context; `--all` is for a deliberate operator who has decided the size is
-worth the tokens, not a setting to reach for by default. A reader that does not
-actually need every record is better served by a narrower `type` filter, a
-`catalog`, or a `query` than by turning the guardrail off.
+`--all` (`all: true` over MCP) bypasses **both** ceilings and hands back the
+entire bundle regardless of size. A loaded result carries `tokensLoaded`, and
+both `budgetTokens: null` and `maxRecords: null` mark that no ceiling applied;
+`--all` is mutually exclusive with `--budget` and `--max-records`. It is for
+an operator who has decided the size is worth the tokens — a narrower `type`
+filter, `catalog`, or `query` fits better when it is not.
 
 **Catalog is the rung that keeps the base knowable.** One line per record —
-concept id, type, title, standing, and a stale flag — sorted by type then title,
-at roughly thirty tokens each: a base far past `load`'s gate still fits in one
-call. Superseded records are listed with the replacement that stands in their
-place, so the line to follow instead is already in view. The header counts every
-record by standing (the counts sum to the record count, so nothing goes missing
-silently), reports staleness separately as the overlay it is — a current record
-can be stale — and gives the `pageCount` the record gate is held against, so a
-reader can see a refusal coming rather than discover it. What it does not carry
-is bodies; `load`, `pack` and `trace` fetch those.
+concept id, type, title, standing, stale flag — sorted by type then title, at
+roughly thirty tokens each, so a base far past `load`'s gate still fits in one
+call. Superseded records show the replacement in place of a body. The header
+sums record counts by standing, reports staleness separately (a current
+record can be stale), and gives the `pageCount` the record gate is measured
+against. Bodies live in `load`, `pack`, and `trace`.
 
-Alone among the read paths, `catalog` has no ceiling and never refuses. It is
-where the others send you, so a refusal here would leave nowhere to go. The cost
-is linear and predictable at roughly thirty tokens a record — a hundred records
-is about 3k, a thousand about 30k, five thousand about 150k — and on a base of
-that last size the `type` filter is the tool, not a ceiling.
+`catalog` alone has no ceiling and never refuses — cost is linear at roughly
+thirty tokens a record (a thousand-record base is about 30k, five thousand
+about 150k); narrow with `type` at that scale. Output is deterministic given
+a fixed clock — no timestamp, ordering total down to the concept id — so two
+catalogs of an unchanged base diff to nothing except a stale flag flipping as
+`stale_after` passes. Pass an explicit `now` (library callers) to hold
+byte-equality across that boundary.
 
-Output is deterministic **given a fixed clock**: no timestamp is emitted, and
-the ordering is total down to the concept id, compared by code unit rather than
-`localeCompare` so two machines agree. Two catalogs of an unchanged base
-therefore diff to nothing — with one exception, a stale flag flipping as a
-record's `stale_after` date passes. Pass an explicit `now` (library callers) when
-byte-equality has to hold across that boundary.
-
-**Pack is the middle rung.** Under the ceilings, load the base whole — perfect
-recall beats any ranking. Past them, when the work centres on a record you
-can name (the catalog is how you name it), `pack` hands over that record's
-bounded neighbourhood instead:
-everything within `--hops` of the root, walked over the base's edges — body
-links (a `relatedConceptIds` entry is stored as one), supersession in both
-directions, shared code anchors, and shared sources — ranked and cut to
-`--max-nodes`. Standing travels with it: superseded neighbours arrive as the
-same name, replacement and date stubs `load` emits. Every record the cut
-dropped is named under Excluded, because a named gap is knowable and a silent
-one is not, and past its own token budget `pack` refuses exactly as `load`
-does — naming what was already cut, so the caller can narrow the walk or
-raise the ceiling. Below the header, the only place a timestamp appears, the
-output is byte-identical across runs over an unchanged base: two packs diff,
-and a changed byte means changed knowledge. With neither a size problem nor
-a root record in hand, the question is a point lookup, and that is `query`.
+**Pack is the middle rung.** Under the ceilings, load the base whole. Past
+them, when the work centres on a record you can name (`catalog` is how you
+name it), `pack` hands over that record's bounded neighbourhood: everything
+within `--hops` of the root, walked over the base's edges — body links (a
+`relatedConceptIds` entry is one), supersession in both directions, shared
+code anchors, and shared sources — ranked and cut to `--max-nodes`. Standing
+travels with it: superseded neighbours arrive as the same stubs `load` emits.
+Every dropped record is named under Excluded, and past its own token budget
+`pack` refuses exactly as `load` does. Output is byte-identical across runs
+over an unchanged base below the header. With neither a size problem nor a
+root record in hand, the question is a point lookup — `query`.
 
 **Flag, never filter.** `query` returns every hit with its standing, because a
 filtered result set is invisible — the caller cannot tell it missed anything.
@@ -506,6 +519,83 @@ gap: gray-matter does not normalize line endings, so the same record
 digests differently authored with CRLF versus LF. It is a same-environment
 signal, not proof that two checkouts on different machines hold identical
 content.
+
+## Health
+
+`doctor` sweeps a whole base and reports what has decayed. It is read-only —
+nothing is re-dated, re-verified, superseded, or deleted — because every
+finding is a judgment somebody has to make: whether a claim still holds, which
+question is worth answering, which island to link or drop.
+
+It exists because decay is invisible from inside a single record. A stale
+record reads exactly like a live one, a question nobody answered reads exactly
+like one nobody asked, and a record nothing links to is reachable only by
+someone who already knows it is there. `validate` is the narrower neighbour:
+it asks only whether pointers between records agree.
+
+| Check                  | Reports                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `expired`              | `stale_after` is in the past — or is not a readable date, which is no better.  |
+| `expiring`             | `stale_after` falls inside the next `--expiring-days` (30).                    |
+| `unverified`           | `verified[]` is empty and the record is over `--unverified-days` (90) old.     |
+| `aging`                | Still `open` or `proposed` after `--aging-days` (90).                          |
+| `orphaned`             | No other record links to it, by body link or supersession.                     |
+| `broken-supersession`  | A chain that does not resolve: no replacement, a missing one, a cycle, a fork. |
+| `superseded-but-cited` | A record that still holds, whose body links to one that does not.              |
+
+The last check's name is for its common case: a rejected target counts too, and
+is the worse half — a superseded record at least names its replacement, while a
+rejected one is a well-formed assertion of what someone decided _not_ to do,
+cited by a record the reader trusts.
+
+```bash
+strauss-kb doctor                       # the table
+strauss-kb doctor --json                # the object behind it
+strauss-kb doctor --strict              # exit 1 if anything has expired
+strauss-kb doctor --unverified-days 30  # a stricter confirmation window
+```
+
+All seven groups are reported even when empty. A check that found nothing and
+a check that never ran look identical in a report that only lists findings,
+which is the whole value of a sweep.
+
+Judgments the checks make, worth knowing before reading a report:
+
+- **Superseded and rejected records sit out the freshness checks.** A replaced
+  record whose date has passed needs no repair, and reporting it would bury the
+  records that do. They stay in the graph checks, where standing is not the
+  question.
+- **A date-only `stale_after` expires at UTC midnight.** `2026-09-01` parses as
+  `2026-09-01T00:00:00Z`, so a record goes stale at the start of its date: a
+  sweep run at exactly that instant still calls it expiring, and one a minute
+  later calls it expired. That is `adjudicate`'s comparison rather than a
+  second one — two readings of the same field disagreeing about the day would
+  be worse than either.
+- **Age is read from `generated.at`, exclusively.** A record carrying no
+  timestamp is not reported as aging or unverified — without a start there is
+  no duration, and inventing one would flag every foreign record as overdue
+  (adjudication still warns `unverified` on it at read time). Exactly N days
+  old is not yet "older than N".
+- **`orphaned` counts incoming links only, and reads supersession one way.** A
+  record that cites five others and is cited by none is precisely the island:
+  reachable if you already know it exists. The replacement references what it
+  replaced, never the reverse — taken symmetrically, a dead record would vouch
+  for its own replacement and an old→new pair nothing else touches would rescue
+  itself. Shared anchors and shared sources are co-location rather than
+  reference, so they do not rescue a record either.
+- **A record citing the one it replaced is not superseded-but-cited.** That
+  link is the history working as designed, and reporting it would put a finding
+  on every correctly performed supersession.
+- **A replacement pointer is checked whatever the status says.** The store
+  writes `strauss_status` and `strauss_superseded_by` in one mutation, so a
+  record left `accepted` while naming a replacement was hand-edited — and
+  adjudication reads it as current no matter what the pointer says, which is
+  what makes it worth naming.
+
+`--strict` gates on expiry alone. The other six report debt a reader decides
+about; an expired record is the base itself saying it would stop standing
+behind something, which is the one finding a pipeline can act on without a
+judgment call.
 
 ## Living in an agent session
 

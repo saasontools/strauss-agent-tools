@@ -1,0 +1,62 @@
+{
+  "name": "strauss-kb-docs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Documentation site for @saasontools/strauss-kb, deployed to GitHub Pages",
+  "license": "MIT",
+  "author": "Assaf Kamil",
+  "//": "Deliberately NOT \"type\": \"module\", unlike every package in this repo. Webpack does not parse or replace require.resolveWeak() inside an ESM-scoped package (webpack#15775), and Docusaurus' generated SSR entry under .docusaurus/ inherits this package.json — so declaring ESM here fails the server bundle at build time. That is also why the flat ESLint config beside this file is eslint.config.mjs.",
+  "//nx": "nx.json's targetDefaults give every build the `noMarkdown` input, which drops `{projectRoot}/**/*.md` from the task hash — right for the packages, wrong here: docs/**/*.md is exactly what `docusaurus build` compiles. So this target opts back in with `default` for its own files. `^noMarkdown` keeps the dependency half of the shape it is overriding; the site has no workspace dependencies today, so it matches nothing, and it is kept only so that if the site ever takes one, that dependency's README still will not rebuild the site. The site's markdown is also deliberately absent from the repo's .nxignore — both halves are required, see AGENTS.md.",
+  "nx": {
+    "targets": {
+      "build": {
+        "inputs": [
+          "default",
+          "^noMarkdown"
+        ],
+        "outputs": [
+          "{projectRoot}/build"
+        ]
+      }
+    }
+  },
+  "scripts": {
+    "build": "docusaurus build",
+    "start": "docusaurus start",
+    "serve": "docusaurus serve",
+    "clear": "docusaurus clear",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@docusaurus/core": "3.10.2",
+    "@docusaurus/preset-classic": "3.10.2",
+    "@mdx-js/react": "^3.1.1",
+    "clsx": "^2.1.1",
+    "prism-react-renderer": "^2.4.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@docusaurus/module-type-aliases": "3.10.2",
+    "@docusaurus/plugin-content-docs": "3.10.2",
+    "@docusaurus/types": "3.10.2",
+    "@types/react": "^19.2.0",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome version",
+      "last 3 firefox version",
+      "last 5 safari version"
+    ]
+  }
+}
