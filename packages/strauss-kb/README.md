@@ -484,44 +484,28 @@ fact; a missing replacement is `broken-chain` with no head — the case that nee
 the most care, because returning the stale record unmarked looks exactly like
 success.
 
-**Placement is cache economics, not just token count.** `load`'s output
-belongs in the stable prefix — the system prompt, or the first turn — and gets
-reloaded only when its content actually changed; `query` and `pack` results
-belong at the tail, after it, because they differ every call. Two things make
-that split pay for itself rather than just tidying the transcript. A provider
-prompt cache discounts a request by roughly 0.1x on the prefix it can match
-byte-for-byte against a prior call — the first token that differs from a
-previous call ends the match, so one volatile result ahead of a stable load
-would price the whole base at full rate on every call after the first. And a
-long context privileges its beginning: attention over a long context is not
-uniform, and content near the start is attended to more reliably than content
-buried mid-transcript, so the base that is supposed to anchor a session's
-answers earns that only by sitting where it is read most reliably, not by
-merely being present somewhere in it.
+**Placement is cache economics.** `load`'s output belongs in the stable
+prefix — the system prompt, or the first turn — and reloads only when its
+content changed; `query` and `pack` results belong at the tail, since they
+differ every call. A provider prompt cache discounts a request by roughly
+0.1x on the prefix it matches byte-for-byte against a prior call, so one
+volatile result ahead of a stable load prices the whole base at full rate
+thereafter.
 
-`load`'s result carries a `digest` — one sha256 over every record it would
+`load`'s result carries a `digest`: one sha256 over every record it would
 hand back, current and superseded alike, sorted so it never depends on
-listing order — for exactly this: identical bundle content digests
-identically across calls, and any record changing (body, frontmatter, or a
-supersession flipping its standing) flips it. A caller holding `load`'s
-output in a stable prefix reloads when `digest` changes and otherwise leaves
-the prefix alone; a refused load carries the same digest, computed over what
-would have been handed back, so a caller narrowing a `type` filter after a
-refusal can tell whether that changed anything without loading it.
+listing order. Any record changing (body, frontmatter, or a supersession
+flipping its standing) flips it. Hold `load`'s output in a stable prefix and
+reload only when `digest` changes; a refused load carries the same digest,
+computed over what would have been handed back, so a narrower `type` filter
+after a refusal can be checked without loading it.
 
-"Identical content" means identical after recomposition, not identical
-on-disk bytes — the digest is hashed over each record's canonical recomposed
-form, not the raw file, so it is not a substitute for the write path's own
-content-addressed check and the two should never be compared to each other.
-One real-world gap follows from that: gray-matter, the parser underneath,
-does not normalize the body's line endings, so a record authored with CRLF
-line endings digests differently from the same record authored with LF even
-though both read as the same text. That makes the digest a same-environment
-signal — reload-or-not for one client talking to one checkout of a bundle —
-not a proof that two checkouts on different machines hold the same content;
-a bundle that has crossed a line-ending-translating `git checkout` or been
-edited from two platforms can digest differently for reasons that have
-nothing to do with what changed.
+The digest hashes each record's canonical recomposed form, not the raw file
+— it is not a substitute for the write path's content-addressed check. One
+gap: gray-matter does not normalize line endings, so the same record
+digests differently authored with CRLF versus LF. It is a same-environment
+signal, not proof that two checkouts on different machines hold identical
+content.
 
 ## Living in an agent session
 
