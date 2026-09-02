@@ -82,6 +82,9 @@ jobs:
       # intentionally absent from this job.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # nx-set-shas walks history to find the last successful main build,
+          # so this job needs the full log the same way `checks` does.
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -93,4 +96,23 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm nx run-many -t build test
+      - name: Derive affected base and head
+        uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5.0.1
+        with:
+          main-branch-name: main
+
+      # Affected rather than run-many: a commit that only edits documentation
+      # under `packages/*` touches no project at all, so this matrix costs two
+      # runner startups instead of two full Windows and macOS builds. The job
+      # still reports its own status, so it stays a usable required check —
+      # unlike a `paths:`-filtered workflow, which never reports at all and
+      # leaves the check pending forever.
+      #
+      # strauss-kb-docs is excluded because this job exists for one reason:
+      # MCP servers run on user machines and path handling is where they
+      # break. The Docusaurus site ships to GitHub Pages from one Linux
+      # runner, so building it on Windows and macOS proves nothing — and
+      # unlike the packages, its markdown IS source, so without this exclude
+      # every prose edit to the docs would drag two extra `docusaurus build`
+      # runs along with it. The site is still built and deployed by docs.yml.
+      - run: pnpm nx affected -t build test --exclude strauss-kb-docs

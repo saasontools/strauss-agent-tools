@@ -6,6 +6,7 @@ import {
   rmSync,
   writeFileSync,
   mkdirSync,
+  unlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,6 +27,7 @@ import {
   KbSelfVerificationError,
   KbWriteConflictError,
 } from "./kb-errors.js";
+import { GITATTRIBUTES_FILE, UNION_MERGE_LINE } from "./kb-gitattributes.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
 import type { KbRecord } from "./kb-record.schema.js";
@@ -760,7 +762,129 @@ describe("log.jsonl", () => {
     await store.write(bundle, { ...decision(), overwrite: true });
 
     expect(readdirSync(bundle).sort()).toEqual(
-      ["decision.region-in-cache-key.md", LOG_FILE].sort(),
+      ["decision.region-in-cache-key.md", LOG_FILE, GITATTRIBUTES_FILE].sort(),
+    );
+  });
+});
+
+describe(".gitattributes", () => {
+  test("is created on first write, declaring union merge for the log", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+
+    const contents = readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8");
+    expect(contents).toBe(`${UNION_MERGE_LINE}\n`);
+  });
+
+  test("does not clobber a user's .gitattributes that already carries the line", async ({
+    store,
+    bundle,
+  }) => {
+    mkdirSync(bundle, { recursive: true });
+    const userContent = `* text=auto\n${UNION_MERGE_LINE}\n`;
+    writeFileSync(join(bundle, GITATTRIBUTES_FILE), userContent);
+
+    await store.write(bundle, fact("one"));
+
+    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
+      userContent,
+    );
+  });
+
+  test("appends the line to a user's .gitattributes that lacks it, without touching what's already there", async ({
+    store,
+    bundle,
+  }) => {
+    mkdirSync(bundle, { recursive: true });
+    writeFileSync(join(bundle, GITATTRIBUTES_FILE), "*.md text\n");
+
+    await store.write(bundle, fact("one"));
+
+    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
+      `*.md text\n${UNION_MERGE_LINE}\n`,
+    );
+  });
+
+  test("is left alone on a second write once the line is present", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+    const afterFirst = readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8");
+
+    await store.write(bundle, fact("two"));
+
+    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
+      afterFirst,
+    );
+  });
+
+  // A deliberate `merge=ours` (or any other value) is a decision already
+  // made — appending `merge=union` alongside it would not add union merge,
+  // it would silently override that decision, since gitattributes resolves
+  // repeated lines for the same pattern by "last one wins".
+  test("does not append union merge over a user's own merge strategy for the log", async ({
+    store,
+    bundle,
+  }) => {
+    mkdirSync(bundle, { recursive: true });
+    const userContent = "log.jsonl merge=ours\n";
+    writeFileSync(join(bundle, GITATTRIBUTES_FILE), userContent);
+
+    await store.write(bundle, fact("one"));
+
+    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
+      userContent,
+    );
+  });
+
+  // A transient read failure (permissions, EMFILE, a directory sitting where
+  // the file should be) must not be mistaken for "the file doesn't exist" —
+  // that misreading is what used to make `write()` truncate a real
+  // `.gitattributes` down to just the union-merge line. Occupying the path
+  // with a directory is a reliable, portable way to force `readFile` to fail
+  // with something other than `ENOENT`.
+  test("a .gitattributes that cannot be read is left alone, and the write still succeeds", async ({
+    bundle,
+  }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+    mkdirSync(join(bundle, GITATTRIBUTES_FILE), { recursive: true });
+
+    const written = await quiet.write(bundle, fact("one"));
+
+    expect(written.conceptId).toBe("fact.one");
+    // Untouched: still a directory, not overwritten with the union-merge
+    // line — the bug this test guards against would have replaced it with a
+    // regular file.
+    expect(readdirSync(join(bundle, GITATTRIBUTES_FILE))).toEqual([]);
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        operation: "kb.gitattributes.ensure",
+        outcome: "failed",
+      }),
+    );
+  });
+
+  // Not just `write()`: every path that appends a log line —
+  // `record()`, shared by `write`, `setStatus`, `verify`, `supersede` —
+  // ensures the merge driver too. `write` already covers itself; this
+  // exercises `setStatus` (through `mutate`) against a bundle whose
+  // `.gitattributes` is, for whatever reason, missing at the time of the
+  // second write.
+  test("is ensured by setStatus (mutate), not only by write", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+    unlinkSync(join(bundle, GITATTRIBUTES_FILE));
+
+    await store.setStatus(bundle, "fact.one", "rejected");
+
+    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
+      `${UNION_MERGE_LINE}\n`,
     );
   });
 });
