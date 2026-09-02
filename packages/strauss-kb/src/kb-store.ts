@@ -852,17 +852,7 @@ export function estimateStubTokens(entry: KbSupersededStub): number {
   return Math.ceil(JSON.stringify(entry).length / 4);
 }
 
-/**
- * What a refused load says.
- *
- * A refusal that reports only numbers leaves the caller to invent a next move,
- * and the move it invents is usually to raise the ceiling — which is the one
- * thing the ceiling exists to discourage. So the message names the ceiling it
- * tripped, and then the three-rung procedure by tool name: catalog to see every
- * record, pack for the neighbourhood around the one that matters, query for a
- * lookup by wording. Naming the escape hatch last and as an escape hatch keeps
- * it from reading as the obvious fix.
- */
+/** What a refused load says: which ceiling tripped, and what to call next. */
 function refusalMessage(refusal: {
   refusedBy: KbLoadRefusal[];
   pageCount: number;
@@ -886,20 +876,14 @@ function refusalMessage(refusal: {
   }
   const scope = refusal.type ? ` of type ${refusal.type}` : "";
 
-  // Both escape hatches are named, and named last. A caller that cannot find
-  // them invents its own workaround — usually a raw file read, which is the
-  // one thing this package exists to prevent — but a caller that meets them
-  // first reaches for them instead of the rung it should be on.
   const hatches = refusal.refusedBy.includes("pages")
-    ? `raise maxRecords (currently ${refusal.maxRecords}) if you have judged this base worth reading whole, or all=true to bypass both ceilings outright`
-    : `raise budgetTokens (currently ${refusal.budgetTokens}), or all=true to bypass both ceilings outright`;
+    ? `raise maxRecords (currently ${refusal.maxRecords}), or all=true to bypass both ceilings`
+    : `raise budgetTokens (currently ${refusal.budgetTokens}), or all=true to bypass both ceilings`;
 
   return [
     `Refusing to load this base whole: ${reasons.join(", and ")}.`,
-    "Nothing was truncated — a partial base is indistinguishable from a complete one.",
-    `Call kb_catalog for one line per record${scope} (id, type, title, standing), then kb_pack on the record the work centres on for its bounded neighbourhood.`,
-    "For a lookup by wording, kb_query. A narrower type filter may also bring the base under the gate.",
-    `If you do need every record: ${hatches} — both are for a deliberate operator who has decided the size is worth the tokens, not a first resort.`,
+    `Call kb_catalog for one line per record${scope} (id, type, title, standing), then kb_pack on the record that matters; kb_query works for a lookup by wording.`,
+    `To load anyway: ${hatches}.`,
   ].join(" ");
 }
 

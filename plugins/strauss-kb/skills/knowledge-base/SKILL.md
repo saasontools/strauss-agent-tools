@@ -54,10 +54,8 @@ strauss-kb load decision      # narrowed to one type
 ```
 
 If `load` returns `loaded: false`, the base is past one of its two ceilings —
-more than 40 whole records, or more than 25,000 estimated tokens. It refuses
-rather than truncating, because a truncated base looks exactly like a complete
-one, and its `message` names which ceiling and what to call next. Then take the
-next rung down:
+more than 40 whole records, or more than 25,000 estimated tokens — and its
+`message` names which one and what to call next:
 
 ```bash
 strauss-kb catalog                       # one line per record: id, type, title, standing
@@ -66,10 +64,9 @@ strauss-kb query cursor pagination keyset  # a point lookup by wording
 ```
 
 **The rule in one line:** under the gate, `load` whole; past it, `catalog` then
-`pack`; for a lookup by wording, `query`. Reach for `catalog` whenever the
-question is _what exists_ — it names every record, so "no record covers this"
-stays a conclusion you can support. A `query` cannot support it: it returns its
-nearest hit whatever the distance.
+`pack`; for a lookup by wording, `query`. Reach for `catalog` when the question
+is _what exists_ — it names every record, so "no record covers this" stays
+supportable, which a `query`'s nearest-hit-regardless-of-distance cannot.
 
 **Read the standing, not just the match.** Every result carries one:
 
