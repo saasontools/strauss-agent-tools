@@ -42,7 +42,7 @@ process.stdout.on("error", () => {});
 // server) would mean this hook runs whatever the registry serves *today*
 // against every single manual edit; pinning trades that for "update this
 // constant, in the same PR, whenever the package version moves."
-const PINNED_STRAUSS_KB_VERSION = "0.1.7";
+const PINNED_STRAUSS_KB_VERSION = "0.1.9";
 
 const CLI_TIMEOUT_MS = 10_000;
 // npx may need to resolve/fetch the package first; give it real room, but
