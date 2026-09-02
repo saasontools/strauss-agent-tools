@@ -3,16 +3,14 @@ import type { CellUsage } from "./model.js";
 /**
  * The two tiers the benchmark runs, and what they cost.
  *
- * Two tiers rather than one because the interesting failure -- acting on a
- * decision that was reversed -- is the kind a smaller model makes more often,
- * and an intervention that only helps the cheap tier is still worth knowing
- * about. Prices are USD per million tokens, first-party Claude API rates.
+ * Two tiers because acting on a reversed decision is the kind of failure a
+ * smaller model makes more often. Prices are USD per million tokens,
+ * first-party Claude API rates.
  *
  * `minCacheableTokens` is the model's minimum cacheable prefix: below it a
  * `cache_control` marker is silently ignored -- no error, just
- * `cache_creation_input_tokens: 0`. It is not monotonic across generations,
- * which is why it is a per-model field rather than one constant: Sonnet 5
- * caches from 1024 tokens, Haiku 4.5 needs 4096.
+ * `cache_creation_input_tokens: 0`. Per-model rather than one constant because
+ * it is not monotonic: Sonnet 5 caches from 1024 tokens, Haiku 4.5 needs 4096.
  */
 export type BenchModel = {
   id: string;
@@ -87,12 +85,9 @@ export type CostProjection = {
 };
 
 /**
- * Prices a run both ways.
- *
- * Both, deliberately. A single "with caching" figure would be a forecast
- * dressed as a budget: an entry can expire between arms, a retry can land on a
- * cold cache, and a prefix under the model's minimum silently never caches at
- * all. The uncached column is what the run cannot exceed.
+ * Prices a run both ways. A single "with caching" figure would be a forecast
+ * dressed as a budget -- entries expire, a retry can land cold, a prefix under
+ * the minimum never caches -- so the uncached column is the bound.
  */
 export function projectCost(
   modelId: string,

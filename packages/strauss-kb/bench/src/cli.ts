@@ -42,11 +42,9 @@ export type CliOptions = {
 };
 
 /**
- * Parses argv, rejecting anything it does not recognise.
- *
- * Strict on purpose. A typo in `--arms=A,E` or `--models=claude-sonet-5` would
- * otherwise run the matrix, spend the money, and report a table with a missing
- * row -- and the failure would be discovered after the bill, not before it.
+ * Parses argv, rejecting anything it does not recognise. A typo in
+ * `--arms=A,E` or `--models=claude-sonet-5` would otherwise be discovered after
+ * the bill rather than before it.
  */
 export function parseArgs(argv: readonly string[]): CliOptions {
   const flags = new Map<string, string>();
@@ -71,8 +69,8 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   const full = flags.get("full") === "true";
 
   const armList = flags.get("arms");
-  // A smoke run is the two arms the hypothesis is actually about: the flagged
-  // bundle and the untyped-plus-instruction control.
+  // A smoke run is the two arms the hypothesis is about: the flagged bundle
+  // and the untyped-plus-instruction control.
   const arms = (
     armList ? armList.split(",") : full ? [...ARM_IDS] : ["A", "B"]
   ).map((arm) => arm.trim().toUpperCase());
@@ -153,9 +151,7 @@ export type Projection = {
 };
 
 /**
- * What the run would cost before it runs.
- *
- * Priced against the widest arm, so the number is never an undercount, and
+ * What the run would cost before it runs. Priced against the widest arm, and
  * reported cached and uncached because only the second is a bound.
  */
 export function estimate(

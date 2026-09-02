@@ -1,9 +1,8 @@
 import type { BenchTask } from "./model.js";
 
 /**
- * Thirty questions over the shipped bundle, with ground truth per question.
- *
- * Written against the bundle's actual content, in four families:
+ * Thirty questions over the shipped bundle, with ground truth per question, in
+ * four families:
  *
  * - `current-state` -- a superseded record and its replacement both exist, and
  *   acting on the superseded one is the failure the standing fields claim to
@@ -15,14 +14,12 @@ import type { BenchTask } from "./model.js";
  *   must not be, so an arm cannot win by refusing everything.
  * - `aggregation` -- counting or listing across the whole bundle.
  *
- * Cutting the other way, every question is `core` or `standing-only`. A core
- * question's ground truth lives in record content, which every arm receives;
- * a standing-only question asks about a field arms B and C do not get, so its
- * answer is absent there rather than merely harder. Only core questions feed
- * the headline A-B comparison -- see `TaskFamily` in `model.ts`.
+ * Cutting the other way, every question is `core` or `standing-only`, and only
+ * core questions feed the headline A-B comparison -- see `TaskFamily` in
+ * `model.ts`.
  *
- * Rubric patterns are deliberately loose on wording and tight on the token
- * that separates the current answer from the stale one.
+ * Rubric patterns are loose on wording and tight on the token that separates
+ * the current answer from the stale one.
  */
 export const TASKS: readonly BenchTask[] = [
   // ---------------------------------------------------------------- current
@@ -346,10 +343,9 @@ export const TASKS: readonly BenchTask[] = [
   },
 
   // ---------------------------------------- aggregation (standing-only)
-  // Each of these asks about a field arms B and C do not receive. They are
-  // excluded from the headline A-B comparison and reported separately: see
-  // the `TaskFamily` doc comment for why scoring them together would inflate
-  // the gap by construction.
+  // Each of these asks about a field arms B and C do not receive, so they are
+  // excluded from the headline A-B comparison. See the `TaskFamily` doc
+  // comment.
   {
     id: "ag-superseded-ids",
     type: "aggregation",

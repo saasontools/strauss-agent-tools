@@ -3,10 +3,8 @@ import type { ArmId, BenchRecord } from "./model.js";
 /**
  * The instruction arm B carries in place of the standing fields.
  *
- * This is the control the whole benchmark turns on: if a sentence of prose
- * buys what `strauss_status` and `strauss_superseded_by` buy, the fields are
- * ceremony. It is worded the way a careful engineer would word it, not the
- * way that would make the fields look good.
+ * Worded the way a careful engineer would word it, not the way that would make
+ * the fields look good.
  */
 export const CAREFUL_INSTRUCTION =
   "Be careful: these notes were written over many months and were never " +
@@ -80,10 +78,9 @@ export type ArmBundle = {
 /**
  * Projects the arm-A bundle into one arm's view of it.
  *
- * Deterministic and total: same input, same bytes, every time, and every arm
- * sees the same records in the same order. Only the header fields and the
- * presence of a body differ, so a difference in accuracy cannot be an
- * artefact of a record the model never saw.
+ * Deterministic and total: same input, same bytes, and every arm sees the same
+ * records in the same order. Only the header fields and the presence of a body
+ * differ.
  */
 export function applyArm(records: BenchRecord[], arm: ArmId): ArmBundle {
   const spec = ARMS[arm];
@@ -103,9 +100,8 @@ export function applyArm(records: BenchRecord[], arm: ArmId): ArmBundle {
       fields.push(["status", record.status]);
       if (record.materiality) fields.push(["materiality", record.materiality]);
       if (record.confidence) fields.push(["confidence", record.confidence]);
-      // The answered stamp is a trust field, but its `by` names another record
-      // -- a link. Arm D keeps the stamp and drops the target, which is what
-      // "trust fields only" means.
+      // The answered stamp is a trust field, but its `by` is a link, so arm D
+      // keeps the stamp and drops the target.
       if (record.answeredAt) {
         fields.push([
           "answered",

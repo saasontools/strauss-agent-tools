@@ -8,21 +8,17 @@ import type { BenchRecord } from "./model.js";
 /**
  * The arm-A bundle, as shipped with the benchmark.
  *
- * `blogs/okf-strauss-kb/.kb` -- the bundle the issue named -- does not exist
- * in this repository, and no `.kb` or `.strauss/kb` directory does either, so
- * the benchmark carries its own. See `bench/README.md` for the substitution
- * and for the invariants the fixture has to hold.
+ * `blogs/okf-strauss-kb/.kb` -- the bundle the issue named -- does not exist in
+ * this repository, so the benchmark carries its own. See `bench/README.md` for
+ * the invariants the fixture has to hold.
  */
 export const DEFAULT_BUNDLE_DIR = fileURLToPath(
   new URL("../bundle", import.meta.url),
 );
 
 /**
- * Reads a bundle through the package's own frontmatter parser.
- *
- * Using `parseMarkdownWithFrontmatter` rather than a bench-local YAML reader
- * is the point: if the record schema moves, the benchmark's idea of a record
- * moves with it instead of quietly drifting.
+ * Reads a bundle through the package's own `parseMarkdownWithFrontmatter`, so
+ * the benchmark's idea of a record moves with the schema instead of drifting.
  */
 export async function loadBundle(
   dir: string = DEFAULT_BUNDLE_DIR,

@@ -1,11 +1,9 @@
 import type { ConfidenceInterval } from "./model.js";
 
 /**
- * A seeded PRNG, so a reported interval is reproducible from the result file.
- *
- * mulberry32: 32 bits of state, one multiply-xor round. Nothing here needs
- * cryptographic quality -- it needs to give the same sequence on every machine
- * that reads the same seed, which `Math.random` cannot.
+ * A seeded PRNG (mulberry32), so a reported interval is reproducible from the
+ * result file -- the same sequence on every machine that reads the same seed,
+ * which `Math.random` cannot give.
  */
 export function mulberry32(seed: number): () => number {
   let state = seed >>> 0;
@@ -26,11 +24,9 @@ export type BootstrapOptions = {
 };
 
 /**
- * Percentile bootstrap over per-question 0/1 outcomes.
- *
- * Written out rather than imported: an accuracy over thirty questions is not
- * normal near the ends of its range, so the normal-approximation interval a
- * one-liner would give is wrong exactly where an arm is most interesting.
+ * Percentile bootstrap over per-question 0/1 outcomes. An accuracy over thirty
+ * questions is not normal near the ends of its range, where a
+ * normal-approximation interval would be wrong.
  */
 export function bootstrapCi(
   outcomes: readonly number[],
@@ -65,15 +61,11 @@ export function bootstrapCi(
 /**
  * Percentile bootstrap on a *paired* difference: mean(a) - mean(b).
  *
- * The arms answer the same questions, so the pairing is real and using it
- * matters. Between-question difficulty is the largest variance component in a
- * 30-item set -- "which queue backend" is easy in every arm, "list every
- * blocking record" is hard in every arm -- and resampling arms independently
- * leaves all of it in both intervals. Resampling *questions* and taking both
- * arms' outcomes for each drawn question cancels it, which is why a paired
- * interval on the difference can exclude zero while the two per-arm intervals
- * visibly overlap. The difference is the quantity the experiment is about;
- * the per-arm numbers are context.
+ * Between-question difficulty is the largest variance component in a 30-item
+ * set, and resampling arms independently leaves all of it in both intervals.
+ * Resampling *questions* and taking both arms' outcomes for each drawn question
+ * cancels it, so a paired interval can exclude zero while the per-arm intervals
+ * visibly overlap.
  *
  * `a` and `b` must be aligned: index `i` is the same question in both.
  */

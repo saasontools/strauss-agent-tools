@@ -54,8 +54,7 @@ describe("arm transforms", () => {
       expect(labels).not.toContain("supersedes");
       expect(labels).not.toContain("materiality");
       expect(labels).not.toContain("confidence");
-      // The dates stay: an untyped note still carries when it was written,
-      // and removing that would make the control weaker than the real thing.
+      // The dates stay: an untyped note still carries when it was written.
       expect(labels).toContain("recorded");
     }
   });

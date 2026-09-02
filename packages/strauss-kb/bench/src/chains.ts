@@ -1,22 +1,13 @@
 /**
  * The fixture's supersession chains, and what each replacement may not say.
  *
- * The whole experiment rests on one property: in arms B and C, where the
- * standing fields are gone, the *only* thing separating the current record
- * from the stale one must be the reader's judgement. If a body narrates its
- * own history -- "the fixed-gap policy turned an outage into a stampede",
- * "keeping SNS for email", "services no longer verify signatures" -- then the
- * signal survives the stripping in prose, arms B and C answer correctly for a
- * reason the experiment is not testing, and the measured A-B gap collapses
- * toward zero for the wrong reason.
- *
- * A field-name regex does not catch that. The narration is semantic: it names
- * the thing being left. So each pair carries a hand-written list of the stale
- * record's distinctive tokens, and `bundle.spec.ts` asserts none of them
- * appear in the replacement's body. Hand-written and not derived, because the
- * judgement -- "SNS is the incumbent here, but Twilio legitimately returns two
- * links later in the same chain" -- is exactly what a derivation would get
- * wrong.
+ * In arms B and C the only thing separating the current record from the stale
+ * one must be the reader's judgement, so a body that narrates its own history
+ * leaks the standing signal in prose. The narration is semantic and a
+ * field-name regex cannot see it, so each pair carries a hand-written list of
+ * the stale record's distinctive tokens and `bundle.spec.ts` asserts none of
+ * them appear in the replacement's body. Hand-written, because a derivation
+ * would flag Twilio's legitimate return two links later in the same chain.
  */
 export type SupersessionPair = {
   /** The record that no longer holds. */
@@ -25,9 +16,8 @@ export type SupersessionPair = {
   head: string;
   /**
    * Lowercased substrings distinctive to `stale`. None may appear anywhere in
-   * `head`'s body -- not in its Rationale, and not in its Rejected section.
-   * Naming a *generic* alternative is fine ("a managed cloud queue"); naming
-   * the specific thing being left is not ("staying on SQS").
+   * `head`'s body. Naming a *generic* alternative is fine ("a managed cloud
+   * queue"); naming the specific thing being left is not ("staying on SQS").
    */
   staleTokens: readonly string[];
 };
@@ -84,9 +74,7 @@ export const SUPERSESSION_CHAINS: readonly SupersessionPair[] = [
 
 /**
  * Phrases that narrate a record's own history rather than stating its content.
- *
- * A record in this bundle describes what holds, full stop. Anything that
- * positions it against a predecessor -- even innocently, even in a Rejected
+ * Anything positioning a record against a predecessor -- even in a Rejected
  * section -- is a channel the arm transforms cannot close.
  */
 export const NARRATION_PATTERNS: readonly RegExp[] = [

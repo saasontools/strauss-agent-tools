@@ -1,12 +1,9 @@
 import type { ModelAnswer, Rubric, ScoredAnswer } from "./model.js";
 
 /**
- * Scores one answer against one rubric. No judge model, by design.
- *
- * An LLM judge would be a fifth condition in a four-condition experiment: its
- * own bias about staleness would sit between the arms and the number. Every
- * check here is a set operation or a case-insensitive regex over a field the
- * prompt asked the model to keep short.
+ * Scores one answer against one rubric. No judge model: an LLM judge would be a
+ * fifth condition in a four-condition experiment. Every check is a set
+ * operation or a case-insensitive regex over a field the prompt kept short.
  */
 export function scoreAnswer(
   answer: ModelAnswer | null,
@@ -59,14 +56,11 @@ export function scoreAnswer(
 }
 
 /**
- * Number words the rubric will accept in place of digits.
- *
- * The prompt and the tool schema both ask for digits, so a spelled-out count
- * is off-spec -- but a benchmark that marks "sixteen" wrong is measuring
- * formatting compliance, not whether the model can count records. The range
- * covers every ground-truth count in the task set (4, 6, 9, 16, 24) with room
- * either side; anything past twenty falls through to the digit path, which is
- * where a model writing "twenty-four" lands anyway via the hyphenated form.
+ * Number words the rubric will accept in place of digits. A benchmark that
+ * marks "sixteen" wrong is measuring formatting compliance rather than
+ * counting. The range covers every ground-truth count in the task set (4, 6, 9,
+ * 16, 24) with room either side; past twenty, the hyphenated form falls through
+ * to the digit path.
  */
 const NUMBER_WORDS: Readonly<Record<string, number>> = {
   zero: 0,
@@ -104,11 +98,9 @@ const TENS_WORDS: Readonly<Record<string, number>> = {
 };
 
 /**
- * Pulls a count out of a short answer.
- *
- * `value` is asked to be a bare number, but models write "5 open questions",
- * "five", and "twenty-four". Digits win when present; otherwise the leading
- * word, including the hyphenated compound forms.
+ * Pulls a count out of a short answer. `value` is asked to be a bare number,
+ * but models write "5 open questions", "five", and "twenty-four". Digits win
+ * when present; otherwise the leading word, hyphenated compounds included.
  */
 export function parseCount(value: string): number | null {
   const digits = value.match(/-?\d+/);

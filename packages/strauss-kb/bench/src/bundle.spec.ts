@@ -61,14 +61,11 @@ describe("the arm-A fixture bundle", () => {
 });
 
 /**
- * The leak invariants.
- *
- * These are the tests the whole experiment leans on. If a body narrates its
- * own history, arms B and C keep the standing signal in prose, answer
- * correctly for a reason the benchmark is not measuring, and the A-B gap
- * closes for the wrong reason. A field-name regex cannot see that, so there
- * are three checks: the chain data must match the bundle, no body may carry a
- * narration phrase, and no replacement may name the thing it replaced.
+ * The leak invariants. If a body narrates its own history, arms B and C keep
+ * the standing signal in prose and the A-B gap closes for the wrong reason. A
+ * field-name regex cannot see that, so there are three checks: the chain data
+ * must match the bundle, no body may carry a narration phrase, and no
+ * replacement may name the thing it replaced.
  */
 describe("standing never leaks into prose", () => {
   it("declares exactly the supersession pairs the bundle contains", () => {
@@ -200,9 +197,9 @@ describe("per-question ground truth", () => {
   });
 
   it("keeps every standing-only question inside the aggregation type", () => {
-    // The split exists so the headline comparison is fair. If a current-state
-    // or rejected-alternative question ever became standing-only, the headline
-    // would quietly lose the family the experiment is about.
+    // If a current-state or rejected-alternative question ever became
+    // standing-only, the headline would lose the family the experiment is
+    // about.
     for (const task of TASKS) {
       if (task.family === "standing-only")
         expect(task.type).toBe("aggregation");

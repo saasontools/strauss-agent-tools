@@ -5,9 +5,8 @@ export type BenchRequest = {
   model: string;
   system: string;
   /**
-   * The arm's rendered bundle. Sent as its own content block carrying the
-   * cache breakpoint: it is identical across every question in that arm, and
-   * it is where all but a few hundred of the prompt's tokens live.
+   * The arm's rendered bundle. Sent as its own content block carrying the cache
+   * breakpoint: it is identical across every question in that arm.
    */
   bundle: string;
   /** The question and the answer instructions. Varies per call, so it sits
@@ -22,11 +21,9 @@ export type BenchResponse = {
 };
 
 /**
- * Everything the runner needs from a model.
- *
- * A function rather than a client, so the dry-run suite can assert on exactly
- * what would have been sent without a network stub, an interceptor, or a
- * recorded cassette to keep in sync.
+ * Everything the runner needs from a model. A function rather than a client, so
+ * the dry-run suite can assert on exactly what would have been sent without a
+ * network stub or a recorded cassette.
  */
 export type Transport = (request: BenchRequest) => Promise<BenchResponse>;
 
@@ -43,11 +40,9 @@ export type MockTransport = Transport & {
 };
 
 /**
- * A transport that answers from a function instead of a model.
- *
- * The function sees the whole assembled request, so a dry-run case can key its
- * canned answer off the question text, the arm's rendering, or both -- which
- * is how the suite checks that an arm's stripping actually reached the prompt.
+ * A transport that answers from a function instead of a model. The function
+ * sees the whole assembled request, so a dry-run case can key its canned answer
+ * off the question text, the arm's rendering, or both.
  */
 export function mockTransport(
   answers: (request: BenchRequest) => Partial<ModelAnswer> | null,
@@ -81,25 +76,19 @@ export function mockTransport(
 /**
  * The real transport.
  *
- * The SDK is imported dynamically because it is a bench-only devDependency:
- * the dry-run suite, which is what CI runs, must not need it resolvable.
+ * The SDK is imported dynamically because it is a bench-only devDependency and
+ * the dry-run suite CI runs must not need it resolvable.
  *
- * Three deliberate choices:
+ * Three choices:
  *
  * - **Thinking is off and the answer tool is forced.** The experiment varies
- *   one thing, the fields in the prompt. A model choosing when to think, or
- *   whether to answer in prose, is variance the arms would absorb.
+ *   one thing, the fields in the prompt.
  * - **The cache breakpoint sits on the bundle block, not the system prompt.**
- *   Caching is a prefix match over `tools` then `system` then `messages`, and
- *   a marker only caches what precedes it. The system prompt here is about
- *   sixty tokens -- under every model's minimum cacheable prefix (1024 on
- *   Sonnet 5, 4096 on Haiku 4.5), so a marker there caches nothing at all and
- *   reports `cache_creation_input_tokens: 0` without an error. The bundle is
- *   ~9k tokens and identical across an arm's questions, which is the prefix
- *   worth caching.
- * - **Default 5-minute TTL.** An arm's questions are issued back to back, so
- *   the start-to-start gap is seconds; the 1-hour TTL would double the write
- *   premium (2x rather than 1.25x) and buy nothing.
+ *   The ~60-token system prompt is under every model's minimum cacheable prefix
+ *   (1024 on Sonnet 5, 4096 on Haiku 4.5); the bundle is ~9k tokens and
+ *   identical across an arm's questions. See `bench/README.md`.
+ * - **Default 5-minute TTL.** An arm's questions are issued back to back; the
+ *   1-hour TTL would double the write premium (2x rather than 1.25x).
  */
 export function anthropicTransport(options: RetryOptions = {}): Transport {
   let clientPromise: Promise<{
@@ -202,12 +191,9 @@ export function retryAfterMs(error: unknown): number | null {
 }
 
 /**
- * Exponential backoff with full jitter, honouring `retry-after`.
- *
- * The alternative -- letting a 429 fall through to the runner -- would score
- * the cell wrong, and a rate limit is not a model failure. Retrying here keeps
- * that distinction where it belongs, and the runner still marks a cell errored
- * once the attempts are gone.
+ * Exponential backoff with full jitter, honouring `retry-after`. Letting a 429
+ * fall through would score the cell wrong; the runner still marks a cell
+ * errored once the attempts are gone.
  */
 export function withRetry(
   transport: Transport,

@@ -21,7 +21,7 @@ const tasks = CORE_TASKS.slice(0, 4);
 
 /**
  * A stand-in that answers correctly only when the prompt still carries the
- * supersession link -- the behaviour the benchmark is built to detect.
+ * supersession link.
  */
 const standingAwareAnswers = (request: BenchRequest) => {
   const sawStanding = request.bundle.includes("superseded_by:");

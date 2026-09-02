@@ -6,9 +6,8 @@ export const ANSWER_TOOL_NAME = "submit_answer";
 
 /**
  * The answer schema, stated once and used twice: as the forced tool's input
- * schema and, in prose, inside the prompt. Both, because the rubric is code --
- * a free-text answer would need a judge model, and a judge model is another
- * variable in an experiment that already has four arms.
+ * schema and, in prose, inside the prompt. Both, because the rubric is code and
+ * a free-text answer would need a judge model.
  */
 export const ANSWER_TOOL_SCHEMA = {
   type: "object",
@@ -82,10 +81,9 @@ export const ANSWER_INSTRUCTIONS = [
 /**
  * The prompt for one (arm, task) pair, split at the cache breakpoint.
  *
- * `bundlePrefix` is everything constant within an arm -- the notes and, in arm
- * B, the careful-reading instruction. `question` is what varies per call. The
- * transport sends them as two content blocks with the breakpoint between, so
- * an arm's thirty questions write the ~9k-token prefix once and read it back
+ * `bundlePrefix` is everything constant within an arm; `question` varies per
+ * call. Sent as two content blocks with the breakpoint between, so an arm's
+ * thirty questions write the ~9k-token prefix once and read it back
  * twenty-nine times.
  */
 export type BenchPrompt = {
