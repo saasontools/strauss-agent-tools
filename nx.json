@@ -1,23 +1,77 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "defaultBase": "main",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    // Root files a project's tasks genuinely read. Nx's built-in default for
+    // `sharedGlobals` is an empty list, so before this existed a lockfile or
+    // `tsconfig.base.json` change invalidated nothing and marked nothing
+    // affected. Listing a `{workspaceRoot}` fileset here also registers it as
+    // an implicit dependency of every project that uses this input, which is
+    // what makes a dependency bump rebuild the world.
+    //
+    // The last three are not read by a task at all — they are here to close a
+    // coverage hole. Both CI jobs now run `nx affected`, so a file that
+    // belongs to no project and appears in no input makes both jobs pass
+    // green having built and tested nothing. That is exactly the shape of a
+    // PR that edits only `.github/workflows/**` or `scripts/*.mjs`, which is
+    // the last kind of PR that should merge unverified. These edits are rare,
+    // so rebuilding the world for them is cheap insurance.
+    //
+    // Deliberately absent: `.prettierrc`, `.prettierignore` and
+    // `commitlint.config.js`. They cannot change a build output or a test
+    // result — formatting runs from lint-staged and commitlint from a git
+    // hook, neither of which is an Nx target — and eslint-config-prettier
+    // only switches rules off, so nothing eslint reports depends on them.
+    // A whole-graph rebuild for a quote-style change would be noise.
+    "sharedGlobals": [
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/pnpm-workspace.yaml",
+      "{workspaceRoot}/.nvmrc",
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/eslint.config.js",
+      "{workspaceRoot}/package.json",
+      "{workspaceRoot}/scripts/**/*",
+      "{workspaceRoot}/.github/workflows/**"
+    ],
+    // `default` minus the project's own markdown. Nothing compiled, tested,
+    // typechecked or linted in this repo reads a markdown file: tsup builds
+    // from `src/`, vitest writes its own fixtures into temp dirs, and eslint
+    // has no markdown processor configured. So a README or ARCHITECTURE.md
+    // edit must not change a task hash.
+    //
+    // The one project where markdown IS source is the Docusaurus site at
+    // `apps/strauss-kb-docs` — its `docs/**/*.md` is the thing being built.
+    // The exclusion is therefore opt-out-able per project: that app overrides
+    // `build.inputs` back to `["default", "^noMarkdown"]` in the `nx` key of
+    // its own package.json. Any future markdown-consuming project must do the
+    // same.
+    "noMarkdown": ["default", "!{projectRoot}/**/*.md"]
+  },
   "targetDefaults": {
     "build": {
       "cache": true,
       "dependsOn": ["^build"],
+      "inputs": ["noMarkdown", "^noMarkdown"],
       "outputs": ["{projectRoot}/dist"]
     },
     "typecheck": {
-      "cache": true
+      "cache": true,
+      "inputs": ["noMarkdown", "^noMarkdown"]
     },
     "test": {
       "cache": true,
       "dependsOn": ["build"],
+      "inputs": ["noMarkdown", "^noMarkdown"],
       "outputs": ["{projectRoot}/coverage"]
     },
     "lint": {
-      "cache": true
+      "cache": true,
+      "inputs": ["noMarkdown", "^noMarkdown"]
     },
+    // `claude plugin validate` reads a plugin's commands and skills, which are
+    // markdown — so this target keeps the default inputs. It is uncached and
+    // CI runs it with `run-many`, so it is unaffected by any of the above.
     "validate": {
       "cache": false
     }
