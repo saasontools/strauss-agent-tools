@@ -444,6 +444,11 @@ function contains(root: string, path: string): boolean {
  * `repo` is hand-written by whoever recorded it. Normalising both sides to one
  * shape and comparing is the only approach that does not reject a correct
  * value from a host this package has never seen.
+ *
+ * The trailing slashes come off in a loop rather than with `/\/+$/`, which
+ * backtracks quadratically on a string of many slashes. An anchor's `repo` is
+ * bundle data — untrusted, and read on the `kb_load` path — so a record
+ * carrying a few thousand slashes must not be able to burn the reader's CPU.
  */
 export function normalizeRepoUrl(value: string): string {
   let url = value.trim().replace(/^git\+/, "");
@@ -451,10 +456,18 @@ export function normalizeRepoUrl(value: string): string {
   const scp = /^[\w.-]+@([\w.-]+):(.+)$/.exec(url);
   if (scp) url = `https://${scp[1]}/${scp[2]}`;
   url = url.replace(/^ssh:\/\/(?:[^@/]+@)?/, "https://");
-  return url
-    .replace(/\.git$/, "")
-    .replace(/\/+$/, "")
-    .toLowerCase();
+  // Slashes, then `.git`, then slashes again: a remote is written `…/name`,
+  // `…/name.git`, and `…/name.git/` interchangeably, and all three name one
+  // repository.
+  url = trimTrailingSlashes(url);
+  if (url.endsWith(".git")) url = url.slice(0, -4);
+  return trimTrailingSlashes(url).toLowerCase();
+}
+
+function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") end -= 1;
+  return value.slice(0, end);
 }
 
 /** `org/name` from a normalized URL, or "" when it carries no host. */

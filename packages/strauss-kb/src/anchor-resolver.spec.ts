@@ -16,6 +16,7 @@ import {
   hashAnchorText,
   looksLikeWrongRepoRoot,
   MAX_ANCHOR_FILE_BYTES,
+  normalizeRepoUrl,
   regexResolver,
   repoIdentifies,
   resolveAnchor,
@@ -187,6 +188,35 @@ describe("repoIdentifies", () => {
   // let a coincidental hash match be recorded as evidence.
   test("matches nothing when the root has no origin", () => {
     expect(repoIdentifies("strauss-agent-tools", null)).toBe(false);
+  });
+
+  // An anchor's `repo` is bundle data — untrusted, and read on the kb_load
+  // path. Trailing slashes come off in a loop because `/\/+$/` backtracks
+  // quadratically, so a record carrying a few thousand of them could burn the
+  // reader's CPU. Linear: this returns immediately rather than in minutes.
+  test("normalizes a pathological repo string without backtracking", () => {
+    const nasty = `https://github.com/org/name${"/".repeat(50_000)}`;
+
+    const started = Date.now();
+    expect(normalizeRepoUrl(nasty)).toBe("https://github.com/org/name");
+    expect(Date.now() - started).toBeLessThan(1_000);
+  });
+
+  // `…/name`, `…/name.git` and `…/name.git/` are one repository written three
+  // ways, so all three have to normalize to the same string.
+  test("strips a .git suffix and trailing slashes in either order", () => {
+    for (const spelling of [
+      "https://github.com/o/n",
+      "https://github.com/o/n/",
+      "https://github.com/o/n.git",
+      "https://github.com/o/n.git/",
+      "https://github.com/o/n.git///",
+    ]) {
+      expect(normalizeRepoUrl(spelling), spelling).toBe(
+        "https://github.com/o/n",
+      );
+    }
+    expect(normalizeRepoUrl("///")).toBe("");
   });
 });
 
