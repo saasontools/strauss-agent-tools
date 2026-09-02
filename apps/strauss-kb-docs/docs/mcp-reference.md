@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-six tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-two tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.
@@ -425,8 +425,7 @@ records. Takes no parameters.
 ### `kb_context`
 
 As CLI [`context`](./cli-reference.md#context), with the flags as camelCase
-parameters. An index, not the content: concept ids, titles and standing, with
-bodies left behind `kb_load` at the point of use. Emits nothing when nothing is
+parameters. Emits nothing when nothing is
 pinned, and refuses with the list of bases and their sizes rather than
 truncating past its budget. Takes no `bundlePath`.
 

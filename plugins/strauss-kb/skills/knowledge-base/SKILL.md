@@ -48,13 +48,13 @@ strauss-kb list open-question
 
 **Read the standing, not just the match.** Every result carries one:
 
-| `standing`   | Meaning                                |
-| ------------ | -------------------------------------- |
-| `current`    | Holds.                                 |
-| `superseded` | See `supersededBy` instead.            |
-| `rejected`   | Answers "why not X", not "what to do". |
-| `unsettled`  | Draft, not settled.                    |
-| `open`       | A result, never an answer.             |
+| `standing`   | Meaning                                                 |
+| ------------ | ------------------------------------------------------- |
+| `current`    | Holds.                                                  |
+| `superseded` | See `supersededBy` instead.                             |
+| `rejected`   | Answers "why not X", not "what to do".                  |
+| `unsettled`  | Draft or proposal; acting on it as settled is a defect. |
+| `open`       | An unresolved question — a result, never an answer.     |
 
 `warnings`: `broken-chain` (replacement missing), `forked-chain` (two claim to
 replace it, pick nothing), `stale`, `unverified`.

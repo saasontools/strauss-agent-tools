@@ -8,7 +8,7 @@ export const contextCommand = define({
   usage:
     "context [--profile NAME] [--budget N] [--full-under N] [--format json] [--event NAME]",
   description:
-    "Index block of pinned bases (ids, titles, standing) for injection at context birth. Takes no bundlePath — reads the workspace pin manifests. Empty when nothing is pinned; refuses over budget rather than truncating. Budget precedence: flags, then the manifest `context` table, then the built-in profile.",
+    "Index block of pinned bases (ids, titles, standing) for injection at context birth. Takes no bundlePath — reads the workspace pin manifests. Empty when nothing is pinned; refuses over budget rather than truncating. Budget precedence: flags, then the manifest `context[profile]` over `context.default`, then the built-in profile, then package defaults.",
   input: z.object({
     budgetTokens: z
       .number()

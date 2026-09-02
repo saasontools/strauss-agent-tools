@@ -27,7 +27,7 @@ Every operation a base exposes is defined once, in a command table
 
 Kept apart they drift within a day — fourteen commands against six tools. A
 command added to the table appears in both surfaces or in neither, and a test
-asserts that. The table holds 27 verbs and 26 tools.
+asserts that. The table holds 23 verbs and 22 tools.
 
 Each command carries:
 

@@ -23,8 +23,7 @@ so no consumer loads it that way:
 | "Has this been decided?"        | a fresh short-lived reader, given base and question |
 | An implementor writing a record | a point query at the moment of writing              |
 
-A resident base drifts; reloading is cheap — three thousand tokens for twenty
-records.
+Reloading costs about three thousand tokens for twenty records.
 
 ## Load beats retrieval while the base fits
 
