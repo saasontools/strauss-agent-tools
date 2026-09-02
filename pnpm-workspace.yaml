@@ -42,6 +42,10 @@ ignoredOptionalDependencies:
   - "@anthropic-ai/claude-agent-sdk-win32-arm64"
   - "@anthropic-ai/claude-agent-sdk-win32-x64"
 overrides:
+  # CVE mitigation: four fast-uri advisories (host confusion, SSRF via IPv6 and
+  # percent-decoding) below 3.1.6, transitive via ajv under nx, vite and
+  # commitlint. Pinned to the 3.x patch line ajv expects; 4.x is a major.
+  "fast-uri@<3.1.6": "3.1.6"
   # CVE mitigation: DoS in brace-expansion <5.0.9 (transitive via nx/minimatch).
   "brace-expansion@>=4.0.0 <5.0.9": "5.0.9"
   # CVE mitigation, both transitive via @opentelemetry/sdk-node under
