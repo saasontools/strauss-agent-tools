@@ -29,7 +29,7 @@ Every operation a base exposes is defined once, in a command table
 Kept apart they drift within a day — fourteen commands against six tools, which
 is the same failure as a schema restated in prose beside the code that enforces
 it. A command added to the table appears in both surfaces or in neither, and a
-test asserts exactly that.
+test asserts exactly that. The table now holds 27 verbs and 26 tools.
 
 Each command carries:
 
@@ -42,7 +42,8 @@ Each command carries:
 | `input`       | a Zod object — the MCP input schema and the CLI's validator             |
 | `fromArgv`    | the only per-surface code: positional argv → the same object MCP passes |
 | `run`         | the operation, over `{ store, actor, now }`                             |
-| `failsWhen`   | turns a result into a non-zero CLI exit                                 |
+| `render`      | the human-readable form, for the verbs that print a table. CLI-only     |
+| `failsWhen`   | turns a result — and the parsed input — into a non-zero CLI exit        |
 
 The two surfaces differ only in how arguments arrive, so `fromArgv` is the
 adapter and nothing else is duplicated. `sync-instructions` is the one verb with
@@ -53,7 +54,13 @@ agent a capability — the capability, "get the pinned context block", is
 `failsWhen` exists because a check that reports a problem has _succeeded_ as a
 command and _failed_ as a check, and a shell caller can only see the difference
 through the exit code. The dispatcher does not need to know which commands those
-are.
+are. It receives the parsed input as well as the result, which is what lets
+`doctor --strict` gate on a flag the report itself is indifferent to.
+
+`render` is the CLI's alone: MCP always returns the machine shape, so a verb
+that prints a table on one surface returns the object behind it on the other.
+That is also why `--json` is **refused** rather than ignored on a verb with no
+`render` — a flag that quietly does nothing reads as one that worked.
 
 ## Folder modules
 
@@ -66,6 +73,7 @@ the old path.
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `src/commands/` | `model.ts` (the `KbCommand` type and shared Zod pieces), one file per command, `index.ts` assembling `KB_COMMANDS`              |
 | `src/kb-pins/`  | `model.ts` (manifest schemas), `layers.ts`, `budgets.ts`, `frozen.ts`, `errors.ts`, `pin.ts`, `unpin.ts`, `list.ts`, `index.ts` |
+| `src/kb-links/` | `model.ts` (the inbound-edge types), `inbound.ts` (the index), `impact.ts`, `backlinks.ts`, `index.ts`                          |
 
 `index.ts`'s command order is the CLI usage listing's order: the write path, the
 read path, base housekeeping, the format, then the workspace pin verbs.
@@ -110,6 +118,31 @@ nothing reads transactionally.
 `log.jsonl` gets the opposite treatment. It records events nothing else holds,
 so repair means detect and report, never rewrite.
 
+### Cross-worktree log safety
+
+A committed base is routinely written from several worktrees at once, and git's
+ordinary line-level merge is the wrong resolution for a file both sides only
+ever append to. The fix is declarative rather than coordinated: the first call
+that appends a log line writes `log.jsonl text eol=lf merge=union` into the
+base's `.gitattributes`. `union` is a built-in driver, so the attribute alone is
+enough.
+
+A **lock** was rejected here for the same reason it was rejected for
+read-modify-write: it would need every writer across every worktree to agree on
+one, and a crashed holder blocks all of them. The union driver needs no writer to
+know another exists.
+
+What it costs is line order, and the occasional duplicated line where a
+cherry-pick carried one side's entry into the other's history before the merge.
+Both are absorbed on the read side instead — entries are sorted by `at` and
+exact duplicates dropped — so the log's consumers never see the seam. The
+declaration is also careful never to overwrite a `.gitattributes` a user wrote,
+or to layer a second strategy under one already declared for the same file.
+
+The scope limit is worth knowing: GitHub computes pull request merges through
+its own service, which does not read `.gitattributes` merge drivers. The union
+driver fires for a merge run by a local git client, not for the merge button.
+
 ### The store is the sole accessor
 
 Excluding store-owned files from listings and repairing the index on read hold
@@ -120,6 +153,54 @@ This is also why a raw file read of a record is not a supported way to read a
 base: it bypasses supersession resolution and returns replaced records as if
 current. A workspace can enforce that with deny rules or the plugin's opt-in
 `PreToolUse` script.
+
+## The plugin's hooks
+
+The store is the sole accessor only while everything goes through it, and a
+hand-edit is exactly the case that does not. The plugin therefore ships hooks
+that close the gap from the outside, all keyed on `Write`, `Edit`, and
+`MultiEdit`.
+
+| Event          | What it does                                                                |
+| -------------- | --------------------------------------------------------------------------- |
+| `SessionStart` | emits the pinned-base context block, per profile                            |
+| `PreToolUse`   | **denies** an edit to a generated file inside a bundle                      |
+| `PostToolUse`  | runs `validate` over the bundle a manual edit touched, and reports findings |
+
+Both new hooks first decide whether the edited path is even inside a base, by a
+pure path-segment match: a segment literally named `.kb`, or a segment `kb`
+whose parent is `.strauss`. No bundle root, no work — they exit silently. That
+is a deliberate v1 scope cut: a base pinned somewhere else through the pin
+manifests is invisible to them.
+
+**The deny hook** blocks `INDEX.md`, `log.jsonl`, and `.index.sqlite`, and only
+when they sit **directly** in the bundle root, so a nested `notes/INDEX.md` is
+ordinary. The reason it returns says why rather than just refusing: those files
+are generated by the store's write path, so a direct edit will be overwritten
+and can desync from the records it summarizes.
+
+**The validate hook** is advisory rather than blocking. It resolves the CLI in
+three tiers, nearest first — a local `node_modules/.bin`, then `strauss-kb` on
+`PATH`, then a pinned `npx` — and only a tier that never _started_ falls through
+to the next, so a real timeout stops the chain instead of silently retrying.
+Findings come back as additional context, capped and with each note sanitized:
+validate notes can quote record frontmatter verbatim, which makes that the
+prompt-injection boundary.
+
+It **fails open** everywhere. Malformed input, a broken pipe, a throw anywhere —
+the hook exits 0 and says nothing, because a hook that blocks a session when its
+own plumbing breaks is worse than one that misses a finding.
+
+`STRAUSS_KB_NO_VALIDATE_HOOK` opts out. It is checked before stdin is even read,
+so an opted-out session pays nothing, and only a genuinely truthy value counts —
+`0`, `false`, and unset all mean "not opted out", because those are common ways
+to spell "not set" in a shared env file. It names the **validate** hook
+specifically; the deny hook is disabled the ordinary way, through the runtime's
+own hook settings.
+
+Neither covers a `Bash` write. That is a documented side door rather than an
+oversight: a matcher wide enough to catch `INDEX.md` in a shell command would
+false-positive on any `Bash` call that merely mentions it.
 
 ## The read pipeline
 
@@ -154,6 +235,30 @@ replace. Resolution happens here rather than being denormalised at write time: a
 stored head would have to be rewritten on every ancestor whenever a chain grows,
 which is derived state that goes stale — the failure this design keeps avoiding
 elsewhere.
+
+**`impact`** answers the question a diff cannot: what breaks if this record
+changes. It is deliberately not "inbound links", because the direction of
+dependence does not follow the direction of the edge — `A depends_on B` puts the
+dependant at the source, `A informs B` puts it at the target. So each hop asks
+two questions of a record: who points at me with a rel whose dependant is the
+source, and who do I point at with a rel whose dependant is the target. Both
+answers are dependants. A walk that treated every inbound edge alike would
+report four of the eight rels backwards, naming the records that are safe and
+omitting the ones at risk.
+
+That table is data, in one place, and `KB_CAUSAL_LINK_RELS` is **derived** from
+it by filtering out the rels with no dependant rather than being restated
+alongside it — so a rel cannot be causal in one place and inert in another.
+
+The walks disagree about standing, deliberately. `impact` reports a superseded or
+rejected record and **stops there**, naming each stopping point under `stopped`:
+its own declared edges no longer hold, so propagating through a dependency that
+was withdrawn would invent a blast radius. `pack` and `trace` traverse typed
+links without regard to standing, because a neighbourhood and a history both
+want the record that no longer holds. Cycles are ordinary rather than
+exceptional here — `A depends_on B` with `B constrains A` is a legitimate pair —
+so a record is expanded once, keeps the shortest depth it was reached at, and
+accumulates every edge that reached it.
 
 **`trace`** is the inverse of a point query, and the reason the two cannot be
 one call with a flag. In a query a `rejected` record is the most dangerous thing
@@ -195,6 +300,20 @@ The reader stays the judge in both regimes, which is what preserves the two
 structural wins: it can say no record answers the question, and it picks the
 record that answers rather than the one nearest the topic. Neither survives if a
 ranker's top hit is taken as the answer.
+
+### Measuring whether standing changes anything
+
+The claim this whole format rests on — that machine-readable standing changes
+what a reader does, rather than merely documenting it — is checkable, so there
+is a control-arm benchmark under `packages/strauss-kb/bench/` that checks it.
+Four arms answer the same questions over one synthesized base: standing and
+supersession links intact, standing stripped but replaced with a "some of this
+is stale" instruction, standing stripped with no instruction at all, and
+standing kept with the supersession links removed. Scoring is a code rubric over
+a forced tool call rather than a judge model, and the headline is the paired
+difference between the full arm and each ablation. It is **dev-only** — run with
+`pnpm bench` from the package, never imported from `src/`, and not in the
+published `files` list.
 
 **A score threshold is not the growth path.** The wrong `audit trail` hit scored
 0.318 against the correct `race condition` hit at 0.295; any cut that drops the
