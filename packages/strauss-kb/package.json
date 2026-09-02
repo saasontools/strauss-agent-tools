@@ -1,6 +1,6 @@
 {
   "name": "@saasontools/strauss-kb",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Knowledge base of markdown records with standing, supersession and trace: library, CLI, and MCP server over one command set",
   "license": "MIT",
   "author": "Assaf Kamil",
