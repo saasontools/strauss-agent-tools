@@ -110,8 +110,8 @@ function emit(bundleRoot, problems) {
 
   let additionalContext =
     `strauss-kb validate found ${problems.length} problem(s) in ` +
-    `${bundleRoot} after a manual edit — supersession links, backlinks, ` +
-    `or INDEX.md may now be out of sync:\n${lines.join("\n")}`;
+    `${bundleRoot} — supersession links, backlinks, or INDEX.md may be ` +
+    `out of sync:\n${lines.join("\n")}`;
   if (additionalContext.length > MAX_CONTEXT_LEN) {
     additionalContext = `${additionalContext.slice(0, MAX_CONTEXT_LEN - 1)}…`;
   }
