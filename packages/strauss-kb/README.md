@@ -207,18 +207,40 @@ does not — so silence has to be expressible.
 
 An anchor names where a record attaches in the code: a file, and optionally a
 symbol within it. Symbolic, because a line number written mid-change is wrong
-by the end of it. Three further fields extend an anchor with a baseline of what
-that code looked like:
+by the end of it. Five further fields extend an anchor — three recording what
+the code looked like, two saying which code:
 
 | Field         | Meaning                                                                                                                                                           |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `hash`        | `sha256:<64 hex chars>` over the anchored text. Prefixed with the algorithm, so a future one can coexist with stored values.                                      |
 | `lines`       | Line count of the text the hash was taken over. The anchor keeps a hash, not the text — without the count, a drift report could say "changed" but never how much. |
 | `resolved_at` | When the anchor last resolved successfully.                                                                                                                       |
+| `repo`        | Which repository the file lives in — a remote URL or a short name. Absent means this base's own repository, which is what nearly every anchor means.              |
+| `ref`         | The git rev the evidence was taken at. Prefer a commit SHA.                                                                                                       |
 
-All three are optional, so every existing anchor stays valid — and an anchor
+All five are optional, so every existing anchor stays valid — and an anchor
 nobody has stamped costs nothing at read time, because drift detection skips
 hashless anchors outright.
+
+`repo` and `ref` are **author-owned identity**: they state which code the
+record meant, which is a claim only the author can make. A resolution pass
+stamps `hash`, `lines`, and `resolved_at` — what it measured — and never
+writes these two.
+
+`repo` is deliberately unvalidated beyond "not blank". One repository is
+spelled a dozen ways (`git@github.com:org/name.git`,
+`https://github.com/org/name`, `org/name`, a bare name, an internal host), and
+a format this package invented would reject correct values from hosts it has
+never seen. An unrecognised or broken `repo` is tolerated data — the anchor
+simply does not resolve here. Matching normalises both sides and accepts the
+whole URL, the `org/name` path, or the bare name.
+
+Prefer a commit SHA for `ref`: a branch name is a moving pointer, so an anchor
+pinned to one says the evidence came from wherever that branch happens to be
+now, which is not a baseline. In v1 `ref` is **recorded and preserved but not
+used** — every read is of the working tree. Ref-pinned reads land with
+[SAA-709](https://linear.app/saason/issue/SAA-709), which is also where
+resolving another repository's anchors lands.
 
 `anchor-resolve <concept-id>` (`kb_anchor_resolve`) is the mechanical
 counterpart to `verify`: where `verify` records that someone attested to the
@@ -245,10 +267,23 @@ states per anchor:
 - **unresolved** — the anchor could not be compared, with the reason attached:
   `file-missing`, `symbol-not-found`, `outside-repo`, `file-too-large` (past
   1 MiB — anchors point at source, and reading an artefact into memory on a
-  read path is cost with no finding behind it), or `file-unreadable` (a
-  permission error, or a directory where a file should be). A finding, not an
-  error: drift detection runs over bases whose code has moved, and moved code
-  is exactly what it exists to report.
+  read path is cost with no finding behind it), `file-unreadable` (a
+  permission error, or a directory where a file should be), or `foreign-repo`.
+  A finding, not an error: drift detection runs over bases whose code has
+  moved, and moved code is exactly what it exists to report.
+
+`foreign-repo` is the one that is not a problem at all. An anchor whose `repo`
+does not identify the current root is skipped: never read, never stamped, never
+a drift finding, and never surfaced to a reader — a base describing several
+repositories resolves against one tree at a time, by design. It is also left
+out of the wrong-root heuristic below, in both directions: counted as a miss it
+would make a correct root look wrong, and counted as a hit it would keep a
+genuinely wrong root from being spotted. Identity is decided against the root's
+`origin` remote; a root that has none — not a checkout, no `origin`, no git —
+cannot prove which repository it is, so anchors naming one are treated as
+foreign rather than resolved hopefully, because a hash that matched by
+coincidence would be recorded as evidence. Anchors naming no `repo` are
+unaffected and never consult git at all.
 
 Containment is a rule, not a convenience: bundles are data, and an anchor must
 not read files beyond the repo it describes. It is checked twice — lexically,
@@ -261,16 +296,21 @@ The CLI exits non-zero when an anchor drifted **or** when one that carries a
 hash no longer resolves. A deleted file is as much a broken anchor as a
 rewritten one, and exiting zero on it would let the single edit that destroys
 an anchor pass the gate that exists to catch it. An anchor nobody ever stamped
-is still just unstamped, and does not fail. On a `--frozen` base the report
+is still just unstamped, and one belonging to another repository was never this
+run's to check; neither fails. On a `--frozen` base the report
 still runs and comes back with `frozen: true` and nothing written — drift
 reporting is a read; only a stamp, refresh, or rebaseline is refused.
 
-A fully clean run — every anchor `match`, none drifted, unresolved, or freshly
-stamped — appends a `verified[]` event (`anchor-resolve: N/M anchors match`),
-because code still hashing to what it did when the record was written is real
-evidence the record still holds. A freshly stamped anchor is a baseline nobody
-has checked against anything, so a run that invents a hash does not also
-verify with it. The same verifier-identity rule as `verify` applies: a resolve
+A fully clean run — every checkable anchor `match`, none drifted, unresolved,
+or freshly stamped — appends a `verified[]` event (`anchor-resolve: N/M anchors
+match`), because code still hashing to what it did when the record was written
+is real evidence the record still holds. A freshly stamped anchor is a baseline
+nobody has checked against anything, so a run that invents a hash does not also
+verify with it. Anchors in another repository sit outside the denominator
+rather than against it, and the note says how many were skipped
+(`… 2/2 anchors match, 1 in another repo`): counting them as failures would
+make a cross-repo record permanently unverifiable until SAA-709, and counting
+them as passes would claim evidence nobody gathered. The same verifier-identity rule as `verify` applies: a resolve
 run by the record's own generator reports `verifyRefused: "self-verification"`
 instead of verifying. The drift report stands either way; only the stamp is
 refused.

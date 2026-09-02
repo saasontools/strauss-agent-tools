@@ -62,11 +62,37 @@ export const kbVerifiedEventSchema = kbActorStampSchema.extend({
  * stored values. `lines` exists because the anchor keeps a hash, not the text:
  * without the line count at hash time, a drift report could say "changed" but
  * never how much.
+ *
+ * `repo` and `ref` say *which* code, for bases that describe more than one
+ * repository. They are author-owned identity: a resolver stamps `hash`,
+ * `lines`, and `resolved_at`, and never writes these two. Both are optional and
+ * independent of each other, so every anchor written before they existed stays
+ * valid.
  */
 export const kbAnchorSchema = z
   .object({
     file: z.string().min(1),
     symbol: z.string().min(1).optional(),
+    /**
+     * Which repository the file lives in — a remote URL
+     * (`https://github.com/org/name`) or a short name. Absent means the base's
+     * own repository, which is what nearly every anchor means.
+     *
+     * Deliberately unvalidated beyond "not blank": repository identity is
+     * spelled a dozen ways (ssh, https, `org/name`, a bare name, an internal
+     * host), and a format this package invented would reject correct values
+     * from hosts it has never seen. An unrecognised or broken `repo` is
+     * tolerated data — the anchor simply does not resolve here.
+     */
+    repo: z.string().trim().min(1).optional(),
+    /**
+     * The git rev the evidence was taken at. Prefer a commit SHA: a branch
+     * name is a moving pointer, so an anchor pinned to one says the evidence
+     * came from wherever that branch happens to be now, which is not a
+     * baseline. Recorded and preserved in v1; ref-pinned reads land with
+     * SAA-709.
+     */
+    ref: z.string().trim().min(1).optional(),
     hash: z
       .string()
       .regex(/^sha256:[0-9a-f]{64}$/, {

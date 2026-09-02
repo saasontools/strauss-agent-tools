@@ -739,6 +739,33 @@ describe("doctor", () => {
       });
     });
 
+    // A base describing several repositories resolves against one tree at a
+    // time. An anchor for another repo is expected, so it is never decay —
+    // filtered at the single adjudication point the sweep and every read path
+    // share, so none of them can start reporting it.
+    test("says nothing about an anchor belonging to another repo", () => {
+      const report = doctor([anchored("decision.totals-shape")], {
+        now: NOW,
+        anchorDrift: new Map([
+          [
+            "decision.totals-shape",
+            [
+              {
+                file: FILE,
+                symbol: "totals",
+                state: "unresolved" as const,
+                storedHash: hashAnchorText(SOURCE),
+                diffSize: null,
+                reason: "foreign-repo" as const,
+              },
+            ],
+          ],
+        ]),
+      });
+
+      expect(ids(report, "drifted")).toEqual([]);
+    });
+
     // Code moving out from under a replaced record is the expected outcome of
     // it being replaced, not a repair a reader owes anyone.
     test("leaves a superseded record out of it", async () => {

@@ -1,4 +1,5 @@
 /* eslint-disable no-empty-pattern -- vitest fixtures require object destructuring */
+import { execFileSync } from "node:child_process";
 import {
   mkdtempSync,
   rmSync,
@@ -16,6 +17,7 @@ import {
   looksLikeWrongRepoRoot,
   MAX_ANCHOR_FILE_BYTES,
   regexResolver,
+  repoIdentifies,
   resolveAnchor,
 } from "./anchor-resolver.js";
 import { composeInputSchema } from "./compose.js";
@@ -110,6 +112,81 @@ describe("kbAnchorSchema", () => {
     expect(
       kbAnchorSchema.safeParse({ file: "src/a.ts", line: 12 }).success,
     ).toBe(false);
+  });
+
+  // Which code, for a base that describes more than one repository. Additive
+  // and independent: an anchor may carry either, both, or neither.
+  test("accepts and round-trips repo and ref", () => {
+    const anchor = {
+      file: "src/a.ts",
+      symbol: "A.b",
+      repo: "https://github.com/org/name",
+      ref: "9f2c1ab3d4e5f60718293a4b5c6d7e8f90a1b2c3",
+    };
+    expect(kbAnchorSchema.parse(anchor)).toEqual(anchor);
+
+    expect(
+      kbAnchorSchema.parse({ file: "src/a.ts", repo: "other-service" }).repo,
+    ).toBe("other-service");
+    expect(kbAnchorSchema.parse({ file: "src/a.ts", ref: "main" }).ref).toBe(
+      "main",
+    );
+  });
+
+  // Repository identity is spelled a dozen ways, and a format this package
+  // invented would reject correct values from hosts it has never seen. Blank
+  // is the only thing rejected.
+  test("does not police the spelling of repo, only its emptiness", () => {
+    for (const repo of [
+      "git@internal.example:team/svc.git",
+      "org/name",
+      "name",
+      "https://gitlab.example.com/a/b/c",
+    ]) {
+      expect(kbAnchorSchema.safeParse({ file: "a.ts", repo }).success).toBe(
+        true,
+      );
+    }
+    expect(kbAnchorSchema.safeParse({ file: "a.ts", repo: "  " }).success).toBe(
+      false,
+    );
+    expect(kbAnchorSchema.safeParse({ file: "a.ts", ref: "" }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe("repoIdentifies", () => {
+  const ORIGIN = "git@github.com:saasontools/strauss-agent-tools.git";
+
+  test("matches the same repository however it is spelled", () => {
+    for (const declared of [
+      "git@github.com:saasontools/strauss-agent-tools.git",
+      "https://github.com/saasontools/strauss-agent-tools",
+      "https://github.com/saasontools/strauss-agent-tools.git",
+      "ssh://git@github.com/saasontools/strauss-agent-tools.git",
+      "saasontools/strauss-agent-tools",
+      "strauss-agent-tools",
+      "  https://GitHub.com/SaasOnTools/Strauss-Agent-Tools/  ",
+    ]) {
+      expect(repoIdentifies(declared, ORIGIN), declared).toBe(true);
+    }
+  });
+
+  test("does not match another repository", () => {
+    for (const declared of [
+      "https://github.com/saasontools/other-service",
+      "saasontools/other-service",
+      "other-service",
+    ]) {
+      expect(repoIdentifies(declared, ORIGIN), declared).toBe(false);
+    }
+  });
+
+  // A root that cannot prove which repository it is: resolving hopefully would
+  // let a coincidental hash match be recorded as evidence.
+  test("matches nothing when the root has no origin", () => {
+    expect(repoIdentifies("strauss-agent-tools", null)).toBe(false);
   });
 });
 
@@ -608,6 +685,114 @@ describe("detectAnchorDrift", () => {
     });
   });
 
+  // A base can describe more than one repository. An anchor naming another one
+  // is expected here, not wrong: it is skipped, never read, and never surfaces
+  // as drift. Resolving it needs a second checkout — SAA-709.
+  describe("a repo the root is not", () => {
+    const asGitRepo = (repo: string, origin: string) => {
+      const git = (...args: string[]) =>
+        execFileSync("git", ["-C", repo, ...args], { stdio: "ignore" });
+      git("init", "-q");
+      git("remote", "add", "origin", origin);
+    };
+
+    test("is unresolved with foreign-repo, and the file is never read", async ({
+      repo,
+    }) => {
+      asGitRepo(repo, "git@github.com:org/this-one.git");
+      // Present and matching — proof the skip happens before any read.
+      write(repo, "src/orders.ts", SOURCE);
+      const anchor = {
+        ...stamp("src/orders.ts", "totals", SOURCE),
+        repo: "https://github.com/org/somewhere-else",
+      };
+
+      const drift = await detectAnchorDrift([record("fact.other", [anchor])], {
+        repoRoot: repo,
+      });
+
+      expect(drift.get("fact.other")).toEqual([
+        {
+          file: "src/orders.ts",
+          symbol: "totals",
+          state: "unresolved",
+          storedHash: anchor.hash,
+          diffSize: null,
+          reason: "foreign-repo",
+        },
+      ]);
+    });
+
+    test("an anchor naming this very repo resolves normally", async ({
+      repo,
+    }) => {
+      asGitRepo(repo, "git@github.com:org/this-one.git");
+      write(repo, "src/orders.ts", SOURCE);
+      const anchor = {
+        ...stamp("src/orders.ts", "totals", SOURCE),
+        repo: "https://github.com/org/this-one",
+        ref: "9f2c1ab3d4e5f60718293a4b5c6d7e8f90a1b2c3",
+      };
+
+      const drift = await detectAnchorDrift([record("fact.here", [anchor])], {
+        repoRoot: repo,
+      });
+
+      expect(drift.get("fact.here")?.[0]?.state).toBe("match");
+    });
+
+    test("drift is still reported for this repo's own anchors", async ({
+      repo,
+    }) => {
+      asGitRepo(repo, "git@github.com:org/this-one.git");
+      write(repo, "src/orders.ts", SOURCE.replace("orders.length", "0"));
+      const anchor = {
+        ...stamp("src/orders.ts", "totals", SOURCE),
+        repo: "org/this-one",
+      };
+
+      const drift = await detectAnchorDrift([record("fact.here", [anchor])], {
+        repoRoot: repo,
+      });
+
+      expect(drift.get("fact.here")?.[0]?.state).toBe("drifted");
+    });
+
+    // A root that cannot say which repository it is cannot confirm the anchor
+    // belongs to it, and a hash that matched by coincidence would be recorded
+    // as evidence.
+    test("is foreign when the root has no origin to compare against", async ({
+      repo,
+    }) => {
+      write(repo, "src/orders.ts", SOURCE);
+      const anchor = {
+        ...stamp("src/orders.ts", "totals", SOURCE),
+        repo: "org/this-one",
+      };
+
+      const drift = await detectAnchorDrift([record("fact.here", [anchor])], {
+        repoRoot: repo,
+      });
+
+      expect(drift.get("fact.here")?.[0]?.reason).toBe("foreign-repo");
+    });
+
+    // An anchor that names no repo means this one, which is what nearly every
+    // anchor means — and it must not start depending on a git remote.
+    test("leaves anchors without a repo exactly as they were", async ({
+      repo,
+    }) => {
+      write(repo, "src/orders.ts", SOURCE);
+      const anchor = stamp("src/orders.ts", "totals", SOURCE);
+
+      const drift = await detectAnchorDrift([record("fact.plain", [anchor])], {
+        repoRoot: repo,
+      });
+
+      expect(drift.get("fact.plain")?.[0]?.state).toBe("match");
+    });
+  });
+
   test("a leading ./ on the anchor path still resolves", async ({ repo }) => {
     write(repo, "src/orders.ts", SOURCE);
     const anchor = {
@@ -654,5 +839,25 @@ describe("looksLikeWrongRepoRoot", () => {
       ),
     ).toBe(false);
     expect(looksLikeWrongRepoRoot(new Map())).toBe(false);
+  });
+
+  // An anchor that named another repository was never going to resolve here.
+  // As a miss it would make a correct root look wrong; as a hit it would keep
+  // a genuinely wrong root from being spotted. It counts as neither.
+  test("ignores foreign-repo entries on both sides of the question", () => {
+    const foreign = entry({ reason: "foreign-repo" as const });
+
+    expect(
+      looksLikeWrongRepoRoot(new Map([["fact.a", [foreign, entry()]]])),
+    ).toBe(true);
+    expect(
+      looksLikeWrongRepoRoot(
+        new Map([["fact.a", [foreign, entry({ state: "match" })]]]),
+      ),
+    ).toBe(false);
+    // Nothing but foreign anchors: no evidence about the root either way.
+    expect(looksLikeWrongRepoRoot(new Map([["fact.a", [foreign]]]))).toBe(
+      false,
+    );
   });
 });

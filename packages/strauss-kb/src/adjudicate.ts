@@ -107,8 +107,12 @@ export function adjudicate(
       warnings.push({ kind: "unverified" });
     }
 
+    // `foreign-repo` is not a finding: the anchor names a repository this root
+    // is not, which a base describing several repositories does by design.
+    // Filtered at the one point every read path and `doctor` share, so none of
+    // them can start reporting it as decay.
     const moved = (anchorDrift?.get(record.conceptId) ?? []).filter(
-      (entry) => entry.state !== "match",
+      (entry) => entry.state !== "match" && entry.reason !== "foreign-repo",
     );
     if (moved.length) {
       warnings.push({

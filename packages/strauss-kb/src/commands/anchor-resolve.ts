@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   hashAnchorText,
+  LazyOrigin,
   readAnchorFile,
   resolveAnchor,
   type AnchorUnresolvedReason,
@@ -31,7 +32,7 @@ export const anchorResolveCommand = define({
   usage:
     "anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]",
   description:
-    "Resolve a record's anchors against the working tree: stamp a hash onto anchors that lack one, and report drift where the code moved out from under a stored hash. An unreadable file or unfindable symbol is a finding, not an error. Exits non-zero when an anchor drifted or when one that carries a hash no longer resolves — a deleted file is as much a broken anchor as a rewritten one — so a CI gate can run it; --rebaseline accepts the current code as the new baseline. An anchor that still matches is left alone rather than re-dated, so a green run writes nothing at all; --restamp refreshes `resolved_at` when you want the record to say when it was last checked.",
+    "Resolve a record's anchors against the working tree: stamp a hash onto anchors that lack one, and report drift where the code moved out from under a stored hash. An unreadable file or unfindable symbol is a finding, not an error. Exits non-zero when an anchor drifted or when one that carries a hash no longer resolves — a deleted file is as much a broken anchor as a rewritten one — so a CI gate can run it; --rebaseline accepts the current code as the new baseline. An anchor that still matches is left alone rather than re-dated, so a green run writes nothing at all; --restamp refreshes `resolved_at` when you want the record to say when it was last checked. An anchor whose `repo` names another repository is skipped as `foreign-repo` — not read, not stamped, and not counted against the record; `repo` and `ref` are the author's to write and this command never touches them.",
   input: z.object({
     bundlePath,
     conceptId,
@@ -71,6 +72,7 @@ export const anchorResolveCommand = define({
 
     const results: AnchorResolveResult[] = [];
     const updated: KbAnchor[] = [];
+    const origin = new LazyOrigin(root);
     let dirty = false;
 
     for (const anchor of anchors) {
@@ -83,6 +85,15 @@ export const anchorResolveCommand = define({
           // has to be able to tell it from one nobody ever stamped.
           ...(anchor.hash ? { storedHash: anchor.hash } : {}),
         };
+
+      // Another repository's anchor: left exactly as it is, not read, not
+      // stamped, and not counted against the record. Resolving it needs a
+      // second checkout, which is SAA-709.
+      if (await origin.foreign(anchor)) {
+        results.push({ ...base, state: "unresolved", reason: "foreign-repo" });
+        updated.push(anchor);
+        continue;
+      }
 
       const read = await readAnchorFile(root, anchor.file);
       if (!read.ok) {
@@ -164,19 +175,29 @@ export const anchorResolveCommand = define({
       ? { frozen: true, note: "base is frozen: nothing was stamped" }
       : {};
 
-    // Every anchor matched — not "nothing went wrong". A freshly stamped
-    // anchor is a baseline nobody has checked against anything, and counting
-    // it as evidence would let a record verify itself into trustworthiness on
-    // the very run that invented its hash.
-    const matches = results.filter((entry) => entry.state === "match").length;
+    // Every anchor this root could check matched — not "nothing went wrong".
+    // A freshly stamped anchor is a baseline nobody has checked against
+    // anything, and counting it as evidence would let a record verify itself
+    // into trustworthiness on the very run that invented its hash.
+    //
+    // Anchors in another repository are outside the denominator rather than
+    // against it. Counting them as failures would make a cross-repo record
+    // permanently unverifiable until SAA-709, and counting them as passes
+    // would claim evidence nobody gathered; the note says how many were
+    // skipped, so the reader can see the scope of what was checked.
+    const checked = results.filter((entry) => entry.reason !== "foreign-repo");
+    const skipped = results.length - checked.length;
+    const matches = checked.filter((entry) => entry.state === "match").length;
     const clean =
-      results.length > 0 && results.every((entry) => entry.state === "match");
+      checked.length > 0 && checked.every((entry) => entry.state === "match");
     if (clean) {
       try {
         await store.verify(
           path,
           id,
-          `anchor-resolve: ${matches}/${results.length} anchors match (regex resolver)`,
+          `anchor-resolve: ${matches}/${checked.length} anchors match${
+            skipped ? `, ${skipped} in another repo` : ""
+          } (regex resolver)`,
           actor,
           now(),
         );
@@ -200,11 +221,15 @@ export const anchorResolveCommand = define({
   // A stored hash that no longer resolves is a broken anchor, not an absence:
   // the file was deleted or the symbol renamed, and exiting zero on it would
   // let the one edit that destroys an anchor pass the gate that exists to
-  // catch it. An anchor nobody ever stamped is still just unstamped.
+  // catch it. An anchor nobody ever stamped is still just unstamped, and one
+  // belonging to another repository was never this run's to check — failing CI
+  // on either would gate on work this command did not do.
   failsWhen: (result) =>
     (result as { results: AnchorResolveResult[] }).results.some(
       (entry) =>
         entry.state === "drifted" ||
-        (entry.state === "unresolved" && entry.storedHash !== undefined),
+        (entry.state === "unresolved" &&
+          entry.storedHash !== undefined &&
+          entry.reason !== "foreign-repo"),
     ),
 });

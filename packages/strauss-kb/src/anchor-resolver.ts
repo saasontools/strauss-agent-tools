@@ -1,7 +1,11 @@
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
+import { promisify } from "node:util";
 import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Resolves symbolic anchors to text and detects drift against stored hashes.
@@ -35,7 +39,14 @@ export type AnchorUnresolvedReason =
   | "symbol-not-found"
   | "outside-repo"
   | "file-too-large"
-  | "file-unreadable";
+  | "file-unreadable"
+  /**
+   * The anchor names a repository this root is not. Expected rather than
+   * wrong — a base describing several repositories resolves against one tree
+   * at a time — so it is never a drift finding and never reaches a reader as
+   * a warning. Multi-root resolution is SAA-709.
+   */
+  | "foreign-repo";
 
 /** Big enough for any hand-written source file, small enough to read eagerly. */
 export const MAX_ANCHOR_FILE_BYTES = 1_048_576;
@@ -421,6 +432,104 @@ function contains(root: string, path: string): boolean {
   );
 }
 
+/* -------------------------------------------------------------------------
+ * Which repository is this?
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Repository identity, compared rather than parsed.
+ *
+ * One repository is spelled a dozen ways — `git@github.com:org/name.git`,
+ * `https://github.com/org/name`, `org/name`, or just `name` — and an anchor's
+ * `repo` is hand-written by whoever recorded it. Normalising both sides to one
+ * shape and comparing is the only approach that does not reject a correct
+ * value from a host this package has never seen.
+ */
+export function normalizeRepoUrl(value: string): string {
+  let url = value.trim().replace(/^git\+/, "");
+  // scp-style: git@host:org/name
+  const scp = /^[\w.-]+@([\w.-]+):(.+)$/.exec(url);
+  if (scp) url = `https://${scp[1]}/${scp[2]}`;
+  url = url.replace(/^ssh:\/\/(?:[^@/]+@)?/, "https://");
+  return url
+    .replace(/\.git$/, "")
+    .replace(/\/+$/, "")
+    .toLowerCase();
+}
+
+/** `org/name` from a normalized URL, or "" when it carries no host. */
+function repoPath(normalized: string): string {
+  const withoutScheme = normalized.replace(/^[a-z0-9+.-]+:\/\//, "");
+  const segments = withoutScheme.split("/").filter(Boolean);
+  return segments.length > 1 ? segments.slice(1).join("/") : "";
+}
+
+/**
+ * Does `declared` name the repository `originUrl` points at?
+ *
+ * Three spellings are accepted, narrowest first: the whole URL, the `org/name`
+ * path, and the bare repository name. The bare name is the loosest and could
+ * in principle collide across organisations; it is accepted because it is what
+ * people actually write, and the cost of a false positive here is resolving an
+ * anchor that was already meant for a repository of that name.
+ */
+export function repoIdentifies(
+  declared: string,
+  originUrl: string | null,
+): boolean {
+  if (!originUrl) return false;
+  const origin = normalizeRepoUrl(originUrl);
+  const want = normalizeRepoUrl(declared);
+  if (!want || !origin) return false;
+  if (want === origin) return true;
+
+  const path = repoPath(origin);
+  if (!path) return false;
+  return want === path || want === (path.split("/").pop() ?? "");
+}
+
+/**
+ * The `origin` remote of the tree at `repoRoot`, or `null`.
+ *
+ * `null` for anything that is not a git checkout, has no `origin`, or where
+ * git is unavailable — all of which mean the same thing here: this root cannot
+ * prove which repository it is. An anchor naming a repository is then treated
+ * as foreign rather than resolved hopefully, because a hash that matched by
+ * coincidence would be recorded as evidence.
+ */
+export async function repoOriginUrl(repoRoot: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["-C", repoRoot, "config", "--get", "remote.origin.url"],
+      { timeout: 5_000 },
+    );
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * "Is this anchor for another repository?", answered without asking git until
+ * an anchor actually declares a `repo`, and only once per run after that.
+ */
+export class LazyOrigin {
+  private url: string | null = null;
+  private asked = false;
+
+  constructor(private readonly repoRoot: string) {}
+
+  async foreign(anchor: KbAnchor): Promise<boolean> {
+    if (!anchor.repo) return false;
+    if (!this.asked) {
+      this.url = await repoOriginUrl(this.repoRoot);
+      this.asked = true;
+    }
+    return !repoIdentifies(anchor.repo, this.url);
+  }
+}
+
 export type AnchorRead =
   | { ok: true; source: string }
   | { ok: false; reason: AnchorUnresolvedReason };
@@ -499,6 +608,11 @@ export function looksLikeWrongRepoRoot(
   let checked = 0;
   for (const entries of drift.values()) {
     for (const entry of entries) {
+      // An anchor that named another repository was never going to resolve
+      // here. Counting it either way would be wrong: as a miss it would make
+      // a correct root look wrong, and as a hit it would keep a genuinely
+      // wrong root from being spotted.
+      if (entry.reason === "foreign-repo") continue;
       checked += 1;
       if (entry.state !== "unresolved" || entry.reason !== "file-missing") {
         return false;
@@ -517,6 +631,11 @@ export function looksLikeWrongRepoRoot(
  * bases whose code has moved, and the moved code is exactly what it exists to
  * report. Each distinct file is read once per run. All checked entries are
  * returned per record; callers filter.
+ *
+ * An anchor naming another repository is reported `foreign-repo` and never
+ * read. The `origin` remote is asked for once per run, and only when some
+ * anchor actually declares a `repo` — the overwhelmingly common anchor names
+ * none, and pays no subprocess for the ones that do.
  */
 export async function detectAnchorDrift(
   records: KbRecord[],
@@ -526,6 +645,7 @@ export async function detectAnchorDrift(
   const resolver = options.resolver ?? regexResolver;
   const drift = new Map<string, KbAnchorDriftEntry[]>();
   const reads = new Map<string, AnchorRead>();
+  const origin = new LazyOrigin(repoRoot);
 
   for (const record of records) {
     const entries: KbAnchorDriftEntry[] = [];
@@ -538,6 +658,16 @@ export async function detectAnchorDrift(
         ...(anchor.symbol ? { symbol: anchor.symbol } : {}),
         storedHash: anchor.hash,
       };
+
+      if (await origin.foreign(anchor)) {
+        entries.push({
+          ...base,
+          state: "unresolved",
+          diffSize: null,
+          reason: "foreign-repo",
+        });
+        continue;
+      }
 
       if (!reads.has(anchor.file)) {
         reads.set(anchor.file, await readAnchorFile(repoRoot, anchor.file));

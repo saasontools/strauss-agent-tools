@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -254,6 +255,71 @@ describe("anchorResolveCommand", () => {
 
   // Nothing was ever stamped, so nothing broke: an unstamped anchor is a
   // backlog item, and failing CI on it would gate on work not yet done.
+  // `repo` and `ref` are author-owned identity: they say which code the record
+  // meant, which is a claim only the author can make. The resolver stamps what
+  // it measured — hash, lines, resolved_at — and nothing else.
+  test("stamping leaves repo and ref exactly as the author wrote them", async () => {
+    execFileSync("git", ["-C", repo, "init", "-q"]);
+    execFileSync("git", [
+      "-C",
+      repo,
+      "remote",
+      "add",
+      "origin",
+      "git@github.com:org/this-one.git",
+    ]);
+    writeSource(SOURCE);
+    await seed([
+      {
+        file: FILE,
+        symbol: "totals",
+        repo: "org/this-one",
+        ref: "9f2c1ab3d4e5f60718293a4b5c6d7e8f90a1b2c3",
+      },
+    ]);
+
+    const output = await run({});
+
+    expect(output.results[0]?.state).toBe("stamped");
+    const anchor = (await new KbStore().read(bundle, ID))?.frontmatter
+      .strauss_anchors?.[0];
+    expect(anchor).toMatchObject({
+      repo: "org/this-one",
+      ref: "9f2c1ab3d4e5f60718293a4b5c6d7e8f90a1b2c3",
+      resolved_at: NOW,
+    });
+    expect(anchor?.hash).toBeDefined();
+  });
+
+  // Another repository's anchor is expected, not broken: never read, never
+  // stamped, and never a reason to fail CI. SAA-709 resolves them properly.
+  test("an anchor for another repo is skipped and does not fail the gate", async () => {
+    writeSource(SOURCE);
+    const local = stamped("totals", SOURCE);
+    await seed([
+      local,
+      { ...local, file: "src/elsewhere.ts", repo: "org/somewhere-else" },
+    ]);
+
+    const output = await run({});
+
+    expect(output.results[1]).toMatchObject({
+      state: "unresolved",
+      reason: "foreign-repo",
+    });
+    expect(fails(output)).toBe(false);
+
+    // Outside the denominator rather than against it, and the note says so —
+    // otherwise a cross-repo record could never be verified until SAA-709.
+    const record = await new KbStore().read(bundle, ID);
+    expect(record?.frontmatter.verified?.[0]?.note).toBe(
+      "anchor-resolve: 1/1 anchors match, 1 in another repo (regex resolver)",
+    );
+    expect(record?.frontmatter.strauss_anchors?.[1]?.repo).toBe(
+      "org/somewhere-else",
+    );
+  });
+
   // Frozen refuses writes, not reads. A concluded base is exactly where a
   // caller most wants to ask whether the code moved, and throwing would deny
   // the report along with the stamp.
