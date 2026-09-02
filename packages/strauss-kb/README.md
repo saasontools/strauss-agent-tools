@@ -54,6 +54,7 @@ bundling can `require()` it without depending on its Node version honouring
   <type>.<slug>.md    records
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
+  .gitattributes      merge      store-owned, written on first write
   .index.sqlite       search     derived, gitignored
 ```
 
@@ -75,6 +76,46 @@ alike is how the history gets lost:
 Repair-on-read, not coordination, is what lets both exist without a lock. The
 index is _eventually_ correct: a writer whose scan predated another's record
 publishes a briefly stale index, and the next read through the store settles it.
+
+### Cross-worktree writes
+
+A committed base is routinely written from more than one worktree at once —
+each records into the same `log.jsonl`, and a plain git merge of two branches
+that both appended lines resolves that file at the line level, same as any
+other text file. That is the wrong merge for an append-only log: git's default
+picks a side, or conflicts, on lines that both branches only ever meant to add
+to.
+
+So the first write to a base (through `write`, or whichever call happens to
+append the first log line) declares a merge driver for its log: it writes
+`log.jsonl text eol=lf merge=union` into the base's `.gitattributes` if that
+file does not exist yet, and appends the line if the file exists but declares
+no merge strategy for `log.jsonl` yet — a `.gitattributes` a user put there
+first is respected, never overwritten wholesale, and a line that already
+gives `log.jsonl` _any_ merge strategy — this one or the user's own choice
+such as `merge=ours` — is left alone rather than layered under a second,
+possibly conflicting one. `union` is one of git's built-in merge drivers; the
+attribute alone is enough; nothing else needs configuring. `eol=lf` pins line
+endings to `\n` regardless of a checkout's `core.autocrlf`, so a Windows
+checkout normalizing the file on checkout can't leave it with mixed endings
+against the raw `\n` every append writes. With it, a merge of two branches
+that both appended to `log.jsonl` keeps both sides' lines instead of picking
+one.
+
+A union merge does not preserve line order, and can occasionally keep the
+same line twice (a cherry-pick or rebase that carried one side's entry into
+the other's history before the merge). `kb_log`'s reader (`kb-log.ts`) sorts
+entries by `at` and drops exact duplicates before returning them, so neither
+is something a caller has to account for.
+
+**This applies to a local `git merge`, not to GitHub.** GitHub computes pull
+request merges (and the merge/squash/rebase buttons) through its own service,
+which does not read `.gitattributes` merge-driver declarations — a PR that
+merges two branches' `log.jsonl` appends on GitHub gets git's ordinary
+line-level merge (or a conflict) even with the attribute in place. The union
+driver only fires for a merge actually run by a local git client, which covers
+worktrees pulling from and pushing to each other directly, but not a merge
+GitHub itself performs.
 
 ## Records
 
@@ -307,6 +348,8 @@ strauss-kb [--bundle PATH] <command> [args]
   index                                    The index, rebuilt if it disagrees with the records.
   log                                      What touched what, and when.
   validate                                 Cross-record checks. Exits 1 on an error; warnings alone exit 0.
+  doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--strict]
+                                           Health sweep: what expired, went unconfirmed, aged, or was orphaned.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
   pin [bundle-path] [flags]                Pin a base. --mode, --profiles, --frozen; --local/--user pick the layer.
@@ -316,16 +359,21 @@ strauss-kb [--bundle PATH] <command> [args]
   sync-instructions <file>                 Plant the context block between sentinels in an instruction file.
 
   --bundle PATH  defaults to ./.strauss/kb
+  --json         the machine shape, where a command prints a table
+  --             everything after it is text, not flags
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
 Results go to stdout as JSON — `index` and `pack` are markdown, which is what
-they are. Errors
-go to stderr and exit 1. `validate` is the one command whose exit code is not
-just "did it run": a check that reports a problem succeeded as a command and
-failed as a check, so it exits 1 with its findings on stdout. Only findings
-with `severity: "error"` do that — a base mid-write is full of links to records
-not written yet, so a run whose findings are all warnings exits 0.
+they are, and `doctor` prints a table unless `--json` asks for the object
+behind it. `--json` is refused rather than ignored on the commands that have
+only one form, since a flag that quietly does nothing reads as one that
+worked; `--` ends flag parsing, for the verbs that end in free prose. Errors
+go to stderr and exit 1. `validate` and `doctor --strict` are the commands
+whose exit code is not just "did it run": a check that reports a problem
+succeeded as a command and failed as a check, so it exits 1 with its findings
+on stdout. Only `validate` findings with `severity: "error"` do that — a base
+mid-write is full of links to records not written yet, so warnings alone exit 0.
 
 ```bash
 strauss-kb --bundle .strauss/kb write fact <<'JSON'
@@ -348,7 +396,7 @@ strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_pack`, `kb_query`,
 `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`, `kb_index`, `kb_log`,
-`kb_validate`, `kb_schema`, `kb_types`,
+`kb_validate`, `kb_doctor`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
 `kb_pins` and `kb_context` read the workspace pin manifests instead. The one
@@ -486,6 +534,83 @@ return a record the base openly claims is replaced. A cycle terminates with
 fact; a missing replacement is `broken-chain` with no head — the case that needs
 the most care, because returning the stale record unmarked looks exactly like
 success.
+
+## Health
+
+`doctor` sweeps a whole base and reports what has decayed. It is read-only —
+nothing is re-dated, re-verified, superseded, or deleted — because every
+finding is a judgment somebody has to make: whether a claim still holds, which
+question is worth answering, which island to link or drop.
+
+It exists because decay is invisible from inside a single record. A stale
+record reads exactly like a live one, a question nobody answered reads exactly
+like one nobody asked, and a record nothing links to is reachable only by
+someone who already knows it is there. `validate` is the narrower neighbour:
+it asks only whether pointers between records agree.
+
+| Check                  | Reports                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `expired`              | `stale_after` is in the past — or is not a readable date, which is no better.  |
+| `expiring`             | `stale_after` falls inside the next `--expiring-days` (30).                    |
+| `unverified`           | `verified[]` is empty and the record is over `--unverified-days` (90) old.     |
+| `aging`                | Still `open` or `proposed` after `--aging-days` (90).                          |
+| `orphaned`             | No other record links to it, by body link or supersession.                     |
+| `broken-supersession`  | A chain that does not resolve: no replacement, a missing one, a cycle, a fork. |
+| `superseded-but-cited` | A record that still holds, whose body links to one that does not.              |
+
+The last check's name is for its common case: a rejected target counts too, and
+is the worse half — a superseded record at least names its replacement, while a
+rejected one is a well-formed assertion of what someone decided _not_ to do,
+cited by a record the reader trusts.
+
+```bash
+strauss-kb doctor                       # the table
+strauss-kb doctor --json                # the object behind it
+strauss-kb doctor --strict              # exit 1 if anything has expired
+strauss-kb doctor --unverified-days 30  # a stricter confirmation window
+```
+
+All seven groups are reported even when empty. A check that found nothing and
+a check that never ran look identical in a report that only lists findings,
+which is the whole value of a sweep.
+
+Judgments the checks make, worth knowing before reading a report:
+
+- **Superseded and rejected records sit out the freshness checks.** A replaced
+  record whose date has passed needs no repair, and reporting it would bury the
+  records that do. They stay in the graph checks, where standing is not the
+  question.
+- **A date-only `stale_after` expires at UTC midnight.** `2026-09-01` parses as
+  `2026-09-01T00:00:00Z`, so a record goes stale at the start of its date: a
+  sweep run at exactly that instant still calls it expiring, and one a minute
+  later calls it expired. That is `adjudicate`'s comparison rather than a
+  second one — two readings of the same field disagreeing about the day would
+  be worse than either.
+- **Age is read from `generated.at`, exclusively.** A record carrying no
+  timestamp is not reported as aging or unverified — without a start there is
+  no duration, and inventing one would flag every foreign record as overdue
+  (adjudication still warns `unverified` on it at read time). Exactly N days
+  old is not yet "older than N".
+- **`orphaned` counts incoming links only, and reads supersession one way.** A
+  record that cites five others and is cited by none is precisely the island:
+  reachable if you already know it exists. The replacement references what it
+  replaced, never the reverse — taken symmetrically, a dead record would vouch
+  for its own replacement and an old→new pair nothing else touches would rescue
+  itself. Shared anchors and shared sources are co-location rather than
+  reference, so they do not rescue a record either.
+- **A record citing the one it replaced is not superseded-but-cited.** That
+  link is the history working as designed, and reporting it would put a finding
+  on every correctly performed supersession.
+- **A replacement pointer is checked whatever the status says.** The store
+  writes `strauss_status` and `strauss_superseded_by` in one mutation, so a
+  record left `accepted` while naming a replacement was hand-edited — and
+  adjudication reads it as current no matter what the pointer says, which is
+  what makes it worth naming.
+
+`--strict` gates on expiry alone. The other six report debt a reader decides
+about; an expired record is the base itself saying it would stop standing
+behind something, which is the one finding a pipeline can act on without a
+judgment call.
 
 ## Living in an agent session
 

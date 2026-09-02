@@ -186,11 +186,19 @@ changed the record: re-read and retry, do not force.
 strauss-kb index      # the index, rebuilt if it disagrees with the records
 strauss-kb log        # who touched what, and when
 strauss-kb validate   # cross-record checks; exits 1 when it finds a problem
+strauss-kb doctor     # health sweep: what expired, went unconfirmed, or got orphaned
 ```
 
 `validate` only catches what one record cannot see — supersession pointers that
 disagree, an assumption citing sources. Since `supersede` writes both sides, a
 pointer problem means someone hand-edited a file.
+
+`doctor` asks the questions nobody thinks to, and never writes: seven groups —
+expired, expiring, unverified, aging (still `open` or `proposed`), orphaned (no
+other record links to it), broken supersession, and superseded-but-cited. Reach
+for it when picking up a base you have not touched in months; every finding
+names a record for a person to repair. `--json` for the machine shape,
+`--strict` to exit 1 when anything has expired.
 
 Do not edit `INDEX.md` or `log.jsonl` by hand. The index is regenerated from the
 records; the log is append-only and is the one artifact nothing can rebuild.

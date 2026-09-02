@@ -47,6 +47,11 @@ import {
   renderLogEntry,
   type KbLogEntry,
 } from "./kb-log.js";
+import {
+  appendUnionMergeLine,
+  GITATTRIBUTES_FILE,
+  hasMergeDeclaration,
+} from "./kb-gitattributes.js";
 
 /**
  * Default bundle, relative to the working directory. A scratch base lives here
@@ -723,11 +728,92 @@ export class KbStore {
     }
   }
 
+  /**
+   * Declares union merge for the log, so two worktrees writing the same
+   * bundle interleave their `log.jsonl` lines on merge rather than one
+   * side's appends silently losing to git's ordinary line-level merge.
+   *
+   * Called from `record` — every path that appends a log line, not just
+   * `write` — so a bundle only ever mutated through `setStatus`/`verify`/
+   * `supersede` still gets it. There is no cheaper reliable signal for
+   * "first write" than checking the file itself, and after the first call
+   * the check is a no-op `readFile`.
+   *
+   * A missing `.gitattributes` is created outright, with `wx` (exclusive
+   * create) rather than a plain write: if another process's `write()` won a
+   * race and created the file between the `readFile` below and this call,
+   * `wx` fails instead of truncating what that writer just wrote, and the
+   * failure is swallowed by the catch below same as any other best-effort
+   * miss. A file that exists but declares no merge strategy for the log
+   * gets the line appended, never a wholesale rewrite; one that already
+   * declares any merge strategy — this one or a user's own — is left alone
+   * entirely (see `hasMergeDeclaration`).
+   *
+   * `readFile` failing is `existing === null` only for `ENOENT` — genuinely
+   * missing. Any other error (a permission problem, a transient `EMFILE`,
+   * the path being a directory) is *not* "missing" and must not fall into
+   * the create branch, which would truncate whatever is actually there with
+   * just the union-merge line: that is the file-destroying bug this
+   * function exists to avoid, not commit. An unreadable existing file is
+   * therefore left untouched and reported as a failure like any other.
+   *
+   * Two processes racing the append branch — both read a file without the
+   * line, both append it — is possible and left unguarded: `appendFile` is
+   * `O_APPEND`, so the result is two copies of the same line rather than a
+   * torn write, and `hasMergeDeclaration` sees a duplicate declaration as
+   * "already declared" on the next call. A cheap-to-detect, harmless-to-
+   * leave residue, not a reason to add a cross-process lock (see
+   * `ARCHITECTURE.md`'s rejection of one for the same trade on records).
+   *
+   * Best-effort, like the log append it precedes: failing to write this
+   * file must not fail the mutation it guards.
+   */
+  private async ensureGitattributes(root: string): Promise<void> {
+    const target = join(root, GITATTRIBUTES_FILE);
+    try {
+      let existing: string | null;
+      try {
+        existing = await readFile(target, "utf8");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        existing = null;
+      }
+
+      if (existing === null) {
+        await writeFile(target, appendUnionMergeLine(""), {
+          encoding: "utf8",
+          flag: "wx",
+        });
+        this.logger.info?.({
+          operation: "kb.gitattributes.ensure",
+          bundlePath: root,
+          outcome: "created",
+        });
+        return;
+      }
+      if (!hasMergeDeclaration(existing)) {
+        await appendFile(target, appendUnionMergeLine(existing), "utf8");
+        this.logger.info?.({
+          operation: "kb.gitattributes.ensure",
+          bundlePath: root,
+          outcome: "appended",
+        });
+      }
+    } catch (error) {
+      this.logger.warn?.({
+        operation: "kb.gitattributes.ensure",
+        outcome: "failed",
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    }
+  }
+
   /** Appends one log line. Failing to log must not fail the mutation. */
   private async record(
     root: string,
     entry: Omit<KbLogEntry, "at"> & { at?: string },
   ): Promise<void> {
+    await this.ensureGitattributes(root);
     const line = renderLogEntry({ at: new Date().toISOString(), ...entry });
     await appendFile(join(root, LOG_FILE), line, "utf8").catch((error) => {
       this.logger.warn?.({

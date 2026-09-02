@@ -166,6 +166,19 @@ export {
   type KbValidationSeverity,
 } from "./validate.js";
 export {
+  doctor,
+  DEFAULT_AGING_DAYS,
+  DEFAULT_EXPIRING_DAYS,
+  DEFAULT_UNVERIFIED_DAYS,
+  KB_DOCTOR_CHECKS,
+  type KbDoctorCheck,
+  type KbDoctorFinding,
+  type KbDoctorGroup,
+  type KbDoctorOptions,
+  type KbDoctorReport,
+  type KbDoctorThresholds,
+} from "./doctor.js";
+export {
   composeDecisionRecord,
   composeNoDecisionRecord,
   isNoDecisionRecord,
