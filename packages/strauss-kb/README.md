@@ -175,35 +175,26 @@ from a closed vocabulary of eight.
 | `related_to`  | A points at B, claiming no dependence | —         | `Relates to`  |
 
 **Direction, twice over.** An edge lives on the source record's frontmatter and
-reads source → target: `A depends_on B` means A needs B. That is the edge's
-direction, and it is fixed.
-
-The **direction of dependence** is a separate thing, it is per-rel, and it does
-not follow the edge — the `Dependant` column above. `A depends_on B` puts the
-dependant at the source, so B changing threatens A. `A informs B` puts it at
-the target, so A changing threatens B. A walk that treated every typed link as
-"inbound" would report the blast radius of `informs`, `blocks`, `invalidates`
-and `constrains` exactly backwards: naming the records that are safe and
-omitting the ones at risk.
+reads source → target: `A depends_on B` means A needs B. The **direction of
+dependence** is separate and per-rel — the `Dependant` column above — and it
+does not follow the edge. A walk that treated every typed link as "inbound"
+would report the blast radius of `informs`, `blocks`, `invalidates` and
+`constrains` exactly backwards.
 
 **Supersession is not in the vocabulary.** It is a lifecycle, not an edge:
 `strauss_supersedes`/`strauss_superseded_by` already carry it in both
-directions, with the store writing the pair. A rel would be a second spelling
-of the same fact, free to disagree with the first.
+directions, and a rel would be a second spelling free to disagree with them.
 
-**The vocabulary is closed, and enforced at two different points.** `kb_write`
-rejects a rel outside it outright — this package will not write one. A record
-that already carries one is still _read_, because a frontmatter schema strict
-enough to reject it would make the file fail to parse, and a file that fails to
-parse is skipped rather than reported; the bundle would drop the record instead
-of telling you why. `kb_validate` is where it becomes an `error`, and no walk
-anywhere follows an unknown rel.
+**The vocabulary is closed, enforced at two points.** `kb_write` rejects a rel
+outside it outright. A record that already carries one is still _read_, because
+a schema strict enough to reject it would make the file fail to parse, and a
+file that fails to parse is skipped rather than reported; `kb_validate` is
+where it becomes an `error` instead.
 
 Findings split by whether time can fix them. An unknown `rel`, or a target that
-is not a well-formed concept id, is an `error` — no later write makes either
-one traversable. A well-formed target that is simply absent is a `warning`,
-because writing a record before the one it points at is ordinary. Only errors
-fail the check's exit code.
+is not a well-formed concept id, is an `error`. A well-formed target that is
+simply absent is a `warning`, because writing a record before the one it points
+at is ordinary. Only errors fail the check's exit code.
 
 Each link is also rendered into the body as one prose sentence from a fixed
 template — `Depends on [fact.region-key](fact.region-key.md).` — which is OKF's
@@ -229,22 +220,18 @@ rel including `related_to`, with the rel it was made with. Both carry standing
 on every row. Cycles are ordinary (`A depends_on B`, `B constrains A`) and
 terminate.
 
-**Where the walks disagree about standing, deliberately.** `kb_impact` reports
-a superseded or rejected record and stops there, naming each stopping point
-under `stopped`; `kb_pack` and `kb_trace` traverse typed links without regard
-to standing. The asymmetry is the difference between what the three are for. A
-pack and a trace present standing — a pack stubs superseded records, a trace
-exists to show the superseded understanding — so a reader sees what stands and
-judges. An impact set is acted on: it is the list of records to go and check
-before changing something, and a withdrawn record's declared dependencies are
-not obligations anyone still owes. Propagating through them would inflate the
-list with work that no longer exists.
+**Where the walks disagree about standing.** `kb_impact` reports a superseded
+or rejected record and stops there, naming each stopping point under `stopped`;
+`kb_pack` and `kb_trace` traverse typed links without regard to standing. A
+pack and a trace present standing for a reader to judge. An impact set is acted
+on, and a withdrawn record's declared dependencies are not obligations anyone
+still owes.
 
 Typed links also join the shared edge inventory as a directed `typed-link`
 kind, so `kb_pack` includes a record named only in frontmatter, and `kb_trace`
 follows a declared dependency. The two take different rel sets: `pack` follows
-every known rel including `related_to`, because a neighbourhood is exactly
-where a bibliography belongs, while `trace` follows only the rels that carry a
+every known rel including `related_to`, because a neighbourhood is where a
+bibliography belongs, while `trace` follows only the rels that carry a
 dependence. Body links stay excluded from `trace` either way — any markdown a
 writer typed can reach most of a bundle, where a `strauss_links` entry is a
 deliberate claim from a closed vocabulary.
@@ -314,7 +301,7 @@ strauss-kb [--bundle PATH] <command> [args]
   query <text...>                          Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
   impact <concept-id> [--depth N] [--rels a,b]
-                                           What breaks if this changes: inbound causal links, transitively.
+                                           What breaks if this changes: its dependants, transitively.
   backlinks <concept-id>                   Who points at this record — one hop, every rel.
   list [type]                              Every record, optionally narrowed to one type.
   index                                    The index, rebuilt if it disagrees with the records.
@@ -337,9 +324,8 @@ they are. Errors
 go to stderr and exit 1. `validate` is the one command whose exit code is not
 just "did it run": a check that reports a problem succeeded as a command and
 failed as a check, so it exits 1 with its findings on stdout. Only findings
-with `severity: "error"` do that — a run whose findings are all warnings exits
-0, because a base mid-write is full of links to records not written yet and
-failing on those would train callers to ignore the exit code.
+with `severity: "error"` do that — a base mid-write is full of links to records
+not written yet, so a run whose findings are all warnings exits 0.
 
 ```bash
 strauss-kb --bundle .strauss/kb write fact <<'JSON'

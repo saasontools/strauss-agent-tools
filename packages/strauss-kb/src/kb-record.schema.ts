@@ -69,15 +69,13 @@ export const kbAnchorSchema = z
  * One typed causal edge, as the frontmatter stores it.
  *
  * Read-side, and therefore tolerant: `rel` is a plain string here even though
- * the vocabulary is closed, for the same reason `type` is. A record carrying a
- * rel we do not know must stay readable — rejecting it at parse time would
- * make the file vanish from `list()`, and a bundle cannot report a defect in a
- * record it refuses to load. `kb_validate` is what turns an unknown rel into
- * an error; `composeRecord` is what stops one being written in the first place.
+ * the vocabulary is closed, for the same reason `type` is. Rejecting an unknown
+ * rel at parse time would make the file vanish from `list()`, and a bundle
+ * cannot report a defect in a record it refuses to load. `kb_validate` turns an
+ * unknown rel into an error; `composeRecord` stops one being written.
  *
- * `target` is likewise not required to resolve. Records are routinely written
- * before the ones they point at exist, so a dangling target is a validation
- * warning rather than a parse failure.
+ * `target` is likewise not required to resolve — a dangling target is a
+ * validation warning rather than a parse failure.
  */
 export const kbLinkSchema = z
   .object({

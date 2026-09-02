@@ -17,34 +17,25 @@ import type {
 /**
  * What breaks if this record changes.
  *
- * The transitive set of *dependants*, which is not the same as the set of
- * inbound edges. Each rel says which of its two ends depends on the other, and
- * that end is not always the source: `A depends_on B` puts the dependant at
- * the source, so B's dependants include A and the walk runs against the edge;
- * `A informs B` puts it at the target, so A's dependants include B and the walk
- * runs along the edge. Following only inbound edges would report the blast
- * radius of `informs`, `blocks`, `invalidates` and `constrains` backwards —
- * naming the records that are safe and omitting the ones at risk.
+ * The transitive set of *dependants*, which is not the set of inbound edges.
+ * Each rel says which of its two ends depends on the other, and that end is not
+ * always the source: `A depends_on B` puts the dependant at the source, so the
+ * walk runs against the edge; `A informs B` puts it at the target, so the walk
+ * runs along it. So each hop asks two questions of a record: who points at me
+ * with a rel whose dependant is the source, and who do I point at with a rel
+ * whose dependant is the target. Both answers are dependants.
  *
- * So each hop asks two questions of a record: who points at me with a rel whose
- * dependant is the source, and who do I point at with a rel whose dependant is
- * the target. Both answers are dependants; the walk recurses from each.
+ * `related_to` carries no dependant and propagates nothing. An unknown rel is
+ * never followed anywhere; `kb_validate` reports it as an error.
  *
- * `related_to` carries no dependant and so propagates nothing. An unknown rel
- * is never followed anywhere — it cannot be traversed by definition, and
- * `kb_validate` reports it as an error rather than a walk silently absorbing it.
+ * Standing is applied but nothing is filtered — a dropped record turns a
+ * knowable gap into an unknowable one. What standing changes is traversal: a
+ * superseded or rejected record's own declared edges no longer hold, so the
+ * walk reports it and stops there, naming it in `stopped`.
  *
- * Standing is applied but nothing is filtered, which is this package's standing
- * rule everywhere: a dropped record turns a knowable gap into an unknowable
- * one. What standing does change is traversal — a superseded or rejected
- * record's own declared edges no longer hold, so the walk reports it and stops
- * there rather than propagating through a dependency that was withdrawn. Those
- * stopping points are named in `stopped`.
- *
- * Cycles are ordinary here rather than exceptional: `A depends_on B` and
- * `B constrains A` is a legitimate pair. A record is expanded once, keeps the
- * shortest depth at which it was reached, and accumulates every edge that
- * reached it, so a cycle terminates without losing a reason.
+ * Cycles are ordinary (`A depends_on B`, `B constrains A`). A record is
+ * expanded once, keeps the shortest depth at which it was reached, and
+ * accumulates every edge that reached it, so a cycle terminates.
  */
 export function impact(
   targetId: string,

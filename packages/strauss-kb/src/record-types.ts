@@ -91,23 +91,17 @@ export function isKbRecordType(value: string): value is KbRecordType {
 /**
  * The closed vocabulary of typed causal edges — `strauss_links[].rel`.
  *
- * Closed on purpose, and the only closed vocabulary here a producer may not
- * extend. An open rel set is a free-text field wearing a schema: two agents
- * writing `depends-on` and `dependsOn` at the same base produce a graph no walk
- * can traverse, and nothing ever reports it, because every spelling is legal.
- * Eight rels cover what a knowledge base actually needs to say about causation;
- * `related_to` is the escape hatch for everything that is a pointer rather than
- * a dependence, which is why it is the one rel `kb_impact` does not follow.
- *
- * Supersession is deliberately absent. It is a lifecycle — a record's standing
- * changes, and `strauss_supersedes`/`strauss_superseded_by` carry it in both
- * directions with the store settling the pair. Restating it as an edge would
- * give the same fact two spellings that can disagree.
+ * Closed, and the one closed vocabulary here a producer may not extend: an open
+ * rel set is a free-text field wearing a schema, where `depends-on` and
+ * `dependsOn` are both legal and neither is traversable. `related_to` is the
+ * escape hatch for a pointer that is not a dependence, and the one rel
+ * `kb_impact` does not follow. Supersession is absent: it is a lifecycle, and
+ * `strauss_supersedes`/`strauss_superseded_by` carry it in both directions.
  *
  * Every edge reads source → target and lives on the source's frontmatter:
  * `A depends_on B` means A needs B. `phrase` is the fixed prose template
- * compose.ts renders it with, so an OKF reader with no idea what
- * `strauss_links` is still reads the meaning out of the body.
+ * compose.ts renders it with, so an OKF reader that has never heard of
+ * `strauss_links` still reads the meaning out of the body.
  */
 export type KbLinkRelSpec = {
   /** One line, for schema output and CLI help. */
@@ -117,15 +111,13 @@ export type KbLinkRelSpec = {
   /**
    * Which end of the edge breaks when the other end changes.
    *
-   * This is the rel's *direction of dependence*, and it does not follow the
-   * edge's direction — which is exactly why a boolean cannot express it.
-   * `A depends_on B` puts the dependant at the source: A breaks when B moves.
-   * `A informs B` puts it at the target: B was shaped by A, so B is what needs
-   * revisiting when A moves. A walk that treated both as "inbound" would
-   * report the blast radius of `informs`, `blocks`, `invalidates` and
-   * `constrains` backwards.
+   * The rel's *direction of dependence*, which does not follow the edge's own
+   * direction. `A depends_on B` puts the dependant at the source: A breaks when
+   * B moves. `A informs B` puts it at the target. A walk that treated both as
+   * "inbound" would report the blast radius of `informs`, `blocks`,
+   * `invalidates` and `constrains` backwards.
    *
-   * `null` means the rel asserts no dependence in either direction, so nothing
+   * `null` means the rel asserts no dependence either way, so nothing
    * propagates along it. `related_to` is the only such rel.
    */
   dependant: "source" | "target" | null;
@@ -200,8 +192,8 @@ export const LINK_RELS: Readonly<Record<KbLinkRel, KbLinkRelSpec>> = {
  * `trace` follows.
  *
  * Derived from the table rather than restated, so a rel cannot be causal in one
- * place and inert in another; the cast is a non-emptiness assertion for
- * `z.enum`, and a test holds the contents to the table.
+ * place and inert in another. The cast is a non-emptiness assertion for
+ * `z.enum`.
  */
 export const KB_CAUSAL_LINK_RELS = KB_LINK_RELS.filter(
   (rel) => LINK_RELS[rel].dependant !== null,

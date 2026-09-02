@@ -1,21 +1,17 @@
 import type { KbStanding, KbWarning } from "../adjudicate.js";
 
 /**
- * Types for the inbound half of the typed causal graph.
- *
- * `kb-edges.ts` answers "what does this record point at" — the outbound edges a
- * record declares on itself. This module answers the other direction, which is
- * the one a reviewer actually asks: who is leaning on this, and what breaks if
- * it moves.
+ * Types for the inbound half of the typed causal graph. `kb-edges.ts` answers
+ * "what does this record point at"; this module answers who is leaning on it,
+ * and what breaks if it moves.
  */
 
 /** One inbound typed edge: `from --rel--> the record asked about`. */
 export type KbInboundEdge = {
   from: string;
   /**
-   * A stored rel, not necessarily a known one. Kept as a plain string so a
-   * record carrying an unrecognised rel is reported rather than silently
-   * dropped from the answer — `kb_validate` is where that becomes an error.
+   * A stored rel, not necessarily a known one, so a record carrying an
+   * unrecognised rel is reported rather than dropped from the answer.
    */
   rel: string;
 };
@@ -34,11 +30,9 @@ export type KbBacklinksResult = {
 };
 
 /**
- * One typed edge as the impact walk traversed it, both ends named.
- *
- * `from`/`rel` alone would not say which end depended on which: the walk
+ * One typed edge as the impact walk traversed it, both ends named. The walk
  * follows `depends_on` against the edge and `informs` along it, so a reader of
- * `via` needs the edge as it is written, not as it was walked.
+ * `via` needs the edge as written, not as walked.
  */
 export type KbLinkEdge = {
   source: string;
@@ -55,7 +49,7 @@ export type KbImpactOptions = {
   rels?: readonly string[];
   /**
    * How many hops out to walk. Unbounded by default: a blast radius cut at a
-   * depth the caller did not choose looks exactly like a small one.
+   * depth the caller did not choose looks like a small one.
    */
   depth?: number;
 };
@@ -78,14 +72,12 @@ export type KbImpactResult = {
   /**
    * Reached, reported, and not walked through: records whose standing means
    * their own declared edges no longer hold. Named rather than dropped, so the
-   * caller can see where the walk stopped instead of inferring an end.
+   * caller can see where the walk stopped.
    */
   stopped: string[];
   /**
-   * Whether the depth cap ended the walk with dependants still to expand. A
-   * blast radius that was cut must say so — otherwise it reads as a complete
-   * one that happened to be small, which is the failure `stopped` also exists
-   * to prevent.
+   * Whether the depth cap ended the walk with dependants still to expand. A cut
+   * blast radius must say so, or it reads as a complete one that is small.
    */
   truncated: boolean;
   /** The records the depth cap left unexpanded. Empty unless `truncated`. */

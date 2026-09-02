@@ -13,11 +13,10 @@ import { KB_LINK_RELS, LINK_RELS, RECORD_TYPES } from "./record-types.js";
 /**
  * One typed causal edge, as a producer states it.
  *
- * Strict where `kbLinkSchema` is tolerant, and the pairing is deliberate — the
- * same split `kbVerifiedEventSchema` makes against `kbActorStampSchema`. What
- * this package writes must be inside the closed vocabulary; what it reads may
- * not be, because a foreign record has to stay loadable long enough for
- * `kb_validate` to say what is wrong with it.
+ * Strict where `kbLinkSchema` is tolerant, the same split
+ * `kbVerifiedEventSchema` makes against `kbActorStampSchema`: what this package
+ * writes must be inside the closed vocabulary, what it reads may not be, since
+ * a foreign record has to stay loadable for `kb_validate` to fault it.
  */
 export const composeLinkSchema = z
   .object({
@@ -63,11 +62,8 @@ export const composeInputSchema = z
      * Typed causal edges, source → target: `{ target: "fact.b", rel:
      * "depends_on" }` on record A says A needs B. Stored in frontmatter and
      * also rendered as one prose sentence each, so the meaning survives a
-     * reader that knows only OKF.
-     *
-     * The vocabulary is spelled into the description rather than restated in
-     * prose beside it: `kb_schema` emits this, and a writer choosing a rel
-     * reads what each one means from the same table the walk uses.
+     * reader that knows only OKF. The vocabulary goes into the description from
+     * the same table the walk uses, so `kb_schema` emits it.
      */
     links: z
       .array(composeLinkSchema)
@@ -147,12 +143,10 @@ export function composeRecord(
   if (parsed.owner) frontmatter.strauss_owner = parsed.owner;
   if (parsed.supersedes?.length)
     frontmatter.strauss_supersedes = parsed.supersedes;
-  // Refused on the write path, where the record's own id is known and the
-  // caller can still fix it. A self-link asserts a record depends on itself,
-  // which nothing can act on: every walk skips it, so it would sit in the
-  // frontmatter reading like a claim while meaning nothing. `kb_validate`
-  // keeps it a warning, because by the time a hand-edit has produced one the
-  // choice is between reporting it and refusing to load the file.
+  // Refused on the write path, where the caller can still fix it: a self-link
+  // asserts a record depends on itself, which every walk skips. `kb_validate`
+  // keeps it a warning, since by then the choice is between reporting it and
+  // refusing to load the file.
   const selfLink = parsed.links?.find(
     (link) => link.target === `${type}.${parsed.slug}`,
   );
@@ -176,13 +170,11 @@ export function composeRecord(
     blocks.push(`Relates to [${related}](${related}.md).`);
   }
 
-  // One sentence per typed link, from a fixed template per rel. The frontmatter
-  // is where a walk reads the edge, but frontmatter it does not recognise is
-  // exactly what a plain-OKF consumer ignores — so the same claim is also
-  // stated as prose around a markdown link, which is OKF's own spelling for a
-  // typed relationship ("the specific kind conveyed by the surrounding prose").
-  // Fixed rather than free text so the sentence cannot say something the rel
-  // does not.
+  // One sentence per typed link, from a fixed template per rel. A walk reads
+  // the edge from frontmatter, but a plain-OKF consumer ignores frontmatter it
+  // does not recognise, so the claim is also stated as prose around a markdown
+  // link — OKF's own spelling for a typed relationship. Fixed rather than free
+  // text so the sentence cannot say something the rel does not.
   for (const link of parsed.links ?? []) {
     blocks.push(
       `${LINK_RELS[link.rel].phrase} [${link.target}](${link.target}.md).`,

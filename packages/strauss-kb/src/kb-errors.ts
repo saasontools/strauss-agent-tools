@@ -97,12 +97,10 @@ export class KbPackBudgetExceededError extends BaseError {
 /**
  * A `rels` option naming something the walk can never follow.
  *
- * Refused rather than ignored. Silently dropping an unrecognised rel would
- * return an empty impact set — "nothing breaks" — which is the one answer a
- * caller must never receive from a typo, and is indistinguishable from a
- * genuine result. `related_to` is refused here too: it is a real rel, but it
- * asserts no dependence, so asking impact to follow it can only ever produce
- * that same empty set.
+ * Refused rather than ignored: dropping an unrecognised rel would return an
+ * empty impact set — "nothing breaks" — indistinguishable from a genuine
+ * result. `related_to` is refused here too, since it asserts no dependence and
+ * following it can only produce that same empty set.
  */
 export class KbUnknownLinkRelError extends BaseError {
   constructor(
