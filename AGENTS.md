@@ -19,6 +19,24 @@ Codex, and Agent Plugins 1.0 clients from the marketplace files at
 - Single test file: `cd packages/<name> && pnpm vitest run src/server.spec.ts`
 - MCPB bundle check: `pnpm build:bundle && SMOKE_ENTRY=bundle/server/index.js pnpm test`
 
+## Prose is terse
+
+Applies to everything a person or an agent reads: READMEs, the docs site,
+`SKILL.md`, MCP tool `description`s, zod `.describe()`, CLI help, hook
+messages, error text.
+
+- **Tool descriptions are paid on every context.** One sentence for what it
+  does, one for when to pick it over its neighbour, at most one constraint.
+  ≤ 60 words each; a server's descriptions total ≤ 800 tokens. No rationale,
+  no measurements, no history.
+- **Docs state the rule and at most one reason.** Never restate a point from a
+  second angle. Measurements and rejected alternatives live once, in
+  `ARCHITECTURE.md` or a KB record, and are linked, not repeated.
+- **Cut** "deliberately", "which is what…", closing morals, and any sentence
+  that exists to justify the previous one. If a paragraph reads as an essay,
+  it is too long.
+- A reviewer may reject a PR for prose length alone.
+
 ## Rules that are load-bearing
 
 - **No `project.json` under `packages/*`** — Nx infers targets from npm

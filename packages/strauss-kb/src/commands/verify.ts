@@ -7,7 +7,7 @@ export const verifyCommand = define({
   tool: "kb_verify",
   usage: "verify <concept-id> --note <text>",
   description:
-    "Append one verified[] event — who checked the record, when, and what the check found. Appends only; prior events are never rewritten. A record's own generator is refused unless the actor is human: re-reading your own output is not an independent check.",
+    "Append a verified[] event: who checked, when, and what was found. Append-only. A record's own generator is refused unless the actor is `human:`-prefixed.",
   input: z.object({
     bundlePath,
     conceptId,

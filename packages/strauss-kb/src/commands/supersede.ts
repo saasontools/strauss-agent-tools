@@ -7,7 +7,7 @@ export const supersedeCommand = define({
   tool: "kb_supersede",
   usage: "supersede <concept-id> <replacement-id>",
   description:
-    "Mark a record superseded by another, linking both directions. Use this rather than editing a record whose meaning changed — a record that quietly becomes something else invalidates every reference to it, and the earlier understanding is what a later trace needs.",
+    "Mark a record superseded by another, linked in both directions. Use instead of editing a record whose meaning changed.",
   input: z.object({ bundlePath, conceptId, replacementId: conceptId }),
   fromArgv: (argv, path) => ({
     bundlePath: path,

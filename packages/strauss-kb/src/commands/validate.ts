@@ -7,7 +7,7 @@ export const validateCommand = define({
   tool: "kb_validate",
   usage: "validate",
   description:
-    "Check pointers no single record can see: supersession links that disagree between the two records, and assumptions that cite sources. Per-record shape is enforced on every read, so a problem here means someone edited a file by hand.",
+    "Cross-record checks: supersession pointers that disagree, assumptions that cite sources. Exits 1 on a finding. A finding here means a hand edit.",
   input: z.object({ bundlePath }),
   fromArgv: (_argv, path) => ({ bundlePath: path }),
   run: async ({ store }, { bundlePath: path }) =>

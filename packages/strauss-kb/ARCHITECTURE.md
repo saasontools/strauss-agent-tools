@@ -1,43 +1,43 @@
 # Architecture
 
-The README says what the format is and how to use it. This says why it is
-shaped that way, and which alternatives were tried and dropped — the decisions
-a later reader would otherwise reopen.
+The README is the entry point. This is why the format is shaped as it is.
 
 ## One record per file
 
-The filename is the identity, so two writers never merge; they only choose
-distinct names. Publication uses `link`, which fails when the name is taken, and
-a collision surfaces as a 409 the caller has to answer rather than a silent
-last-write-wins.
+The filename is the identity, so two writers never merge — they choose distinct
+names. Publication uses `link`, so a collision surfaces as a 409 rather than a
+silent last-write-wins.
 
 Read-modify-write (`setStatus`, `answer`) checks a content digest immediately
-before publishing. That narrows the lost-update window to two adjacent syscalls
-rather than closing it. A lock would close it and add a stale-hold failure worse
-than the residue: a crashed holder blocks every later writer, where a lost
-update costs one retry.
+before publishing, narrowing the lost-update window to two adjacent syscalls
+rather than closing it. A lock would close it and add a worse failure: a crashed holder blocks every later writer, where a lost update costs one retry.
 
 ## Read for a question, not for a session
 
-A base loaded at the start of a long conversation is summarised away by the end
-of it, and nothing keeps it alive. So no consumer loads it that way:
+A base loaded at the start of a long conversation is summarised away by the end,
+so no consumer loads it that way:
 
-| Consumer                        | How it reads                                                                 |
-| ------------------------------- | ---------------------------------------------------------------------------- |
-| Diff annotation                 | `matchToDiff` — deterministic, no context involved                           |
-| "Has this been decided?"        | a fresh short-lived reader, given the base and the question, discarded after |
-| An implementor writing a record | a point query at the moment of writing, not a load an hour earlier           |
+| Consumer                        | How it reads                                        |
+| ------------------------------- | --------------------------------------------------- |
+| Diff annotation                 | `matchToDiff` — deterministic, no context           |
+| "Has this been decided?"        | a fresh short-lived reader, given base and question |
+| An implementor writing a record | a point query at the moment of writing              |
 
-Each has clean context by construction. Where a base genuinely must stay
-resident it will drift, and there is no defence — the mitigation is that
-reloading costs about three thousand tokens, so read it again at the point of
-use rather than trying to keep it.
+A resident base drifts; reloading is cheap — three thousand tokens for twenty
+records.
+
+## Load beats retrieval while the base fits
+
+On nine questions whose wording appears in no record, a reader holding the whole
+base answered eight; embedding search over the same records answered four. Two
+differences are structural: a reader can say no record answers, where vector
+search returns its nearest neighbour whatever the distance; and it picks the
+record that answers rather than the one nearest the topic.
 
 ## What happens when a base outgrows a context
 
-Loading stops working somewhere above a few hundred records. What replaces it is
-not a different answer to the same question — it is the same reader, given
-candidates instead of everything:
+Loading stops working above a few hundred records; what replaces it is the same
+reader given candidates, not everything:
 
 ```
 vector recall  →  top ~20 candidates, with their scores
@@ -45,41 +45,31 @@ vector recall  →  top ~20 candidates, with their scores
 reader judges  →  picks what answers, or says nothing does
 ```
 
-The reader stays the judge in both regimes, which is what preserves the two
-structural wins the README reports: it can say no record answers the question,
-and it picks the record that answers rather than the one nearest the topic.
-Neither survives if a ranker's top hit is taken as the answer.
+The reader stays the judge, preserving the two structural wins above.
 
 **A score threshold is not the growth path.** The wrong `audit trail` hit scored
 0.318 against the correct `race condition` hit at 0.295; any cut that drops the
 first drops the second. A threshold excludes the absurd — an unrelated query
 scored 0.091 — and nothing else.
 
-**Tags are not the growth path either.** The field exists, is written, and is
-read by nothing but an index line, deliberately. Free-text tags drift the way
-`auth` / `authentication` / `authn` drift, which is the failure this format was
-rewritten to remove; enforcing a vocabulary would make them a closed enum, which
-`type` already is. The labels that matter here are already verifiable —
-`strauss_anchors` names a file and a symbol, which either match the repository
-or do not, where a tag can be wrong forever. If narrowing ever matters, measure
-tag narrowing against vector recall on a real base rather than adding both.
+**Tags are not the growth path either.** The field exists, is written, and read by
+nothing but an index line. Free-text tags drift the way `auth` /
+`authentication` / `authn` drift; enforcing a vocabulary would make them a
+closed enum, which `type` already is. `strauss_anchors` names a file and symbol,
+which either match the repository or not.
 
 ## Rejected: a format that needs a parser
 
-This was broken twice. A hand-rolled frontmatter reader could not express nested
-maps, so it misread every OKF `generated`, `sources[]`, and `verified[]`. Its
-replacement's first log format was `·`-delimited, with a splitter to read it
-back. Both are gone: the log is JSONL and the schema is emitted from Zod, so
-`strauss-kb schema` is the contract rather than a description of one.
+A hand-rolled frontmatter reader could not express nested maps, misreading every
+OKF `generated`, `sources[]`, and `verified[]`; its replacement's first log
+format was `·`-delimited. Both are gone: the log is JSONL, the schema is emitted
+from Zod, and `strauss-kb schema` is the contract.
 
 ## Rejected for now: a base registry
 
-Cross-base questions are unaskable by construction — supersession, traces, and
-search stop at the directory boundary. That is the price of a base that can be
-copied, deleted, or handed over whole, and it is what keeps the search index
-disposable.
+Cross-base questions are unaskable: supersession, traces, and search stop at the
+directory boundary. That is the price of a base that can be copied or handed
+over whole, and it keeps the search index disposable.
 
-If cross-base ever becomes the common case, the cheap escape is a registry: a
-list of paths a caller may name explicitly, queried one at a time and merged
-only for display. It is deliberately unbuilt. Adding it early would drag back
-the cross-scope machinery this model exists to avoid.
+The cheap escape, if that becomes the common case, is a registry: paths a caller
+names explicitly, queried one at a time and merged only for display.

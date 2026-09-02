@@ -8,7 +8,7 @@ export const contextCommand = define({
   usage:
     "context [--profile NAME] [--budget N] [--full-under N] [--format json] [--event NAME]",
   description:
-    "The pinned-base index block, for injection at every context birth — startup, clear, resume, and after compaction. An index, not the content: concept ids, titles and standing, with the bodies left behind kb_load at the point of use. Emits nothing when nothing is pinned. Refuses with the list of bases and their sizes rather than truncating past its budget. Budgets resolve most-specific-first: explicit flags, then the workspace manifests' `context` tables (per profile, over their `default`), then the built-in profile (session-start, compact, turn), then package defaults — so a repo tunes its own numbers in .strauss/kb-pins.json without touching hook commands. Like kb_schema and kb_types this takes no bundlePath — it reads the workspace pin manifests, because which bases a session should see is workspace state, not a property of one base.",
+    "Index block of pinned bases (ids, titles, standing) for injection at context birth. Takes no bundlePath — reads the workspace pin manifests. Empty when nothing is pinned; refuses over budget rather than truncating. Budget precedence: flags, then the manifest `context` table, then the built-in profile.",
   input: z.object({
     budgetTokens: z
       .number()
