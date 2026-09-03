@@ -54,10 +54,24 @@ see the package README).
 **Skill** — `knowledge-base`: how to read standing, load before search, when
 to write.
 
-**SessionStart hook** — runs `strauss-kb context` at every context birth.
-`startup|resume|clear` use `session-start` (small bases arrive whole);
-`compact` uses the tighter `compact` profile (index only). Fails open. Budgets
-and pins live in `.strauss/kb-pins.json`:
+**Wired hooks** — all read-only, all fail open:
+
+| Event                  | Script / command                          | What it does                                                              |
+| ---------------------- | ----------------------------------------- | ------------------------------------------------------------------------- |
+| `SessionStart`         | `strauss-kb context`, `kb-stamp-hook.mjs` | injects the pinned index per profile, and seeds the session's stamp state |
+| `PostToolUse` (`Bash`) | `kb-stamp-hook.mjs`                       | after a git sync, names a pinned base that changed since it was loaded    |
+| `SubagentStop`         | `kb-stamp-hook.mjs`                       | the same, for a sub-agent's own `kb_write`                                |
+
+The two reload hooks ship wired, unlike the opt-in write hooks below, because
+they are cheap and read nothing: a `Bash` command that is not a git sync exits
+on a regex (~31 ms, node startup), and a sync whose `git diff` names no pinned
+path exits before the CLI is spawned at all. State lives in
+`$TMPDIR/strauss-kb/<session id>.json`, never under the repo.
+
+`strauss-kb context` runs at every context birth: `startup|resume|clear` use
+`session-start` (small bases arrive whole); `compact` uses the tighter
+`compact` profile (index only). Budgets and pins live in
+`.strauss/kb-pins.json`:
 
 ```json
 {
@@ -74,8 +88,7 @@ and pins live in `.strauss/kb-pins.json`:
 
 Pin options and budget resolution: [package README](../../packages/strauss-kb/README.md#living-in-an-agent-session).
 
-That is the only hook the plugin wires. Three more scripts ship with it,
-opt-in — below.
+Three more scripts ship with the plugin unwired — below.
 
 ## Opt-in workspace hooks
 

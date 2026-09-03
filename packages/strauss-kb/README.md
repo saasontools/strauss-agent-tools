@@ -446,6 +446,10 @@ carry no numbers:
 }
 ```
 
+A pinned base can also change mid-session — a `git pull`, a sub-agent's write.
+`strauss-kb stamp` reports each pinned base's content digest, and the plugin's
+reload hooks compare it for you and name the base to load again.
+
 `sync-instructions <file>` keeps that block between
 `<!-- strauss-kb:begin/end -->` sentinels in AGENTS.md or CLAUDE.md; it is
 idempotent, and covers runtimes without a reliable post-compaction hook.
@@ -453,15 +457,16 @@ idempotent, and covers runtimes without a reliable post-compaction hook.
 What each runtime gets (configs in the
 [plugin's adapters](../../plugins/strauss-kb/adapters/)):
 
-| Layer                     | Claude Code        | Codex CLI                                   | Antigravity CLI            |
-| ------------------------- | ------------------ | ------------------------------------------- | -------------------------- |
-| MCP tool descriptions     | ✓                  | ✓                                           | ✓                          |
-| Session-start injection   | SessionStart hook  | SessionStart hook                           | PreInvocation, per turn    |
-| Post-compact re-injection | ✓ `compact` source | ✓ client-side; instruction-only when hosted | moot — injected every turn |
-| File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
-| Manual-edit validation    | opt-in PostToolUse | ✗                                           | ✗                          |
-| Generated-file edit guard | opt-in PreToolUse  | ✗                                           | ✗                          |
-| Instruction file          | CLAUDE.md          | AGENTS.md                                   | AGENTS.md + rules/         |
+| Layer                     | Claude Code               | Codex CLI                                   | Antigravity CLI            |
+| ------------------------- | ------------------------- | ------------------------------------------- | -------------------------- |
+| MCP tool descriptions     | ✓                         | ✓                                           | ✓                          |
+| Session-start injection   | SessionStart hook         | SessionStart hook                           | PreInvocation, per turn    |
+| Post-compact re-injection | ✓ `compact` source        | ✓ client-side; instruction-only when hosted | moot — injected every turn |
+| Reload after a pull       | PostToolUse, SubagentStop | PostToolUse on `shell`                      | moot — injected every turn |
+| File-read blocking        | opt-in PreToolUse         | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
+| Manual-edit validation    | opt-in PostToolUse        | ✗                                           | ✗                          |
+| Generated-file edit guard | opt-in PreToolUse         | ✗                                           | ✗                          |
+| Instruction file          | CLAUDE.md                 | AGENTS.md                                   | AGENTS.md + rules/         |
 
 Never read record files directly — read through the tools; a raw read bypasses
 standing, and a superseded record reads exactly like a current one. Enforce it

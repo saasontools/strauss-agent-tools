@@ -111,21 +111,22 @@ can enforce that with deny rules or the plugin's opt-in `PreToolUse` script.
 
 ## The plugin's hooks
 
-A hand-edit is the case that does not go through the store, so the plugin ships
-hooks that close the gap from the outside, all keyed on `Write`, `Edit`, and
-`MultiEdit`.
+A hand-edit is the case that does not go through the store, and a `git pull` or
+a sub-agent's write is the case an already-loaded base does not survive. The
+plugin ships hooks for both.
 
-| Event          | Wired by      | What it does                                                                |
-| -------------- | ------------- | --------------------------------------------------------------------------- |
-| `SessionStart` | the plugin    | emits the pinned-base context block, per profile                            |
-| `PreToolUse`   | the workspace | **denies** an edit to a generated file inside a bundle                      |
-| `PostToolUse`  | the workspace | runs `validate` over the bundle a manual edit touched, and reports findings |
+| Event                  | Wired by      | What it does                                                                |
+| ---------------------- | ------------- | --------------------------------------------------------------------------- |
+| `SessionStart`         | the plugin    | emits the pinned-base context block, and seeds the session's stamp state    |
+| `PostToolUse` (`Bash`) | the plugin    | after a git sync, says which pinned base changed since it was loaded        |
+| `SubagentStop`         | the plugin    | the same compare, for a sub-agent's own write                               |
+| `PreToolUse` (write)   | the workspace | **denies** an edit to a generated file inside a bundle                      |
+| `PostToolUse` (write)  | the workspace | runs `validate` over the bundle a manual edit touched, and reports findings |
 
-Only `SessionStart` is wired by the plugin. A matcher matches a tool _name_ and
-a plugin installs per user, so a plugin-level write entry would fire on every
-write in every repo that user opens — ~40 ms of node startup each. The write
-hooks are therefore opt-in workspace policy: copy the script to
-`.claude/hooks/` and add
+The write hooks stay opt-in because they run the CLI on every matching write in
+every repo that user opens; the reload hooks are wired because they exit on a
+regex or a git diff and read nothing. Copy the write script to `.claude/hooks/`
+and add
 
 ```json
 {
@@ -171,6 +172,19 @@ three tiers, nearest first — a local `node_modules/.bin`, `strauss-kb` on
 to the next. Findings come back as additional context, capped and sanitized,
 since validate notes can quote record frontmatter verbatim. It **fails open**
 everywhere, exiting 0 and saying nothing when its own plumbing breaks.
+
+**The reload hook** (`kb-stamp-hook.mjs`) keeps `$TMPDIR/strauss-kb/<session
+id>.json` — the digest each pinned base carried when it was last injected,
+beside the git head it was seen at. It never writes under the repo, and the
+state file is replaced through a temp file and a rename. On a `Bash` command
+matching `git (pull|fetch|merge|rebase|checkout|switch)` it answers from git
+first: HEAD where the state file left it, or a `git diff --name-only` since
+then that names no pinned path, exits before the CLI is spawned at all. Only
+past that does it run `strauss-kb stamp --json`, compare digests, and name the
+changed records. `SubagentStop` skips straight to the compare, since a
+sub-agent's write moves no commit. Median cost of the path that exits on the
+regex: **31 ms**, node startup and nothing else; a git sync that touched
+nothing pinned, ~60 ms.
 
 `STRAUSS_KB_NO_VALIDATE_HOOK` opts out, checked before stdin is even read. Only
 a truthy value counts — `0`, `false`, and unset all mean "not opted out" — and

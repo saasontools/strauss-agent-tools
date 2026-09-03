@@ -26,6 +26,9 @@ full` in `.strauss/kb-pins.json`).
 - **Index lines are the trigger** — `kb_load` a base before answering from
   its index, once per question. Never conclude "nothing was decided" from
   one.
+- **A hook says when a pinned base changed** under you — after a `git pull` or
+  a sub-agent's write. Reload the base it names; `kb_stamp` asks the same
+  question yourself.
 - **Never read record files directly** — a raw read skips supersession
   resolution. `kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, `kb_trace`,
   `kb_impact` and `kb_backlinks` are the door.

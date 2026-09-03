@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   appendFile,
   link,
@@ -33,6 +32,12 @@ import {
 } from "./kb-errors.js";
 import { INDEX_FILE, indexIsStale, renderIndex } from "./kb-index.js";
 import { adjudicate, type KbAdjudicated } from "./adjudicate.js";
+import {
+  bundleDigest,
+  bundleStamp,
+  sha256 as digest,
+  type KbRecordStamp,
+} from "./kb-stamp.js";
 import {
   detectAnchorDrift,
   looksLikeWrongRepoRoot,
@@ -125,6 +130,17 @@ export type KbLoadResult =
        */
       digest: string;
     };
+
+/** What `stamp` reports for one base. See `kb-stamp.ts`. */
+export type KbStampResult = {
+  path: string;
+  digest: string;
+  recordCount: number;
+  superseded: number;
+  /** Newest `generated.at` across the base, or null when none carries one. */
+  newestAt: string | null;
+  records: KbRecordStamp[];
+};
 
 export type KbWriteInput = {
   type: string;
@@ -652,6 +668,36 @@ export class KbStore {
     };
   }
 
+  /**
+   * `load`'s digest without `load`'s bodies — the same records, adjudicated
+   * the same way, handed back as a stamp. Skips the anchor drift pass, which
+   * reads source files and only ever adds warnings: no warning reaches the
+   * digest, so the value is identical to the one `load` returns.
+   */
+  async stamp(bundlePath: string): Promise<KbStampResult> {
+    const bundle = await this.list(bundlePath);
+    const adjudicated = adjudicate(bundle, bundle, new Date());
+    const current = adjudicated.filter((hit) => hit.standing !== "superseded");
+    const superseded = adjudicated
+      .filter((hit) => hit.standing === "superseded")
+      .map(stub);
+
+    const stamped = bundleStamp(current, superseded);
+    const dates = bundle
+      .map((record) => record.frontmatter.generated?.at ?? null)
+      .filter((at): at is string => typeof at === "string")
+      .sort();
+
+    return {
+      path: bundlePath,
+      digest: stamped.digest,
+      recordCount: bundle.length,
+      superseded: superseded.length,
+      newestAt: dates.at(-1) ?? null,
+      records: stamped.records,
+    };
+  }
+
   /** How a position was arrived at, as a timeline. See `trace.ts`. */
   async trace(
     bundlePath: string,
@@ -1081,36 +1127,4 @@ function normalizeActor(id: string): string {
   const colon = id.indexOf(":");
   if (colon === -1) return id.toLowerCase();
   return id.slice(0, colon + 1).toLowerCase() + id.slice(colon + 1);
-}
-
-function digest(contents: string): string {
-  return createHash("sha256").update(contents).digest("hex");
-}
-
-/**
- * `load`'s bundle digest. Entries are sorted by concept id, so it never
- * depends on listing order; each is hashed over its record's canonical
- * recomposed form, not the on-disk bytes; superseded stubs are included, so
- * a standing flip changes the digest even when the body did not.
- */
-function bundleDigest(
-  records: KbAdjudicated[],
-  superseded: KbSupersededStub[],
-): string {
-  const entries = [
-    ...records.map(
-      (hit) =>
-        `${hit.record.conceptId}:current:${digest(
-          stringifyMarkdownWithFrontmatter(
-            hit.record.body,
-            hit.record.frontmatter,
-          ),
-        )}`,
-    ),
-    ...superseded.map(
-      (entry) =>
-        `${entry.conceptId}:superseded:${digest(JSON.stringify(entry))}`,
-    ),
-  ].sort();
-  return digest(entries.join("\n"));
 }

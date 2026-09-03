@@ -8,6 +8,12 @@
             "type": "command",
             "command": "strauss-kb context --profile session-start 2>/dev/null || true",
             "statusMessage": "Loading pinned knowledge bases"
+          },
+          {
+            "type": "command",
+            "command": "node \"$STRAUSS_KB_PLUGIN_ROOT/hooks/scripts/kb-stamp-hook.mjs\" 2>/dev/null || true",
+            "timeout": 20,
+            "statusMessage": "Stamping pinned knowledge bases"
           }
         ]
       },
@@ -18,6 +24,19 @@
             "type": "command",
             "command": "strauss-kb context --profile compact 2>/dev/null || true",
             "statusMessage": "Refreshing pinned knowledge bases"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$STRAUSS_KB_PLUGIN_ROOT/hooks/scripts/kb-stamp-hook.mjs\" 2>/dev/null || true",
+            "timeout": 20,
+            "statusMessage": "Checking pinned knowledge bases"
           }
         ]
       }
