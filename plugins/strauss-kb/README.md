@@ -48,7 +48,7 @@ open — an outdated CLI produces no output, not an error.
 ## What it adds
 
 **MCP server** — `strauss-kb-mcp` over stdio, one tool per command (`kb_load`,
-`kb_query`, `kb_write`, … see the package README).
+`kb_catalog`, `kb_pack`, `kb_query`, `kb_write`, … see the package README).
 
 **Skill** — `knowledge-base`: how to read standing, load before search, when
 to write.

@@ -179,9 +179,11 @@ parameters. Usually the right first call.
 
 Parameters: `bundlePath` required; `type` (enum, narrows to one record type),
 `budgetTokens` (positive integer, default 25000), `all` (`boolean` — bypasses
-the budget ceiling), and `repoRoot` (`string`, default cwd, for the drift
+the budget, mutually exclusive with `budgetTokens`), and `repoRoot` (`string`, default cwd, for the drift
 check) optional. Superseded records arrive as name, replacement and date
 stubs — pass the id to `kb_trace` for the history.
+
+Refuses over budget rather than truncating, `message` naming the next rung.
 
 :::tip Place this output in the stable prefix
 `kb_load`'s result belongs in the **stable prefix** — the system prompt, or the

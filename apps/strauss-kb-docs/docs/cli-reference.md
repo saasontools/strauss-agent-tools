@@ -203,11 +203,11 @@ load [type] [--budget N] [--all] [--repo-root PATH]
 Hand over the whole base, each record with its standing; the optional positional
 narrows to one record type.
 
-| Flag               | Default | Effect                                                                            |
-| ------------------ | ------- | --------------------------------------------------------------------------------- |
-| `--budget N`       | 25000   | Approximate token ceiling.                                                        |
-| `--all`            | —       | Load everything regardless of size, bypassing the budget ceiling.                 |
-| `--repo-root PATH` | cwd     | Where the anchored source lives, for the [drift check](./specification.md#drift). |
+| Flag               | Default | Effect                                                                                        |
+| ------------------ | ------- | --------------------------------------------------------------------------------------------- |
+| `--budget N`       | 25000   | Approximate token ceiling.                                                                    |
+| `--all`            | —       | Load everything regardless of size, bypassing the budget; mutually exclusive with `--budget`. |
+| `--repo-root PATH` | cwd     | Where the anchored source lives, for the [drift check](./specification.md#drift).             |
 
 Refuses with counts rather than truncating when the base trips the budget
 ceiling, pointing at the next rung down in `message`. Every result carries a
@@ -216,6 +216,7 @@ ceiling, pointing at the next rung down in `message`. Every result carries a
 
 ```bash
 strauss-kb load decision --budget 8000
+strauss-kb load --all
 ```
 
 ### `catalog`

@@ -42,6 +42,7 @@ ESM and CommonJS.
   <type>.<slug>.md    records
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
+  .gitattributes      merge      store-owned, written on first write
   .index.sqlite       search     derived, gitignored
 ```
 
@@ -56,6 +57,46 @@ The default base is `.strauss/kb`; `--bundle PATH` names another.
 | If lost | reconstructed free         | gone                           |
 
 Repair-on-read, not coordination, lets both exist without a lock.
+
+### Cross-worktree writes
+
+A committed base is routinely written from more than one worktree at once —
+each records into the same `log.jsonl`, and a plain git merge of two branches
+that both appended lines resolves that file at the line level, same as any
+other text file. That is the wrong merge for an append-only log: git's default
+picks a side, or conflicts, on lines that both branches only ever meant to add
+to.
+
+So the first write to a base (through `write`, or whichever call happens to
+append the first log line) declares a merge driver for its log: it writes
+`log.jsonl text eol=lf merge=union` into the base's `.gitattributes` if that
+file does not exist yet, and appends the line if the file exists but declares
+no merge strategy for `log.jsonl` yet — a `.gitattributes` a user put there
+first is respected, never overwritten wholesale, and a line that already
+gives `log.jsonl` _any_ merge strategy — this one or the user's own choice
+such as `merge=ours` — is left alone rather than layered under a second,
+possibly conflicting one. `union` is one of git's built-in merge drivers; the
+attribute alone is enough; nothing else needs configuring. `eol=lf` pins line
+endings to `\n` regardless of a checkout's `core.autocrlf`, so a Windows
+checkout normalizing the file on checkout can't leave it with mixed endings
+against the raw `\n` every append writes. With it, a merge of two branches
+that both appended to `log.jsonl` keeps both sides' lines instead of picking
+one.
+
+A union merge does not preserve line order, and can occasionally keep the
+same line twice (a cherry-pick or rebase that carried one side's entry into
+the other's history before the merge). `kb_log`'s reader (`kb-log.ts`) sorts
+entries by `at` and drops exact duplicates before returning them, so neither
+is something a caller has to account for.
+
+**This applies to a local `git merge`, not to GitHub.** GitHub computes pull
+request merges (and the merge/squash/rebase buttons) through its own service,
+which does not read `.gitattributes` merge-driver declarations — a PR that
+merges two branches' `log.jsonl` appends on GitHub gets git's ordinary
+line-level merge (or a conflict) even with the attribute in place. The union
+driver only fires for a merge actually run by a local git client, which covers
+worktrees pulling from and pushing to each other directly, but not a merge
+GitHub itself performs.
 
 ## Records
 
@@ -143,7 +184,9 @@ strauss-kb [--bundle PATH] <command> [args]
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
-  load [type] [--budget N | --all]         Hand over the whole base, each record with its standing.
+  load [type] [--budget N] [--all]
+                                           Hand over the whole base, each record with its standing.
+  catalog [type]                           Every record in one line — id, type, title, standing, stale flag.
   pack <conceptId> [--hops N] [--max-nodes N] [--budget N]
                                            The bounded neighbourhood around one record, every cut named.
   query <text...>                          Search; every match arrives flagged with its standing.
@@ -168,9 +211,15 @@ strauss-kb [--bundle PATH] <command> [args]
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
-Results go to stdout as JSON, errors to stderr with exit 1; `validate` and
+Results go to stdout as JSON; `index`, `catalog` and `pack` are markdown, and
+`doctor` prints a table unless `--json`. `--json` is refused where a command has
+one form; `--` ends flag parsing. Errors go to stderr with exit 1; `validate` and
 `doctor --strict` exit 1 with findings on stdout. Per-command flags:
 [cli-reference](https://saasontools.github.io/strauss-agent-tools/cli-reference).
+
+A flag accepts either spelling — `--budget 4000` or `--budget=4000` — and a
+flag given no value is an error rather than a silent fallback to the default,
+so a trailing typo cannot look like success.
 
 ```bash
 strauss-kb --bundle .strauss/kb write fact <<'JSON'
@@ -200,7 +249,8 @@ strauss-kb validate || echo "problems above"
 ```
 
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_pack`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_catalog`,
+`kb_pack`,
 `kb_query`, `kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`,
 `kb_doctor`, `kb_schema`, `kb_types`, `kb_pin`, `kb_unpin`, `kb_pins`,
 `kb_context`. Most take a `bundlePath`. The one CLI verb with no tool is
@@ -252,6 +302,7 @@ conversation is summarised away by the end.
 - `load` refuses rather than truncating past its budget (25,000 tokens default).
 - `--all` (`all: true` over MCP) bypasses that refusal; it excludes `--budget`.
 - Superseded records return as name, replacement and date only.
+- `catalog` is the rung with no ceiling: one line per record, ~30 tokens each.
 - `pack` is the middle rung: one record's neighbourhood, every cut named.
 - `query` flags rather than filters — every hit arrives with its standing.
 - `trace` orders by `generated.at` rather than ranking.

@@ -5,9 +5,9 @@ import { argvFlag, bundlePath, define } from "./model.js";
 export const loadCommand = define({
   name: "load",
   tool: "kb_load",
-  usage: "load [type] [--budget N | --all]",
+  usage: "load [type] [--budget N] [--all]",
   description:
-    "Load the whole base, each record with its standing. First call for any question a base might govern — at the point of use, since compaction drops it. Superseded records arrive as stubs; kb_trace has the history. Refuses with a count when over budget; `all` bypasses that (exclusive with `budgetTokens`), for deliberate use only. Never read record files directly — only the kb_* read tools resolve supersession.",
+    "Load the whole base, each record with its standing — first call for any question it governs, at the point of use since compaction drops it. Superseded records arrive as stubs; kb_trace has the history. Refuses over budget: call kb_catalog, then kb_pack on the record that matters, or narrow with `type`. `all` bypasses the budget. Never read record files directly — only kb_* tools resolve supersession.",
   input: z
     .object({
       bundlePath,
@@ -22,12 +22,12 @@ export const loadCommand = define({
         .boolean()
         .optional()
         .describe(
-          "Load the entire base regardless of size. The deliberate-operator escape hatch; mutually exclusive with budgetTokens.",
+          "Loads the entire base regardless of size, bypassing the token budget; mutually exclusive with budgetTokens.",
         ),
     })
     .refine((value) => !(value.all && value.budgetTokens !== undefined), {
       message:
-        "all and budgetTokens are mutually exclusive: pass a ceiling or none, not both.",
+        "all is mutually exclusive with budgetTokens: pass a ceiling or none, not both.",
     }),
   fromArgv: (argv, path) => {
     const budget = argvFlag(argv, "--budget");

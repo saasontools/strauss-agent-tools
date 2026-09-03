@@ -27,7 +27,8 @@ full` in `.strauss/kb-pins.json`).
   its index, once per question. Never conclude "nothing was decided" from
   one.
 - **Never read record files directly** — a raw read skips supersession
-  resolution. `kb_load`, `kb_query`, `kb_trace` are the door.
+  resolution. `kb_load`, `kb_catalog`, `kb_pack`, `kb_query` and
+  `kb_trace` are the door.
 
 ## Reading: load before you search
 
@@ -39,12 +40,18 @@ strauss-kb load               # everything, with standing
 strauss-kb load decision      # one type
 ```
 
-`loaded: false`: over budget, refuses rather than truncates. Then search:
+`loaded: false`: past the token budget; `message` names what to call next.
 
 ```bash
-strauss-kb query cursor pagination keyset
-strauss-kb list open-question
+strauss-kb catalog                       # one line per record: id, type, title, standing
+strauss-kb pack decision.cursor-v2       # the bounded neighbourhood around one record
+strauss-kb query cursor pagination keyset  # a point lookup by wording
 ```
+
+**The rule in one line:** under the budget, `load` whole; past it, `catalog`
+then `pack`; for a lookup by wording, `query`. Reach for `catalog` when the question
+is _what exists_ — it names every record, so "no record covers this" stays
+supportable, which a `query`'s nearest-hit-regardless-of-distance cannot.
 
 **Read the standing, not just the match.** Every result carries one:
 
