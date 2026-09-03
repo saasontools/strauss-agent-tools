@@ -286,13 +286,48 @@ describe("retry", () => {
     expect(isRetryable(Object.assign(new Error("boom"), { status: 503 }))).toBe(
       true,
     );
-    expect(isRetryable(new Error("socket hang up"))).toBe(true);
     expect(isRetryable(Object.assign(new Error("bad"), { status: 400 }))).toBe(
       false,
     );
     expect(isRetryable(Object.assign(new Error("nope"), { status: 404 }))).toBe(
       false,
     );
+  });
+
+  it("retries connection failures but not status-less programming errors", () => {
+    // A plain error with no status and no connection code is a bug, not a
+    // fault worth burning attempts on.
+    expect(
+      isRetryable(new TypeError("cannot read properties of undefined")),
+    ).toBe(false);
+    expect(isRetryable(new Error("socket hang up"))).toBe(false);
+
+    expect(
+      isRetryable(Object.assign(new Error("reset"), { code: "ECONNRESET" })),
+    ).toBe(true);
+    expect(
+      isRetryable(
+        Object.assign(new Error("refused"), { code: "ECONNREFUSED" }),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryable(Object.assign(new Error("timeout"), { code: "ETIMEDOUT" })),
+    ).toBe(true);
+    expect(
+      isRetryable(
+        Object.assign(new Error("no api"), { name: "APIConnectionError" }),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryable(
+        Object.assign(new Error("slow"), { name: "APIConnectionTimeoutError" }),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryable(
+        Object.assign(new Error("custom"), { name: "WeirdConnectionError" }),
+      ),
+    ).toBe(true);
   });
 
   it("reads retry-after from either header shape", () => {
@@ -395,6 +430,76 @@ describe("retry", () => {
       fatal({ model: "m", system: "", bundle: "", question: "", maxTokens: 1 }),
     ).rejects.toThrow("schema");
     expect(badCalls).toBe(1);
+  });
+
+  it("throws a status-less programming error after a single attempt", async () => {
+    let calls = 0;
+    const buggy = withRetry(
+      async () => {
+        calls += 1;
+        throw new TypeError("cannot read properties of undefined");
+      },
+      { sleep: async () => {} },
+    );
+    await expect(
+      buggy({ model: "m", system: "", bundle: "", question: "", maxTokens: 1 }),
+    ).rejects.toThrow(TypeError);
+    expect(calls).toBe(1);
+  });
+
+  it("retries a named connection error and gives up on a 400", async () => {
+    let connCalls = 0;
+    const connection = withRetry(
+      async () => {
+        connCalls += 1;
+        if (connCalls < 2) {
+          throw Object.assign(new Error("no connection"), {
+            name: "APIConnectionError",
+          });
+        }
+        return { answer: null, usage: EMPTY_USAGE };
+      },
+      { sleep: async () => {}, random: () => 0 },
+    );
+    await connection({
+      model: "m",
+      system: "",
+      bundle: "",
+      question: "",
+      maxTokens: 1,
+    });
+    expect(connCalls).toBe(2);
+
+    let rateCalls = 0;
+    const rate = withRetry(
+      async () => {
+        rateCalls += 1;
+        if (rateCalls < 2) throw rateLimited;
+        return { answer: null, usage: EMPTY_USAGE };
+      },
+      { sleep: async () => {}, random: () => 0 },
+    );
+    await rate({
+      model: "m",
+      system: "",
+      bundle: "",
+      question: "",
+      maxTokens: 1,
+    });
+    expect(rateCalls).toBe(2);
+
+    let badCalls2 = 0;
+    const bad = withRetry(
+      async () => {
+        badCalls2 += 1;
+        throw Object.assign(new Error("bad request"), { status: 400 });
+      },
+      { sleep: async () => {} },
+    );
+    await expect(
+      bad({ model: "m", system: "", bundle: "", question: "", maxTokens: 1 }),
+    ).rejects.toThrow("bad request");
+    expect(badCalls2).toBe(1);
   });
 });
 

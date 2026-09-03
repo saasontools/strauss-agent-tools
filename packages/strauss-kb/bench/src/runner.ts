@@ -266,7 +266,9 @@ export function pairedDifferences(
       for (const family of families) {
         const left: number[] = [];
         const right: number[] = [];
-        for (const [taskId, baseCell] of [...base.entries()].sort()) {
+        for (const [taskId, baseCell] of [...base.entries()].sort(([a], [b]) =>
+          a.localeCompare(b),
+        )) {
           const otherCell = other.get(taskId);
           if (!otherCell) continue;
           if (family !== "all" && baseCell.taskFamily !== family) continue;

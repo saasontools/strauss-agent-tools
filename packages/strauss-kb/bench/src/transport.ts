@@ -172,12 +172,39 @@ export type RetryOptions = {
 /** HTTP statuses worth trying again: throttling, timeouts, and server faults. */
 const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 504, 529]);
 
+/** Node/undici error codes that mean the connection itself failed. */
+const RETRYABLE_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+  "ENOTFOUND",
+  "EPIPE",
+]);
+
+/**
+ * Retry only real transport faults: a retryable HTTP status, or something
+ * that looks like a connection failure. A status-less programming error
+ * (e.g. a TypeError while parsing an answer) is not retried — it would
+ * only burn the attempt budget on a bug a retry can't fix.
+ */
 export function isRetryable(error: unknown): boolean {
   const status = (error as { status?: unknown } | null)?.status;
   if (typeof status === "number") return RETRYABLE_STATUS.has(status);
-  // A connection error carries no status. Those are worth another attempt;
-  // a 400 from a malformed schema is not, and would only burn the budget.
-  return status === undefined;
+
+  if (error instanceof Error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" && RETRYABLE_CODES.has(code)) return true;
+    if (error.name === "APIConnectionError") return true;
+    if (error.name === "APIConnectionTimeoutError") return true;
+  }
+
+  const name = (error as { name?: unknown } | null)?.name;
+  return (
+    status === undefined &&
+    typeof name === "string" &&
+    name.endsWith("ConnectionError")
+  );
 }
 
 /** `retry-after`, in ms, when the server named one. */
