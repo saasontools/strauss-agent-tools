@@ -716,8 +716,11 @@ place. It fires for a merge run by a local git client.
 ## Catching a hand-edit
 
 The store's guarantees hold because everything goes through one door, and a
-hand-edit is the case that does not. The plugin ships two hooks that close it
-from the outside.
+hand-edit is the case that does not. The plugin ships two hook scripts that
+close it from the outside. Neither is wired by the plugin — a matcher matches a
+tool name, so a plugin-level entry would fire on every write in every repo;
+a workspace opts in by copying the script and adding the entry
+([architecture](./architecture.md#the-plugins-hooks) has the snippet).
 
 A **`PreToolUse` deny** blocks edits to the generated files sitting directly in
 a bundle — `INDEX.md`, `log.jsonl`, and `.index.sqlite` — with a reason that
@@ -739,8 +742,8 @@ export STRAUSS_KB_NO_VALIDATE_HOOK=1
 
 `0`, `false`, and unset all mean "not opted out" — only a truthy value disables
 it, because those are common ways to spell "not set" in a shared env file. It
-names the validate hook specifically; the deny hook is disabled through the
-runtime's own hook settings.
+names the validate hook specifically; the deny hook is turned off by removing
+its entry.
 
 Both recognise a bundle by path: a directory segment named `.kb`, or a `kb`
 segment under `.strauss`. A base pinned somewhere else is invisible to them, and
