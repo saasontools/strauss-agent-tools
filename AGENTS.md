@@ -35,6 +35,11 @@ messages, error text.
 - **Cut** "deliberately", "which is what…", closing morals, and any sentence
   that exists to justify the previous one. If a paragraph reads as an essay,
   it is too long.
+- **One home per fact.** The docs site is the reference; the package README
+  links to it instead of restating; `SKILL.md` carries only what an agent needs
+  at the moment of use. A fact stated in two places will disagree.
+- **Code comments state the invariant, ≤ 4 lines.** Why the invariant holds
+  goes in `ARCHITECTURE.md` or a KB record. No design essays above functions.
 - A reviewer may reject a PR for prose length alone.
 
 ## Rules that are load-bearing
