@@ -72,6 +72,23 @@ replacement's first log format was `·`-delimited, with a splitter to read it
 back. Both are gone: the log is JSONL and the schema is emitted from Zod, so
 `strauss-kb schema` is the contract rather than a description of one.
 
+## Anchor resolution
+
+A fresh stamp is a baseline nobody has checked, so only a run where every
+checkable anchor already matched appends `verified[]`.
+
+The v1 resolver is regex-based, biased so a wrong answer loses to no answer: a
+span short of the code it claims hashes as stable while that code moves. It
+ranks by shape, scopes a dotted symbol to its parent, captures by brace depth or
+Python indentation, and returns `null` otherwise. A pure `AnchorResolver`
+interface admits a tree-sitter replacement.
+
+Repository identity is normalised and compared, not parsed: an invented format
+would reject correct values from unseen hosts.
+
+Not one anchored file found under a default root is a wrong root, so its
+findings are dropped.
+
 ## Cross-worktree log safety
 
 `log.jsonl` is append-only and the one artifact nothing can rebuild, so how it

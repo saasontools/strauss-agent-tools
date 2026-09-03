@@ -10,6 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
+import { DEFAULT_IO_CONCURRENCY, mapLimit } from "./concurrency.js";
 import {
   parseMarkdownWithFrontmatter,
   stringifyMarkdownWithFrontmatter,
@@ -18,6 +19,7 @@ import {
   kbRecordFrontmatterSchema,
   kbVerifiedEventSchema,
   KB_SLUG_PATTERN,
+  type KbAnchor,
   type KbRecord,
   type KbRecordFrontmatter,
   type KbRecordStatus,
@@ -31,6 +33,11 @@ import {
 } from "./kb-errors.js";
 import { INDEX_FILE, indexIsStale, renderIndex } from "./kb-index.js";
 import { adjudicate, type KbAdjudicated } from "./adjudicate.js";
+import {
+  detectAnchorDrift,
+  looksLikeWrongRepoRoot,
+  type KbAnchorDriftEntry,
+} from "./anchor-resolver.js";
 import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
 import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
@@ -190,7 +197,7 @@ export class KbStore {
     });
 
     // The new record is published and logged first, then each prior record it
-    // supersedes is marked in turn. A crash between the two leaves an old
+    // supersedes is marked. A crash between the two leaves an old
     // record with no backlink — exactly what kb_validate already reports as
     // "<old> is not marked superseded", never a silent drift.
     //
@@ -199,6 +206,9 @@ export class KbStore {
     const targets = new Set(frontmatter.strauss_supersedes ?? []);
     targets.delete(conceptId);
 
+    // Targets are marked sequentially, in order: targets are 1-3 in practice,
+    // and marking them concurrently made log.jsonl entry order depend on
+    // which retry finished first rather than on strauss_supersedes order.
     const supersededIds: string[] = [];
     for (const old of targets) {
       if (
@@ -266,10 +276,11 @@ export class KbStore {
       .map((name) => ({ name, conceptId: name.slice(0, -".md".length) }))
       .filter(({ conceptId }) => !type || conceptId.startsWith(`${type}.`));
 
-    const records = await Promise.all(
-      wanted.map(async ({ name, conceptId }) =>
+    const records = await mapLimit(
+      wanted,
+      DEFAULT_IO_CONCURRENCY,
+      async ({ name, conceptId }) =>
         this.parse(conceptId, await readFile(join(root, name), "utf8")),
-      ),
     );
     return records.filter((record): record is KbRecord => record !== null);
   }
@@ -295,6 +306,27 @@ export class KbStore {
       conceptId,
       (frontmatter) => ({ ...frontmatter, strauss_status: status }),
       { operation: `status:${status}`, by: actor },
+    );
+  }
+
+  /**
+   * Replaces a record's anchors wholesale, preserving everything else.
+   *
+   * Wholesale rather than merged: the caller just resolved the anchors it is
+   * writing, so it holds the complete current set, and a merge would keep
+   * stale entries the resolution pass deliberately dropped.
+   */
+  async updateAnchors(
+    bundlePath: string,
+    conceptId: string,
+    anchors: KbAnchor[],
+    actor = "unknown",
+  ): Promise<KbRecord> {
+    return this.mutate(
+      bundlePath,
+      conceptId,
+      (frontmatter) => ({ ...frontmatter, strauss_anchors: anchors }),
+      { operation: "anchor-resolve", by: actor },
     );
   }
 
@@ -424,16 +456,23 @@ export class KbStore {
   async query(
     bundlePath: string,
     text: string,
-    options: { type?: string; includeNonCurrent?: boolean } = {},
+    options: {
+      type?: string;
+      includeNonCurrent?: boolean;
+      repoRoot?: string;
+    } = {},
   ): Promise<KbAdjudicated[]> {
     const bundle = await this.list(bundlePath);
     const needle = text.trim();
     const hits = needle ? await this.rank(bundlePath, needle, bundle) : bundle;
+    const narrowed = options.type
+      ? hits.filter((r) => r.frontmatter.type === options.type)
+      : hits;
     const adjudicated = adjudicate(
-      options.type
-        ? hits.filter((r) => r.frontmatter.type === options.type)
-        : hits,
+      narrowed,
       bundle,
+      new Date(),
+      await this.detectDrift(narrowed, options.repoRoot),
     );
 
     if (options.includeNonCurrent) return adjudicated;
@@ -462,6 +501,54 @@ export class KbStore {
     }
     const lowered = needle.toLowerCase();
     return bundle.filter((record) => matches(record, lowered));
+  }
+
+  /**
+   * Anchor drift over the records about to be handed back. Like the search
+   * index, this is an enrichment: a filesystem failure degrades to "no drift
+   * reported" rather than failing the read. Anchors without a stored hash are
+   * skipped inside `detectAnchorDrift`, so a base nobody has stamped pays no
+   * fs cost here. `repoRoot` defaults to the working directory — the CLI runs
+   * at the repo root, and the MCP server's cwd is the workspace.
+   *
+   * Public because `doctor` needs the same map with the same degradation: a
+   * sweep that failed to read the tree should report no drift, not fail.
+   *
+   * When no root was given and not one anchored file was found, the finding is
+   * discarded. A base read from somewhere other than the tree it describes
+   * misses every file at once, and that shape is far likelier to be a wrong
+   * default root than a repository where every anchored file was deleted on
+   * the same day. Reporting it would put a drift warning on every record in
+   * the base, which teaches a reader to ignore the warning — the one outcome
+   * worse than not having it. One file found anywhere makes the root
+   * plausible, and the misses become findings again; an explicit `repoRoot` is
+   * taken at its word either way.
+   */
+  async detectDrift(
+    records: KbRecord[],
+    repoRoot?: string,
+  ): Promise<Map<string, KbAnchorDriftEntry[]> | undefined> {
+    try {
+      const drift = await detectAnchorDrift(records, {
+        repoRoot: repoRoot ?? process.cwd(),
+      });
+      if (repoRoot === undefined && looksLikeWrongRepoRoot(drift)) {
+        this.logger.warn?.({
+          operation: "kb.anchor-drift",
+          outcome: "skipped",
+          reason: "no anchored file found under the default repo root",
+        });
+        return undefined;
+      }
+      return drift;
+    } catch (error) {
+      this.logger.warn?.({
+        operation: "kb.anchor-drift",
+        outcome: "skipped",
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      return undefined;
+    }
   }
 
   /**
@@ -500,6 +587,7 @@ export class KbStore {
       budgetTokens?: number;
       type?: string;
       all?: boolean;
+      repoRoot?: string;
     } = {},
   ): Promise<KbLoadResult> {
     const budgetTokens = options.budgetTokens ?? DEFAULT_LOAD_BUDGET;
@@ -510,7 +598,12 @@ export class KbStore {
 
     // Adjudicated against the whole base, not the filtered slice: a record's
     // replacement may be of another type.
-    const adjudicated = adjudicate(wanted, bundle);
+    const adjudicated = adjudicate(
+      wanted,
+      bundle,
+      new Date(),
+      await this.detectDrift(wanted, options.repoRoot),
+    );
     const records = adjudicated.filter((hit) => hit.standing !== "superseded");
     const superseded = adjudicated
       .filter((hit) => hit.standing === "superseded")
@@ -802,10 +895,23 @@ export class KbStore {
       }
 
       if (existing === null) {
-        await writeFile(target, appendUnionMergeLine(""), {
-          encoding: "utf8",
-          flag: "wx",
-        });
+        try {
+          await writeFile(target, appendUnionMergeLine(""), {
+            encoding: "utf8",
+            flag: "wx",
+          });
+        } catch (error) {
+          // Another writer created the same file with the same content
+          // between our read and our write — a win for them counts as a win
+          // for us, not a failure.
+          if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+          this.logger.info?.({
+            operation: "kb.gitattributes.ensure",
+            bundlePath: root,
+            outcome: "exists",
+          });
+          return;
+        }
         this.logger.info?.({
           operation: "kb.gitattributes.ensure",
           bundlePath: root,
