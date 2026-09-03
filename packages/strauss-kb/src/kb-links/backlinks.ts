@@ -5,21 +5,9 @@ import { inboundIndex } from "./inbound.js";
 import type { KbBacklink, KbBacklinksResult } from "./model.js";
 
 /**
- * Who points at this record, one hop, every rel.
- *
- * The flat counterpart to `impact`, and separate from it on purpose. `impact`
- * answers a causal question and takes positions to answer it — which rels
- * propagate, where a withdrawn record stops the walk. This answers a factual
- * one: these are the edges the bundle currently holds against this id. A flag
- * on `impact` would have made one call mean two things, and the transitive
- * answer is the more dangerous of the two to receive by accident.
- *
- * `related_to` is included here where `impact` excludes it. "Who mentions this"
- * is exactly what a flat listing is for.
- *
- * Standing still travels with each row. A backlink from a superseded record is
- * not a live dependency, and handing back a bare list of ids would present it
- * as one — the same failure adjudication exists to prevent everywhere else.
+ * Every edge the bundle holds against this id: one hop, every rel including
+ * `related_to`, each row carrying the standing of the record that made it.
+ * Flat and factual, where `impact` answers the causal, transitive question.
  */
 export function backlinks(
   targetId: string,

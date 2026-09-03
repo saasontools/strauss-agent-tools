@@ -201,81 +201,32 @@ worse than the residue.
 
 ## Links
 
-`strauss_links` is a typed causal edge: `{ target, rel }`, where `rel` comes
-from a closed vocabulary of eight.
+`strauss_links` is a typed causal edge, `[{ target, rel }]` on the source
+record, read source → target: `A depends_on B` means A needs B. The vocabulary
+is closed: eight rels. The **dependant** — the end that breaks when the other
+changes — is per-rel.
 
-| `rel`         | `A <rel> B` means                     | Dependant | Renders as    |
-| ------------- | ------------------------------------- | --------- | ------------- |
-| `depends_on`  | A needs B to hold                     | A         | `Depends on`  |
-| `verified_by` | B is the check that confirms A        | A         | `Verified by` |
-| `satisfies`   | A discharges B's requirement          | A         | `Satisfies`   |
-| `constrains`  | A bounds what B may do                | B         | `Constrains`  |
-| `informs`     | A shaped B without binding it         | B         | `Informs`     |
-| `blocks`      | B cannot proceed until A is settled   | B         | `Blocks`      |
-| `invalidates` | A makes B no longer hold              | B         | `Invalidates` |
-| `related_to`  | A points at B, claiming no dependence | —         | `Relates to`  |
+| `rel`         | `A <rel> B` means            | Dependant |
+| ------------- | ---------------------------- | --------- |
+| `depends_on`  | A needs B to hold            | A         |
+| `verified_by` | B confirms A                 | A         |
+| `satisfies`   | A discharges B's requirement | A         |
+| `constrains`  | A bounds what B may do       | B         |
+| `informs`     | A shaped B, not binding      | B         |
+| `blocks`      | B waits on A                 | B         |
+| `invalidates` | A makes B no longer hold     | B         |
+| `related_to`  | no dependence                | —         |
 
-**Direction, twice over.** An edge lives on the source record's frontmatter and
-reads source → target: `A depends_on B` means A needs B. The **direction of
-dependence** is separate and per-rel — the `Dependant` column above — and it
-does not follow the edge. A walk that treated every typed link as "inbound"
-would report the blast radius of `informs`, `blocks`, `invalidates` and
-`constrains` exactly backwards.
+`kb_impact` (`strauss-kb impact <id>`): the transitive set of dependants, each
+rel followed in its own direction, never `related_to`.
 
-**Supersession is not in the vocabulary.** It is a lifecycle, not an edge:
-`strauss_supersedes`/`strauss_superseded_by` already carry it in both
-directions, and a rel would be a second spelling free to disagree with them.
+`kb_backlinks` (`strauss-kb backlinks <id>`): every inbound edge, one hop, any rel.
 
-**The vocabulary is closed, enforced at two points.** `kb_write` rejects a rel
-outside it outright. A record that already carries one is still _read_, because
-a schema strict enough to reject it would make the file fail to parse, and a
-file that fails to parse is skipped rather than reported; `kb_validate` is
-where it becomes an `error` instead.
+`kb_validate`: unknown rel or malformed target is an `error`, absent target a
+`warning`. Only errors fail the exit code.
 
-Findings split by whether time can fix them. An unknown `rel`, or a target that
-is not a well-formed concept id, is an `error`. A well-formed target that is
-simply absent is a `warning`, because writing a record before the one it points
-at is ordinary. Only errors fail the check's exit code.
-
-Each link is also rendered into the body as one prose sentence from a fixed
-template — `Depends on [fact.region-key](fact.region-key.md).` — which is OKF's
-own spelling for a typed relationship, so a consumer that has never heard of
-`strauss_links` still reads the meaning.
-
-```yaml
-strauss_links:
-  - { target: fact.region-key, rel: depends_on }
-  - { target: test-obligation.region-bleed, rel: verified_by }
-```
-
-**Reading them.** `kb_impact <id>` answers "what breaks if this changes": the
-transitive set of dependants, following each rel in whichever direction its
-dependence runs. `related_to` carries none and is not followed — and naming it,
-or an unknown rel, in `rels` is an error rather than an empty result, since
-"nothing breaks" is the one answer you must never get from a typo. The walk is
-unbounded by default; when `depth` cuts it, `truncated` is true and
-`unexpanded` names what was left unwalked.
-
-`kb_backlinks <id>` is the flat counterpart: every inbound edge, one hop, every
-rel including `related_to`, with the rel it was made with. Both carry standing
-on every row. Cycles are ordinary (`A depends_on B`, `B constrains A`) and
-terminate.
-
-**Where the walks disagree about standing.** `kb_impact` reports a superseded
-or rejected record and stops there, naming each stopping point under `stopped`;
-`kb_pack` and `kb_trace` traverse typed links without regard to standing. A
-pack and a trace present standing for a reader to judge. An impact set is acted
-on, and a withdrawn record's declared dependencies are not obligations anyone
-still owes.
-
-Typed links also join the shared edge inventory as a directed `typed-link`
-kind, so `kb_pack` includes a record named only in frontmatter, and `kb_trace`
-follows a declared dependency. The two take different rel sets: `pack` follows
-every known rel including `related_to`, because a neighbourhood is where a
-bibliography belongs, while `trace` follows only the rels that carry a
-dependence. Body links stay excluded from `trace` either way — any markdown a
-writer typed can reach most of a bundle, where a `strauss_links` entry is a
-deliberate claim from a closed vocabulary.
+The [specification](https://saasontools.github.io/strauss-agent-tools/specification)
+has the rest.
 
 ## Writes
 

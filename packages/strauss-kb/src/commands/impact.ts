@@ -7,7 +7,7 @@ export const impactCommand = define({
   tool: "kb_impact",
   usage: "impact <concept-id> [--depth N] [--rels a,b]",
   description:
-    "What breaks if this record changes: its transitive set of dependants, each with its standing. Each rel declares which end depends on the other — `A depends_on B` puts it at the source, `A informs B` at the target — so the walk follows each rel in its own direction. Naming `related_to` or an unknown rel in `rels` is an error. kb_backlinks gives one flat hop.",
+    "What breaks if this record changes: its transitive set of dependants, each with its standing. Each rel declares which of its ends depends on the other, and the walk follows each rel in its own direction. Naming `related_to` or an unknown rel in `rels` is an error. kb_backlinks gives one flat hop.",
   input: z.object({
     bundlePath,
     conceptId,

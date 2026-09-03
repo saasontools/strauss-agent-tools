@@ -102,32 +102,15 @@ strauss-kb backlinks fact.region-key    # every inbound edge, one hop, any rel
 
 Records can declare typed causal edges in `links`. An edge lives on the source
 and reads source → target: `{ "target": "fact.region-key", "rel":
-"depends_on" }` on a decision says the decision needs that fact.
+"depends_on" }` on a decision says the decision needs that fact. The vocabulary
+is closed; there is no supersession rel. Run `impact` before superseding,
+contradicting, or narrowing a record. Which end depends on which is per-rel:
 
-Run `impact` before superseding, contradicting, or narrowing a record: the
-answer is the set of records written on the assumption that the current one
-holds, which a diff cannot show you. Every row carries its standing; a
-superseded or rejected record is reported and not walked through, named under
-`stopped`. Unbounded unless you pass `--depth`, and a walk a depth cut ends
-says so with `truncated`.
-
-**Which end depends on which is per-rel, and not always the source.**
-
-| Rel                                              | `A <rel> B` — who breaks when the other changes |
-| ------------------------------------------------ | ----------------------------------------------- |
-| `depends_on`, `verified_by`, `satisfies`         | **A** — so B's impact includes A                |
-| `constrains`, `informs`, `blocks`, `invalidates` | **B** — so A's impact includes B                |
-| `related_to`                                     | neither; `impact` does not follow it            |
-
-The vocabulary is closed — anything else is rejected at write. There is no
-supersession rel: that is a lifecycle, and `strauss-kb supersede` owns it.
-
-```json
-"links": [
-  { "target": "fact.region-key", "rel": "depends_on" },
-  { "target": "test-obligation.region-bleed", "rel": "verified_by" }
-]
-```
+| Rel                                              | Who breaks when the other changes |
+| ------------------------------------------------ | --------------------------------- |
+| `depends_on`, `verified_by`, `satisfies`         | **A** — so B's impact includes A  |
+| `constrains`, `informs`, `blocks`, `invalidates` | **B** — so A's impact includes B  |
+| `related_to`                                     | neither; `impact` does not follow |
 
 ## Writing
 

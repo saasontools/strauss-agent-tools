@@ -64,6 +64,21 @@ rewritten to remove; enforcing a vocabulary would make them a closed enum, which
 or do not, where a tag can be wrong forever. If narrowing ever matters, measure
 tag narrowing against vector recall on a real base rather than adding both.
 
+## Typed links
+
+Supersession is not a rel. It is a lifecycle, and
+`strauss_supersedes`/`strauss_superseded_by` already carry it in both
+directions; a rel would be a second spelling free to disagree with them.
+
+The rel vocabulary is closed, but the read schema tolerates an unknown one.
+Frontmatter strict enough to reject it would make the file fail to parse, and a
+file that fails to parse is skipped by `list()` rather than reported — the
+bundle would drop the record instead of naming it. Tolerant read, strict write:
+`kb_write` refuses an unknown rel, `kb_validate` reports one as an error.
+
+`kb_impact` reports a superseded or rejected record and stops there. A withdrawn
+record's declared dependencies are not obligations anyone still owes.
+
 ## Rejected: a format that needs a parser
 
 This was broken twice. A hand-rolled frontmatter reader could not express nested

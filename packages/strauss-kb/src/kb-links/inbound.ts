@@ -2,15 +2,9 @@ import type { KbRecord } from "../kb-record.schema.js";
 import type { KbInboundEdge } from "./model.js";
 
 /**
- * The whole bundle's typed edges, indexed by target.
- *
- * Built once per call rather than per hop: a walk that re-scanned every
- * record's `strauss_links` at each step would be quadratic in the bundle for a
- * question whose answer is usually a handful of records.
- *
- * Order is the bundle's own — `list()` returns records sorted by filename — and
- * then each record's links in the order it declared them, so two runs over an
- * unchanged base produce the same answer in the same order.
+ * The whole bundle's typed edges, indexed by target — built once per call, so a
+ * walk stays linear in the bundle rather than quadratic. Order is `list()`'s
+ * own, then each record's declared link order, so repeated runs agree.
  */
 export function inboundIndex(bundle: KbRecord[]): Map<string, KbInboundEdge[]> {
   const byTarget = new Map<string, KbInboundEdge[]>();

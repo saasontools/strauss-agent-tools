@@ -15,27 +15,10 @@ import type {
 } from "./model.js";
 
 /**
- * What breaks if this record changes.
- *
- * The transitive set of *dependants*, which is not the set of inbound edges.
- * Each rel says which of its two ends depends on the other, and that end is not
- * always the source: `A depends_on B` puts the dependant at the source, so the
- * walk runs against the edge; `A informs B` puts it at the target, so the walk
- * runs along it. So each hop asks two questions of a record: who points at me
- * with a rel whose dependant is the source, and who do I point at with a rel
- * whose dependant is the target. Both answers are dependants.
- *
- * `related_to` carries no dependant and propagates nothing. An unknown rel is
- * never followed anywhere; `kb_validate` reports it as an error.
- *
- * Standing is applied but nothing is filtered — a dropped record turns a
- * knowable gap into an unknowable one. What standing changes is traversal: a
- * superseded or rejected record's own declared edges no longer hold, so the
- * walk reports it and stops there, naming it in `stopped`.
- *
- * Cycles are ordinary (`A depends_on B`, `B constrains A`). A record is
- * expanded once, keeps the shortest depth at which it was reached, and
- * accumulates every edge that reached it, so a cycle terminates.
+ * The transitive set of *dependants*, not the set of inbound edges: each rel is
+ * followed in its own direction of dependence. `related_to` and unknown rels
+ * propagate nothing. A superseded or rejected record is reported, then not
+ * walked through. A record expands once, so cycles terminate.
  */
 export function impact(
   targetId: string,

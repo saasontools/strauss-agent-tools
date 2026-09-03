@@ -89,19 +89,10 @@ export function isKbRecordType(value: string): value is KbRecordType {
 }
 
 /**
- * The closed vocabulary of typed causal edges — `strauss_links[].rel`.
- *
- * Closed, and the one closed vocabulary here a producer may not extend: an open
- * rel set is a free-text field wearing a schema, where `depends-on` and
- * `dependsOn` are both legal and neither is traversable. `related_to` is the
- * escape hatch for a pointer that is not a dependence, and the one rel
- * `kb_impact` does not follow. Supersession is absent: it is a lifecycle, and
- * `strauss_supersedes`/`strauss_superseded_by` carry it in both directions.
- *
- * Every edge reads source → target and lives on the source's frontmatter:
- * `A depends_on B` means A needs B. `phrase` is the fixed prose template
- * compose.ts renders it with, so an OKF reader that has never heard of
- * `strauss_links` still reads the meaning out of the body.
+ * The closed vocabulary of typed causal edges — `strauss_links[].rel` — which a
+ * producer may not extend. `related_to` is the non-dependence escape hatch and
+ * the one rel `kb_impact` does not follow. Every edge lives on the source's
+ * frontmatter, source → target; `phrase` is the template compose.ts renders.
  */
 export type KbLinkRelSpec = {
   /** One line, for schema output and CLI help. */

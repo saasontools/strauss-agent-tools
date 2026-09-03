@@ -1,16 +1,7 @@
 import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 import { isKbLinkRel, isKbRecordType, KB_LINK_RELS } from "./record-types.js";
 
-/**
- * Whether a finding is a defect or a note.
- *
- * `error` fails the check and the CLI's exit code with it; `warning` is
- * reported and does not. The line between them is whether the bundle is
- * currently wrong or merely incomplete: an unknown `rel` is a claim no walk can
- * ever traverse and no later write will fix, while a link to a record that does
- * not exist yet is the normal state of a base being written — records are
- * routinely written before the ones they point at.
- */
+/** `error` fails the check; `warning` does not. */
 export type KbValidationSeverity = "error" | "warning";
 
 export type KbValidationProblem = {
@@ -21,19 +12,9 @@ export type KbValidationProblem = {
 };
 
 /**
- * Checks that only hold across the whole bundle.
- *
- * Per-record shape is the schema's job and is enforced on every read, so
- * nothing here re-states it. What a schema cannot see is whether one record's
- * pointers agree with another's — and since `supersede()` now writes both
- * directions, a disagreement means someone edited a file by hand.
- *
- * The typed-link checks are here rather than in the schema for a reason that
- * looks backwards until you try the alternative: a frontmatter schema that
- * rejected an unknown `rel` would make the offending file fail to parse, and a
- * file that fails to parse is skipped by `list()` — so the bundle would drop
- * the record instead of reporting it, and the writer would never learn why.
- * Tolerant read, strict write (`composeRecord`), enforced here.
+ * Checks that only hold across the whole bundle: whether one record's pointers
+ * agree with another's. Per-record shape is the schema's job, enforced on every
+ * read, so nothing here re-states it.
  */
 export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
   const byId = new Map(records.map((record) => [record.conceptId, record]));
