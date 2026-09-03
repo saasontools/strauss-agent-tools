@@ -1,3 +1,14 @@
+## 0.1.14 (2026-09-03)
+
+### 🩹 Fixes
+
+- Terse MCP tool descriptions (~2,300 → ~1,100 tokens per context), and shorter README, ARCHITECTURE and docs. No behaviour change. ([8ca35a3](https://github.com/saasontools/strauss-agent-tools/commit/8ca35a3))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5.1
+
 ## 0.1.13 (2026-09-03)
 
 ### 🩹 Fixes
