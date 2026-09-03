@@ -250,77 +250,48 @@ An anchor names where a record attaches in the code: a `file`, optionally a
 `symbol` — symbolic, because a line number written mid-change is wrong by the
 end of it. Five optional fields extend it:
 
-| Field         | Meaning                                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `hash`        | `sha256:<hex>` over the anchored text; algorithm-prefixed so another can coexist later.                    |
-| `lines`       | Line count the hash covered — the anchor keeps no text, so this is how a drift report says how much moved. |
-| `resolved_at` | When the anchor last resolved.                                                                             |
-| `repo`        | Which repository — remote URL or short name. Absent means this base's own repository.                      |
-| `ref`         | Git rev the evidence was taken at. Prefer a commit SHA; a branch is a moving pointer.                      |
+| Field         | Meaning                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `hash`        | `sha256:<hex>` over the anchored text, algorithm-prefixed.                                                       |
+| `lines`       | Line count the hash covered.                                                                                     |
+| `resolved_at` | When the anchor last resolved.                                                                                   |
+| `repo`        | Which repository — remote URL or short name. Absent means this base's own repository.                            |
+| `ref`         | Git rev the evidence was taken at. Recorded but unused until [SAA-709](https://linear.app/saason/issue/SAA-709). |
 
 `hash`, `lines`, and `resolved_at` are **measured** — a resolution pass stamps
-them. `repo` and `ref` are **author-owned identity** — which code the record
-meant — and a resolution pass never writes them. `repo` is unvalidated beyond
-"not blank" (one repository has a dozen spellings) and matched after
-normalising both sides: full URL, `org/name`, or bare name. In v1 `ref` is
-recorded but unused — every read is of the working tree; ref-pinned and
-foreign-repo resolution land with
-[SAA-709](https://linear.app/saason/issue/SAA-709).
+them; `repo` and `ref` are **author-owned identity** and a resolution pass
+never writes them.
 
 `anchor-resolve <concept-id>` (`kb_anchor_resolve`) is `verify`'s mechanical
-counterpart: it checks whether the anchored code is still what it was, against
-the working tree (`--repo-root` when the base is not inside it). Per anchor:
+counterpart: it checks the anchored code against the working tree
+(`--repo-root` when the base is not inside it). Per anchor:
 
-- **stamped** — no hash yet; the current hash, line count, and timestamp are
-  written. This is the only write path for hashes: `write` records symbols,
-  the first resolve backfills the baseline.
-- **match** — hash unchanged; nothing written, so a green run leaves no diff.
-  `--restamp` refreshes `resolved_at` on purpose.
-- **drifted** — hash changed. Reports both hashes and `diffSize` (`null` when
-  `lines` was never recorded). Baseline kept unless `--rebaseline`.
-- **unresolved** — not comparable, with a reason: `file-missing`,
-  `symbol-not-found`, `outside-repo`, `file-too-large` (1 MiB),
-  `file-unreadable`, `foreign-repo`. A finding, not an error.
+- **stamped** — no hash yet; hash, line count, and timestamp are written.
+- **match** — unchanged; nothing written. `--restamp` re-dates on purpose.
+- **drifted** — hash changed. Baseline kept unless `--rebaseline`.
+- **unresolved** — not comparable, with a reason. A finding, not an error.
 
-`foreign-repo` is skipped outright: never read, stamped, reported, or counted —
-a base describing several repositories resolves one tree at a time. Identity
-is the root's `origin` remote; a root without one cannot prove which
-repository it is, so anchors naming a `repo` are foreign there. Anchors naming
-no `repo` never consult git.
+An anchor naming another `repo` is skipped: never read, stamped, or counted.
 
-Containment is a rule: an anchor must not read outside the repo it describes,
-checked lexically and again on the real path after symlinks — otherwise an
-untrusted bundle could use `kb_load` to probe any file the process can read.
+An anchor must not read outside the repository it describes, checked lexically
+and again on the real path after symlinks.
 
 Exit code is non-zero on **drifted**, or on **unresolved** for an anchor that
-carries a hash — a deleted file is as broken as a rewritten one. Unstamped and
-foreign anchors never fail. On a `--frozen` base the report runs and returns
-`frozen: true`; only writes are refused.
+carries a hash; unstamped and foreign anchors never fail.
 
 A fully clean run — every checkable anchor `match`, none stamped this run —
-appends a `verified[]` event (`anchor-resolve: N/M anchors match, K in another
-repo`). A fresh stamp is a baseline nobody has checked, so it does not count as
-evidence. `verify`'s self-verification rule applies: the record's own generator
-gets `verifyRefused: "self-verification"` and the report only.
+appends a `verified[]` event.
 
-Resolution is a v1 regex heuristic biased so a wrong answer loses to no
-answer: it matches the symbol's last dotted segment, ranks candidates by shape
-(declaration > assignment > call > mention), scopes a dotted symbol to its
-nearest parent, returns `unresolved` on a tie or an unclosed block, strips
-strings and comments before brace counting, and captures Python by
-indentation. A symbol-less anchor hashes the whole file; line endings are
-normalised first. It sits behind a pure `AnchorResolver` interface so a
-tree-sitter resolver can replace it later.
+Symbol resolution is a v1 heuristic; ties and unclosed blocks return
+`unresolved`.
 
-Drift also surfaces on read: `kb_load` and `kb_query` re-check hash-carrying
-anchors of the records they return and attach a `{ kind: "drifted" }` warning;
-a filesystem failure degrades to no warning, never a failed read. `kb_doctor`
-lists every drifted anchor base-wide. All of these take `--repo-root`. When no
-root was given and **not one** anchored file was found, the finding is dropped
-— that shape is a wrong default root, not a repository that deleted every file
-at once, and a warning on every record teaches readers to ignore it. One found
-file makes the misses findings again; an explicit `--repo-root` is taken at
-its word.
+Drift also surfaces on read: `kb_load` and `kb_query` attach a
+`{ kind: "drifted" }` warning, and `kb_doctor` lists every drifted anchor
+base-wide — all three take `--repo-root`. With no `--repo-root` given, a run
+that finds not one anchored file drops the finding as a wrong root; an explicit
+`--repo-root` is taken at its word.
+
+Details: [specification](https://saasontools.github.io/strauss-agent-tools/specification).
 
 ## CLI
 
@@ -641,11 +612,9 @@ Judgments the checks make, worth knowing before reading a report:
   what makes it worth naming.
 - **`drifted` reports and never repairs.** It reads the same comparison
   `kb_load` and `kb_query` do, so the sweep and the read paths cannot disagree
-  about what drift is; the re-stamp belongs to `anchor-resolve`. Unresolvable
-  anchors ride in this group rather than a ninth check — the repair is the same
-  edit, and the note says which happened. Anchors carrying no hash are never
-  read, and `--strict` does not gate on drift: `anchor-resolve` already exits
-  non-zero on it.
+  about what drift is. Unresolvable anchors ride in this group rather than a
+  ninth check, anchors carrying no hash are never read, and `--strict` does not
+  gate on drift.
 
 `--strict` gates on expiry alone. The other seven report debt a reader decides
 about; an expired record is the base itself saying it would stop standing

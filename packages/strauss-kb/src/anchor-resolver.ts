@@ -10,15 +10,9 @@ const execFileAsync = promisify(execFile);
 /**
  * Resolves symbolic anchors to text and detects drift against stored hashes.
  *
- * Resolvers are pure — source string in, range out — so tests need no
- * filesystem and a tree-sitter or codegraph resolver later slots behind the
- * same interface. Only the file readers touch disk.
- *
- * The bias throughout is that a wrong answer is worse than no answer. A span
- * that stops short of the code it claims to cover hashes as stable while the
- * code moves underneath it, and a stable hash is read as evidence — so every
- * shape this resolver cannot lex confidently returns `null` and is reported
- * `unresolved` rather than being guessed at.
+ * Resolvers are pure — source string in, range out; only the file readers touch
+ * disk. Any shape the lexer cannot handle confidently returns `null` and is
+ * reported `unresolved` rather than guessed at.
  */
 
 export type ResolvedSymbol = {
@@ -150,11 +144,7 @@ function stripLine(
  * Span capture
  * ---------------------------------------------------------------------- */
 
-function span(
-  lines: string[],
-  from: number,
-  to: number,
-): ResolvedSymbol {
+function span(lines: string[], from: number, to: number): ResolvedSymbol {
   return {
     text: lines.slice(from, to + 1).join("\n"),
     startLine: from + 1,
@@ -165,18 +155,10 @@ function span(
 /**
  * From the matched line to the line where brace depth returns to zero.
  *
- * Depth is tested at end of line, never mid-line, which is what makes a
- * destructured signature work: `function f({ a, b }) {` opens, closes and
- * opens again within one line, so the header ends at depth one and the scan
- * keeps going. Testing mid-line would have ended the span on the signature —
- * a hash over the header alone, stable across every edit to the body.
- *
- * A top-level `;` reached before any brace opens is a braceless declaration
- * (`const N = 5;`) and the matched line alone is the span.
- *
- * Everything else is `null`: a brace that never opens and never terminates,
- * or one still open at end of file. Both mean the lexer lost the thread, and
- * a guessed span would hash as stable over code it does not cover.
+ * Depth is tested at end of line, never mid-line, so a destructured signature
+ * (`function f({ a, b }) {`) does not end the span. A top-level `;` before any
+ * brace opens is a braceless declaration and the matched line alone is the
+ * span. Everything else is `null`.
  */
 function captureBraceBlock(
   lines: string[],
@@ -316,9 +298,7 @@ export const regexResolver: AnchorResolver = {
         );
         const nearest = Math.min(...distances);
         if (Number.isFinite(nearest)) {
-          candidates = candidates.filter(
-            (_, at) => distances[at] === nearest,
-          );
+          candidates = candidates.filter((_, at) => distances[at] === nearest);
         }
       }
 
@@ -437,18 +417,11 @@ function contains(root: string, path: string): boolean {
  * ---------------------------------------------------------------------- */
 
 /**
- * Repository identity, compared rather than parsed.
+ * Repository identity, normalised on both sides and compared rather than
+ * parsed; see ARCHITECTURE.
  *
- * One repository is spelled a dozen ways — `git@github.com:org/name.git`,
- * `https://github.com/org/name`, `org/name`, or just `name` — and an anchor's
- * `repo` is hand-written by whoever recorded it. Normalising both sides to one
- * shape and comparing is the only approach that does not reject a correct
- * value from a host this package has never seen.
- *
- * The trailing slashes come off in a loop rather than with `/\/+$/`, which
- * backtracks quadratically on a string of many slashes. An anchor's `repo` is
- * bundle data — untrusted, and read on the `kb_load` path — so a record
- * carrying a few thousand slashes must not be able to burn the reader's CPU.
+ * Trailing slashes come off in a loop rather than with `/\/+$/`, which
+ * backtracks quadratically on untrusted bundle data.
  */
 export function normalizeRepoUrl(value: string): string {
   let url = value.trim().replace(/^git\+/, "");
@@ -544,8 +517,7 @@ export class LazyOrigin {
 }
 
 export type AnchorRead =
-  | { ok: true; source: string }
-  | { ok: false; reason: AnchorUnresolvedReason };
+  { ok: true; source: string } | { ok: false; reason: AnchorUnresolvedReason };
 
 function errorCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error
@@ -638,17 +610,11 @@ export function looksLikeWrongRepoRoot(
 /**
  * Re-resolves every hash-carrying anchor and compares against the stored hash.
  *
- * Anchors without a `hash` are skipped outright — until someone stamps hashes,
- * this costs nothing on the load/query path. A missing file or an unresolvable
- * symbol is a finding (`unresolved`), never a throw: drift detection runs over
- * bases whose code has moved, and the moved code is exactly what it exists to
- * report. Each distinct file is read once per run. All checked entries are
- * returned per record; callers filter.
- *
- * An anchor naming another repository is reported `foreign-repo` and never
- * read. The `origin` remote is asked for once per run, and only when some
- * anchor actually declares a `repo` — the overwhelmingly common anchor names
- * none, and pays no subprocess for the ones that do.
+ * Anchors without a `hash` are skipped; one naming another repository is
+ * reported `foreign-repo` and never read, and `origin` is asked for once per
+ * run, only when some anchor declares a `repo`. A missing file or unresolvable
+ * symbol is a finding (`unresolved`), never a throw. Each distinct file is read
+ * once per run; all checked entries are returned per record, callers filter.
  */
 export async function detectAnchorDrift(
   records: KbRecord[],

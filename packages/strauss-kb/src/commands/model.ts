@@ -90,7 +90,7 @@ export const REPO_ROOT = z
   .min(1)
   .optional()
   .describe(
-    "Where the anchored source lives, for the drift check. Defaults to the working directory; anchors carrying no hash are never read.",
+    "Where the anchored source lives, for the drift check. Defaults to the working directory.",
   );
 
 export function define<Shape extends z.ZodRawShape>(

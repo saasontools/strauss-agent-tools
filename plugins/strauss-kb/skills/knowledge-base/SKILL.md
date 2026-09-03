@@ -170,5 +170,8 @@ for it when picking up a base you have not touched in months; every finding
 names a record for a person to repair. `--json` for the machine shape,
 `--strict` to exit 1 when anything has expired.
 
+`strauss-kb anchor-resolve <id>` — re-hash a record's code anchors;
+`kb_load`/`kb_query` warn `drifted` when the code moved.
+
 Do not edit `INDEX.md` or `log.jsonl` by hand. The index is regenerated from the
 records; the log is append-only and is the one artifact nothing can rebuild.

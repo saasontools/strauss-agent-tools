@@ -78,11 +78,8 @@ export const kbAnchorSchema = z
      * (`https://github.com/org/name`) or a short name. Absent means the base's
      * own repository, which is what nearly every anchor means.
      *
-     * Deliberately unvalidated beyond "not blank": repository identity is
-     * spelled a dozen ways (ssh, https, `org/name`, a bare name, an internal
-     * host), and a format this package invented would reject correct values
-     * from hosts it has never seen. An unrecognised or broken `repo` is
-     * tolerated data — the anchor simply does not resolve here.
+     * Unvalidated beyond not-blank: one repository has many spellings.
+     * Matched after normalisation; see ARCHITECTURE.
      */
     repo: z.string().trim().min(1).optional(),
     /**

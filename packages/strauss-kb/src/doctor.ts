@@ -457,10 +457,8 @@ function supersededButCited(
  * In-force records only. A superseded record anchoring code that has since
  * moved is the expected outcome of it being replaced, not a repair.
  *
- * Unresolvable anchors ride in the same group rather than an ninth check. The
- * repair is the same edit — re-point the anchor and re-stamp it — and the
- * cause is usually one event: the file was renamed, so one anchor drifted and
- * its neighbour vanished. Which happened is in the note.
+ * Unresolvable anchors ride in this group rather than a ninth check: the repair
+ * is the same edit, and the note says which happened.
  */
 function drifted(hits: ReturnType<typeof adjudicate>): KbDoctorFinding[] {
   const findings: KbDoctorFinding[] = [];

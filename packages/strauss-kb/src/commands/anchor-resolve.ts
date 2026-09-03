@@ -32,12 +32,17 @@ export const anchorResolveCommand = define({
   usage:
     "anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]",
   description:
-    "Resolve a record's anchors against the working tree: stamp a hash onto anchors that lack one, report drift where the code moved. kb_verify's mechanical counterpart. Exits non-zero on drift, or on a hash-carrying anchor that no longer resolves; --rebaseline accepts the current code, --restamp re-dates anchors that still match, and an anchor naming another repository is skipped as `foreign-repo`.",
+    "Resolve a record's anchors against the working tree: stamp a hash onto anchors that lack one, report drift where the code moved. kb_verify's mechanical counterpart — reach for it when the question is whether the code still is what it was, not whether the claim still holds. Anchors naming another repository are skipped. Exits non-zero on drift.",
   input: z.object({
     bundlePath,
     conceptId,
     repoRoot: z.string().min(1).optional(),
-    rebaseline: z.boolean().optional(),
+    rebaseline: z
+      .boolean()
+      .optional()
+      .describe(
+        "Accept the current code as the new baseline for anchors that drifted.",
+      ),
     restamp: z
       .boolean()
       .optional()
@@ -175,16 +180,10 @@ export const anchorResolveCommand = define({
       ? { frozen: true, note: "base is frozen: nothing was stamped" }
       : {};
 
-    // Every anchor this root could check matched — not "nothing went wrong".
-    // A freshly stamped anchor is a baseline nobody has checked against
-    // anything, and counting it as evidence would let a record verify itself
-    // into trustworthiness on the very run that invented its hash.
-    //
-    // Anchors in another repository are outside the denominator rather than
-    // against it. Counting them as failures would make a cross-repo record
-    // permanently unverifiable until SAA-709, and counting them as passes
-    // would claim evidence nobody gathered; the note says how many were
-    // skipped, so the reader can see the scope of what was checked.
+    // Evidence only when every checkable anchor already matched: a freshly
+    // stamped anchor is a baseline nobody has checked. Anchors in another
+    // repository are outside the denominator rather than against it, and the
+    // note says how many were skipped.
     const checked = results.filter((entry) => entry.reason !== "foreign-repo");
     const skipped = results.length - checked.length;
     const matches = checked.filter((entry) => entry.state === "match").length;
