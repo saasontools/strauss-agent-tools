@@ -54,14 +54,52 @@ export const kbVerifiedEventSchema = kbActorStampSchema.extend({
  *
  * Symbolic on purpose. These are written while the code is still moving: a
  * `line: 379` recorded at minute five is wrong by minute forty, but
- * `OrderService.cancel` survives every edit that does not rename it. A later
- * pass resolves symbols to line ranges once the change has settled, and records
- * that resolution as a `verified[]` entry.
+ * `OrderService.cancel` survives every edit that does not rename it. Once the
+ * change settles, a resolution pass (`anchor-resolver.ts`) stamps `hash`,
+ * `resolved_at`, and `lines`; drift detection later re-resolves and compares.
+ *
+ * `hash` is prefixed with the algorithm so a future one can coexist with
+ * stored values. `lines` exists because the anchor keeps a hash, not the text:
+ * without the line count at hash time, a drift report could say "changed" but
+ * never how much.
+ *
+ * `repo` and `ref` say *which* code, for bases that describe more than one
+ * repository. They are author-owned identity: a resolver stamps `hash`,
+ * `lines`, and `resolved_at`, and never writes these two. Both are optional and
+ * independent of each other, so every anchor written before they existed stays
+ * valid.
  */
 export const kbAnchorSchema = z
   .object({
     file: z.string().min(1),
     symbol: z.string().min(1).optional(),
+    /**
+     * Which repository the file lives in — a remote URL
+     * (`https://github.com/org/name`) or a short name. Absent means the base's
+     * own repository, which is what nearly every anchor means.
+     *
+     * Unvalidated beyond not-blank: one repository has many spellings.
+     * Matched after normalisation; see ARCHITECTURE.
+     */
+    repo: z.string().trim().min(1).optional(),
+    /**
+     * The git rev the evidence was taken at. Prefer a commit SHA: a branch
+     * name is a moving pointer, so an anchor pinned to one says the evidence
+     * came from wherever that branch happens to be now, which is not a
+     * baseline. Recorded and preserved in v1; ref-pinned reads land with
+     * SAA-709.
+     */
+    ref: z.string().trim().min(1).optional(),
+    hash: z
+      .string()
+      .regex(/^sha256:[0-9a-f]{64}$/, {
+        message: "hash must be sha256:<64 hex chars>",
+      })
+      .optional(),
+    /** ISO 8601 timestamp of the last successful resolution. */
+    resolved_at: z.string().min(1).optional(),
+    /** Line count of the text the hash was taken over. */
+    lines: z.number().int().positive().optional(),
   })
   .strict();
 
