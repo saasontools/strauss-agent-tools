@@ -49,14 +49,25 @@ export {
 } from "./kb-record.schema.js";
 export {
   anchorFilePath,
+  defaultAnchorResolvers,
   detectAnchorDrift,
   hashAnchorText,
+  prepareResolvers,
   regexResolver,
   resolveAnchor,
+  resolveAnchorSpan,
+  type AnchorResolution,
   type AnchorResolver,
+  type AnchorResolverName,
   type KbAnchorDriftEntry,
   type ResolvedSymbol,
+  type ResolverAttempt,
 } from "./anchor-resolver.js";
+export {
+  TreeSitterResolver,
+  languageForFile,
+  TREE_SITTER_LANGUAGES,
+} from "./tree-sitter-resolver.js";
 export {
   RECORD_TYPES,
   LINK_RELS,

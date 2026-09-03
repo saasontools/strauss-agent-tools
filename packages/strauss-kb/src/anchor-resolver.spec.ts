@@ -536,6 +536,7 @@ describe("detectAnchorDrift", () => {
         storedHash: anchor.hash,
         currentHash: anchor.hash,
         diffSize: 0,
+        resolver: "tree-sitter",
       },
     ]);
   });
@@ -559,6 +560,72 @@ describe("detectAnchorDrift", () => {
     expect(entry?.state).toBe("drifted");
     expect(entry?.currentHash).not.toBe(anchor.hash);
     expect(entry?.diffSize).toBe(1);
+  });
+
+  // The one case where a stable file still reports drift: nothing moved, the
+  // resolver did. Named so a reader knows `--rebaseline` is the whole fix.
+  test("a regex-stamped anchor re-resolved by tree-sitter drifts as resolver-changed", async ({
+    repo,
+  }) => {
+    const decorated = [
+      "class Jobs {",
+      "  @retry(3)",
+      "  run(id: string) {",
+      "    return id;",
+      "  }",
+      "}",
+      "",
+    ].join("\n");
+    write(repo, "src/jobs.ts", decorated);
+    const heuristic = regexResolver.resolve(decorated, "Jobs.run");
+    if (!heuristic) throw new Error("fixture did not resolve under regex");
+
+    const anchor = {
+      file: "src/jobs.ts",
+      symbol: "Jobs.run",
+      hash: hashAnchorText(heuristic.text),
+      resolved_at: "2026-08-26T10:00:00Z",
+      lines: heuristic.endLine - heuristic.startLine + 1,
+      resolver: "regex" as const,
+    };
+
+    const drift = await detectAnchorDrift([record("decision.jobs", [anchor])], {
+      repoRoot: repo,
+    });
+
+    const entry = drift.get("decision.jobs")?.[0];
+    expect(entry?.state).toBe("drifted");
+    expect(entry?.reason).toBe("resolver-changed");
+    expect(entry?.resolver).toBe("tree-sitter");
+  });
+
+  // A file that really changed under the same resolver is ordinary drift; the
+  // reason is reserved for the resolver swap.
+  test("a tree-sitter-stamped anchor that moved is drift without a reason", async ({
+    repo,
+  }) => {
+    write(repo, "src/orders.ts", SOURCE);
+    const stamped = stamp("src/orders.ts", "OrderService.cancel", SOURCE);
+    const anchor = { ...stamped, resolver: "tree-sitter" as const };
+    write(
+      repo,
+      "src/orders.ts",
+      SOURCE.replace(
+        "    this.repo.drop(id);",
+        ["    this.audit(id);", "    this.repo.drop(id);"].join("\n"),
+      ),
+    );
+
+    const drift = await detectAnchorDrift(
+      [record("decision.cancel", [anchor])],
+      {
+        repoRoot: repo,
+      },
+    );
+
+    const entry = drift.get("decision.cancel")?.[0];
+    expect(entry?.state).toBe("drifted");
+    expect(entry?.reason).toBeUndefined();
   });
 
   test("an anchor path escaping the repo root reports unresolved, unread", async ({

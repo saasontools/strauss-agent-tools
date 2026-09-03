@@ -5,6 +5,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { DEFAULT_IO_CONCURRENCY, mapLimit } from "./concurrency.js";
 import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
+import { TreeSitterResolver } from "./tree-sitter-resolver.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -23,15 +24,39 @@ export type ResolvedSymbol = {
   endLine: number;
 };
 
+/** Which resolver produced a span. Stamped on the anchor. */
+export type AnchorResolverName = "tree-sitter" | "regex";
+
+/**
+ * A resolver's verdict. `abstain` means "not my language" and passes the
+ * symbol down the chain; an `unresolved` verdict ends it, because a resolver
+ * that parsed the file and found no definition has answered the question.
+ */
+export type ResolverAttempt =
+  | { kind: "resolved"; span: ResolvedSymbol }
+  | {
+      kind: "unresolved";
+      reason: "symbol-not-found" | "symbol-ambiguous" | "resolver-unavailable";
+    }
+  | { kind: "abstain" };
+
 export interface AnchorResolver {
   name: string;
-  resolve(source: string, symbol: string): ResolvedSymbol | null;
+  /** Loads whatever these files need, before any `resolve` call. Optional. */
+  prepare?(files: readonly string[]): Promise<void>;
+  /** The richer verdict the chain uses; defaults to `resolve`. */
+  attempt?(source: string, symbol: string, file?: string): ResolverAttempt;
+  resolve(source: string, symbol: string, file?: string): ResolvedSymbol | null;
 }
 
 /** Why an anchor could not be compared. Never an error — always a finding. */
 export type AnchorUnresolvedReason =
   | "file-missing"
   | "symbol-not-found"
+  /** More than one definition carries the name, and guessing is not allowed. */
+  | "symbol-ambiguous"
+  /** The extension has a grammar, but it would not load. Never a throw. */
+  | "resolver-unavailable"
   | "outside-repo"
   | "file-too-large"
   | "file-unreadable"
@@ -355,17 +380,120 @@ export function resolveAnchor(
   anchor: KbAnchor,
   resolver: AnchorResolver = regexResolver,
 ): ResolvedSymbol | null {
+  const outcome = resolveAnchorSpan(source, anchor, [resolver]);
+  return outcome.ok ? outcome.span : null;
+}
+
+/** A resolved span, and which resolver produced it. */
+export type AnchorResolution =
+  | { ok: true; span: ResolvedSymbol; resolver?: AnchorResolverName }
+  | { ok: false; reason: AnchorUnresolvedReason };
+
+/**
+ * Walks the resolver chain: tree-sitter, then regex, then a whole-file span
+ * when the anchor names no symbol.
+ *
+ * A resolver that understands the language answers for it — the next link is
+ * tried only on `abstain`. Falling through from a parsed miss to a text search
+ * would swap "there is no such definition" for the first line that mentions
+ * the name, which is exactly the wrong span drift detection must not record.
+ */
+export function resolveAnchorSpan(
+  source: string,
+  anchor: KbAnchor,
+  resolvers: readonly AnchorResolver[] = [regexResolver],
+): AnchorResolution {
   const normalized = source.replace(/\r\n/g, "\n");
   if (!anchor.symbol) {
     const lines = normalized.split("\n");
     if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
     return {
-      text: normalized,
-      startLine: 1,
-      endLine: Math.max(1, lines.length),
+      ok: true,
+      span: {
+        text: normalized,
+        startLine: 1,
+        endLine: Math.max(1, lines.length),
+      },
     };
   }
-  return resolver.resolve(normalized, anchor.symbol);
+
+  for (const resolver of resolvers) {
+    const attempt = resolver.attempt
+      ? resolver.attempt(normalized, anchor.symbol, anchor.file)
+      : fromResolve(resolver, normalized, anchor.symbol, anchor.file);
+    if (attempt.kind === "abstain") continue;
+    if (attempt.kind === "unresolved") {
+      return { ok: false, reason: attempt.reason };
+    }
+    return {
+      ok: true,
+      span: attempt.span,
+      ...(isResolverName(resolver.name) ? { resolver: resolver.name } : {}),
+    };
+  }
+  return { ok: false, reason: "symbol-not-found" };
+}
+
+/** A resolver with no `attempt`: a span or a plain miss, never an abstain. */
+function fromResolve(
+  resolver: AnchorResolver,
+  source: string,
+  symbol: string,
+  file: string,
+): ResolverAttempt {
+  const span = resolver.resolve(source, symbol, file);
+  return span
+    ? { kind: "resolved", span }
+    : { kind: "unresolved", reason: "symbol-not-found" };
+}
+
+function isResolverName(name: string): name is AnchorResolverName {
+  return name === "tree-sitter" || name === "regex";
+}
+
+/** Loads every chained resolver's per-language assets, once. */
+export async function prepareResolvers(
+  resolvers: readonly AnchorResolver[],
+  files: readonly string[],
+): Promise<void> {
+  for (const resolver of resolvers) await resolver.prepare?.(files);
+}
+
+/**
+ * The read-path chain. A fresh tree-sitter resolver per call, so its parse
+ * cache lives exactly as long as the run that owns it.
+ */
+export function defaultAnchorResolvers(): AnchorResolver[] {
+  return [new TreeSitterResolver(), regexResolver];
+}
+
+/**
+ * A hash that changed because a more precise resolver took over, not because
+ * the code did. Reported as drift so nothing is restamped silently, and
+ * accepted by `--rebaseline` like any other.
+ */
+export type AnchorDriftReason = "resolver-changed";
+
+/**
+ * Was the swap the whole story?
+ *
+ * Only when the resolver that stamped the anchor still reproduces the stored
+ * hash against this very source. Otherwise the code moved too, and calling it
+ * a resolver change would hide the edit behind a bookkeeping note.
+ */
+export function resolverChanged(
+  source: string,
+  anchor: KbAnchor,
+  produced: AnchorResolverName | undefined,
+): boolean {
+  const previous = anchor.resolver ?? "regex";
+  if (!produced || !anchor.symbol || previous === produced) return false;
+  if (previous !== "regex") return false;
+  const before = regexResolver.resolve(
+    source.replace(/\r\n/g, "\n"),
+    anchor.symbol,
+  );
+  return before !== null && hashAnchorText(before.text) === anchor.hash;
 }
 
 export type KbAnchorDriftEntry = {
@@ -376,7 +504,9 @@ export type KbAnchorDriftEntry = {
   currentHash?: string;
   /** `null` when the anchor recorded no `lines` — size unknown, not zero. */
   diffSize: number | null;
-  reason?: AnchorUnresolvedReason;
+  reason?: AnchorUnresolvedReason | AnchorDriftReason;
+  /** Which resolver produced `currentHash`. Absent for a whole-file anchor. */
+  resolver?: AnchorResolverName;
 };
 
 /**
@@ -682,14 +812,19 @@ export async function detectAnchorDrift(
   records: KbRecord[],
   options: {
     repoRoot?: string;
+    /** Single resolver, no chain. Convenience for tests. */
     resolver?: AnchorResolver;
+    /** The chain, tried in order. Defaults to tree-sitter then regex. */
+    resolvers?: readonly AnchorResolver[];
     concurrency?: number;
     /** Test seam: replaces the disk reader. */
     reader?: AnchorFileReader;
   } = {},
 ): Promise<Map<string, KbAnchorDriftEntry[]>> {
   const repoRoot = options.repoRoot ?? process.cwd();
-  const resolver = options.resolver ?? regexResolver;
+  const resolvers =
+    options.resolvers ??
+    (options.resolver ? [options.resolver] : defaultAnchorResolvers());
   const origin = new LazyOrigin(repoRoot);
 
   // Phase 1: which anchors are checkable, and is any of them foreign?
@@ -727,6 +862,7 @@ export async function detectAnchorDrift(
     options.reader ?? anchorFileReader(repoRoot),
     options.concurrency ?? DEFAULT_IO_CONCURRENCY,
   );
+  await prepareResolvers(resolvers, files);
 
   // Phase 3: resolve and hash synchronously, in the order records were given.
   const drift = new Map<string, KbAnchorDriftEntry[]>();
@@ -761,27 +897,36 @@ export async function detectAnchorDrift(
         continue;
       }
 
-      const resolved = resolveAnchor(read.source, anchor, resolver);
-      if (!resolved) {
+      const outcome = resolveAnchorSpan(read.source, anchor, resolvers);
+      if (!outcome.ok) {
         entries.push({
           ...base,
           state: "unresolved",
           diffSize: null,
-          reason: "symbol-not-found",
+          reason: outcome.reason,
         });
         continue;
       }
 
+      const resolved = outcome.span;
       const currentHash = hashAnchorText(resolved.text);
       const currentLines = resolved.endLine - resolved.startLine + 1;
+      const matched = currentHash === anchor.hash;
       entries.push({
         ...base,
-        state: currentHash === anchor.hash ? "match" : "drifted",
+        state: matched ? "match" : "drifted",
         currentHash,
         diffSize:
           anchor.lines === undefined
             ? null
             : Math.abs(currentLines - anchor.lines),
+        ...(outcome.resolver ? { resolver: outcome.resolver } : {}),
+        // A regex-stamped anchor re-read by tree-sitter drifts because the
+        // resolver changed, not because the code did. Named so a reader can
+        // tell the two apart before reaching for `--rebaseline`.
+        ...(!matched && resolverChanged(read.source, anchor, outcome.resolver)
+          ? { reason: "resolver-changed" as const }
+          : {}),
       });
     }
 

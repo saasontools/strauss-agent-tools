@@ -115,6 +115,11 @@ function render(result: KbDoctorCommandResult): string {
     `records: ${result.recordCount}`,
     `thresholds: expiring within ${thresholds.expiringDays}d, unverified over ${thresholds.unverifiedDays}d, aging over ${thresholds.agingDays}d`,
     `checked: ${result.checkedAt}`,
+    ...(result.anchorResolvers.total
+      ? [
+          `anchors: ${result.anchorResolvers.total} hashed — ${result.anchorResolvers.treeSitter} tree-sitter, ${result.anchorResolvers.regex} regex`,
+        ]
+      : []),
     "",
   ];
 

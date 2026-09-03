@@ -84,6 +84,20 @@ export type KbDoctorReport = {
   groups: KbDoctorGroup[];
   findingCount: number;
   healthy: boolean;
+  /**
+   * Anchors carrying a hash, by the resolver that produced it. A heuristic
+   * span is weaker evidence than a parsed one, so a base still leaning on the
+   * regex resolver is worth re-resolving. Not a finding: a regex-stamped
+   * anchor is not broken.
+   */
+  anchorResolvers: KbAnchorResolverCounts;
+};
+
+export type KbAnchorResolverCounts = {
+  total: number;
+  treeSitter: number;
+  /** Includes anchors stamped before resolvers were named. */
+  regex: number;
 };
 
 export type KbDoctorOptions = {
@@ -104,6 +118,20 @@ export type KbDoctorOptions = {
 };
 
 const DAY_MS = 86_400_000;
+
+/** A whole-file anchor names no resolver, so only symbol anchors are counted. */
+function anchorResolverCounts(bundle: KbRecord[]): KbAnchorResolverCounts {
+  let treeSitter = 0;
+  let regex = 0;
+  for (const record of bundle) {
+    for (const anchor of record.frontmatter.strauss_anchors ?? []) {
+      if (!anchor.hash || !anchor.symbol) continue;
+      if (anchor.resolver === "tree-sitter") treeSitter += 1;
+      else regex += 1;
+    }
+  }
+  return { total: treeSitter + regex, treeSitter, regex };
+}
 
 export function doctor(
   bundle: KbRecord[],
@@ -149,6 +177,7 @@ export function doctor(
     counts,
     groups,
     findingCount,
+    anchorResolvers: anchorResolverCounts(bundle),
     healthy: findingCount === 0,
   };
 }

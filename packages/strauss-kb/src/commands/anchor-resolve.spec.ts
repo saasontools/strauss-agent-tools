@@ -168,6 +168,7 @@ describe("anchorResolveCommand", () => {
           state: "match",
           storedHash: anchor.hash,
           currentHash: anchor.hash,
+          resolver: "tree-sitter",
         },
       ],
       verified: true,
@@ -179,7 +180,7 @@ describe("anchorResolveCommand", () => {
       {
         by: "agent:resolver",
         at: NOW,
-        note: "anchor-resolve: 1/1 anchors match (regex resolver)",
+        note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)",
       },
     ]);
     // Left exactly as it was: a matching anchor is unchanged, and re-dating it
@@ -348,7 +349,7 @@ describe("anchorResolveCommand", () => {
     // otherwise a cross-repo record could never be verified until SAA-709.
     const record = await new KbStore().read(bundle, ID);
     expect(record?.frontmatter.verified?.[0]?.note).toBe(
-      "anchor-resolve: 1/1 anchors match, 1 in another repo (regex resolver)",
+      "anchor-resolve: 1/1 anchors match, 1 in another repo (tree-sitter resolver)",
     );
     expect(record?.frontmatter.strauss_anchors?.[1]?.repo).toBe(
       "org/somewhere-else",
@@ -413,6 +414,7 @@ describe("anchorResolveCommand", () => {
         symbol: "totals",
         state: "stamped",
         currentHash: expectedHash,
+        resolver: "tree-sitter",
       },
     ]);
     // A stamping run has no prior hash to confirm, so it verifies nothing.
@@ -425,6 +427,7 @@ describe("anchorResolveCommand", () => {
       hash: expectedHash,
       lines: 3,
       resolved_at: NOW,
+      resolver: "tree-sitter",
     });
   });
 

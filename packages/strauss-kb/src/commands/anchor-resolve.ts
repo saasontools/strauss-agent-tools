@@ -1,11 +1,16 @@
 import { z } from "zod";
 import {
   anchorFileReader,
+  defaultAnchorResolvers,
   hashAnchorText,
   LazyOrigin,
+  prepareResolvers,
   readAnchorFiles,
-  resolveAnchor,
+  resolveAnchorSpan,
+  resolverChanged,
+  type AnchorDriftReason,
   type AnchorRead,
+  type AnchorResolverName,
   type AnchorUnresolvedReason,
 } from "../anchor-resolver.js";
 import {
@@ -24,9 +29,20 @@ type AnchorResolveResult = {
   currentHash?: string;
   /** `null` when the anchor recorded no `lines` — size unknown, not zero. */
   diffSize?: number | null;
-  reason?: AnchorUnresolvedReason;
+  reason?: AnchorUnresolvedReason | AnchorDriftReason;
+  resolver?: AnchorResolverName;
   rebaselined?: boolean;
 };
+
+/** Which resolvers produced this run's spans, for the verify note. */
+function resolverSummary(results: AnchorResolveResult[]): string {
+  const names = [
+    ...new Set(
+      results.flatMap((entry) => (entry.resolver ? [entry.resolver] : [])),
+    ),
+  ].sort();
+  return names.length ? `${names.join(" + ")} resolver` : "whole-file";
+}
 
 export const anchorResolveCommand = define({
   name: "anchor-resolve",
@@ -88,12 +104,12 @@ export const anchorResolveCommand = define({
     const foreign = new Map(
       anchors.map((anchor) => [anchor, origin.isForeign(anchor)] as const),
     );
-    const reads = await readAnchorFiles(
-      anchors
-        .filter((anchor) => !foreign.get(anchor))
-        .map((anchor) => anchor.file),
-      anchorFileReader(root),
-    );
+    const files = anchors
+      .filter((anchor) => !foreign.get(anchor))
+      .map((anchor) => anchor.file);
+    const reads = await readAnchorFiles(files, anchorFileReader(root));
+    const resolvers = defaultAnchorResolvers();
+    await prepareResolvers(resolvers, files);
 
     for (const anchor of anchors) {
       const base: Pick<AnchorResolveResult, "file" | "symbol" | "storedHash"> =
@@ -122,30 +138,40 @@ export const anchorResolveCommand = define({
         continue;
       }
 
-      const resolved = resolveAnchor(fileRead.source, anchor);
-      if (!resolved) {
+      const outcome = resolveAnchorSpan(fileRead.source, anchor, resolvers);
+      if (!outcome.ok) {
         results.push({
           ...base,
           state: "unresolved",
-          reason: "symbol-not-found",
+          reason: outcome.reason,
         });
         updated.push(anchor);
         continue;
       }
 
+      const resolved = outcome.span;
+      const producedBy = outcome.resolver;
       const currentHash = hashAnchorText(resolved.text);
       const currentLines = resolved.endLine - resolved.startLine + 1;
+      // `resolver` records which resolver the stored hash came from, so a
+      // later run can tell a precise span from a heuristic one.
       const stamped: KbAnchor = {
         ...anchor,
         hash: currentHash,
         lines: currentLines,
         resolved_at: now(),
+        ...(producedBy ? { resolver: producedBy } : {}),
       };
 
       if (!anchor.hash) {
         // The write path for hashes: kb_write callers record symbols, not
         // digests, and this pass fills them in once the code settles.
-        results.push({ ...base, state: "stamped", currentHash });
+        results.push({
+          ...base,
+          state: "stamped",
+          currentHash,
+          ...(producedBy ? { resolver: producedBy } : {}),
+        });
         updated.push(stamped);
         dirty = true;
       } else if (anchor.hash === currentHash) {
@@ -153,6 +179,7 @@ export const anchorResolveCommand = define({
           ...base,
           state: "match",
           currentHash,
+          ...(producedBy ? { resolver: producedBy } : {}),
         });
         // Nothing changed, so nothing is written: a re-dated record on every
         // green CI run would be a mutation, a log line, and a git diff saying
@@ -170,6 +197,10 @@ export const anchorResolveCommand = define({
             anchor.lines === undefined
               ? null
               : Math.abs(currentLines - anchor.lines),
+          ...(producedBy ? { resolver: producedBy } : {}),
+          ...(resolverChanged(fileRead.source, anchor, producedBy)
+            ? { reason: "resolver-changed" as const }
+            : {}),
           ...(rebaseline ? { rebaselined: true } : {}),
         });
         updated.push(rebaseline ? stamped : anchor);
@@ -211,7 +242,7 @@ export const anchorResolveCommand = define({
           id,
           `anchor-resolve: ${matches}/${checked.length} anchors match${
             skipped ? `, ${skipped} in another repo` : ""
-          } (regex resolver)`,
+          } (${resolverSummary(results)})`,
           actor,
           now(),
         );

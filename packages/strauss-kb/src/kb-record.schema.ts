@@ -100,6 +100,12 @@ export const kbAnchorSchema = z
     resolved_at: z.string().min(1).optional(),
     /** Line count of the text the hash was taken over. */
     lines: z.number().int().positive().optional(),
+    /**
+     * Which resolver produced the hashed span. Absent means an anchor stamped
+     * before resolvers were named, which is read as `regex` — the only one
+     * there was. A hash from a different resolver is drift, not a match.
+     */
+    resolver: z.enum(["tree-sitter", "regex"]).optional(),
   })
   .strict();
 
