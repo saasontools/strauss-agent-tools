@@ -163,12 +163,9 @@ strauss-kb doctor     # health sweep: what expired, went unconfirmed, or got orp
 disagree, an assumption citing sources. Since `supersede` writes both sides, a
 pointer problem means someone hand-edited a file.
 
-`doctor` asks the questions nobody thinks to, and never writes: seven groups —
-expired, expiring, unverified, aging (still `open` or `proposed`), orphaned (no
-other record links to it), broken supersession, and superseded-but-cited. Reach
-for it when picking up a base you have not touched in months; every finding
-names a record for a person to repair. `--json` for the machine shape,
-`--strict` to exit 1 when anything has expired.
+`doctor` never writes. Groups: expired, expiring, unverified, aging, orphaned,
+broken supersession, superseded-but-cited, drifted. `--json` for machine
+output, `--strict` to exit 1 on any expiry.
 
 `strauss-kb anchor-resolve <id>` — re-hash a record's code anchors;
 `kb_load`/`kb_query` warn `drifted` when the code moved.
