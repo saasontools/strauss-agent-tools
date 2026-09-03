@@ -17,12 +17,12 @@ markdown records carrying standing, supersession, and history.
   you hold is an index line.
 - Read records only through the strauss-kb MCP tools: `kb_load`, `kb_catalog`,
   `kb_pack`, `kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`. A raw file
-  read bypasses supersession resolution, and a superseded or rejected record
-  file reads exactly like a current one.
-- When `kb_load` refuses, the base is past its token budget — take the next
-  rung down rather than raising the ceiling:
-  `kb_catalog` for one line per record, then `kb_pack` on the record the work
-  centres on. `kb_query` is the lookup by wording.
+  read bypasses supersession
+  resolution, and a superseded or rejected record file reads exactly like a
+  current one.
+- When `kb_load` refuses, the base is past its token budget: `kb_catalog` for
+  one line per record, then `kb_pack` on the record that matters. `kb_query` is
+  the lookup by wording.
 - Record what a later reader could not reconstruct from the code — decisions
   with their rejected alternatives, constraints, risks, open questions. An
   unsourced claim is an `assumption`, never a `fact` with a vague source.

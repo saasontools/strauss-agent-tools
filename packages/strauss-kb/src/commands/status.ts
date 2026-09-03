@@ -8,7 +8,7 @@ export const statusCommand = define({
   tool: "kb_status",
   usage: "status <concept-id> <status>",
   description:
-    "Move a record's status, leaving everything else alone. Uses a compare-and-swap, so a concurrent change fails loudly rather than being overwritten.",
+    "Move a record's status. Compare-and-swap: a concurrent change fails instead of being overwritten.",
   input: z.object({
     bundlePath,
     conceptId,

@@ -8,7 +8,7 @@ export const noDecisionCommand = define({
   tool: "kb_no_decision",
   usage: "no-decision <reason...>",
   description:
-    'Claim in one sentence that there was nothing to decide. Gating on "did you write a decision?" rewards writing a junk one; gating on "did you answer?" does not, so silence has to be expressible. Idempotent — restating it is not a collision.',
+    "Record in one sentence that a piece of work had nothing to decide. Idempotent.",
   input: z.object({ bundlePath, reason: z.string().min(1) }),
   fromArgv: (argv, path) => ({
     bundlePath: path,

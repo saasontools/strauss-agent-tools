@@ -7,7 +7,7 @@ export const loadCommand = define({
   tool: "kb_load",
   usage: "load [type] [--budget N | --all] [--repo-root PATH]",
   description:
-    "Loads the whole knowledge base at once, each record with its standing. Superseded records arrive as stubs; rejected and open records arrive whole. Refuses past the token budget — call kb_catalog, kb_pack on it; `all` bypasses the budget. Never read record files directly. Cache-stable; `digest` is the base's content stamp — hooks use it to tell you when to reload.",
+    "Load the whole base, each record with its standing — call it first, at the point of use, since compaction drops it. Superseded records arrive as stubs; kb_trace has the history. Over budget it refuses: kb_catalog, then kb_pack, or narrow with `type`; `all` bypasses. Never read record files directly — only kb_* tools resolve supersession. `digest` stamps the base's content, so hooks know when to reload.",
   input: z
     .object({
       bundlePath,

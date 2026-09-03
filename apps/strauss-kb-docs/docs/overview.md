@@ -12,8 +12,7 @@ description: What strauss-kb is, and the problem it solves for agent workflows.
 `@saasontools/strauss-kb` is a durable project knowledge base: a directory of
 small markdown records, each carrying not just a claim but its **standing** —
 whether it is still what the project holds. Copy the directory and you have the
-whole thing. Nothing outside it is needed to read, search, adjudicate, or trace
-it.
+whole thing.
 
 The package is that directory's **library**, its **command line**, and its
 **MCP server**. All three project one command table, so a capability exists in
@@ -21,24 +20,20 @@ every surface or in none.
 
 ## The problem
 
-An agent session forgets. Attention decays over a long conversation, and
-compaction summarises away both the material loaded early and the instruction
-that said to consult it. Two failures follow, and they are the ones this package
-exists to remove:
+An agent session forgets: attention decays, and compaction summarises away both
+the material loaded early and the instruction that said to consult it. Two
+failures follow:
 
 - **Re-deciding.** A constraint settled last week is invisible this week, so it
-  gets "simplified" away. The diff does not record which alternative was
-  rejected, and nothing else does either.
-- **Acting on stale conclusions.** A search returns the record that matches
-  best, which is systematically the wrong one: a superseded record is usually
-  the older, longer, more general one, and its replacement is usually a
-  narrowing. Any similarity measure favours the record that is no longer true.
+  gets "simplified" away, and the diff does not record which alternative was
+  rejected.
+- **Acting on stale conclusions.** A superseded record is usually the older,
+  longer, more general one, so any similarity measure favours the record that is
+  no longer true.
 
-A search engine answers "does this match?". A knowledge base also has to answer
-"is this still what we hold?" — and those two questions disagree in a
-predictable direction. So every result here arrives **flagged, never filtered**:
-a superseded record comes back alongside whatever replaced it, and a rejected
-one is marked as something explicitly _not_ adopted.
+So every result arrives **flagged, never filtered**: a superseded record comes
+back alongside whatever replaced it, and a rejected one is marked as explicitly
+_not_ adopted.
 
 ## What a base looks like
 
@@ -52,14 +47,10 @@ one is marked as something explicitly _not_ adopted.
 ```
 
 The default base is `.strauss/kb` relative to the working directory; every
-command takes `--bundle PATH` to address another. A scratch base under a
-worktree and a committed base versioned beside the code it describes are the
-same format with different lifetimes — nothing promotes one to the other.
-
-Records are [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog)
-concepts. The filename is the identity: `fact.auth-retries.md` has concept id
-`fact.auth-retries`. One record per file, so parallel writers never merge — they
-only choose distinct names.
+command takes `--bundle PATH` to address another. Records are
+[OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog) concepts, and
+the filename is the identity: `fact.auth-retries.md` has concept id
+`fact.auth-retries`.
 
 ## The three surfaces
 
@@ -69,73 +60,52 @@ only choose distinct names.
 | MCP server | `strauss-kb-mcp` (stdio)                            | any MCP client                                |
 | Library    | `import { KbStore } from "@saasontools/strauss-kb"` | programmatic callers, diff annotation         |
 
-The command table holds 27 verbs and projects 26 of them as MCP tools. The one
-verb with no tool is `sync-instructions` — file plumbing for hooks rather than
-an agent capability, and the capability it serves is `kb_context`.
+The table holds 24 verbs and projects 23 of them as MCP tools; the one verb with
+no tool is `sync-instructions`, whose capability is `kb_context`.
 
 ```bash
 npm install -g @saasontools/strauss-kb
 ```
 
 Global install is the supported path: the consumers of the CLI are agent skills
-that invoke `strauss-kb` by name, many times per session, from whatever
-directory the work happens to be in. `npx -y @saasontools/strauss-kb@0.1` and a
-project-local `pnpm add -D` both work and are both pinned, at the cost of
-per-call resolution latency and of `strauss-kb` not resolving as one spelling
-everywhere.
+that invoke `strauss-kb` by name from whatever directory the work happens to be
+in. `npx -y @saasontools/strauss-kb@0.1` and a project-local `pnpm add -D` both
+work, at the cost of per-call resolution latency.
 
 ## Read for a question, not for a session
 
 The counter-intuitive default: **load the whole base rather than searching it.**
-These bases run to a few thousand tokens — twenty records measured at about
-3,000 — and on nine questions whose wording appears in no record, a reader
-holding the whole base answered eight where embedding search over the same
-records answered four. Two of those differences are structural rather than
-matters of degree: a reader can say _no record answers the question_, where
-vector search returns its nearest neighbour whatever the distance; and a reader
-picks the record that answers the question rather than the one nearest the
-topic.
-
-And read it **at the point of use**. A base loaded at the start of a long
-conversation is summarised away by the end of it; reloading costs about three
-thousand tokens, which is cheaper than being wrong.
+These bases run to a few thousand tokens, and on nine questions whose wording
+appears in no record, a reader holding the whole base answered eight where
+embedding search over the same records answered four. Read it **at the point of
+use**: reloading costs about three thousand tokens.
 
 ### The three rungs, in one rule
 
-While the base fits the budget, `load` it whole. Once it refuses,
-[`catalog`](./cli-reference.md#catalog) to see every record in one line each,
-then [`pack`](./cli-reference.md#pack) the record the work centres on. For a
-lookup by wording — you already know roughly what the record says —
-[`query`](./cli-reference.md#query).
+`load` the base whole. When it refuses on budget,
+[`catalog`](./cli-reference.md#catalog) then
+[`pack`](./cli-reference.md#pack) the record that matters. For a lookup by
+wording, [`query`](./cli-reference.md#query).
 
 ```bash
-strauss-kb load                          # under the budget: everything, with standing
-strauss-kb catalog                       # past it: one line per record, ~30 tokens each
+strauss-kb load                          # everything, with standing
+strauss-kb catalog                       # if load refuses: one line per record, ~30 tokens each
 strauss-kb pack decision.cursor-v2       # then the neighbourhood around the one that matters
 strauss-kb query cursor pagination       # or a point lookup by wording
 ```
 
-The rungs are ordered by what they cost **and by what they can tell you**. A
-whole read gives perfect recall and can say _no record answers this_. A catalog
-keeps that second property at a fraction of the price — it names every record,
-so "nothing covers this" stays a supportable conclusion — and gives up the
-bodies. A query gives up both: it returns its nearest hit whatever the distance,
-so it can confirm what exists and never that something does not.
-
-`load` holds a 25,000-token budget and **refuses rather than truncating** past
-it: a truncated base reads exactly like a complete one, so a caller would answer
-"that was never decided" from a slice it did not know was a slice. The refusal
-names the budget and points at `catalog`, then `pack`.
+A whole read gives perfect recall and can say _no record answers this_. A
+catalog keeps that second property and gives up the bodies. A query gives up
+both: it returns its nearest hit whatever the distance. `load` holds a
+25,000-token budget and **refuses rather than truncating** past it.
 
 ## Where to go next
 
-- [Specification](./specification.md) — the record model: frontmatter, types,
-  standing, supersession, verification, the bundle layout, and the validation
-  rules.
+- [Specification](./specification.md) — the record model, the bundle layout, and
+  the validation rules.
 - [Architecture](./architecture.md) — why it is shaped this way, and which
-  alternatives were tried and dropped.
-- [Use cases](./use-cases.md) — recording a decision, querying before deciding,
-  superseding, verifying, tracing, loading into agent context, packing a
-  subgraph.
+  alternatives were dropped.
+- [Use cases](./use-cases.md) — recording, querying, superseding, verifying,
+  tracing, loading into agent context, packing a subgraph.
 - [CLI reference](./cli-reference.md) — every verb, its flags, and an example.
 - [MCP reference](./mcp-reference.md) — every tool and its parameters.

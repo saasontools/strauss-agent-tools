@@ -1,60 +1,46 @@
 ---
 name: knowledge-base
-description: Read and write a project's durable knowledge base — markdown records carrying standing, supersession, and history. Use when asking whether something was already decided or investigated, when recording a fact, constraint, risk, or open question that a later reader could not reconstruct from the code, or when asking why the code is shaped the way it is. Not for facts the diff already answers.
+description: Read and write a project's knowledge base — markdown records with standing, supersession, and history. Use when checking whether something was decided, recording a fact, constraint, risk, or open question, or asking why the code is shaped this way. Not for facts the diff already answers.
 ---
 
 # Knowledge base
 
-A knowledge base is a self-contained directory of markdown records. The default
-is `.strauss/kb` under the working directory; `--bundle PATH` addresses another.
+A knowledge base is a directory of markdown records, default `.strauss/kb`;
+`--bundle PATH` addresses another.
 
-Two surfaces, one command set — use whichever the session already has:
+Two surfaces:
 
-- MCP tools `kb_*` from the `strauss-kb` server. Clients namespace MCP tool
-  names, so in your session they may appear as `mcp__strauss-kb__kb_load` or
-  similar — the `kb_*` suffix is the stable part; every mention of `kb_load`,
-  `kb_catalog`, `kb_pack`, `kb_query`, `kb_trace` here means whatever your
-  client calls that tool.
-- The `strauss-kb` CLI (requires `npm install -g @saasontools/strauss-kb`).
+- MCP tools `kb_*` from the `strauss-kb` server, possibly namespaced (e.g.
+  `mcp__strauss-kb__kb_load`).
+- The `strauss-kb` CLI (`npm install -g @saasontools/strauss-kb`).
 
-Every example below is written for the CLI. The MCP tool of the same name takes
-the same arguments as an object, plus `bundlePath`.
+Examples use the CLI; the MCP tool takes the same args, plus `bundlePath`.
 
 ## The pinned block at the top of context
 
-A "Knowledge bases (pinned)" block sits at the top of context, re-injected by
-hooks at every context birth (including after compaction), so seeing it again
-is a refresh, not a contradiction. Each base in it is labelled: **full
-records** means that base's contents are already here — use them directly;
-**index only** means concept ids, titles, and descriptions are here and the
-bodies are not. Small or critical bases arrive whole (`mode: full` in
-`.strauss/kb-pins.json`); the index form exists for bases too large to carry.
+A "Knowledge bases (pinned)" block sits atop context, re-injected at every
+context birth. Labels: **full records** — use directly; **index only** —
+ids, titles, descriptions only. Small/critical bases arrive whole (`mode:
+full` in `.strauss/kb-pins.json`).
 
-- **The index lines are the trigger.** When a question touches what any index
-  line names and that base's records are not visible in the current context,
-  `kb_load` it before answering — once per question, not per turn; records
-  already in front of you need no reloading. The one conclusion never to
-  draw: "nothing was decided", from a context whose KB content is an index
-  line.
-- **Only the tools read a base.** A raw file read bypasses supersession
-  resolution — a superseded or rejected record file reads exactly like a
-  current one. `kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, `kb_trace`,
-  `kb_impact`, and `kb_backlinks` are the door.
+- **Index lines are the trigger** — `kb_load` a base before answering from
+  its index, once per question. Never conclude "nothing was decided" from
+  one.
+- **Never read record files directly** — a raw read skips supersession
+  resolution. `kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, `kb_trace`,
+  `kb_impact` and `kb_backlinks` are the door.
 
 ## Reading: load before you search
 
-**`strauss-kb load` is the first call.** These bases run to a few thousand
-tokens, and a reader holding all of it beats a ranker — it can say no record
-answers the question, where a search returns its nearest hit whatever the
-distance.
+**Call `strauss-kb load` first** — bases run to a few thousand tokens; holding
+it all beats a ranker.
 
 ```bash
-strauss-kb load               # everything, each record with its standing
-strauss-kb load decision      # narrowed to one type
+strauss-kb load               # everything, with standing
+strauss-kb load decision      # one type
 ```
 
-If `load` returns `loaded: false`, the base is past its token budget (25,000
-estimated tokens by default) and its `message` names what to call next:
+`loaded: false`: past the token budget; `message` names what to call next.
 
 ```bash
 strauss-kb catalog                       # one line per record: id, type, title, standing
@@ -69,17 +55,16 @@ supportable, which a `query`'s nearest-hit-regardless-of-distance cannot.
 
 **Read the standing, not just the match.** Every result carries one:
 
-| `standing`   | What it means for you                                                                                                           |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `current`    | Holds. Use it.                                                                                                                  |
-| `superseded` | Replaced. `supersededBy` names the replacement — read that instead.                                                             |
-| `rejected`   | Someone decided explicitly _against_ this. It is the answer to "why didn't you just do X", never the answer to "what do we do". |
-| `unsettled`  | A draft or proposal. Acting on it as though it were settled is a defect.                                                        |
-| `open`       | An unresolved question. Valuable as a result, never as an answer.                                                               |
+| `standing`   | Meaning                                                 |
+| ------------ | ------------------------------------------------------- |
+| `current`    | Holds.                                                  |
+| `superseded` | See `supersededBy` instead.                             |
+| `rejected`   | Answers "why not X", not "what to do".                  |
+| `unsettled`  | Draft or proposal; acting on it as settled is a defect. |
+| `open`       | An unresolved question — a result, never an answer.     |
 
-`warnings` carries the rest: `broken-chain` (the replacement is missing — the
-one that looks most like success), `forked-chain` (two records claim to replace
-it, so pick nothing), `stale`, `unverified`.
+`warnings`: `broken-chain` (replacement missing), `forked-chain` (two claim to
+replace it, pick nothing), `stale`, `unverified`.
 
 ## "Why is this code like this?"
 
@@ -87,11 +72,8 @@ it, so pick nothing), `stale`, `unverified`.
 strauss-kb trace decision.cas-not-lock
 ```
 
-A timeline, ordered by when each record was written, following supersession,
-shared code anchors, and shared sources. It deliberately includes the rejected
-alternatives and the superseded earlier understanding — in a history those are
-the content, and a trace without them has kept the conclusion and thrown away
-the answer.
+A timeline via supersession, shared anchors, and sources — includes rejected
+alternatives and superseded understanding.
 
 ## "What breaks if I change this?"
 
@@ -114,12 +96,12 @@ contradicting, or narrowing a record. Which end depends on which is per-rel:
 
 ## Writing
 
-Search first. The same knowledge filed twice under different slugs is how a base
-rots, and a duplicate concept id is rejected rather than overwritten.
+Search first — duplicate slugs rot a base; a duplicate concept id is
+rejected, not overwritten.
 
 ```bash
-strauss-kb types    # each type's purpose, body sections, initial status
-strauss-kb schema   # JSON Schema for the write input — do not work from memory
+strauss-kb types    # purpose, body sections, initial status per type
+strauss-kb schema   # JSON Schema for the write input
 ```
 
 ```bash
@@ -137,22 +119,18 @@ strauss-kb write risk <<'JSON'
 JSON
 ```
 
-`slug` is kebab-case and becomes half the identity (`risk.fake-clock-no-timers`).
-`title` is one line in the reader's terms; `why` is the consequence — what breaks
-if this is wrong. A section the type does not define is rejected, so check
-`types` rather than inventing headings.
+`slug` is kebab-case, half the identity (`risk.fake-clock-no-timers`); `title`
+is one line in the reader's terms; `why` is what breaks if this is wrong. An
+undefined section is rejected — check `types`.
 
 ## Judgment the tools cannot enforce
 
-- **An unsourced claim is an `assumption` with `"assumption": true`**, never a
-  `fact` with a vague source. That distinction is what lets a later reader
-  separate what was established from what was guessed.
-- **When two records conflict, say so** — in a `risk`, an `open-question`, or a
-  superseding `decision`. Quietly picking a winner destroys the disagreement,
-  which is usually the useful part.
-- **Prefer a new record to overloading an existing one**, and keep each short. A
-  record nobody finishes reading is not durable memory.
-- **Never delete; supersede.** The earlier reasoning is what a trace needs.
+- An unsourced claim is an `assumption` with `"assumption": true`, never a
+  `fact` with a vague source.
+- When two records conflict, say so — in a `risk`, `open-question`, or
+  superseding `decision`. Don't quietly pick a winner.
+- Prefer a new record to overloading an existing one; keep each short.
+- Never delete; supersede.
 
 ## Changing a record
 
@@ -162,32 +140,27 @@ strauss-kb answer open-question.retry-scope Timeouts and 5xx only.
 strauss-kb supersede decision.cursor-v1 decision.cursor-v2
 ```
 
-`supersede` is the right move whenever a record's meaning changed — editing it
-in place invalidates every reference to it and loses the earlier understanding.
-It writes both directions itself.
+Use `supersede`, not an in-place edit, when a record's meaning changed.
 
-Status moves use a compare-and-swap. A `KbWriteConflict` means someone else
-changed the record: re-read and retry, do not force.
+Status moves use compare-and-swap; on `KbWriteConflict`, re-read and retry.
 
 ## Housekeeping
 
 ```bash
-strauss-kb index      # the index, rebuilt if it disagrees with the records
+strauss-kb index      # rebuilt if it disagrees with the records
 strauss-kb log        # who touched what, and when
-strauss-kb validate   # cross-record checks; exits 1 when it finds a problem
-strauss-kb doctor     # health sweep: what expired, went unconfirmed, or got orphaned
+strauss-kb validate   # cross-record checks; exits 1 on a problem
+strauss-kb doctor     # health sweep: expired, unconfirmed, orphaned records
 ```
 
-`validate` only catches what one record cannot see — supersession pointers that
-disagree, an assumption citing sources. Since `supersede` writes both sides, a
-pointer problem means someone hand-edited a file.
+`validate` catches disagreeing supersession pointers, an assumption citing
+sources.
 
-`doctor` never writes. Groups: expired, expiring, unverified, aging, orphaned,
-broken supersession, superseded-but-cited, drifted. `--json` for machine
-output, `--strict` to exit 1 on any expiry.
+`doctor` never writes; groups: expired, expiring, unverified, aging, orphaned,
+broken supersession, superseded-but-cited, drifted. `--json` for machine output,
+`--strict` to exit 1 on any expiry.
 
 `strauss-kb anchor-resolve <id>` — re-hash a record's code anchors;
 `kb_load`/`kb_query` warn `drifted` when the code moved.
 
-Do not edit `INDEX.md` or `log.jsonl` by hand. The index is regenerated from the
-records; the log is append-only and is the one artifact nothing can rebuild.
+Do not edit `INDEX.md` or `log.jsonl` by hand.

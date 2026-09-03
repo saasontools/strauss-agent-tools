@@ -7,7 +7,7 @@ export const listCommand = define({
   tool: "kb_list",
   usage: "list [type]",
   description:
-    "Every record, optionally narrowed to one type. Use kb_query when you have a question; this is for enumerating.",
+    "Every record, optionally one type. For enumerating; use kb_query for a question.",
   input: z.object({ bundlePath, type: z.enum(KB_RECORD_TYPES).optional() }),
   fromArgv: (argv, path) => ({ bundlePath: path, type: argv[1] }),
   run: async ({ store }, { bundlePath: path, type }) =>

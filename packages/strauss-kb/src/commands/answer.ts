@@ -7,7 +7,7 @@ export const answerCommand = define({
   tool: "kb_answer",
   usage: "answer <concept-id> <answer...>",
   description:
-    "Resolve an open question: sets the status, stamps who answered and when, and appends an Answer section. If the answer overturns an assumption or a decision, that is a supersession — do it explicitly.",
+    "Resolve an open question: set status, stamp who and when, append an Answer section. If the answer overturns a decision or assumption, supersede that record explicitly.",
   input: z.object({ bundlePath, conceptId, answer: z.string().min(1) }),
   fromArgv: (argv, path) => ({
     bundlePath: path,
