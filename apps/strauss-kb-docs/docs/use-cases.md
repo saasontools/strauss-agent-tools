@@ -401,7 +401,7 @@ runtimes without a reliable post-compaction hook.
 ```bash
 strauss-kb load                     # the whole base, each record with its standing
 strauss-kb load decision            # one type
-strauss-kb load --max-records 80    # a wider record gate
+strauss-kb load --budget 40000      # a wider budget
 strauss-kb load --all               # no ceiling at all
 ```
 
@@ -412,14 +412,13 @@ stubs; `trace` reaches them by id.
 Place the result in the **stable prefix** — the system prompt, or the first turn
 — and reload only when the returned `digest` changes; query and pack results
 belong at the tail, where they cannot invalidate the cached prefix. `--all` is
-the deliberate-operator escape hatch, mutually exclusive with `--budget` and
-`--max-records`.
+the deliberate-operator escape hatch, mutually exclusive with `--budget`.
 
 ### When the load refuses
 
-Two ceilings can stop it — a 25,000-token budget and a 40-record gate — and
-[the refusal](./specification.md#budgets-and-refusals) names which. The move is
-**not** to raise the ceiling. It is `catalog`:
+A 25,000-token budget can stop it, and
+[the refusal](./specification.md#budgets-and-refusals) names it. The move is
+**not** to raise the budget. It is `catalog`:
 
 ```bash
 strauss-kb catalog

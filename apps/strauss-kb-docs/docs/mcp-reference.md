@@ -178,11 +178,10 @@ As CLI [`load`](./cli-reference.md#load), with the flags as camelCase
 parameters. Usually the right first call.
 
 Parameters: `bundlePath` required; `type` (enum, narrows to one record type),
-`budgetTokens` (positive integer, default 25000), `maxRecords` (positive
-integer, default 40; stubs are not counted), `all` (`boolean` — bypasses both
-ceilings, mutually exclusive with them), and `repoRoot` (`string`, default cwd,
-for the drift check) optional. Superseded records arrive as name, replacement
-and date stubs — pass the id to `kb_trace` for the history.
+`budgetTokens` (positive integer, default 25000), `all` (`boolean` — bypasses
+the budget ceiling), and `repoRoot` (`string`, default cwd, for the drift
+check) optional. Superseded records arrive as name, replacement and date
+stubs — pass the id to `kb_trace` for the history.
 
 :::tip Place this output in the stable prefix
 `kb_load`'s result belongs in the **stable prefix** — the system prompt, or the

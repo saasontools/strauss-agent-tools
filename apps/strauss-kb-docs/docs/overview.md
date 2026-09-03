@@ -82,23 +82,22 @@ use**: reloading costs about three thousand tokens.
 
 ### The three rungs, in one rule
 
-At or under the gate, `load` the base whole. Past it,
-[`catalog`](./cli-reference.md#catalog) to see every record in one line each,
-then [`pack`](./cli-reference.md#pack) the record the work centres on. For a
-lookup by wording, [`query`](./cli-reference.md#query).
+`load` the base whole. When it refuses on budget,
+[`catalog`](./cli-reference.md#catalog) then
+[`pack`](./cli-reference.md#pack) the record that matters. For a lookup by
+wording, [`query`](./cli-reference.md#query).
 
 ```bash
-strauss-kb load                          # under the gate: everything, with standing
-strauss-kb catalog                       # past it: one line per record, ~30 tokens each
+strauss-kb load                          # everything, with standing
+strauss-kb catalog                       # if load refuses: one line per record, ~30 tokens each
 strauss-kb pack decision.cursor-v2       # then the neighbourhood around the one that matters
 strauss-kb query cursor pagination       # or a point lookup by wording
 ```
 
 A whole read gives perfect recall and can say _no record answers this_. A
 catalog keeps that second property and gives up the bodies. A query gives up
-both: it returns its nearest hit whatever the distance. `load` holds two
-ceilings — a 25,000-token budget and a 40-record gate — and **refuses rather
-than truncating** past either.
+both: it returns its nearest hit whatever the distance. `load` holds a
+25,000-token budget and **refuses rather than truncating** past it.
 
 ## Where to go next
 

@@ -197,22 +197,21 @@ rebaselined? }`.
 ### `load`
 
 ```
-load [type] [--budget N] [--max-records N] [--all] [--repo-root PATH]
+load [type] [--budget N] [--all] [--repo-root PATH]
 ```
 
 Hand over the whole base, each record with its standing; the optional positional
 narrows to one record type.
 
-| Flag               | Default | Effect                                                                                   |
-| ------------------ | ------- | ---------------------------------------------------------------------------------------- |
-| `--budget N`       | 25000   | Approximate token ceiling.                                                               |
-| `--max-records N`  | 40      | Whole records handed over before the load refuses. Superseded stubs are not counted.     |
-| `--all`            | —       | Load everything regardless of size, bypassing **both** ceilings. Excludes the other two. |
-| `--repo-root PATH` | cwd     | Where the anchored source lives, for the [drift check](./specification.md#drift).        |
+| Flag               | Default | Effect                                                                            |
+| ------------------ | ------- | --------------------------------------------------------------------------------- |
+| `--budget N`       | 25000   | Approximate token ceiling.                                                        |
+| `--all`            | —       | Load everything regardless of size, bypassing the budget ceiling.                 |
+| `--repo-root PATH` | cwd     | Where the anchored source lives, for the [drift check](./specification.md#drift). |
 
-Refuses with counts rather than truncating when the base trips either ceiling,
-naming each in `refusedBy` and pointing at the next rung down in `message`.
-Every result carries a `digest` for
+Refuses with counts rather than truncating when the base trips the budget
+ceiling, pointing at the next rung down in `message`. Every result carries a
+`digest` for
 [cache-stable placement](./mcp-reference.md#kb_load).
 
 ```bash
@@ -237,15 +236,13 @@ strauss-kb catalog open-question
 # KB Catalog
 bundle: /repo/.strauss/kb
 3 records: 2 current · 1 superseded
-2 pages for kb_load's record gate (40 by default); superseded records are stubs, not pages
 
 - decision.retry-timeouts-only · decision · Retry timeouts only · current
 - open-question.retry-scope · open-question · Which failures should the client retry? · superseded → decision.retry-timeouts-only
 ```
 
 The **tier-one listing**, and what to reach for when `load` refuses. Superseded
-records are listed with their replacement, and the header reports the
-`pageCount` the record gate is held against. Alone among the read paths it has
+records are listed with their replacement. Alone among the read paths it has
 **no ceiling and never refuses**; its cost is linear, roughly 3k tokens per
 hundred records. Output is deterministic given a fixed clock, so two catalogs of
 an unchanged base diff to nothing.

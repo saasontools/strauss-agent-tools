@@ -457,38 +457,25 @@ eight of nine probe queries returned what substring returned.
 base is indistinguishable from a complete one; `pack` and `context` do the same
 at their own budgets.
 
-| Ceiling                        | Default | Held against                                     |
-| ------------------------------ | ------- | ------------------------------------------------ |
-| `--max-records` / `maxRecords` | 40      | whole records handed back; stubs are not counted |
-| `--budget` / `budgetTokens`    | 25,000  | the estimated size of what is handed back        |
+| Ceiling                     | Default | Held against                              |
+| --------------------------- | ------- | ----------------------------------------- |
+| `--budget` / `budgetTokens` | 25,000  | the estimated size of what is handed back |
 
-The budget asks whether the base will _fit_; the gate asks whether it is the
-right _shape_ to read whole. The comparison is strictly greater, so a base at
-the gate loads.
+The comparison is strictly greater, so a base at the budget loads.
 
 ```json
 {
   "loaded": false,
   "recordCount": 62,
-  "pageCount": 62,
-  "approxTokens": 18400,
+  "approxTokens": 31000,
   "budgetTokens": 25000,
-  "maxRecords": 40,
-  "refusedBy": ["pages"],
-  "message": "Refusing to load this base whole: 62 records is past the 40-record gate. …"
+  "message": "Refusing to load this base whole: 31000 tokens is past the 25,000-token budget. …"
 }
 ```
 
-`refusedBy` names every ceiling that tripped, pages first; `message` names the
-gate value, the next calls, and both escape hatches. A **successful** load
-reports `pageCount`, `maxRecords`, and `tokensLoaded`; nulls mark that `all` was
-used.
-
-:::note A base of 41 or more whole records now refuses
-The record gate is on by default, so a base that loaded before may refuse. Raise
-`maxRecords`, or pass `all`; the intended path past the gate is `catalog` then
-`pack`.
-:::
+`message` names the budget value, the next calls, and both escape hatches. A
+**successful** load reports `recordCount`, `budgetTokens`, and `tokensLoaded`;
+nulls mark that `all` was used.
 
 ### The load digest
 
