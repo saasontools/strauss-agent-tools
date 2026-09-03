@@ -11,6 +11,12 @@ export default tseslint.config(
       "**/node_modules/",
       ".nx/",
       "**/bundle/server/",
+      // tsup writes its config to a temp file beside the real one and deletes
+      // it when the build ends. Nx runs `lint` and `build` for a project in
+      // parallel, so eslint can glob that file and then fail to open it —
+      // an ENOENT that has nothing to do with the code being linted, and
+      // that only shows up when the two happen to overlap.
+      "**/tsup.config.bundled_*.mjs",
     ],
   },
   js.configs.recommended,

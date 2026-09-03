@@ -1,8 +1,13 @@
 /* eslint-disable no-empty-pattern -- vitest fixtures require object destructuring */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test as baseTest } from "vitest";
+import {
+  detectAnchorDrift,
+  hashAnchorText,
+  resolveAnchor,
+} from "./anchor-resolver.js";
 import { composeRecord } from "./compose.js";
 import {
   doctor,
@@ -224,6 +229,9 @@ describe("doctor", () => {
       orphaned: 3,
       "broken-supersession": 1,
       "superseded-but-cited": 1,
+      // No drift map handed in: the check runs and finds nothing, which is
+      // exactly what a base whose anchors nobody stamped should report.
+      drifted: 0,
     });
     expect(report.findingCount).toBe(12);
     expect(report.healthy).toBe(false);
@@ -614,5 +622,171 @@ describe("doctor", () => {
         .find((group) => group.check === "broken-supersession")
         ?.findings.some((found) => found.note.includes("cycles through")),
     ).toBe(true);
+  });
+
+  // The eighth check reads the drift map the caller resolved, so the sweep and
+  // every read path answer "has this code moved?" from the same comparison.
+  describe("drifted", () => {
+    const SOURCE = [
+      "export function totals(orders: Order[]): number {",
+      "  return orders.length;",
+      "}",
+      "",
+    ].join("\n");
+    const FILE = "src/orders.ts";
+
+    /** A repo fixture plus a record anchored into it, hashed at write time. */
+    const anchored = (
+      conceptId: string,
+      frontmatter: Partial<KbRecord["frontmatter"]> = {},
+    ): KbRecord => {
+      const resolved = resolveAnchor(SOURCE, { file: FILE, symbol: "totals" });
+      if (!resolved) throw new Error("fixture symbol did not resolve");
+      return record(conceptId, {
+        strauss_anchors: [
+          {
+            file: FILE,
+            symbol: "totals",
+            hash: hashAnchorText(resolved.text),
+            lines: resolved.endLine - resolved.startLine + 1,
+            resolved_at: RECENT,
+          },
+        ],
+        ...frontmatter,
+      });
+    };
+
+    const inRepo = async (
+      contents: string,
+      run: (repoRoot: string) => Promise<void>,
+    ) => {
+      const repo = mkdtempSync(join(tmpdir(), "strauss-kb-doctor-repo-"));
+      try {
+        mkdirSync(join(repo, "src"), { recursive: true });
+        writeFileSync(join(repo, FILE), contents, "utf8");
+        await run(repo);
+      } finally {
+        rmSync(repo, { recursive: true, force: true });
+      }
+    };
+
+    test("says nothing while the anchored code is unchanged", async () => {
+      const bundle = [anchored("decision.totals-shape")];
+      await inRepo(SOURCE, async (repoRoot) => {
+        const report = doctor(bundle, {
+          now: NOW,
+          anchorDrift: await detectAnchorDrift(bundle, { repoRoot }),
+        });
+
+        expect(ids(report, "drifted")).toEqual([]);
+      });
+    });
+
+    test("names the record whose anchored code moved, with the size", async () => {
+      const bundle = [anchored("decision.totals-shape")];
+      const edited = SOURCE.replace(
+        "  return orders.length;",
+        ["  audit(orders);", "  return orders.length;"].join("\n"),
+      );
+
+      await inRepo(edited, async (repoRoot) => {
+        const report = doctor(bundle, {
+          now: NOW,
+          anchorDrift: await detectAnchorDrift(bundle, { repoRoot }),
+        });
+
+        expect(ids(report, "drifted")).toEqual(["decision.totals-shape"]);
+        expect(note(report, "drifted", "decision.totals-shape")).toBe(
+          "1 anchor no longer matches: src/orders.ts:totals (1 line apart)",
+        );
+      });
+    });
+
+    // "0 lines apart" reads as "nothing happened" — the one drift most worth
+    // naming plainly, since a same-size rewrite is invisible to a line count.
+    test("names a same-size rewrite as changed rather than zero apart", async () => {
+      const bundle = [anchored("decision.totals-shape")];
+      const edited = SOURCE.replace(
+        "  return orders.length;",
+        "  return orders.size;",
+      );
+
+      await inRepo(edited, async (repoRoot) => {
+        const report = doctor(bundle, {
+          now: NOW,
+          anchorDrift: await detectAnchorDrift(bundle, { repoRoot }),
+        });
+
+        expect(note(report, "drifted", "decision.totals-shape")).toBe(
+          "1 anchor no longer matches: src/orders.ts:totals (content changed, same line count)",
+        );
+      });
+    });
+
+    // Same repair, same group: the file was renamed, so one anchor drifted and
+    // its neighbour vanished — which happened is in the note.
+    test("reports an anchor whose symbol is gone in the same group", async () => {
+      const bundle = [anchored("decision.totals-shape")];
+      await inRepo("export const nothing = 1;\n", async (repoRoot) => {
+        const report = doctor(bundle, {
+          now: NOW,
+          anchorDrift: await detectAnchorDrift(bundle, { repoRoot }),
+        });
+
+        expect(note(report, "drifted", "decision.totals-shape")).toContain(
+          "(symbol-not-found)",
+        );
+      });
+    });
+
+    // A base describing several repositories resolves against one tree at a
+    // time. An anchor for another repo is expected, so it is never decay —
+    // filtered at the single adjudication point the sweep and every read path
+    // share, so none of them can start reporting it.
+    test("says nothing about an anchor belonging to another repo", () => {
+      const report = doctor([anchored("decision.totals-shape")], {
+        now: NOW,
+        anchorDrift: new Map([
+          [
+            "decision.totals-shape",
+            [
+              {
+                file: FILE,
+                symbol: "totals",
+                state: "unresolved" as const,
+                storedHash: hashAnchorText(SOURCE),
+                diffSize: null,
+                reason: "foreign-repo" as const,
+              },
+            ],
+          ],
+        ]),
+      });
+
+      expect(ids(report, "drifted")).toEqual([]);
+    });
+
+    // Code moving out from under a replaced record is the expected outcome of
+    // it being replaced, not a repair a reader owes anyone.
+    test("leaves a superseded record out of it", async () => {
+      const bundle = [
+        anchored("decision.totals-shape", {
+          strauss_status: "superseded",
+          strauss_superseded_by: "decision.totals-v2",
+        }),
+        record("decision.totals-v2", {
+          strauss_supersedes: ["decision.totals-shape"],
+        }),
+      ];
+
+      await inRepo("export const nothing = 1;\n", async (repoRoot) => {
+        const report = doctor(bundle, {
+          now: NOW,
+          anchorDrift: await detectAnchorDrift(bundle, { repoRoot }),
+        });
+
+        expect(ids(report, "drifted")).toEqual([]);
+      });
+    });
   });
 });

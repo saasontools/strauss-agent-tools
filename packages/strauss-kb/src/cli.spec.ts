@@ -1,7 +1,8 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
 import { runKbCli } from "./cli.js";
 import { composeRecord } from "./compose.js";
 import { KbStore } from "./kb-store.js";
@@ -635,6 +636,75 @@ describe("runKbCli", () => {
     expect(parsed(run)).toMatchObject([{ check: "superseded_by" }]);
   });
 
+  test("anchor-resolve matches against --repo-root, then gates on drift", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "strauss-kb-cli-repo-"));
+    try {
+      const file = "src/cache/order-cache.ts";
+      const source = [
+        "export function orderKey(region: string): string {",
+        "  return `${region}:orders`;",
+        "}",
+        "",
+      ].join("\n");
+      mkdirSync(dirname(join(repo, file)), { recursive: true });
+      writeFileSync(join(repo, file), source);
+
+      const resolved = resolveAnchor(source, { file, symbol: "orderKey" })!;
+      await new KbStore().write(
+        bundle,
+        composeRecord(
+          "decision",
+          {
+            slug: "region-in-key",
+            title: "The region prefixes the key",
+            why: "A region-less key serves the wrong region's data.",
+            anchors: [
+              {
+                file,
+                symbol: "orderKey",
+                hash: hashAnchorText(resolved.text),
+                resolved_at: "2026-08-01T02:00:00Z",
+                lines: resolved.endLine - resolved.startLine + 1,
+              },
+            ],
+          },
+          "seed",
+          "2026-08-01T02:00:00Z",
+        ),
+      );
+
+      const clean = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+      ]);
+      expect(clean.exitCode).toBeUndefined();
+      expect(parsed(clean)).toMatchObject({
+        verified: true,
+        results: [{ state: "match" }],
+      });
+
+      writeFileSync(
+        join(repo, file),
+        source.replace("`${region}:orders`", "`orders`"),
+      );
+      const drifted = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+      ]);
+      expect(drifted.exitCode).toBe(1);
+      expect(parsed(drifted)).toMatchObject({
+        verified: false,
+        results: [{ state: "drifted", diffSize: 0 }],
+      });
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   // The sweep prints for a person by default and for a program on request,
   // and the two have to be the same run: a table a caller cannot re-derive
   // from the JSON would be a second report to keep in step.
@@ -669,10 +739,79 @@ describe("runKbCli", () => {
         "orphaned",
         "broken-supersession",
         "superseded-but-cited",
+        "drifted",
       ]) {
         expect(run.stdout).toContain(check);
       }
       expect(run.exitCode).toBeUndefined();
+    });
+
+    // The eighth check, end to end: the same fixture `anchor-resolve` gates on
+    // shows up in the sweep as a named record, and read-only — doctor reports
+    // the drift and leaves the re-stamp to the verb that writes.
+    test("lists a record whose anchored code moved, against --repo-root", async () => {
+      const repo = mkdtempSync(join(tmpdir(), "strauss-kb-doctor-repo-"));
+      try {
+        const file = "src/cache/order-cache.ts";
+        const source = [
+          "export function orderKey(region: string): string {",
+          "  return `${region}:orders`;",
+          "}",
+          "",
+        ].join("\n");
+        mkdirSync(dirname(join(repo, file)), { recursive: true });
+        writeFileSync(join(repo, file), source);
+
+        const resolved = resolveAnchor(source, { file, symbol: "orderKey" })!;
+        await new KbStore().write(
+          bundle,
+          composeRecord(
+            "decision",
+            {
+              slug: "region-in-key",
+              title: "The region prefixes the key",
+              why: "A region-less key serves the wrong region's data.",
+              anchors: [
+                {
+                  file,
+                  symbol: "orderKey",
+                  hash: hashAnchorText(resolved.text),
+                  resolved_at: "2026-08-01T02:00:00Z",
+                  lines: resolved.endLine - resolved.startLine + 1,
+                },
+              ],
+            },
+            "seed",
+            "2026-08-01T02:00:00Z",
+          ),
+        );
+
+        const clean = await at(["doctor", "--json", "--repo-root", repo]);
+        expect(
+          (parsed(clean) as { counts: Record<string, number> }).counts.drifted,
+        ).toBe(0);
+
+        writeFileSync(
+          join(repo, file),
+          source.replace("`${region}:orders`", "`orders`"),
+        );
+
+        const swept = await at(["doctor", "--repo-root", repo]);
+        expect(swept.stdout).toContain("## drifted (1)");
+        expect(swept.stdout).toContain("decision.region-in-key");
+        expect(swept.stdout).toContain(`${file}:orderKey`);
+        // Read-only: a sweep never re-stamps what it reports.
+        const after = await new KbStore().read(
+          bundle,
+          "decision.region-in-key",
+        );
+        expect(after?.frontmatter.strauss_anchors?.[0]?.hash).toBe(
+          hashAnchorText(resolved.text),
+        );
+        expect(swept.exitCode).toBeUndefined();
+      } finally {
+        rmSync(repo, { recursive: true, force: true });
+      }
     });
 
     test("prints the report object under --json", async () => {
@@ -690,7 +829,7 @@ describe("runKbCli", () => {
         unverifiedDays: 90,
         agingDays: 90,
       });
-      expect(report.groups).toHaveLength(7);
+      expect(report.groups).toHaveLength(8);
       expect(report.counts.expired).toBe(1);
       expect(report.healthy).toBe(false);
       expect(

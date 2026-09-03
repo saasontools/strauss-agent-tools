@@ -223,11 +223,14 @@ this table is accepted:
 | `hash`        | no       | `sha256:<64 hex>` over the anchored text as it was            |
 | `lines`       | no       | the **line count** of the text that hash was taken over       |
 | `resolved_at` | no       | ISO timestamp of the last successful resolution               |
+| `repo`        | no       | which repository; absent means the base's own                 |
+| `ref`         | no       | git rev the evidence was taken at; recorded, unused in v1     |
 
 Anchors stay symbolic because they are written while the code is still moving: a
 `line: 379` recorded at minute five is wrong by minute forty, but
 `OrderService.cancel` survives every edit that does not rename it. Once the
-change settles, a resolution pass stamps `hash`, `lines`, and `resolved_at`.
+change settles, a resolution pass stamps `hash`, `lines`, and `resolved_at`. Those three are measured; `repo` and `ref` are author-owned and never written
+by a resolution pass.
 
 `hash` carries its algorithm as a prefix so a future one can coexist with stored
 values. CRLF is normalized to LF before hashing, so checkout style cannot read
@@ -248,8 +251,8 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 | `unresolved` | it no longer resolves at all                    |
 
 `unresolved` carries a reason: `file-missing`, `symbol-not-found`,
-`outside-repo`, `file-too-large`, or `file-unreadable`. A deleted file is as
-much a broken anchor as a rewritten one.
+`outside-repo`, `file-too-large`, `file-unreadable`, or `foreign-repo`. A
+deleted file is as much a broken anchor as a rewritten one.
 
 **Drift is computed on read, never stored.** [`load`](./cli-reference.md#load)
 and [`query`](./cli-reference.md#query) re-resolve hash-carrying anchors against
@@ -666,8 +669,11 @@ standing flipping changes it. A refused load carries the same digest computed
 over what _would_ have been handed back, so a caller narrowing a `type` filter
 after a refusal can tell whether that changed anything without loading it.
 
-It exists for [cache-stable placement](./mcp-reference.md#kb_load): hold `load`'s
-output in a stable prefix and reload only when the digest changes.
+It exists so a change-notification hook, or `kb_stamp` (SAA-719), can detect
+whether the base changed without loading it — not so the model reloads to
+compare. [Placement](./mcp-reference.md#kb_load) stays cache economics: hold
+`load`'s output in the stable prefix; `query` and `pack` results go at the
+tail.
 
 :::caution A same-environment signal, not a cross-checkout proof
 The digest hashes each record's **canonical recomposed** form, not its on-disk

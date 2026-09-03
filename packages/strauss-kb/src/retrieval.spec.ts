@@ -1,5 +1,17 @@
-import { describe, expect, test } from "vitest";
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, test } from "vitest";
 import { adjudicate } from "./adjudicate.js";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
+import { composeRecord } from "./compose.js";
+import { KbStore } from "./kb-store.js";
 import { trace } from "./trace.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 
@@ -244,5 +256,111 @@ describe("trace", () => {
 
   test("returns nothing for a seed that is not in the bundle", () => {
     expect(trace("fact.absent", bundle)).toEqual([]);
+  });
+});
+
+describe("query anchor drift", () => {
+  const store = new KbStore();
+  const roots: string[] = [];
+
+  afterEach(() => {
+    for (const root of roots.splice(0)) {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  const SOURCE = [
+    "export function total(items: number[]): number {",
+    "  return items.reduce((sum, n) => sum + n, 0);",
+    "}",
+    "",
+  ].join("\n");
+
+  function seed(): { root: string; bundle: string } {
+    const root = mkdtempSync(join(tmpdir(), "strauss-kb-drift-"));
+    roots.push(root);
+    const bundle = join(root, "kb");
+    mkdirSync(bundle, { recursive: true });
+    mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(join(root, "src", "order.ts"), SOURCE);
+    return { root, bundle };
+  }
+
+  async function writeAnchored(bundle: string) {
+    await store.write(
+      bundle,
+      composeRecord(
+        "fact",
+        {
+          slug: "order-total",
+          title: "Order totals are summed client-side",
+          why: "Rounding rules live in one place.",
+          anchors: [
+            {
+              file: "src/order.ts",
+              hash: hashAnchorText(SOURCE),
+              resolved_at: "2026-08-26T10:00:00Z",
+              // Counted the way the resolver counts, so `diffSize` measures
+              // the edit rather than a trailing-newline disagreement.
+              lines:
+                resolveAnchor(SOURCE, { file: "src/order.ts" })?.endLine ?? 0,
+            },
+          ],
+        },
+        "test-writer",
+        "2026-08-26T10:00:00Z",
+      ),
+    );
+  }
+
+  test("an un-edited anchored file produces no drifted warning", async () => {
+    const { root, bundle } = seed();
+    await writeAnchored(bundle);
+
+    const [hit] = await store.query(bundle, "", { repoRoot: root });
+
+    expect(hit).toBeDefined();
+    expect(hit?.warnings.some((w) => w.kind === "drifted")).toBe(false);
+  });
+
+  test("an edited anchored file surfaces drift with how far it moved", async () => {
+    const { root, bundle } = seed();
+    await writeAnchored(bundle);
+    appendFileSync(
+      join(root, "src", "order.ts"),
+      "\nexport const VERSION = 2;\n",
+    );
+
+    const [hit] = await store.query(bundle, "", { repoRoot: root });
+    const drifted = hit?.warnings.find((w) => w.kind === "drifted");
+
+    expect(drifted).toBeDefined();
+    if (drifted?.kind !== "drifted") return;
+    expect(drifted.anchors).toEqual([{ file: "src/order.ts", diffSize: 2 }]);
+  });
+
+  // Until a resolution pass stamps hashes, drift detection must cost nothing
+  // and say nothing — even about an anchor whose file does not exist.
+  test("hash-less anchors produce no warning even against a missing file", async () => {
+    const { root, bundle } = seed();
+    await store.write(
+      bundle,
+      composeRecord(
+        "fact",
+        {
+          slug: "unstamped",
+          title: "An anchor nobody resolved yet",
+          why: "Written while the code was still moving.",
+          anchors: [{ file: "src/not-there.ts", symbol: "gone" }],
+        },
+        "test-writer",
+        "2026-08-26T10:00:00Z",
+      ),
+    );
+
+    const [hit] = await store.query(bundle, "", { repoRoot: root });
+
+    expect(hit).toBeDefined();
+    expect(hit?.warnings.some((w) => w.kind === "drifted")).toBe(false);
   });
 });

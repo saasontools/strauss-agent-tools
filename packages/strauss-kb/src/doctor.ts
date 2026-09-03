@@ -1,4 +1,5 @@
 import { adjudicate, type KbStanding } from "./adjudicate.js";
+import type { KbAnchorDriftEntry } from "./anchor-resolver.js";
 import { edgeNeighbours } from "./kb-edges.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 import { validateBundle } from "./validate.js";
@@ -13,9 +14,10 @@ import { validateBundle } from "./validate.js";
  * decay silently, because a stale record reads exactly like a live one and a
  * question nobody answered reads exactly like one nobody asked.
  *
- * Grouped and counted rather than merged into one list: the seven checks are
- * seven different repairs — re-verify, re-date, answer, link, or supersede —
- * and a flat list of "problems" would leave the reader sorting them again.
+ * Grouped and counted rather than merged into one list: the eight checks are
+ * eight different repairs — re-verify, re-date, answer, link, supersede, or
+ * re-anchor — and a flat list of "problems" would leave the reader sorting
+ * them again.
  *
  * Every group is emitted even when empty. A check that found nothing and a
  * check that never ran look identical in a report that only lists findings,
@@ -34,6 +36,7 @@ export const KB_DOCTOR_CHECKS = [
   "orphaned",
   "broken-supersession",
   "superseded-but-cited",
+  "drifted",
 ] as const;
 
 export type KbDoctorCheck = (typeof KB_DOCTOR_CHECKS)[number];
@@ -48,6 +51,7 @@ const CHECK_HEADLINES: Record<KbDoctorCheck, string> = {
   "broken-supersession": "the supersession pointers do not resolve",
   "superseded-but-cited":
     "a live record's body links to one that no longer holds",
+  drifted: "the code an anchor points at moved out from under its hash",
 };
 
 export type KbDoctorFinding = {
@@ -76,7 +80,7 @@ export type KbDoctorReport = {
   recordCount: number;
   thresholds: KbDoctorThresholds;
   counts: Record<KbDoctorCheck, number>;
-  /** All seven, in `KB_DOCTOR_CHECKS` order, empty ones included. */
+  /** All eight, in `KB_DOCTOR_CHECKS` order, empty ones included. */
   groups: KbDoctorGroup[];
   findingCount: number;
   healthy: boolean;
@@ -90,6 +94,13 @@ export type KbDoctorOptions = {
   /** How long `open` or `proposed` may stand before `aging` reports it. */
   agingDays?: number;
   now?: Date;
+  /**
+   * Anchor drift, precomputed by the caller. `doctor` stays pure and sync for
+   * the same reason `adjudicate` does — the filesystem work of re-resolving
+   * anchors belongs to `detectAnchorDrift`, and a sweep with no map simply
+   * reports the `drifted` check as clean rather than half-running it.
+   */
+  anchorDrift?: Map<string, KbAnchorDriftEntry[]>;
 };
 
 const DAY_MS = 86_400_000;
@@ -105,7 +116,7 @@ export function doctor(
   };
   const now = options.now ?? new Date();
 
-  const adjudicated = adjudicate(bundle, bundle, now);
+  const adjudicated = adjudicate(bundle, bundle, now, options.anchorDrift);
   const standings = new Map<string, KbStanding>(
     adjudicated.map((hit) => [hit.record.conceptId, hit.standing]),
   );
@@ -124,6 +135,7 @@ export function doctor(
     group("orphaned", orphaned(bundle)),
     group("broken-supersession", brokenSupersession(bundle, adjudicated)),
     group("superseded-but-cited", supersededButCited(bundle, standings)),
+    group("drifted", drifted(inForce)),
   ];
 
   const counts = Object.fromEntries(
@@ -434,6 +446,54 @@ function supersededButCited(
     }
   }
   return findings;
+}
+
+/**
+ * Records whose anchors no longer resolve to the code they were hashed
+ * against — read off the `drifted` warning `adjudicate` already attaches, so
+ * the sweep and every read path agree about what drift is. Recomputing the
+ * comparison here would give the two room to disagree.
+ *
+ * In-force records only. A superseded record anchoring code that has since
+ * moved is the expected outcome of it being replaced, not a repair.
+ *
+ * Unresolvable anchors ride in this group rather than a ninth check: the repair
+ * is the same edit, and the note says which happened.
+ */
+function drifted(hits: ReturnType<typeof adjudicate>): KbDoctorFinding[] {
+  const findings: KbDoctorFinding[] = [];
+  for (const hit of hits) {
+    const warning = hit.warnings.find((entry) => entry.kind === "drifted");
+    if (!warning) continue;
+    findings.push(
+      finding(
+        hit.record,
+        `${warning.anchors.length} ${
+          warning.anchors.length === 1
+            ? "anchor no longer matches"
+            : "anchors no longer match"
+        }: ${warning.anchors
+          .map((anchor) => {
+            const at = anchor.symbol
+              ? `${anchor.file}:${anchor.symbol}`
+              : anchor.file;
+            if (anchor.reason) return `${at} (${anchor.reason})`;
+            if (anchor.diffSize === null) {
+              return `${at} (changed, size unrecorded)`;
+            }
+            // A same-size rewrite is the drift most worth naming plainly:
+            // "0 lines apart" reads as "nothing happened".
+            return anchor.diffSize === 0
+              ? `${at} (content changed, same line count)`
+              : `${at} (${anchor.diffSize} line${anchor.diffSize === 1 ? "" : "s"} apart)`;
+          })
+          .join(", ")}`,
+      ),
+    );
+  }
+  return findings.sort((left, right) =>
+    left.conceptId.localeCompare(right.conceptId),
+  );
 }
 
 /** Either pointer saying `later` is what stands in `earlier`'s place. */
