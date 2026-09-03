@@ -159,6 +159,7 @@ strauss_anchors:
     hash: sha256:9f2c…
     lines: 24
     resolved_at: 2026-08-16T09:14:00Z
+    resolver: tree-sitter
 ```
 
 `strict()` — `file` is required and nothing outside this table is accepted:
@@ -170,12 +171,14 @@ strauss_anchors:
 | `hash`        | no       | `sha256:<64 hex>` over the anchored text        |
 | `lines`       | no       | the **line count** that hash was taken over     |
 | `resolved_at` | no       | ISO timestamp of the last resolution            |
+| `resolver`    | no       | `tree-sitter` or `regex`; absent reads as regex |
 | `repo`        | no       | which repository; absent means the base's own   |
 | `ref`         | no       | git rev the evidence was taken at; unused in v1 |
 
 Anchors stay symbolic because they are written while the code is still moving;
-once it settles, a resolution pass stamps `hash`, `lines`, and `resolved_at`.
-Those three are measured; `repo` and `ref` are author-owned and never stamped.
+once it settles, a resolution pass stamps `hash`, `lines`, `resolved_at`, and
+`resolver`. Those four are measured; `repo` and `ref` are author-owned and never
+stamped.
 CRLF is normalized to LF before hashing, and `lines` is what lets a drift report
 say how much changed.
 
@@ -191,7 +194,38 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 | `unresolved` | it no longer resolves at all               |
 
 `unresolved` carries a reason: `file-missing`, `symbol-not-found`,
-`outside-repo`, `file-too-large`, `file-unreadable`, or `foreign-repo`.
+`symbol-ambiguous`, `resolver-unavailable`, `outside-repo`, `file-too-large`,
+`file-unreadable`, or `foreign-repo`. `drifted` carries `resolver-changed` when
+the resolver changed and the code did not.
+
+#### Symbol resolution
+
+A symbol resolves through a chain, and the first resolver that understands the
+file answers for it:
+
+| Resolver      | Covers                                                                         |
+| ------------- | ------------------------------------------------------------------------------ |
+| `tree-sitter` | `.ts` `.mts` `.cts` `.tsx` `.js` `.mjs` `.cjs` `.jsx` `.py` `.pyi` `.go` `.rs` |
+| `regex`       | every other extension                                                          |
+| whole-file    | an anchor with no `symbol`                                                     |
+
+Tree-sitter parses the file and matches `tags.scm`-style definition queries. A
+dotted symbol (`KbStore.setStatus`) resolves to the definition whose enclosing
+chain matches — a Go method through its receiver, a Rust function through its
+`impl` block. A bare symbol must match exactly one definition; two make it
+`symbol-ambiguous`. Only declarations count, so a symbol that appears only in a
+call is `symbol-not-found` rather than the call site. Grammars ship as WASM with
+the package; one that cannot be loaded is `resolver-unavailable`, never a throw.
+
+The regex resolver ranks candidates by shape, scopes a dotted symbol to the
+nearest parent above it, and captures by brace depth or Python indentation. It
+runs only where no grammar applies.
+
+Because the two resolvers span code differently, an anchor stamped by one and
+re-resolved by the other can hash differently over unchanged code. That is
+reported as `drifted` with reason `resolver-changed`, and
+[`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve) accepts it;
+nothing is ever restamped silently.
 
 **Drift is computed on read, never stored.** [`load`](./cli-reference.md#load)
 and [`query`](./cli-reference.md#query) re-resolve hash-carrying anchors against

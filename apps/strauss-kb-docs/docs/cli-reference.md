@@ -188,7 +188,10 @@ strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
 
 Returns `{ conceptId, results, verified }`, each result
 `{ file, symbol?, state, storedHash?, currentHash?, diffSize?, reason?,
-rebaselined? }`.
+resolver?, rebaselined? }`. `resolver` names which resolver produced the span —
+see [symbol resolution](./specification.md#symbol-resolution). A result whose
+`reason` is `resolver-changed` drifted because the resolver changed, not the
+code; `--rebaseline` is the whole fix.
 
 ---
 
@@ -445,6 +448,11 @@ strauss-kb doctor --json                # the object behind the table
 strauss-kb doctor --strict              # exit 1 if anything has expired
 strauss-kb doctor --unverified-days 30  # a stricter confirmation window
 ```
+
+The header carries one line the checks do not: how many hashed anchors each
+resolver stamped. A base still leaning on `regex` has weaker evidence than one
+resolved by `tree-sitter`, but a regex-stamped anchor is not a finding — see
+[symbol resolution](./specification.md#symbol-resolution).
 
 **All groups are reported even when empty**, because a check that found nothing
 and a check that never ran look identical in a report that only lists findings.

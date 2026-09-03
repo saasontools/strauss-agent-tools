@@ -84,11 +84,22 @@ from Zod, and `strauss-kb schema` is the contract.
 A fresh stamp is a baseline nobody has checked, so only a run where every
 checkable anchor already matched appends `verified[]`.
 
-The v1 resolver is regex-based, biased so a wrong answer loses to no answer: a
-span short of the code it claims hashes as stable while that code moves. It
-ranks by shape, scopes a dotted symbol to its parent, captures by brace depth or
-Python indentation, and returns `null` otherwise. A pure `AnchorResolver`
-interface admits a tree-sitter replacement.
+Symbols resolve through tree-sitter first: a WASM parser per language,
+`tags.scm`-style queries over definition sites, and the definition node's range
+as the span. A dotted symbol matches the definition whose enclosing chain
+matches; a bare name matching two is `symbol-ambiguous`. Only declarations are
+captured: a symbol appearing solely in a call is `symbol-not-found`.
+
+The chain is tree-sitter, then regex, then a whole-file hash, and a resolver
+that parsed the file answers for it: falling through to a text search would
+trade "no such definition" for the first line mentioning the name, and a wrong
+span that happens to be stable hashes as `match`. Regex still covers extensions
+with no grammar; a grammar that will not load is `resolver-unavailable`, never
+a throw.
+
+Each anchor records the resolver that stamped it. A hash only the previous
+resolver reproduces is `drifted`, reason `resolver-changed`. Trees are cached
+per content hash, grammars load once per process.
 
 Repository identity is normalised and compared, not parsed: an invented format
 would reject correct values from unseen hosts.

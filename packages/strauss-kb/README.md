@@ -206,17 +206,18 @@ Why a lock was rejected: [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 An anchor names where a record attaches in the code: a `file`, optionally a
 `symbol` — symbolic, because a line number written mid-change is wrong by the
-end of it. Five optional fields extend it:
+end of it. Six optional fields extend it:
 
 | Field         | Meaning                                                                                                          |
 | ------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `hash`        | `sha256:<hex>` over the anchored text, algorithm-prefixed.                                                       |
 | `lines`       | Line count the hash covered.                                                                                     |
 | `resolved_at` | When the anchor last resolved.                                                                                   |
+| `resolver`    | Which resolver produced the hash: `tree-sitter` or `regex`.                                                      |
 | `repo`        | Which repository — remote URL or short name. Absent means this base's own repository.                            |
 | `ref`         | Git rev the evidence was taken at. Recorded but unused until [SAA-709](https://linear.app/saason/issue/SAA-709). |
 
-`hash`, `lines`, and `resolved_at` are **measured** — a resolution pass stamps
+`hash`, `lines`, `resolved_at`, and `resolver` are **measured** — a resolution pass stamps
 them; `repo` and `ref` are **author-owned identity** and a resolution pass
 never writes them.
 
@@ -240,8 +241,12 @@ carries a hash; unstamped and foreign anchors never fail.
 A fully clean run — every checkable anchor `match`, none stamped this run —
 appends a `verified[]` event.
 
-Symbol resolution is a v1 heuristic; ties and unclosed blocks return
-`unresolved`.
+Symbols resolve tree-sitter first (TypeScript, TSX, JavaScript, Python, Go,
+Rust), then the regex heuristic for other extensions, then a whole-file hash
+when the anchor names no symbol; an ambiguous or undefined symbol returns
+`unresolved` rather than a guess. A hash the old resolver still reproduces and
+the new one does not is `drifted` with reason `resolver-changed` — accept it
+with `--rebaseline`.
 
 Drift also surfaces on read: `kb_load` and `kb_query` attach a
 `{ kind: "drifted" }` warning, and `kb_doctor` lists every drifted anchor
