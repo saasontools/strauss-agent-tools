@@ -9,8 +9,7 @@ Each run writes two files here, named `<label>-<iso timestamp>`:
 
 Both are gitignored, so committing one takes `git add -f`.
 
-**No run against the real API has happened yet** -- only the mock-transport
-dry-run suite (`pnpm exec vitest run bench`).
+**Runs so far:** `full-claude-2026-09-03T21-51-51-137Z` — the full matrix over the Claude Code transport (240 calls, 0 errored, thinking off). No run over the API transport yet.
 
 ## Running the full matrix
 
