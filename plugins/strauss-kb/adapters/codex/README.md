@@ -9,6 +9,7 @@ for the MCP server and skill. This adapter adds session-start injection.
 ```bash
 npm install -g @saasontools/strauss-kb
 cp hooks.json <repo>/.codex/hooks.json     # or merge into ~/.codex/hooks.json
+export STRAUSS_KB_PLUGIN_ROOT=<installed plugin dir>   # for the reload hook
 ```
 
 Codex's hooks.json is Claude-shaped — top-level `hooks` key, same event names
@@ -23,6 +24,7 @@ on Windows add `commandWindows` or rely on the sentinel below.
 | MCP tool descriptions     | Re-sent every request; survives compaction.                                         |
 | Session-start injection   | `hooks.json`: `SessionStart` sources `startup`, `resume`, `clear`, `compact`.       |
 | Post-compact re-injection | Covered by the `compact` matcher; server-side compaction relies on instruction.     |
+| Reload after a pull       | `PostToolUse` on `shell` runs `kb-stamp-hook.mjs`; no documented sub-agent event.   |
 | PreToolUse blocking       | Not shipped — Codex has no Read/Glob/Grep, only shell. AGENTS.md is the mitigation. |
 
 ## AGENTS.md sentinel block
