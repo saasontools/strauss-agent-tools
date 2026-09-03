@@ -103,6 +103,12 @@ export type KbLoadResult =
       tokensLoaded: number;
       /** `null` when loaded via `all`: no ceiling was applied. */
       budgetTokens: number | null;
+      /**
+       * Sha256 over every record's content and standing, sorted by concept
+       * id. Flips when a body, frontmatter, or standing changes; it's the
+       * base's content stamp, compared by hooks and `kb_stamp` (SAA-719).
+       */
+      digest: string;
     }
   | {
       loaded: false;
@@ -111,6 +117,13 @@ export type KbLoadResult =
       budgetTokens: number;
       /** The refusal in words, naming the budget and what to call next. */
       message: string;
+      /**
+       * Same digest a successful load would carry, computed over what would
+       * have been handed back. Cheap here — adjudication already ran before
+       * the refusal — and it lets a caller notice a refused bundle's content
+       * changed (say, after a narrower `type` filter) without loading it.
+       */
+      digest: string;
     };
 
 export type KbWriteInput = {
@@ -609,6 +622,10 @@ export class KbStore {
       records.reduce((total, hit) => total + estimateTokens(hit.record), 0) +
       superseded.reduce((total, entry) => total + estimateStubTokens(entry), 0);
 
+    // Adjudication has already run either way, so this costs nothing extra —
+    // computed once and carried on whichever branch returns.
+    const bundleDigestValue = bundleDigest(records, superseded);
+
     if (!options.all && approxTokens > budgetTokens) {
       return {
         loaded: false,
@@ -620,6 +637,7 @@ export class KbStore {
           budgetTokens,
           type: options.type,
         }),
+        digest: bundleDigestValue,
       };
     }
 
@@ -630,6 +648,7 @@ export class KbStore {
       budgetTokens: options.all ? null : budgetTokens,
       records,
       superseded,
+      digest: bundleDigestValue,
     };
   }
 
@@ -1066,4 +1085,32 @@ function normalizeActor(id: string): string {
 
 function digest(contents: string): string {
   return createHash("sha256").update(contents).digest("hex");
+}
+
+/**
+ * `load`'s bundle digest. Entries are sorted by concept id, so it never
+ * depends on listing order; each is hashed over its record's canonical
+ * recomposed form, not the on-disk bytes; superseded stubs are included, so
+ * a standing flip changes the digest even when the body did not.
+ */
+function bundleDigest(
+  records: KbAdjudicated[],
+  superseded: KbSupersededStub[],
+): string {
+  const entries = [
+    ...records.map(
+      (hit) =>
+        `${hit.record.conceptId}:current:${digest(
+          stringifyMarkdownWithFrontmatter(
+            hit.record.body,
+            hit.record.frontmatter,
+          ),
+        )}`,
+    ),
+    ...superseded.map(
+      (entry) =>
+        `${entry.conceptId}:superseded:${digest(JSON.stringify(entry))}`,
+    ),
+  ].sort();
+  return digest(entries.join("\n"));
 }

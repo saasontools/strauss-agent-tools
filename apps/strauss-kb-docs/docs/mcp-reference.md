@@ -282,9 +282,8 @@ Superseded records arrive as name, replacement and date stubs — pass the id to
 
 :::tip Place this output in the stable prefix
 `kb_load`'s result belongs in the **stable prefix** — the system prompt, or the
-first turn — and should be reloaded only when the returned `digest` changes. In
-the tail, next to `kb_query` and `kb_pack`'s volatile results, it is prompt-cache
-money left on the table.
+first turn. In the tail, next to `kb_query` and `kb_pack`'s volatile results, it
+is prompt-cache money left on the table.
 
 A provider prompt cache matches a prefix byte-for-byte, and the first token that
 differs ends the match — so one volatile result placed ahead of a stable load
@@ -293,9 +292,11 @@ also privileges its beginning: the base that is supposed to anchor a session's
 answers earns that by sitting where it is read most reliably, not by merely
 being present somewhere.
 
-The [`digest`](./specification.md#the-load-digest) is what makes that cheap to
-maintain — identical content digests identically, any record changing flips it,
-and a refused load carries the same digest over what would have been handed back.
+The [`digest`](./specification.md#the-load-digest) is the base's content stamp —
+identical content digests identically, any record changing flips it, and a
+refused load carries the same digest over what would have been handed back. A
+change-notification hook and `kb_stamp` (SAA-719) compare it to detect change;
+the model does not reload to check.
 :::
 
 ```json
