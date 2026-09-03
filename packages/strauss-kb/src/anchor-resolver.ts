@@ -47,6 +47,15 @@ export interface AnchorResolver {
   /** The richer verdict the chain uses; defaults to `resolve`. */
   attempt?(source: string, symbol: string, file?: string): ResolverAttempt;
   resolve(source: string, symbol: string, file?: string): ResolvedSymbol | null;
+  /**
+   * The span's normalised token stream — comments dropped, runs of whitespace
+   * collapsed — or `null` when this resolver cannot parse the text.
+   *
+   * Only a resolver that understands the language can offer one, which is why
+   * it is optional: a text heuristic normalising by guess would call two
+   * different programs equal.
+   */
+  normalize?(text: string, file?: string): string | null;
 }
 
 /** Why an anchor could not be compared. Never an error — always a finding. */
@@ -386,7 +395,13 @@ export function resolveAnchor(
 
 /** A resolved span, and which resolver produced it. */
 export type AnchorResolution =
-  | { ok: true; span: ResolvedSymbol; resolver?: AnchorResolverName }
+  | {
+      ok: true;
+      span: ResolvedSymbol;
+      resolver?: AnchorResolverName;
+      /** The span's token stream, when the resolver that spanned it can parse. */
+      normalized?: string;
+    }
   | { ok: false; reason: AnchorUnresolvedReason };
 
 /**
@@ -425,10 +440,12 @@ export function resolveAnchorSpan(
     if (attempt.kind === "unresolved") {
       return { ok: false, reason: attempt.reason };
     }
+    const tokens = resolver.normalize?.(attempt.span.text, anchor.file);
     return {
       ok: true,
       span: attempt.span,
       ...(isResolverName(resolver.name) ? { resolver: resolver.name } : {}),
+      ...(tokens ? { normalized: tokens } : {}),
     };
   }
   return { ok: false, reason: "symbol-not-found" };
@@ -496,6 +513,54 @@ export function resolverChanged(
   return before !== null && hashAnchorText(before.text) === anchor.hash;
 }
 
+/** What `hash` was taken over. Absent on an anchor means `raw`. */
+export type AnchorHashKind = "raw" | "ast";
+
+/**
+ * Which hash to compare, and over what.
+ *
+ * A stored hash is only ever compared against a hash of the same kind — an
+ * `ast` hash and a `raw` hash of the same code differ by construction, and
+ * treating that as drift would report every anchor once. An anchor with no
+ * hash yet takes the strongest kind the resolver can offer, so newly stamped
+ * anchors stop drifting on reformatting.
+ */
+export function anchorHashOf(
+  anchor: KbAnchor,
+  outcome: { span: ResolvedSymbol; normalized?: string },
+): { hash: string; kind: AnchorHashKind } {
+  const stored = anchor.hash ? (anchor.hash_kind ?? "raw") : undefined;
+  const wanted = stored ?? (outcome.normalized ? "ast" : "raw");
+  return wanted === "ast" && outcome.normalized
+    ? { hash: hashAnchorText(outcome.normalized), kind: "ast" }
+    : { hash: hashAnchorText(outcome.span.text), kind: "raw" };
+}
+
+/**
+ * How an anchor's code changed, once the bytes are known to differ.
+ *
+ * The classes a machine can settle, so a reader only sees the ones it cannot:
+ * `moved` and `cosmetic` are answered and closed, `gone` and `changed` are
+ * handed on. Deliberately shallow — whether the record's *claim* still holds
+ * is a reading, and no hash can stand in for one.
+ */
+export const KB_DRIFT_CLASSES = [
+  "moved",
+  "cosmetic",
+  "gone",
+  "changed",
+] as const;
+
+export type KbDriftClass = (typeof KB_DRIFT_CLASSES)[number];
+
+/** Where a `moved` anchor's stored hash turned up. */
+export type KbDriftMovedTo = {
+  file: string;
+  symbol?: string;
+  startLine: number;
+  endLine: number;
+};
+
 export type KbAnchorDriftEntry = {
   file: string;
   symbol?: string;
@@ -507,7 +572,38 @@ export type KbAnchorDriftEntry = {
   reason?: AnchorUnresolvedReason | AnchorDriftReason;
   /** Which resolver produced `currentHash`. Absent for a whole-file anchor. */
   resolver?: AnchorResolverName;
+  /** What the compared hashes were taken over. */
+  hashKind?: AnchorHashKind;
+  /**
+   * Provisional: `gone` or `changed`, the two a hash comparison alone can
+   * settle. `moved` and `cosmetic` cost a repository search and a git read, so
+   * `classifyDrift` refines this on the reassessment path rather than on every
+   * `load`.
+   */
+  class?: KbDriftClass;
+  /** Set by `classifyDrift` when the class is `moved`. */
+  movedTo?: KbDriftMovedTo;
 };
+
+/**
+ * The class a hash comparison alone can settle.
+ *
+ * A vanished file or an undefined symbol is `gone` — the strongest signal
+ * there is, because the described code does not exist to be re-read. Anything
+ * that resolved and hashed differently is `changed` until a search proves it
+ * only moved.
+ */
+export function provisionalDriftClass(
+  entry: Pick<KbAnchorDriftEntry, "state" | "reason">,
+): KbDriftClass | undefined {
+  if (entry.state === "unresolved") {
+    return entry.reason === "file-missing" ||
+      entry.reason === "symbol-not-found"
+      ? "gone"
+      : undefined;
+  }
+  return entry.state === "drifted" ? "changed" : undefined;
+}
 
 /**
  * An anchor's `file` must stay inside the repository root — a record points
@@ -893,6 +989,7 @@ export async function detectAnchorDrift(
           state: "unresolved",
           diffSize: null,
           reason: read.reason,
+          ...classOf(read.reason),
         });
         continue;
       }
@@ -904,22 +1001,25 @@ export async function detectAnchorDrift(
           state: "unresolved",
           diffSize: null,
           reason: outcome.reason,
+          ...classOf(outcome.reason),
         });
         continue;
       }
 
       const resolved = outcome.span;
-      const currentHash = hashAnchorText(resolved.text);
+      const { hash: currentHash, kind } = anchorHashOf(anchor, outcome);
       const currentLines = resolved.endLine - resolved.startLine + 1;
       const matched = currentHash === anchor.hash;
       entries.push({
         ...base,
         state: matched ? "match" : "drifted",
         currentHash,
+        hashKind: kind,
         diffSize:
           anchor.lines === undefined
             ? null
             : Math.abs(currentLines - anchor.lines),
+        ...(matched ? {} : { class: "changed" as const }),
         ...(outcome.resolver ? { resolver: outcome.resolver } : {}),
         // A regex-stamped anchor re-read by tree-sitter drifts because the
         // resolver changed, not because the code did. Named so a reader can
@@ -934,4 +1034,10 @@ export async function detectAnchorDrift(
   }
 
   return drift;
+}
+
+/** `class` for an unresolved reason, or nothing to spread. */
+function classOf(reason: AnchorUnresolvedReason): { class?: KbDriftClass } {
+  const settled = provisionalDriftClass({ state: "unresolved", reason });
+  return settled ? { class: settled } : {};
 }

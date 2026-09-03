@@ -535,6 +535,7 @@ describe("detectAnchorDrift", () => {
         state: "match",
         storedHash: anchor.hash,
         currentHash: anchor.hash,
+        hashKind: "raw",
         diffSize: 0,
         resolver: "tree-sitter",
       },
@@ -670,6 +671,7 @@ describe("detectAnchorDrift", () => {
         storedHash: anchor.hash,
         diffSize: null,
         reason: "file-missing",
+        class: "gone",
       },
     ]);
   });

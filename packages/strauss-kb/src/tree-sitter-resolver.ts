@@ -284,6 +284,69 @@ export class TreeSitterResolver implements AnchorResolver {
     return parsed;
   }
 
+  /**
+   * Every definition this file declares, as dotted symbol and span.
+   *
+   * The inverse of `attempt`: that asks "where is this name", this asks "what
+   * names are here". `moved` needs the second — the stored hash has to be
+   * looked for at every definition in the repository, and there is no name to
+   * ask about, since the whole question is which name now carries that code.
+   */
+  spans(
+    source: string,
+    file: string,
+  ): { symbol: string; span: ResolvedSymbol }[] {
+    const language = languageForFile(file);
+    if (!language) return [];
+    const loaded = this.loaded.get(language);
+    if (!loaded) return [];
+    const parsed = this.parse(language, loaded, source);
+    if (!parsed) return [];
+
+    return parsed.definitions
+      .filter((definition) => definition.target)
+      .map((definition) => ({
+        symbol: chainOf(definition, parsed.byNodeId, language).join("."),
+        span: spanOf(definition, source),
+      }));
+  }
+
+  /**
+   * The token stream of a span: every leaf the parser sees, comments dropped,
+   * joined by single spaces.
+   *
+   * This is what makes a reformat not be drift. Hashing it rather than the raw
+   * text means indentation, line breaks, trailing commas the formatter moved,
+   * and every comment above or inside the definition are outside the hash —
+   * and a renamed identifier or a changed literal is still inside it, because
+   * those are leaves.
+   *
+   * `null` when the file has no grammar, the grammar would not load, or the
+   * text will not parse: no normalisation is better than a guessed one.
+   */
+  normalize(text: string, file?: string): string | null {
+    const language = file ? languageForFile(file) : undefined;
+    if (!language) return null;
+    const loaded = this.loaded.get(language);
+    if (!loaded) return null;
+
+    const parser = this.parser;
+    if (!parser) return null;
+    let tree: Tree | null;
+    try {
+      parser.setLanguage(loaded.language);
+      tree = parser.parse(text);
+    } catch {
+      return null;
+    }
+    if (!tree) return null;
+    try {
+      return tokens(tree.rootNode).join(" ");
+    } finally {
+      tree.delete();
+    }
+  }
+
   /** Drops cached trees. Grammars stay loaded — they are immutable. */
   reset(): void {
     for (const parsed of this.trees.values()) parsed.tree.delete();
@@ -423,4 +486,30 @@ function spanOf(definition: Definition, source: string): ResolvedSymbol {
     startLine: startLine + 1,
     endLine: endLine + 1,
   };
+}
+
+/**
+ * Leaf text in source order, comments skipped whole.
+ *
+ * Iterative rather than recursive: a span is bounded by `MAX_ANCHOR_FILE_BYTES`
+ * but its nesting depth is not, and a deeply nested literal must not be able to
+ * overflow the stack on a read path.
+ */
+function tokens(root: Node): string[] {
+  const out: string[] = [];
+  const stack: Node[] = [root];
+  while (stack.length) {
+    const node = stack.pop() as Node;
+    if (node.type.includes("comment")) continue;
+    if (node.childCount === 0) {
+      const text = node.text.trim();
+      if (text) out.push(text);
+      continue;
+    }
+    for (let at = node.childCount - 1; at >= 0; at--) {
+      const child = node.child(at);
+      if (child) stack.push(child);
+    }
+  }
+  return out;
 }
