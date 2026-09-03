@@ -74,47 +74,75 @@ and pins live in `.strauss/kb-pins.json`:
 
 Pin options and budget resolution: [package README](../../packages/strauss-kb/README.md#living-in-an-agent-session).
 
-## Blocking raw KB reads (opt-in)
+That is the only hook the plugin wires. Three more scripts ship with it,
+opt-in — below.
 
-Record files must be read through the tools. Pick one:
+## Opt-in workspace hooks
 
-1. **Deny rules** — no script, in `.claude/settings.json`. Preferred; add a
-   line per pinned base.
+A matcher matches a tool _name_, and the plugin installs per user, so anything
+wired here fires in every repo. Wire the ones a workspace wants: copy the
+script from [`hooks/scripts/`](./hooks/scripts/) (node builtins only) to
+`.claude/hooks/`, add its entry to `.claude/settings.json`. Each runs ~40 ms
+on an unrelated write (node startup); nothing is read or spawned unless the
+path is inside a bundle. All fail open, and none parses `Bash` — `cat .strauss/kb/x.md` stays a
+deliberate side door.
 
-   ```json
-   {
-     "permissions": {
-       "deny": ["Read(.strauss/kb/**)", "Read(docs/kb/**)"]
-     }
-   }
-   ```
+**`block-kb-reads.mjs`** (`PreToolUse`, `Read`) — a superseded record file
+reads exactly like a current one; records belong to the tools. Widen to
+`Read|Glob|Grep` to also catch searches with an explicit `path`. Scriptless
+alternative: `"permissions": { "deny": ["Read(docs/kb/**)"] }`.
 
-2. **The shipped hook script** — follows the pin manifests, tells the model
-   why. Copy
-   [`hooks/scripts/block-kb-reads.mjs`](./hooks/scripts/block-kb-reads.mjs)
-   to `.claude/hooks/` and add:
+**`deny-kb-generated-edits.mjs`** (`PreToolUse`, `Write|Edit|MultiEdit`) —
+refuses a write to `INDEX.md`, `log.jsonl`, or the search index inside a
+bundle root; the store overwrites those. No env opt-out: remove the entry.
 
-   ```json
-   {
-     "hooks": {
-       "PreToolUse": [
-         {
-           "matcher": "Read",
-           "hooks": [
-             {
-               "type": "command",
-               "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-kb-reads.mjs\""
-             }
-           ]
-         }
-       ]
-     }
-   }
-   ```
+**`validate-kb-bundle.mjs`** (`PostToolUse`, same matcher) — runs
+`strauss-kb --bundle <dir> validate` after an edit inside a bundle and surfaces
+problems as context. Advisory, never blocking. Opt out with
+`STRAUSS_KB_NO_VALIDATE_HOOK=1`.
 
-   Widen the matcher to `"Read|Glob|Grep"` for path-scoped searches too.
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block-kb-reads.mjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/deny-kb-generated-edits.mjs\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/validate-kb-bundle.mjs\"",
+            "timeout": 65
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
-Known side door: Bash (`cat .strauss/kb/x.md`).
+The two write hooks import `kb-bundle.mjs` from the same directory — copy it
+too. CLI resolution and directory matching:
+[architecture](https://saasontools.github.io/strauss-agent-tools/architecture).
 
 ## Other runtimes
 

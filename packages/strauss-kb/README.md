@@ -454,11 +454,15 @@ What each runtime gets (configs in the
 | Session-start injection   | SessionStart hook  | SessionStart hook                           | PreInvocation, per turn    |
 | Post-compact re-injection | ✓ `compact` source | ✓ client-side; instruction-only when hosted | moot — injected every turn |
 | File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
+| Manual-edit validation    | opt-in PostToolUse | ✗                                           | ✗                          |
+| Generated-file edit guard | opt-in PreToolUse  | ✗                                           | ✗                          |
 | Instruction file          | CLAUDE.md          | AGENTS.md                                   | AGENTS.md + rules/         |
 
 Never read record files directly — read through the tools; a raw read bypasses
 standing, and a superseded record reads exactly like a current one. Enforce it
-with deny rules or the plugin's opt-in PreToolUse script:
+with deny rules or the plugin's
+[opt-in hook scripts](../../plugins/strauss-kb/README.md#opt-in-workspace-hooks),
+which also cover manual edits to a bundle:
 
 ```json
 {

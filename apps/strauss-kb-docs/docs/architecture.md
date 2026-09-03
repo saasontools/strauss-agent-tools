@@ -107,7 +107,7 @@ Excluding store-owned files from listings and repairing the index on read hold
 only while everything goes through one door; reading one record by a concept id
 you already hold is the exception. This is also why a raw file read is not a
 supported way to read a base: it bypasses supersession resolution. A workspace
-can enforce that with deny rules or the plugin's `PreToolUse` script.
+can enforce that with deny rules or the plugin's opt-in `PreToolUse` script.
 
 ## The plugin's hooks
 
@@ -115,11 +115,47 @@ A hand-edit is the case that does not go through the store, so the plugin ships
 hooks that close the gap from the outside, all keyed on `Write`, `Edit`, and
 `MultiEdit`.
 
-| Event          | What it does                                                                |
-| -------------- | --------------------------------------------------------------------------- |
-| `SessionStart` | emits the pinned-base context block, per profile                            |
-| `PreToolUse`   | **denies** an edit to a generated file inside a bundle                      |
-| `PostToolUse`  | runs `validate` over the bundle a manual edit touched, and reports findings |
+| Event          | Wired by      | What it does                                                                |
+| -------------- | ------------- | --------------------------------------------------------------------------- |
+| `SessionStart` | the plugin    | emits the pinned-base context block, per profile                            |
+| `PreToolUse`   | the workspace | **denies** an edit to a generated file inside a bundle                      |
+| `PostToolUse`  | the workspace | runs `validate` over the bundle a manual edit touched, and reports findings |
+
+Only `SessionStart` is wired by the plugin. A matcher matches a tool _name_ and
+a plugin installs per user, so a plugin-level write entry would fire on every
+write in every repo that user opens — ~40 ms of node startup each. The write
+hooks are therefore opt-in workspace policy: copy the script to
+`.claude/hooks/` and add
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/deny-kb-generated-edits.mjs\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/validate-kb-bundle.mjs\"",
+            "timeout": 65
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 Both decide whether the edited path is inside a base by a pure path-segment
 match: a segment named `.kb`, or a segment `kb` whose parent is `.strauss`. A

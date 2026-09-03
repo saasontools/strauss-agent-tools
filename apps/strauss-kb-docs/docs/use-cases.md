@@ -496,7 +496,9 @@ hand-edit is the case that does not. The plugin's
 [two hooks](./architecture.md#the-plugins-hooks) close it from the outside: a
 `PreToolUse` deny on the generated files sitting directly in a bundle, and an
 advisory `PostToolUse` `validate` that reports what a manual edit broke in the
-same turn. To turn the validate hook off for a session:
+same turn. Neither is wired by the plugin — a workspace opts in by copying the
+script and adding the entry, per that page. To turn the validate hook off for a
+session:
 
 ```bash
 export STRAUSS_KB_NO_VALIDATE_HOOK=1
