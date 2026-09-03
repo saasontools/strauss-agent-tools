@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-two tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-three tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.

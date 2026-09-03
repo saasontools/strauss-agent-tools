@@ -60,7 +60,7 @@ the filename is the identity: `fact.auth-retries.md` has concept id
 | MCP server | `strauss-kb-mcp` (stdio)                            | any MCP client                                |
 | Library    | `import { KbStore } from "@saasontools/strauss-kb"` | programmatic callers, diff annotation         |
 
-The table holds 27 verbs and projects 26 of them as MCP tools; the one verb with
+The table holds 24 verbs and projects 23 of them as MCP tools; the one verb with
 no tool is `sync-instructions`, whose capability is `kb_context`.
 
 ```bash
