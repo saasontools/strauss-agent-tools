@@ -488,6 +488,73 @@ describe("KbStore", () => {
     expect(persisted).not.toBeNull();
   });
 
+  // Targets are marked concurrently, so both the marks landing and the order
+  // `supersededIds` reports them in are worth pinning.
+  test("marks every supersedes target, reporting them in the order given", async ({
+    store,
+    bundle,
+  }) => {
+    for (const slug of ["old-a", "old-b", "old-c"]) {
+      await store.write(bundle, fact(slug));
+    }
+
+    const written = await store.write(
+      bundle,
+      fact("replacement", {
+        supersedes: ["fact.old-a", "fact.old-b", "fact.old-c"],
+      }),
+    );
+
+    expect(written.supersededIds).toEqual([
+      "fact.old-a",
+      "fact.old-b",
+      "fact.old-c",
+    ]);
+    for (const id of written.supersededIds) {
+      const old = await store.read(bundle, id);
+      expect(old?.frontmatter.strauss_status).toBe("superseded");
+      expect(old?.frontmatter.strauss_superseded_by).toBe("fact.replacement");
+    }
+  });
+
+  // One missing target must not take the others down with it, and the gap
+  // must not shift the reported order.
+  test("marks the targets that exist when one is missing", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("old-a"));
+    await store.write(bundle, fact("old-c"));
+
+    const written = await store.write(
+      bundle,
+      fact("replacement", {
+        supersedes: ["fact.old-a", "fact.gone", "fact.old-c"],
+      }),
+    );
+
+    expect(written.supersededIds).toEqual(["fact.old-a", "fact.old-c"]);
+    expect(
+      (await store.read(bundle, "fact.old-c"))?.frontmatter.strauss_status,
+    ).toBe("superseded");
+  });
+
+  // `list` fans out through a bounded pool; more records than the bound is
+  // the case that would have gone missing if the pool dropped its tail.
+  test("lists every record when there are more than the concurrency bound", async ({
+    store,
+    bundle,
+  }) => {
+    for (let index = 0; index < 40; index++) {
+      await store.write(bundle, fact(`bulk-${String(index).padStart(2, "0")}`));
+    }
+
+    const listed = await store.list(bundle, "fact");
+
+    expect(listed).toHaveLength(40);
+    expect(new Set(listed.map((record) => record.conceptId)).size).toBe(40);
+  });
+
   test("answers an open question, appending the answer to the body", async ({
     store,
     bundle,

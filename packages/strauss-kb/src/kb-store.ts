@@ -10,6 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
+import { DEFAULT_IO_CONCURRENCY, mapLimit } from "./concurrency.js";
 import {
   parseMarkdownWithFrontmatter,
   stringifyMarkdownWithFrontmatter,
@@ -183,7 +184,7 @@ export class KbStore {
     });
 
     // The new record is published and logged first, then each prior record it
-    // supersedes is marked in turn. A crash between the two leaves an old
+    // supersedes is marked. A crash between the two leaves an old
     // record with no backlink — exactly what kb_validate already reports as
     // "<old> is not marked superseded", never a silent drift.
     //
@@ -192,14 +193,15 @@ export class KbStore {
     const targets = new Set(frontmatter.strauss_supersedes ?? []);
     targets.delete(conceptId);
 
-    const supersededIds: string[] = [];
-    for (const old of targets) {
-      if (
-        await this.markSupersededRetrying(bundlePath, old, conceptId, actor)
-      ) {
-        supersededIds.push(old);
-      }
-    }
+    // Targets are marked concurrently: each carries its own compare-and-swap
+    // and retry against its own file, so they share nothing to race over.
+    const ordered = [...targets];
+    const marked = await Promise.all(
+      ordered.map((old) =>
+        this.markSupersededRetrying(bundlePath, old, conceptId, actor),
+      ),
+    );
+    const supersededIds = ordered.filter((_, at) => marked[at]);
 
     this.logger.info?.({
       operation: "kb.write",
@@ -259,10 +261,11 @@ export class KbStore {
       .map((name) => ({ name, conceptId: name.slice(0, -".md".length) }))
       .filter(({ conceptId }) => !type || conceptId.startsWith(`${type}.`));
 
-    const records = await Promise.all(
-      wanted.map(async ({ name, conceptId }) =>
+    const records = await mapLimit(
+      wanted,
+      DEFAULT_IO_CONCURRENCY,
+      async ({ name, conceptId }) =>
         this.parse(conceptId, await readFile(join(root, name), "utf8")),
-      ),
     );
     return records.filter((record): record is KbRecord => record !== null);
   }

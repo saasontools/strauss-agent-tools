@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
+import { DEFAULT_IO_CONCURRENCY, mapLimit } from "./concurrency.js";
 import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
 
 const execFileAsync = promisify(execFile);
@@ -638,30 +639,6 @@ export function looksLikeWrongRepoRoot(
   return checked > 0;
 }
 
-/** Default in-flight file reads. Bounded so a large base cannot hit EMFILE. */
-const DEFAULT_ANCHOR_READ_CONCURRENCY = 16;
-
-/** Runs `worker` over `items` with at most `limit` in flight, order preserved. */
-async function mapLimit<T, R>(
-  items: readonly T[],
-  limit: number,
-  worker: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const out = new Array<R>(items.length);
-  let next = 0;
-  const runners = Array.from(
-    { length: Math.max(1, Math.min(limit, items.length)) },
-    async () => {
-      while (next < items.length) {
-        const at = next++;
-        out[at] = await worker(items[at] as T);
-      }
-    },
-  );
-  await Promise.all(runners);
-  return out;
-}
-
 /**
  * Reads each distinct file once with at most `concurrency` in flight.
  *
@@ -670,7 +647,7 @@ async function mapLimit<T, R>(
 export async function readAnchorFiles(
   files: readonly string[],
   read: AnchorFileReader,
-  concurrency: number = DEFAULT_ANCHOR_READ_CONCURRENCY,
+  concurrency: number = DEFAULT_IO_CONCURRENCY,
 ): Promise<Map<string, AnchorRead>> {
   if (!Number.isInteger(concurrency) || concurrency < 1) {
     throw new RangeError(
@@ -748,7 +725,7 @@ export async function detectAnchorDrift(
   const reads = await readAnchorFiles(
     files,
     options.reader ?? anchorFileReader(repoRoot),
-    options.concurrency ?? DEFAULT_ANCHOR_READ_CONCURRENCY,
+    options.concurrency ?? DEFAULT_IO_CONCURRENCY,
   );
 
   // Phase 3: resolve and hash synchronously, in the order records were given.
