@@ -1,0 +1,34 @@
+/**
+ * Site-wide colour tokens. Infima variables only — the classic theme reads
+ * these for both light and dark, so overriding them keeps every component
+ * consistent without touching component CSS.
+ */
+
+:root {
+  --ifm-color-primary: #2b6a5f;
+  --ifm-color-primary-dark: #275f55;
+  --ifm-color-primary-darker: #255a50;
+  --ifm-color-primary-darkest: #1e4a42;
+  --ifm-color-primary-light: #2f7569;
+  --ifm-color-primary-lighter: #317a6e;
+  --ifm-color-primary-lightest: #388a7c;
+  --ifm-code-font-size: 92%;
+  --docusaurus-highlighted-code-line-bg: rgb(0 0 0 / 10%);
+}
+
+[data-theme="dark"] {
+  --ifm-color-primary: #6ec7b6;
+  --ifm-color-primary-dark: #57bfab;
+  --ifm-color-primary-darker: #4cbaa5;
+  --ifm-color-primary-darkest: #3d998a;
+  --ifm-color-primary-light: #85cfc1;
+  --ifm-color-primary-lighter: #90d3c6;
+  --ifm-color-primary-lightest: #b3e1d9;
+  --docusaurus-highlighted-code-line-bg: rgb(0 0 0 / 30%);
+}
+
+/* Reference tables carry long descriptions; wrapping beats a scrollbar. */
+.markdown table td,
+.markdown table th {
+  vertical-align: top;
+}

@@ -1,0 +1,4 @@
+# Docusaurus build output and generated site data. `build/` rather than the
+# repo-wide `dist/`, which is why it is ignored here and not at the root.
+build/
+.docusaurus/

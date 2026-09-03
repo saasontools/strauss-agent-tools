@@ -1,3 +1,38 @@
+## 0.1.10 (2026-09-03)
+
+### 🩹 Fixes
+
+- kb_catalog: a tier-one listing, and a refusal that names the next call ([dd3b314](https://github.com/saasontools/strauss-agent-tools/commit/dd3b314))
+
+  New `kb_catalog` (CLI `catalog [type]`) lists every record in one line — id, type, title, standing, stale flag — sorted by type then title, at roughly thirty tokens each, and never refuses: it is where a refused `kb_load` sends you. `kb_load`'s refusal now names the next calls (`kb_catalog`, then `kb_pack` on the record that matters; `kb_query` for a lookup by wording) and both escape hatches, instead of only reporting that the base was too big. CLI flags now accept `--flag=value` and error on a missing value instead of silently falling back to the default.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
+## 0.1.9 (2026-09-02)
+
+### 🩹 Fixes
+
+- cross-worktree log safety: union merge for log.md and atomic appends ([dd6ec3a](https://github.com/saasontools/strauss-agent-tools/commit/dd6ec3a))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
+## 0.1.8 (2026-09-02)
+
+### 🩹 Fixes
+
+- kb_doctor: a read-only health sweep for expired, unverified, aging, and orphaned records. ([74d1b48](https://github.com/saasontools/strauss-agent-tools/commit/74d1b48))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.7 (2026-08-26)
 
 ### 🚀 Features

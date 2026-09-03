@@ -240,7 +240,7 @@ describe("runKbCli", () => {
     });
   });
 
-  test("--all loads regardless of budget, and is rejected alongside --budget", async () => {
+  test("--all loads regardless of budget, and is rejected alongside a ceiling", async () => {
     expect(parsed(await at(["load", "--all"]))).toMatchObject({
       loaded: true,
       recordCount: 2,
@@ -249,8 +249,169 @@ describe("runKbCli", () => {
 
     const run = await at(["load", "--all", "--budget", "1"]);
     expect(run.stderr).toContain(
-      "(root): all and budgetTokens are mutually exclusive",
+      "(root): all is mutually exclusive with budgetTokens",
     );
+  });
+
+  test("the refusal says what to call next", async () => {
+    const refused = parsed(await at(["load", "--budget", "1"])) as {
+      message: string;
+    };
+
+    expect(refused).toMatchObject({ loaded: false, budgetTokens: 1 });
+    expect(refused.message).toContain("1-token budget");
+    expect(refused.message).toContain("kb_catalog");
+    expect(refused.message).toContain("kb_pack");
+    expect(refused.message).toContain("kb_query");
+    // The escape hatches are named, so a caller that does need everything is
+    // not left to invent a workaround — which would be a raw file read.
+    expect(refused.message).toContain("raise budgetTokens (currently 1)");
+    expect(refused.message).toContain("all=true");
+  });
+
+  // A caller that can see how close it came can act before the base crosses
+  // the line; one that only ever hears "refused" finds out by being refused.
+  test("a successful load reports the budget it cleared", async () => {
+    expect(parsed(await at(["load"]))).toMatchObject({
+      loaded: true,
+      budgetTokens: 25000,
+    });
+    // Under --all no ceiling was applied, and the null says so.
+    expect(parsed(await at(["load", "--all"]))).toMatchObject({
+      loaded: true,
+      budgetTokens: null,
+    });
+  });
+
+  // `--flag=value` is the spelling half the world writes; silently ignoring it
+  // hands back the default the caller was trying to move.
+  test("flags take =-joined values as well as separated ones", async () => {
+    expect(parsed(await at(["load", "--budget=1"]))).toMatchObject({
+      loaded: false,
+      budgetTokens: 1,
+    });
+  });
+
+  // Falling back to the default here would mean a typo looks exactly like
+  // success, and the fallback is the very ceiling being raised.
+  test("a flag with no value is an error, not a silent default", async () => {
+    for (const args of [
+      ["load", "--budget"],
+      ["load", "--budget="],
+      // A following flag is not a value: this is a missing value too.
+      ["load", "--budget", "--all"],
+    ]) {
+      await expect(
+        runKbCli(["--bundle", bundle, ...args]),
+      ).rejects.toMatchObject({ name: "KbMissingFlagValueError" });
+    }
+  });
+
+  describe("catalog", () => {
+    test("names every record in one line, sorted by type then title", async () => {
+      const { stdout, exitCode } = await at(["catalog"]);
+
+      expect(exitCode).toBeUndefined();
+      expect(stdout).toContain("# KB Catalog");
+      expect(stdout).toContain(`bundle: ${bundle}`);
+      // Every record accounted for: the standings sum to the record count.
+      expect(stdout).toContain("2 records: 1 current · 1 open");
+      // Nothing is stale here, so the overlay line is absent rather than zero.
+      expect(stdout).not.toContain("stale");
+      expect(stdout).toContain(
+        "- fact.cache-key-includes-region · fact · The cache key includes the region · current",
+      );
+      expect(stdout).toContain(
+        "- open-question.retry-scope · open-question · Which failures should the client retry? · open",
+      );
+      // The listing is a menu; the bodies stay where they were.
+      expect(stdout).not.toContain("Every key is prefixed with the region.");
+      expect(stdout).toContain("kb_pack <conceptId>");
+    });
+
+    test("shows a superseded record with the replacement to read instead", async () => {
+      const store = new KbStore();
+      await store.write(
+        bundle,
+        composeRecord(
+          "decision",
+          {
+            slug: "retry-timeouts-only",
+            title: "Retry timeouts only",
+            why: "Retrying every failure repeats non-idempotent writes.",
+          },
+          "seed",
+          "2026-08-02T00:00:00Z",
+        ),
+      );
+      await store.supersede(
+        bundle,
+        "open-question.retry-scope",
+        "decision.retry-timeouts-only",
+        "seed",
+      );
+
+      const { stdout } = await at(["catalog"]);
+
+      expect(stdout).toContain(
+        "- open-question.retry-scope · open-question · Which failures should the client retry? · superseded → decision.retry-timeouts-only",
+      );
+      expect(stdout).toContain("3 records: 2 current · 1 superseded");
+    });
+
+    // Stale is a flag over a standing, not a standing: adding it to the run
+    // would stop the counts summing to the record count.
+    test("reports staleness as an overlay on the standings, not one of them", async () => {
+      const store = new KbStore();
+      await store.write(
+        bundle,
+        composeRecord(
+          "fact",
+          {
+            slug: "expired-note",
+            title: "A note past its date",
+            why: "It was true once.",
+            sections: { Claim: "It was true once." },
+            stale_after: "2020-01-01",
+          },
+          "seed",
+          "2026-08-02T00:00:00Z",
+        ),
+      );
+
+      const { stdout } = await at(["catalog"]);
+
+      expect(stdout).toContain("3 records: 2 current · 1 open");
+      expect(stdout).toContain(
+        "1 stale — a flag over the standings above, not one of them",
+      );
+    });
+
+    test("narrows to a type", async () => {
+      const { stdout } = await at(["catalog", "fact"]);
+
+      expect(stdout).toContain("# KB Catalog — fact");
+      expect(stdout).toContain("1 record: 1 current");
+      expect(stdout).not.toContain("open-question.retry-scope");
+    });
+
+    // No timestamp, and a total ordering, so two catalogs of an unchanged
+    // base within one clock window diff to nothing.
+    test("is byte-identical across runs over an unchanged base", async () => {
+      const first = await at(["catalog"]);
+      const second = await at(["catalog"]);
+
+      expect(second.stdout).toBe(first.stdout);
+    });
+
+    // A leading flag is not a type. Reading it as one would send a garbage
+    // value to the enum and refuse the whole call.
+    test("does not read a leading flag as the positional type", async () => {
+      const { stdout } = await at(["catalog", "--whatever"]);
+
+      expect(stdout).toContain("# KB Catalog\n");
+      expect(stdout).toContain("2 records:");
+    });
   });
 
   test("--all still resolves a positional type", async () => {
@@ -640,7 +801,10 @@ describe("runKbCli", () => {
         expect(swept.stdout).toContain("decision.region-in-key");
         expect(swept.stdout).toContain(`${file}:orderKey`);
         // Read-only: a sweep never re-stamps what it reports.
-        const after = await new KbStore().read(bundle, "decision.region-in-key");
+        const after = await new KbStore().read(
+          bundle,
+          "decision.region-in-key",
+        );
         expect(after?.frontmatter.strauss_anchors?.[0]?.hash).toBe(
           hashAnchorText(resolved.text),
         );
