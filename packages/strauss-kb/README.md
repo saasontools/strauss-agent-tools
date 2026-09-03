@@ -534,6 +534,14 @@ fact; a missing replacement is `broken-chain` with no head — the case that nee
 the most care, because returning the stale record unmarked looks exactly like
 success.
 
+**Placement is cache economics.** `load`'s output belongs in the stable
+prefix — system prompt or first turn; `query` and `pack` results belong at
+the tail. `digest` is the base's content stamp: a change-notification hook
+and `kb_stamp` (SAA-719) compare it to detect change, not the model. A
+prompt cache matches a byte-for-byte prefix, so one volatile result ahead of
+a stable load prices the base at full rate thereafter. Mechanism and digest
+caveats: <https://saasontools.github.io/strauss-agent-tools/mcp-reference>.
+
 ## Health
 
 `doctor` sweeps a whole base and reports what has decayed. It is read-only —
