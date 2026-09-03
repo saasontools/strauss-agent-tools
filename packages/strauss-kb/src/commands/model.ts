@@ -77,6 +77,22 @@ export const bundlePath = z
 
 export const conceptId = z.string().min(1).describe("e.g. decision.cursor-v2");
 
+/**
+ * Where the code an anchor points at lives, for the drift check.
+ *
+ * Pass it whenever the base is not inside the tree it describes: the default is
+ * the working directory, where a bundle read from elsewhere finds none of its
+ * anchored files. `KbStore.detectDrift` suppresses that case rather than
+ * reporting the whole base as drifted.
+ */
+export const REPO_ROOT = z
+  .string()
+  .min(1)
+  .optional()
+  .describe(
+    "Where the anchored source lives, for the drift check. Defaults to the working directory.",
+  );
+
 export function define<Shape extends z.ZodRawShape>(
   command: KbCommand<Shape>,
 ): KbCommand<z.ZodRawShape> {

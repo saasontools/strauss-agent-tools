@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { KB_RECORD_TYPES } from "../kb-record.schema.js";
-import { argvFlag, bundlePath, define } from "./model.js";
+import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
 
 export const loadCommand = define({
   name: "load",
   tool: "kb_load",
-  usage: "load [type] [--budget N] [--all]",
+  usage: "load [type] [--budget N | --all] [--repo-root PATH]",
   description:
     "Load the whole base, each record with its standing — first call for any question it governs, at the point of use since compaction drops it. Superseded records arrive as stubs; kb_trace has the history. Refuses over budget: call kb_catalog, then kb_pack on the record that matters, or narrow with `type`. `all` bypasses the budget. Never read record files directly — only kb_* tools resolve supersession.",
   input: z
@@ -24,6 +24,7 @@ export const loadCommand = define({
         .describe(
           "Loads the entire base regardless of size, bypassing the token budget; mutually exclusive with budgetTokens.",
         ),
+      repoRoot: REPO_ROOT,
     })
     .refine((value) => !(value.all && value.budgetTokens !== undefined), {
       message:
@@ -31,18 +32,24 @@ export const loadCommand = define({
     }),
   fromArgv: (argv, path) => {
     const budget = argvFlag(argv, "--budget");
+    const repoRoot = argvFlag(argv, "--repo-root");
     return {
       bundlePath: path,
       ...(argv[1] && !argv[1].startsWith("--") ? { type: argv[1] } : {}),
       ...(budget ? { budgetTokens: Number(budget) } : {}),
       ...(argv.includes("--all") ? { all: true } : {}),
+      ...(repoRoot !== undefined ? { repoRoot } : {}),
     };
   },
-  run: async ({ store }, { bundlePath: path, type, budgetTokens, all }) => {
+  run: async (
+    { store },
+    { bundlePath: path, type, budgetTokens, all, repoRoot },
+  ) => {
     const result = await store.load(path, {
       ...(type ? { type } : {}),
       ...(budgetTokens ? { budgetTokens } : {}),
       ...(all ? { all } : {}),
+      ...(repoRoot !== undefined ? { repoRoot } : {}),
     });
     if (!result.loaded) return result;
     return {

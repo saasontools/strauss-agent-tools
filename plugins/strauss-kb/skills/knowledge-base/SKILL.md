@@ -138,7 +138,10 @@ strauss-kb doctor     # health sweep: expired, unconfirmed, orphaned records
 sources.
 
 `doctor` never writes; groups: expired, expiring, unverified, aging, orphaned,
-broken supersession, superseded-but-cited. `--json` for machine output,
+broken supersession, superseded-but-cited, drifted. `--json` for machine output,
 `--strict` to exit 1 on any expiry.
+
+`strauss-kb anchor-resolve <id>` — re-hash a record's code anchors;
+`kb_load`/`kb_query` warn `drifted` when the code moved.
 
 Do not edit `INDEX.md` or `log.jsonl` by hand.

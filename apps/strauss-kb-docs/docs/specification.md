@@ -163,16 +163,19 @@ strauss_anchors:
 
 `strict()` — `file` is required and nothing outside this table is accepted:
 
-| Field         | Required | Meaning                                     |
-| ------------- | -------- | ------------------------------------------- |
-| `file`        | yes      | the repo-relative path the concept names    |
-| `symbol`      | no       | a symbol within it; absent means the file   |
-| `hash`        | no       | `sha256:<64 hex>` over the anchored text    |
-| `lines`       | no       | the **line count** that hash was taken over |
-| `resolved_at` | no       | ISO timestamp of the last resolution        |
+| Field         | Required | Meaning                                         |
+| ------------- | -------- | ----------------------------------------------- |
+| `file`        | yes      | the repo-relative path the concept names        |
+| `symbol`      | no       | a symbol within it; absent means the file       |
+| `hash`        | no       | `sha256:<64 hex>` over the anchored text        |
+| `lines`       | no       | the **line count** that hash was taken over     |
+| `resolved_at` | no       | ISO timestamp of the last resolution            |
+| `repo`        | no       | which repository; absent means the base's own   |
+| `ref`         | no       | git rev the evidence was taken at; unused in v1 |
 
 Anchors stay symbolic because they are written while the code is still moving;
 once it settles, a resolution pass stamps `hash`, `lines`, and `resolved_at`.
+Those three are measured; `repo` and `ref` are author-owned and never stamped.
 CRLF is normalized to LF before hashing, and `lines` is what lets a drift report
 say how much changed.
 
@@ -188,7 +191,7 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 | `unresolved` | it no longer resolves at all               |
 
 `unresolved` carries a reason: `file-missing`, `symbol-not-found`,
-`outside-repo`, `file-too-large`, or `file-unreadable`.
+`outside-repo`, `file-too-large`, `file-unreadable`, or `foreign-repo`.
 
 **Drift is computed on read, never stored.** [`load`](./cli-reference.md#load)
 and [`query`](./cli-reference.md#query) re-resolve hash-carrying anchors against

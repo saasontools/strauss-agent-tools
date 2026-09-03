@@ -45,6 +45,16 @@ export {
   type KbVerifiedEvent,
 } from "./kb-record.schema.js";
 export {
+  anchorFilePath,
+  detectAnchorDrift,
+  hashAnchorText,
+  regexResolver,
+  resolveAnchor,
+  type AnchorResolver,
+  type KbAnchorDriftEntry,
+  type ResolvedSymbol,
+} from "./anchor-resolver.js";
+export {
   RECORD_TYPES,
   isKbRecordType,
   type KbRecordTypeSpec,
