@@ -535,29 +535,26 @@ function errorCode(error: unknown): string | undefined {
     : undefined;
 }
 
-/**
- * Reads the file an anchor points at, or says why it could not.
- *
- * Containment is checked twice: lexically, then again against the real path.
- * A symlink inside the repository pointing out of it passes the first check
- * and defeats the whole rule — an untrusted bundle could otherwise use
- * `kb_load` to probe for files anywhere the process can read. The repo root is
- * realpath'd too, because on macOS the conventional temp roots are themselves
- * symlinks and a raw comparison would refuse every legitimate anchor there.
- *
- * Only ENOENT is `file-missing`. A permission error or a directory where a
- * file should be is not evidence that code moved, and reporting one as drift
- * would put a finding on a record nothing is wrong with.
- */
 export type AnchorFileReader = (file: string) => Promise<AnchorRead>;
 
 /** Resolves the repo root once, then reads anchor files against it. */
 export function anchorFileReader(repoRoot: string): AnchorFileReader {
   let rootOnce: Promise<string> | undefined;
-  const realRoot = () => (rootOnce ??= realpath(resolve(repoRoot)));
+  const realRoot = (): Promise<string> => {
+    rootOnce ??= realpath(resolve(repoRoot)).catch((error: unknown) => {
+      // A rejected promise stays cached forever if left as-is — clear it so
+      // the next read retries realpath instead of replaying one transient
+      // failure for the rest of the run. This read still reports its own
+      // file-missing/file-unreadable result via the catch below.
+      rootOnce = undefined;
+      throw error;
+    });
+    return rootOnce;
+  };
   return (file) => readAnchorFileWithRoot(repoRoot, file, realRoot);
 }
 
+/** Convenience wrapper: resolves the repo root fresh on every call. */
 export async function readAnchorFile(
   repoRoot: string,
   file: string,
@@ -567,6 +564,11 @@ export async function readAnchorFile(
   );
 }
 
+/**
+ * Containment is checked twice: lexically, then again against the realpath'd
+ * path — a symlink inside the repo pointing out must not leak reads. Only
+ * ENOENT/ENOTDIR is `file-missing`; other read errors are `file-unreadable`.
+ */
 async function readAnchorFileWithRoot(
   repoRoot: string,
   file: string,
@@ -670,6 +672,11 @@ export async function readAnchorFiles(
   read: AnchorFileReader,
   concurrency: number = DEFAULT_ANCHOR_READ_CONCURRENCY,
 ): Promise<Map<string, AnchorRead>> {
+  if (!Number.isInteger(concurrency) || concurrency < 1) {
+    throw new RangeError(
+      `readAnchorFiles: option "concurrency" must be a positive integer, got ${concurrency}`,
+    );
+  }
   const wanted = [...new Set(files)];
   const results = await mapLimit(wanted, concurrency, async (file) => {
     try {

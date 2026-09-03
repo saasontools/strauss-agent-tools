@@ -12,6 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { describe, expect, test as baseTest } from "vitest";
 import {
   anchorFilePath,
+  anchorFileReader,
   detectAnchorDrift,
   hashAnchorText,
   looksLikeWrongRepoRoot,
@@ -919,6 +920,27 @@ describe("detectAnchorDrift", () => {
       ]);
     });
 
+    test("a non-positive-integer concurrency throws RangeError, not NaN runners", async ({
+      repo,
+    }) => {
+      write(repo, "src/orders.ts", SOURCE);
+      const anchor = stamp("src/orders.ts", "totals", SOURCE);
+
+      await expect(
+        detectAnchorDrift([record("fact.rate", [anchor])], {
+          repoRoot: repo,
+          concurrency: NaN,
+        }),
+      ).rejects.toThrow(RangeError);
+
+      await expect(
+        detectAnchorDrift([record("fact.rate", [anchor])], {
+          repoRoot: repo,
+          concurrency: 0,
+        }),
+      ).rejects.toThrow(RangeError);
+    });
+
     test("a reader that throws unresolves that file only", async ({ repo }) => {
       const anchors = ["src/ok.ts", "src/boom.ts"].map((file) => ({
         ...stamp("src/orders.ts", "totals", SOURCE),
@@ -941,6 +963,30 @@ describe("detectAnchorDrift", () => {
           reason: "file-unreadable",
         },
       ]);
+    });
+  });
+
+  describe("anchorFileReader", () => {
+    test("a transient root realpath failure does not poison later reads", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "strauss-kb-anchors-root-"));
+      try {
+        // No repo has been created here yet, so the first realRoot() call
+        // rejects with ENOENT — the failure a rejected-promise cache would
+        // otherwise replay for the rest of the run.
+        const missingRoot = join(dir, "repo");
+        const read = anchorFileReader(missingRoot);
+
+        const first = await read("src/orders.ts");
+        expect(first).toEqual({ ok: false, reason: "file-missing" });
+
+        mkdirSync(join(missingRoot, "src"), { recursive: true });
+        writeFileSync(join(missingRoot, "src/orders.ts"), SOURCE, "utf8");
+
+        const second = await read("src/orders.ts");
+        expect(second).toEqual({ ok: true, source: SOURCE });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     });
   });
 
