@@ -99,6 +99,12 @@ export type CellUsage = {
   /** Served from cache; billed at `CACHE_READ_MULTIPLIER`. */
   cacheReadTokens: number;
   outputTokens: number;
+  /**
+   * Extended-thinking tokens, already counted inside `outputTokens`. Recorded
+   * rather than billed: the arms must differ in the prompt only, so a run whose
+   * thinking tokens are not zero is not the experiment it claims to be.
+   */
+  thinkingTokens?: number;
 };
 
 export type BenchCell = {
@@ -153,9 +159,15 @@ export type ArmDifference = {
   difference: ConfidenceInterval;
 };
 
+/** Which way the calls were made. See `bench/README.md`. */
+export type TransportId = "api" | "claude";
+
 export type BenchRun = {
   startedAt: string;
   finishedAt: string;
+  transport: TransportId;
+  /** The Claude Code version that answered, when `transport` is `claude`. */
+  transportVersion: string | null;
   bundleRecordCount: number;
   cells: BenchCell[];
   summaries: ArmSummary[];
@@ -167,5 +179,6 @@ export type BenchRun = {
     cacheWriteTokens: number;
     cacheReadTokens: number;
     outputTokens: number;
+    thinkingTokens: number;
   };
 };

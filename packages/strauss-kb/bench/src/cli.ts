@@ -9,7 +9,13 @@ import { renderJson, renderReport } from "./report.js";
 import { runBench } from "./runner.js";
 import { CORE_TASKS, TASKS, sampleTasks } from "./tasks.js";
 import { anthropicTransport } from "./transport.js";
-import type { ArmId, BenchTask } from "./model.js";
+import {
+  ClaudePreflightError,
+  DEFAULT_CLAUDE_CONCURRENCY,
+  claudeCodeTransport,
+  preflightClaude,
+} from "./transport-claude.js";
+import type { ArmId, BenchTask, TransportId } from "./model.js";
 import type { CostProjection } from "./models.js";
 
 const RESULTS_DIR = fileURLToPath(new URL("../results", import.meta.url));
@@ -19,6 +25,11 @@ const RESULTS_DIR = fileURLToPath(new URL("../results", import.meta.url));
 const CHARS_PER_TOKEN = 4;
 const ESTIMATED_OUTPUT_TOKENS = 220;
 
+/** Claude Code wraps every call in its own scaffolding, on top of the prompt. */
+const CLAUDE_SCAFFOLDING_TOKENS = 900;
+
+const TRANSPORT_IDS: readonly TransportId[] = ["api", "claude"];
+
 /** Every flag, with the line `--help` prints for it. */
 const FLAG_HELP: Record<string, string> = {
   full: `every arm and model over all ${TASKS.length} questions`,
@@ -26,7 +37,10 @@ const FLAG_HELP: Record<string, string> = {
   "arms=A,B": `arms to run (default A,B; --full runs ${ARM_IDS.join(",")})`,
   "models=<id,...>": "model ids to run (default the first; --full runs both)",
   "tasks=<n>": `how many questions to sample, 1-${TASKS.length}`,
-  "concurrency=<n>": "calls in flight, 1-32 (default 4)",
+  "transport=api|claude":
+    "api: the SDK on ANTHROPIC_API_KEY (default). claude: the local Claude Code CLI on its own login",
+  "concurrency=<n>":
+    "calls in flight, 1-32 (default 4; 2 for --transport=claude)",
   "out=<dir>": "where the .md and .json results are written",
   help: "this list",
 };
@@ -46,6 +60,7 @@ export type CliOptions = {
   taskCount: number;
   outDir: string;
   concurrency: number;
+  transport: TransportId;
 };
 
 /**
@@ -118,10 +133,21 @@ export function parseArgs(argv: readonly string[]): CliOptions {
       max: TASKS.length,
     },
   );
-  const concurrency = numeric(flags.get("concurrency"), 4, "--concurrency", {
-    min: 1,
-    max: 32,
-  });
+  const transport = (flags.get("transport") ?? "api") as TransportId;
+  if (!TRANSPORT_IDS.includes(transport)) {
+    throw new CliUsageError(
+      `unknown transport "${transport}". Valid transports: ${TRANSPORT_IDS.join(", ")}.`,
+    );
+  }
+
+  // The Claude Code default is lower: those calls go through one shared
+  // subscription rather than a rate-limited API key.
+  const concurrency = numeric(
+    flags.get("concurrency"),
+    transport === "claude" ? DEFAULT_CLAUDE_CONCURRENCY : 4,
+    "--concurrency",
+    { min: 1, max: 32 },
+  );
 
   return {
     help: flags.get("help") === "true",
@@ -132,6 +158,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     taskCount,
     outDir: flags.get("out") ?? RESULTS_DIR,
     concurrency,
+    transport,
   };
 }
 
@@ -203,7 +230,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   if (options.help) {
     write("pnpm bench -- [flags]");
     for (const [flag, description] of Object.entries(FLAG_HELP)) {
-      write(`  --${flag.padEnd(18)} ${description}`);
+      write(`  --${flag.padEnd(21)} ${description}`);
     }
     return 0;
   }
@@ -223,30 +250,61 @@ export async function main(argv: readonly string[]): Promise<number> {
   );
 
   write(
-    `arms ${options.arms.join(",")} | models ${options.models.join(",")} | ` +
-      `${tasks.length} questions | ${projection.calls} calls`,
+    `transport ${options.transport} | arms ${options.arms.join(",")} | ` +
+      `models ${options.models.join(",")} | ${tasks.length} questions | ` +
+      `${projection.calls} calls`,
   );
   write(
     `~${projection.prefixTokens.toLocaleString("en-US")} cached prefix tokens per arm, ` +
       `~${projection.tailTokens} uncached per call`,
   );
-  for (const [model, cost] of projection.byModel) {
+  if (options.transport === "claude") {
+    // Not a dollar figure: these calls draw on the login's quota, and Claude
+    // Code adds its own scaffolding to every prompt the bench composes.
     write(
-      `  ${model}: ~$${cost.cached.toFixed(2)} with the prefix cached, ` +
-        `~$${cost.uncached.toFixed(2)} if it never hits` +
-        (cost.prefixCaches
-          ? ""
-          : " (prefix is under this model's minimum cacheable size, so it will not cache)"),
+      `  Claude Code adds ~${CLAUDE_SCAFFOLDING_TOKENS} tokens of scaffolding per call, ` +
+        "on top of the counts above.",
     );
+    write(
+      "  What this spends is the subscription's quota, not dollars. The bill " +
+        "in the report is list price for the same tokens, for comparison only.",
+    );
+  } else {
+    for (const [model, cost] of projection.byModel) {
+      write(
+        `  ${model}: ~$${cost.cached.toFixed(2)} with the prefix cached, ` +
+          `~$${cost.uncached.toFixed(2)} if it never hits` +
+          (cost.prefixCaches
+            ? ""
+            : " (prefix is under this model's minimum cacheable size, so it will not cache)"),
+      );
+    }
   }
 
   if (options.estimateOnly) return 0;
 
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
+  let transport = anthropicTransport();
+  let transportVersion: string | null = null;
+  if (options.transport === "claude") {
+    try {
+      transportVersion = await preflightClaude();
+    } catch (error) {
+      if (!(error instanceof ClaudePreflightError)) throw error;
+      write(`bench: ${error.message}`);
+      return 2;
+    }
+    write(
+      `Claude Code ${transportVersion}, thinking disabled via MAX_THINKING_TOKENS=0.`,
+    );
+    transport = claudeCodeTransport({ concurrency: options.concurrency });
+  } else if (
+    !process.env.ANTHROPIC_API_KEY &&
+    !process.env.ANTHROPIC_AUTH_TOKEN
+  ) {
     write(
       "No ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN in the environment, so " +
-        "nothing was called. Re-run with credentials, or `pnpm test` for the " +
-        "dry-run suite.",
+        "nothing was called. Re-run with credentials, `--transport=claude` to " +
+        "go through the Claude Code CLI, or `pnpm test` for the dry-run suite.",
     );
     return 1;
   }
@@ -257,7 +315,9 @@ export async function main(argv: readonly string[]): Promise<number> {
     tasks,
     arms: options.arms,
     models: options.models,
-    transport: anthropicTransport(),
+    transport,
+    transportId: options.transport,
+    transportVersion,
     concurrency: options.concurrency,
     onCell: (cell) => {
       done += 1;
@@ -270,7 +330,9 @@ export async function main(argv: readonly string[]): Promise<number> {
 
   await mkdir(options.outDir, { recursive: true });
   const stamp = run.startedAt.replace(/[:.]/g, "-");
-  const label = options.full ? "full" : "smoke";
+  const label =
+    (options.full ? "full" : "smoke") +
+    (options.transport === "claude" ? "-claude" : "");
   await writeFile(
     join(options.outDir, `${label}-${stamp}.md`),
     renderReport(run),

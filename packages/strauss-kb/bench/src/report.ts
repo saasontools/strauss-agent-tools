@@ -31,6 +31,13 @@ export function renderReport(run: BenchRun): string {
   const lines: string[] = [
     "# Standing-fields control-arm benchmark",
     "",
+    `Transport: ${run.transport}` +
+      (run.transportVersion ? ` (Claude Code ${run.transportVersion})` : "") +
+      `. Thinking tokens: ${run.totals.thinkingTokens.toLocaleString("en-US")}` +
+      (run.totals.thinkingTokens === 0
+        ? " -- thinking was off, so the arms differ in the prompt only."
+        : " -- NOT zero, so some of the gap may be reasoning rather than fields."),
+    "",
     `Started ${run.startedAt}, finished ${run.finishedAt}. ` +
       `Bundle: ${run.bundleRecordCount} records. ${run.totals.calls} model calls` +
       (run.totals.errored
@@ -93,6 +100,13 @@ export function renderReport(run: BenchRun): string {
 
   lines.push("", "## Spend", "");
   lines.push(
+    ...(run.transport === "claude"
+      ? [
+          "List price for the tokens used, billed to the subscription: these",
+          "calls spent quota, not dollars.",
+          "",
+        ]
+      : []),
     `Cache writes bill at ${CACHE_WRITE_MULTIPLIER}x the base input rate, reads at ${CACHE_READ_MULTIPLIER}x.`,
     "A cache-read column near zero means the arm prefix is not caching -- check",
     "it against the model's minimum cacheable prefix before reading the cost as",

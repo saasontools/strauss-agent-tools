@@ -13,6 +13,7 @@ import type {
   BenchTask,
   TaskFamily,
   TaskType,
+  TransportId,
 } from "./model.js";
 import type { Transport } from "./transport.js";
 
@@ -29,6 +30,10 @@ export type RunOptions = {
   arms: readonly ArmId[];
   models: readonly string[];
   transport: Transport;
+  /** Recorded on the run so a result file says how the calls were made. */
+  transportId?: TransportId;
+  /** The transport's own version, when it has one (the Claude Code CLI). */
+  transportVersion?: string | null;
   /** In-flight calls. Kept low by default: the arms are not a load test. */
   concurrency?: number;
   maxTokens?: number;
@@ -50,6 +55,8 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
     arms,
     models,
     transport,
+    transportId = "api",
+    transportVersion = null,
     concurrency = 4,
     maxTokens = 2000,
     bootstrapIterations = 10_000,
@@ -137,6 +144,8 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
   return {
     startedAt,
     finishedAt: new Date().toISOString(),
+    transport: transportId,
+    transportVersion,
     bundleRecordCount: records.length,
     cells,
     summaries: summarize(cells, bootstrapIterations),
@@ -148,6 +157,7 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
       cacheWriteTokens: sum(cells, (cell) => cell.usage.cacheWriteTokens),
       cacheReadTokens: sum(cells, (cell) => cell.usage.cacheReadTokens),
       outputTokens: sum(cells, (cell) => cell.usage.outputTokens),
+      thinkingTokens: sum(cells, (cell) => cell.usage.thinkingTokens ?? 0),
     },
   };
 }

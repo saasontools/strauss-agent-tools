@@ -59,6 +59,20 @@ export {
   type RetryOptions,
   type Transport,
 } from "./transport.js";
+export {
+  CALL_TIMEOUT_MS,
+  ClaudePreflightError,
+  DEFAULT_CLAUDE_CONCURRENCY,
+  MAX_BUDGET_USD,
+  NO_THINKING_ENV,
+  claudeArgs,
+  claudeCodeTransport,
+  limitConcurrency,
+  preflightClaude,
+  readResult,
+  type ClaudeTransportOptions,
+  type ExecFile,
+} from "./transport-claude.js";
 export type {
   ArmDifference,
   ArmId,
@@ -74,4 +88,5 @@ export type {
   ScoredAnswer,
   TaskFamily,
   TaskType,
+  TransportId,
 } from "./model.js";

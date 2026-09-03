@@ -100,3 +100,11 @@ pnpm bench -- --full             # 30 questions x 4 arms x 2 models
 A real run needs `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`. Unknown arms,
 models, and out-of-range numbers are rejected before any call. Results land in
 `results/`, described in `results/README.md`.
+
+### Running on a Claude Code subscription
+
+`--transport=claude` sends each cell through the local `claude` CLI on its own
+login, no API key, spending quota rather than dollars; the reported bill is list
+price for the same tokens. Claude Code adds ~900 tokens of scaffolding per call,
+so it is a second condition, not a cheaper API. `MAX_THINKING_TOKENS=0` turns
+thinking off -- `--effort low` alone does not -- and the run records the total.

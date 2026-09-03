@@ -19,7 +19,13 @@ cd packages/strauss-kb
 export ANTHROPIC_API_KEY=...          # or ANTHROPIC_AUTH_TOKEN
 pnpm bench -- --full --estimate       # price it first
 pnpm bench -- --full
+
+pnpm bench -- --full --transport=claude --estimate   # no key: the local CLI
+pnpm bench -- --full --transport=claude
 ```
+
+The `claude` transport spends the login's quota, not dollars, and files its
+results as `full-claude-<timestamp>`.
 
 30 questions x 4 arms x 2 models = **240 calls**.
 
