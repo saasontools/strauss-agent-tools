@@ -1529,6 +1529,117 @@ describe("load", () => {
       expect(result.records).toHaveLength(1);
     });
   });
+
+  // The digest is what lets a caller keep `load`'s output in a cache-stable
+  // prefix and reload only when the bundle actually changed — see the
+  // README's Retrieval section.
+  describe("digest", () => {
+    test("carries a digest on a successful load", async ({ store, bundle }) => {
+      await store.write(bundle, fact("cursor-scans"));
+
+      const result = await store.load(bundle);
+
+      expect(result.loaded).toBe(true);
+      if (!result.loaded) return;
+      expect(result.digest).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    test("carries a digest on a refused load too", async ({
+      store,
+      bundle,
+    }) => {
+      await store.write(bundle, decision());
+
+      const result = await store.load(bundle, { budgetTokens: 1 });
+
+      expect(result.loaded).toBe(false);
+      if (result.loaded) return;
+      expect(result.digest).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    test("is identical across independent bundles with identical content", async ({
+      store,
+    }) => {
+      const bundleA = mkdtempSync(join(tmpdir(), "strauss-kb-"));
+      const bundleB = mkdtempSync(join(tmpdir(), "strauss-kb-"));
+      try {
+        await store.write(bundleA, fact("cursor-scans"));
+        await store.write(bundleB, fact("cursor-scans"));
+
+        const resultA = await store.load(bundleA);
+        const resultB = await store.load(bundleB);
+
+        expect(resultA.loaded).toBe(true);
+        expect(resultB.loaded).toBe(true);
+        if (!resultA.loaded || !resultB.loaded) return;
+        expect(resultA.digest).toBe(resultB.digest);
+      } finally {
+        rmSync(bundleA, { recursive: true, force: true });
+        rmSync(bundleB, { recursive: true, force: true });
+      }
+    });
+
+    // Sorted by concept id before hashing, so the digest is a function of
+    // content alone — never of the order records happened to be written in.
+    test("does not depend on write order", async ({ store }) => {
+      const bundleA = mkdtempSync(join(tmpdir(), "strauss-kb-"));
+      const bundleB = mkdtempSync(join(tmpdir(), "strauss-kb-"));
+      try {
+        await store.write(bundleA, fact("aaa"));
+        await store.write(bundleA, fact("zzz"));
+        await store.write(bundleB, fact("zzz"));
+        await store.write(bundleB, fact("aaa"));
+
+        const resultA = await store.load(bundleA);
+        const resultB = await store.load(bundleB);
+
+        expect(resultA.loaded).toBe(true);
+        expect(resultB.loaded).toBe(true);
+        if (!resultA.loaded || !resultB.loaded) return;
+        expect(resultA.digest).toBe(resultB.digest);
+      } finally {
+        rmSync(bundleA, { recursive: true, force: true });
+        rmSync(bundleB, { recursive: true, force: true });
+      }
+    });
+
+    test("changes when a record's content changes", async ({
+      store,
+      bundle,
+    }) => {
+      await store.write(bundle, fact("cursor-scans"));
+      const before = await store.load(bundle);
+      expect(before.loaded).toBe(true);
+      if (!before.loaded) return;
+
+      await store.setStatus(bundle, "fact.cursor-scans", "rejected");
+      const after = await store.load(bundle);
+      expect(after.loaded).toBe(true);
+      if (!after.loaded) return;
+
+      expect(after.digest).not.toBe(before.digest);
+    });
+
+    // Standing is part of the bundle's content even though a supersession
+    // does not touch the superseded record's own body or frontmatter file.
+    test("changes when a supersession flips a record's standing", async ({
+      store,
+      bundle,
+    }) => {
+      await store.write(bundle, fact("auth-throws"));
+      await store.write(bundle, fact("auth-retries"));
+      const before = await store.load(bundle);
+      expect(before.loaded).toBe(true);
+      if (!before.loaded) return;
+
+      await store.supersede(bundle, "fact.auth-throws", "fact.auth-retries");
+      const after = await store.load(bundle);
+      expect(after.loaded).toBe(true);
+      if (!after.loaded) return;
+
+      expect(after.digest).not.toBe(before.digest);
+    });
+  });
 });
 
 /** What a whole-file anchor's `lines` is, per `resolveAnchor`. */

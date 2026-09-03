@@ -410,7 +410,8 @@ was decided from a context holding no records. Superseded records arrive as
 stubs; `trace` reaches them by id.
 
 Place the result in the **stable prefix** — the system prompt, or the first turn
-— and reload only when the returned `digest` changes; query and pack results
+— and reload only when the returned
+[`digest`](./specification.md#the-load-digest) changes; query and pack results
 belong at the tail, where they cannot invalidate the cached prefix. `--all` is
 the deliberate-operator escape hatch, mutually exclusive with `--budget`.
 

@@ -1,3 +1,14 @@
+## 0.1.12 (2026-09-03)
+
+### 🩹 Fixes
+
+- kb_load: bundle content digest and cache-stable placement rule ([6840983](https://github.com/saasontools/strauss-agent-tools/commit/6840983))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.11 (2026-09-03)
 
 ### 🩹 Fixes

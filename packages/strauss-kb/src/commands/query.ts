@@ -7,7 +7,7 @@ export const queryCommand = define({
   tool: "kb_query",
   usage: "query <text...> [--repo-root PATH]",
   description:
-    "Search; every hit carries its standing. Flagged, never filtered: a superseded hit returns with its replacement, a rejected one is marked. Prefer kb_load when the base fits its budget — a full read beats search. Never read record files directly.",
+    "Search; every hit carries its standing. Flagged, never filtered: a superseded hit returns with its replacement, a rejected one is marked. Prefer kb_load when the base fits its budget — a full read beats search. Results are volatile: place them at the tail, not the cached prefix. Never read record files directly.",
   input: z.object({
     bundlePath,
     text: z.string().optional(),

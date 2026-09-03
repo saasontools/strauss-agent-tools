@@ -482,12 +482,13 @@ nulls mark that `all` was used.
 
 ### The load digest
 
-Every `load` result — refused or not — carries a `digest`: one SHA-256, hex,
-over every record it would hand back. Each current record contributes
+Every `load` result, refused or not, carries a `digest`: one SHA-256 over the
+records it would hand back. Each current record contributes
 `<conceptId>:current:<hash of its canonical recomposed markdown>` and each
-superseded stub `<conceptId>:superseded:<hash of the stub>`, sorted, joined, and
-hashed again, so listing order never matters and any change flips it. It exists
-for [cache-stable placement](./mcp-reference.md#kb_load).
+superseded stub `<conceptId>:superseded:<hash of the stub>`, sorted, joined,
+hashed again — any change flips it. A hook or `kb_stamp` (SAA-719) detects
+change without loading. It also drives
+[cache-stable placement](./mcp-reference.md#kb_load).
 
 :::caution A same-environment signal, not a cross-checkout proof
 The digest hashes each record's **canonical recomposed** form, not its on-disk

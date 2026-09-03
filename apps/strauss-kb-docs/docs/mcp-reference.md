@@ -185,6 +185,9 @@ stubs — pass the id to `kb_trace` for the history.
 
 Refuses over budget rather than truncating, `message` naming the next rung.
 
+Every result — refused or not — carries a `digest`, the base's content stamp
+(see [the load digest](./specification.md#the-load-digest)).
+
 :::tip Place this output in the stable prefix
 `kb_load`'s result belongs in the **stable prefix** — the system prompt, or the
 first turn — and should be reloaded only when the returned
