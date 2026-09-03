@@ -10,6 +10,22 @@ import { KbStore } from "../kb-store.js";
 import type { KbAnchor } from "../kb-record.schema.js";
 import { anchorResolveCommand } from "./anchor-resolve.js";
 
+/** Counts the files the command actually opens, per run. */
+const readerCalls: string[] = [];
+vi.mock("../anchor-resolver.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../anchor-resolver.js")>();
+  return {
+    ...actual,
+    anchorFileReader: (repoRoot: string) => {
+      const read = actual.anchorFileReader(repoRoot);
+      return (file: string) => {
+        readerCalls.push(file);
+        return read(file);
+      };
+    },
+  };
+});
+
 const SOURCE = [
   "export function totals(orders: Order[]): number {",
   "  return orders.length;",
@@ -49,6 +65,7 @@ describe("anchorResolveCommand", () => {
   });
 
   afterEach(() => {
+    readerCalls.length = 0;
     rmSync(repo, { recursive: true, force: true });
     rmSync(bundle, { recursive: true, force: true });
   });
@@ -116,6 +133,24 @@ describe("anchorResolveCommand", () => {
         repoRoot: repo,
       }),
     );
+
+  // Six anchors over three files used to be six reads; the prefetch pass
+  // collapses them to one per file.
+  test("reads each distinct anchor file once", async () => {
+    const source = [SOURCE, "export const LIMIT = 25;", ""].join("\n");
+    const files = ["src/a.ts", "src/b.ts", "src/c.ts"];
+    for (const file of files) writeSource(source, file);
+    const anchors = files.flatMap((file) => [
+      { ...stamped("totals", source), file },
+      { ...stamped("LIMIT", source), file },
+    ]);
+    await seed(anchors);
+
+    const output = await run({});
+
+    expect(output.results).toHaveLength(6);
+    expect(readerCalls).toEqual(files);
+  });
 
   test("an unchanged fixture matches every anchor and appends one verified event", async () => {
     writeSource(SOURCE);

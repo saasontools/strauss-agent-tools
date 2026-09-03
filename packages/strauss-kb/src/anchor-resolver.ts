@@ -506,13 +506,23 @@ export class LazyOrigin {
 
   constructor(private readonly repoRoot: string) {}
 
+  /** Asks git once, so later `isForeign` calls need no await. */
+  async prime(): Promise<void> {
+    if (this.asked) return;
+    this.url = await repoOriginUrl(this.repoRoot);
+    this.asked = true;
+  }
+
+  /** Only meaningful after `prime`; an unprimed origin identifies nothing. */
+  isForeign(anchor: KbAnchor): boolean {
+    if (!anchor.repo) return false;
+    return !repoIdentifies(anchor.repo, this.url);
+  }
+
   async foreign(anchor: KbAnchor): Promise<boolean> {
     if (!anchor.repo) return false;
-    if (!this.asked) {
-      this.url = await repoOriginUrl(this.repoRoot);
-      this.asked = true;
-    }
-    return !repoIdentifies(anchor.repo, this.url);
+    await this.prime();
+    return this.isForeign(anchor);
   }
 }
 
@@ -539,9 +549,28 @@ function errorCode(error: unknown): string | undefined {
  * file should be is not evidence that code moved, and reporting one as drift
  * would put a finding on a record nothing is wrong with.
  */
+export type AnchorFileReader = (file: string) => Promise<AnchorRead>;
+
+/** Resolves the repo root once, then reads anchor files against it. */
+export function anchorFileReader(repoRoot: string): AnchorFileReader {
+  let rootOnce: Promise<string> | undefined;
+  const realRoot = () => (rootOnce ??= realpath(resolve(repoRoot)));
+  return (file) => readAnchorFileWithRoot(repoRoot, file, realRoot);
+}
+
 export async function readAnchorFile(
   repoRoot: string,
   file: string,
+): Promise<AnchorRead> {
+  return readAnchorFileWithRoot(repoRoot, file, () =>
+    realpath(resolve(repoRoot)),
+  );
+}
+
+async function readAnchorFileWithRoot(
+  repoRoot: string,
+  file: string,
+  realRoot: () => Promise<string>,
 ): Promise<AnchorRead> {
   const lexical = anchorFilePath(repoRoot, file);
   if (lexical === null) return { ok: false, reason: "outside-repo" };
@@ -549,7 +578,7 @@ export async function readAnchorFile(
   let root: string;
   let path: string;
   try {
-    root = await realpath(resolve(repoRoot));
+    root = await realRoot();
     path = await realpath(lexical);
   } catch (error) {
     const code = errorCode(error);
@@ -607,6 +636,51 @@ export function looksLikeWrongRepoRoot(
   return checked > 0;
 }
 
+/** Default in-flight file reads. Bounded so a large base cannot hit EMFILE. */
+const DEFAULT_ANCHOR_READ_CONCURRENCY = 16;
+
+/** Runs `worker` over `items` with at most `limit` in flight, order preserved. */
+async function mapLimit<T, R>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const runners = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      while (next < items.length) {
+        const at = next++;
+        out[at] = await worker(items[at] as T);
+      }
+    },
+  );
+  await Promise.all(runners);
+  return out;
+}
+
+/**
+ * Reads each distinct file once with at most `concurrency` in flight.
+ *
+ * A reader that throws is one unreadable file, not a failed run.
+ */
+export async function readAnchorFiles(
+  files: readonly string[],
+  read: AnchorFileReader,
+  concurrency: number = DEFAULT_ANCHOR_READ_CONCURRENCY,
+): Promise<Map<string, AnchorRead>> {
+  const wanted = [...new Set(files)];
+  const results = await mapLimit(wanted, concurrency, async (file) => {
+    try {
+      return await read(file);
+    } catch {
+      return { ok: false, reason: "file-unreadable" } as AnchorRead;
+    }
+  });
+  return new Map(wanted.map((file, at) => [file, results[at] as AnchorRead]));
+}
+
 /**
  * Re-resolves every hash-carrying anchor and compares against the stored hash.
  *
@@ -615,30 +689,74 @@ export function looksLikeWrongRepoRoot(
  * run, only when some anchor declares a `repo`. A missing file or unresolvable
  * symbol is a finding (`unresolved`), never a throw. Each distinct file is read
  * once per run; all checked entries are returned per record, callers filter.
+ *
+ * Three phases: collect the checkable anchors, read their distinct files with
+ * a bounded pool, then resolve and hash in record order — so the output does
+ * not depend on which read finished first.
  */
 export async function detectAnchorDrift(
   records: KbRecord[],
-  options: { repoRoot?: string; resolver?: AnchorResolver } = {},
+  options: {
+    repoRoot?: string;
+    resolver?: AnchorResolver;
+    concurrency?: number;
+    /** Test seam: replaces the disk reader. */
+    reader?: AnchorFileReader;
+  } = {},
 ): Promise<Map<string, KbAnchorDriftEntry[]>> {
   const repoRoot = options.repoRoot ?? process.cwd();
   const resolver = options.resolver ?? regexResolver;
-  const drift = new Map<string, KbAnchorDriftEntry[]>();
-  const reads = new Map<string, AnchorRead>();
   const origin = new LazyOrigin(repoRoot);
 
+  // Phase 1: which anchors are checkable, and is any of them foreign?
+  type Planned = { anchor: KbAnchor; foreign: boolean };
+  const planned = new Map<string, Planned[]>();
+  let declaresRepo = false;
+  for (const record of records) {
+    const anchors = (record.frontmatter.strauss_anchors ?? []).filter(
+      (anchor) => anchor.hash,
+    );
+    if (!anchors.length) continue;
+    if (anchors.some((anchor) => anchor.repo)) declaresRepo = true;
+    planned.set(
+      record.conceptId,
+      anchors.map((anchor) => ({ anchor, foreign: false })),
+    );
+  }
+  if (declaresRepo) {
+    await origin.prime();
+    for (const entries of planned.values()) {
+      for (const entry of entries)
+        entry.foreign = origin.isForeign(entry.anchor);
+    }
+  }
+
+  // Phase 2: read each distinct readable file once, bounded.
+  const files: string[] = [];
+  for (const entries of planned.values()) {
+    for (const entry of entries) {
+      if (!entry.foreign) files.push(entry.anchor.file);
+    }
+  }
+  const reads = await readAnchorFiles(
+    files,
+    options.reader ?? anchorFileReader(repoRoot),
+    options.concurrency ?? DEFAULT_ANCHOR_READ_CONCURRENCY,
+  );
+
+  // Phase 3: resolve and hash synchronously, in the order records were given.
+  const drift = new Map<string, KbAnchorDriftEntry[]>();
   for (const record of records) {
     const entries: KbAnchorDriftEntry[] = [];
 
-    for (const anchor of record.frontmatter.strauss_anchors ?? []) {
-      if (!anchor.hash) continue;
-
+    for (const { anchor, foreign } of planned.get(record.conceptId) ?? []) {
       const base: Pick<KbAnchorDriftEntry, "file" | "symbol" | "storedHash"> = {
         file: anchor.file,
         ...(anchor.symbol ? { symbol: anchor.symbol } : {}),
-        storedHash: anchor.hash,
+        storedHash: anchor.hash as string,
       };
 
-      if (await origin.foreign(anchor)) {
+      if (foreign) {
         entries.push({
           ...base,
           state: "unresolved",
@@ -648,9 +766,6 @@ export async function detectAnchorDrift(
         continue;
       }
 
-      if (!reads.has(anchor.file)) {
-        reads.set(anchor.file, await readAnchorFile(repoRoot, anchor.file));
-      }
       const read = reads.get(anchor.file) as AnchorRead;
       if (!read.ok) {
         entries.push({

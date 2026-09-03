@@ -636,43 +636,48 @@ describe("detectAnchorDrift", () => {
   // Lexical containment passes and the read still escapes: a bundle is
   // untrusted data, and without the realpath re-check `kb_load` would follow
   // an in-repo symlink to probe any file the process can read.
-  onPosix("a symlink out of the repo is refused, not followed", async ({
-    repo,
-  }) => {
-    const outside = mkdtempSync(join(tmpdir(), "strauss-kb-outside-"));
-    try {
-      writeFileSync(join(outside, "secret.ts"), SOURCE, "utf8");
-      mkdirSync(join(repo, "src"), { recursive: true });
-      symlinkSync(join(outside, "secret.ts"), join(repo, "src", "link.ts"));
+  onPosix(
+    "a symlink out of the repo is refused, not followed",
+    async ({ repo }) => {
+      const outside = mkdtempSync(join(tmpdir(), "strauss-kb-outside-"));
+      try {
+        writeFileSync(join(outside, "secret.ts"), SOURCE, "utf8");
+        mkdirSync(join(repo, "src"), { recursive: true });
+        symlinkSync(join(outside, "secret.ts"), join(repo, "src", "link.ts"));
 
-      const anchor = { ...stamp("src/link.ts", "totals", SOURCE) };
-      const drift = await detectAnchorDrift([record("fact.link", [anchor])], {
-        repoRoot: repo,
-      });
+        const anchor = { ...stamp("src/link.ts", "totals", SOURCE) };
+        const drift = await detectAnchorDrift([record("fact.link", [anchor])], {
+          repoRoot: repo,
+        });
 
-      expect(drift.get("fact.link")?.[0]).toMatchObject({
-        state: "unresolved",
-        reason: "outside-repo",
-      });
-    } finally {
-      rmSync(outside, { recursive: true, force: true });
-    }
-  });
+        expect(drift.get("fact.link")?.[0]).toMatchObject({
+          state: "unresolved",
+          reason: "outside-repo",
+        });
+      } finally {
+        rmSync(outside, { recursive: true, force: true });
+      }
+    },
+  );
 
-  onPosix("a symlink that stays inside the repo is followed", async ({
-    repo,
-  }) => {
-    write(repo, "src/orders.ts", SOURCE);
-    symlinkSync(join(repo, "src", "orders.ts"), join(repo, "src", "alias.ts"));
-    const anchor = { ...stamp("src/orders.ts", "totals", SOURCE) };
+  onPosix(
+    "a symlink that stays inside the repo is followed",
+    async ({ repo }) => {
+      write(repo, "src/orders.ts", SOURCE);
+      symlinkSync(
+        join(repo, "src", "orders.ts"),
+        join(repo, "src", "alias.ts"),
+      );
+      const anchor = { ...stamp("src/orders.ts", "totals", SOURCE) };
 
-    const drift = await detectAnchorDrift(
-      [record("fact.alias", [{ ...anchor, file: "src/alias.ts" }])],
-      { repoRoot: repo },
-    );
+      const drift = await detectAnchorDrift(
+        [record("fact.alias", [{ ...anchor, file: "src/alias.ts" }])],
+        { repoRoot: repo },
+      );
 
-    expect(drift.get("fact.alias")?.[0]?.state).toBe("match");
-  });
+      expect(drift.get("fact.alias")?.[0]?.state).toBe("match");
+    },
+  );
 
   // A permission error or a directory where a file should be is not evidence
   // that code moved. Reporting it as `file-missing` would put a drift finding
@@ -820,6 +825,122 @@ describe("detectAnchorDrift", () => {
       });
 
       expect(drift.get("fact.plain")?.[0]?.state).toBe("match");
+    });
+  });
+
+  // Phase 2 reads files, not anchors: bounded, deduplicated, and never
+  // allowed to change the order phase 3 reports in.
+  describe("bounded concurrent reads", () => {
+    function tracker(delay = 0) {
+      const calls: string[] = [];
+      let inFlight = 0;
+      let peak = 0;
+      const reader = async (file: string) => {
+        calls.push(file);
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((done) => setTimeout(done, delay));
+        inFlight -= 1;
+        return { ok: true as const, source: SOURCE };
+      };
+      return {
+        reader,
+        calls,
+        get peak() {
+          return peak;
+        },
+      };
+    }
+
+    test("keeps at most `concurrency` reads in flight, and more than one", async ({
+      repo,
+    }) => {
+      const anchors = Array.from({ length: 8 }, (_, at) => ({
+        ...stamp("src/orders.ts", "totals", SOURCE),
+        file: `src/f${at}.ts`,
+      }));
+      const track = tracker(5);
+
+      await detectAnchorDrift([record("fact.many", anchors)], {
+        repoRoot: repo,
+        concurrency: 4,
+        reader: track.reader,
+      });
+
+      expect(track.peak).toBe(4);
+      expect(track.calls).toHaveLength(8);
+    });
+
+    test("reads each distinct file once across records that share files", async ({
+      repo,
+    }) => {
+      const anchor = (file: string) => ({
+        ...stamp("src/orders.ts", "totals", SOURCE),
+        file,
+      });
+      const files = ["src/a.ts", "src/b.ts"];
+      const track = tracker();
+
+      const drift = await detectAnchorDrift(
+        ["fact.one", "fact.two", "fact.three"].map((id) =>
+          record(id, files.map(anchor)),
+        ),
+        { repoRoot: repo, reader: track.reader },
+      );
+
+      expect(track.calls).toEqual(files);
+      expect([...drift.keys()]).toEqual(["fact.one", "fact.two", "fact.three"]);
+    });
+
+    test("matches the sequential reader entry for entry", async ({ repo }) => {
+      write(repo, "src/orders.ts", SOURCE);
+      write(repo, "src/other.ts", SOURCE);
+      const anchors = [
+        stamp("src/orders.ts", "OrderService.cancel", SOURCE),
+        { ...stamp("src/orders.ts", "totals", SOURCE), file: "src/other.ts" },
+        { ...stamp("src/orders.ts", "totals", SOURCE), file: "src/gone.ts" },
+      ];
+      const records = [
+        record("fact.a", anchors),
+        record("fact.b", [anchors[1] as (typeof anchors)[0]]),
+      ];
+
+      const bounded = await detectAnchorDrift(records, { repoRoot: repo });
+      const sequential = await detectAnchorDrift(records, {
+        repoRoot: repo,
+        concurrency: 1,
+      });
+
+      expect([...bounded]).toEqual([...sequential]);
+      expect(bounded.get("fact.a")?.map((entry) => entry.state)).toEqual([
+        "match",
+        "match",
+        "unresolved",
+      ]);
+    });
+
+    test("a reader that throws unresolves that file only", async ({ repo }) => {
+      const anchors = ["src/ok.ts", "src/boom.ts"].map((file) => ({
+        ...stamp("src/orders.ts", "totals", SOURCE),
+        file,
+      }));
+
+      const drift = await detectAnchorDrift([record("fact.mixed", anchors)], {
+        repoRoot: repo,
+        reader: async (file) => {
+          if (file === "src/boom.ts") throw new Error("EIO");
+          return { ok: true, source: SOURCE };
+        },
+      });
+
+      expect(drift.get("fact.mixed")).toMatchObject([
+        { file: "src/ok.ts", state: "match" },
+        {
+          file: "src/boom.ts",
+          state: "unresolved",
+          reason: "file-unreadable",
+        },
+      ]);
     });
   });
 

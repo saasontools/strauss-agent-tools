@@ -1,9 +1,11 @@
 import { z } from "zod";
 import {
+  anchorFileReader,
   hashAnchorText,
   LazyOrigin,
-  readAnchorFile,
+  readAnchorFiles,
   resolveAnchor,
+  type AnchorRead,
   type AnchorUnresolvedReason,
 } from "../anchor-resolver.js";
 import {
@@ -80,6 +82,19 @@ export const anchorResolveCommand = define({
     const origin = new LazyOrigin(root);
     let dirty = false;
 
+    // Foreign anchors are settled first so their files are never read, then
+    // the rest of the record's distinct files are fetched in one pass.
+    if (anchors.some((anchor) => anchor.repo)) await origin.prime();
+    const foreign = new Map(
+      anchors.map((anchor) => [anchor, origin.isForeign(anchor)] as const),
+    );
+    const reads = await readAnchorFiles(
+      anchors
+        .filter((anchor) => !foreign.get(anchor))
+        .map((anchor) => anchor.file),
+      anchorFileReader(root),
+    );
+
     for (const anchor of anchors) {
       const base: Pick<AnchorResolveResult, "file" | "symbol" | "storedHash"> =
         {
@@ -94,20 +109,20 @@ export const anchorResolveCommand = define({
       // Another repository's anchor: left exactly as it is, not read, not
       // stamped, and not counted against the record. Resolving it needs a
       // second checkout, which is SAA-709.
-      if (await origin.foreign(anchor)) {
+      if (foreign.get(anchor)) {
         results.push({ ...base, state: "unresolved", reason: "foreign-repo" });
         updated.push(anchor);
         continue;
       }
 
-      const read = await readAnchorFile(root, anchor.file);
-      if (!read.ok) {
-        results.push({ ...base, state: "unresolved", reason: read.reason });
+      const fileRead = reads.get(anchor.file) as AnchorRead;
+      if (!fileRead.ok) {
+        results.push({ ...base, state: "unresolved", reason: fileRead.reason });
         updated.push(anchor);
         continue;
       }
 
-      const resolved = resolveAnchor(read.source, anchor);
+      const resolved = resolveAnchor(fileRead.source, anchor);
       if (!resolved) {
         results.push({
           ...base,
