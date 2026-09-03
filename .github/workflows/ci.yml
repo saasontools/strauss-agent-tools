@@ -47,6 +47,9 @@ jobs:
       - run: pnpm nx affected -t test -- --coverage
 
       - name: Check plugin/package version drift
+        # A PR gate: on main the base is the last green run, which a release
+        # commit has already moved past.
+        if: github.event_name == 'pull_request'
         run: node scripts/check-plugin-package-drift.mjs
         env:
           NX_BASE: ${{ env.NX_BASE }}
