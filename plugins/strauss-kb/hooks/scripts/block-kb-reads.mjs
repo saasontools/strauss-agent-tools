@@ -26,7 +26,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const REDIRECT =
-  "KB directories are read via strauss-kb tools only (kb_load / kb_query / kb_trace) — " +
+  "KB directories are read via strauss-kb tools only (kb_load / kb_catalog / kb_pack / kb_query / kb_trace) — " +
   "file reads bypass supersession resolution and return replaced records as if current.";
 
 /**

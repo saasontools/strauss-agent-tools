@@ -249,10 +249,10 @@ Returns `{ conceptId, results, verified }`, each result carrying a `state` of
 supported ways to read a base. A raw file read bypasses supersession resolution
 and returns replaced records as if current.
 
-**The decision rule, in one line:** at or under the record gate (40 by default),
-`kb_load` the base whole; past it, `kb_catalog` to see every record in one line
-each and then `kb_pack` on the record the work centres on; for a lookup by
-wording, `kb_query`.
+**The decision rule, in one line:** while the base fits `kb_load`'s token budget
+(25,000 by default), `kb_load` it whole; once `kb_load` refuses, `kb_catalog` to
+see every record in one line each and then `kb_pack` on the record the work
+centres on; for a lookup by wording, `kb_query`.
 
 The rungs are ordered by what they cost and by what they can tell you. A whole
 read gives perfect recall and can say _no record answers this_. A catalog keeps
@@ -267,17 +267,16 @@ Load the whole base at once, each record with its standing. Usually the right
 first call: these bases run to a few thousand tokens, and a reader holding all
 of it has perfect recall and knows why it is asking, which no ranker does.
 
-| Parameter      | Type             | Required | Notes                                                                                          |
-| -------------- | ---------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `bundlePath`   | `string`         | yes      |                                                                                                |
-| `type`         | enum (12 types)  | no       | narrow to one record type                                                                      |
-| `budgetTokens` | positive integer | no       | approximate token ceiling. Defaults to 25000.                                                  |
-| `maxRecords`   | positive integer | no       | whole records handed over before the load refuses. Defaults to 40; stubs are not counted.      |
-| `all`          | `boolean`        | no       | load everything regardless of size, bypassing **both** ceilings. Mutually exclusive with them. |
-| `repoRoot`     | `string`         | no       | where the anchored source lives, for the drift check. Defaults to the working directory.       |
+| Parameter      | Type             | Required | Notes                                                                                    |
+| -------------- | ---------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `bundlePath`   | `string`         | yes      |                                                                                          |
+| `type`         | enum (12 types)  | no       | narrow to one record type                                                                |
+| `budgetTokens` | positive integer | no       | approximate token ceiling. Defaults to 25000.                                            |
+| `all`          | `boolean`        | no       | load everything regardless of size, bypassing the budget. Mutually exclusive with it.    |
+| `repoRoot`     | `string`         | no       | where the anchored source lives, for the drift check. Defaults to the working directory. |
 
-Refuses with counts rather than truncating when the base trips either ceiling,
-naming each one in `refusedBy` and pointing at the next rung down in `message`.
+Refuses with counts rather than truncating when the base trips the budget,
+naming the budget and pointing at the next rung down in `message`.
 Superseded records arrive as name, replacement and date stubs — pass the id to
 `kb_trace` for the history.
 
@@ -320,9 +319,7 @@ What that buys is the ability to **choose**: seeing every id and title, you know
 which record `kb_pack` should centre on, and you can conclude that no record
 covers a question at all — the one conclusion a truncated read can never
 support. Superseded records are listed with the replacement that stands in their
-place. The header counts every record by standing and reports the page count
-`kb_load`'s gate is held against, so you can tell before calling whether a load
-would refuse.
+place. The header counts every record by standing.
 
 Alone among the read tools this one has **no ceiling and never refuses** — it is
 where the others send you, so a refusal here would leave nowhere to go. Its cost
