@@ -95,6 +95,31 @@ export class KbPackBudgetExceededError extends BaseError {
 }
 
 /**
+ * A `rels` option naming something the walk can never follow.
+ *
+ * Refused rather than ignored: dropping an unrecognised rel would return an
+ * empty impact set — "nothing breaks" — indistinguishable from a genuine
+ * result. `related_to` is refused here too, since it asserts no dependence and
+ * following it can only produce that same empty set.
+ */
+export class KbUnknownLinkRelError extends BaseError {
+  constructor(
+    readonly rel: string,
+    readonly expected: readonly string[],
+  ) {
+    super({
+      message: `kb: ${rel} is not a rel a walk can follow — expected one of ${expected.join(", ")}`,
+      errorType: ErrorTypes.KbUnknownLinkRel,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { rel, expected: expected.join(", ") },
+    });
+  }
+}
+
+/**
  * A flag that takes a value, given none.
  *
  * `strauss-kb load --budget` used to read the next argv entry, find

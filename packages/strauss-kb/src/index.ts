@@ -20,12 +20,14 @@ export {
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
   KbSelfVerificationError,
+  KbUnknownLinkRelError,
   KbWriteConflictError,
 } from "./kb-errors.js";
 export {
   kbAnchorSchema,
   kbActorStampSchema,
   kbConceptIdSchema,
+  kbLinkSchema,
   kbRecordFrontmatterSchema,
   kbSourceSchema,
   kbVerifiedEventSchema,
@@ -37,6 +39,7 @@ export {
   KB_SLUG_PATTERN,
   type KbActorStamp,
   type KbAnchor,
+  type KbLink,
   type KbRecord,
   type KbRecordFrontmatter,
   type KbRecordStatus,
@@ -56,13 +59,21 @@ export {
 } from "./anchor-resolver.js";
 export {
   RECORD_TYPES,
+  LINK_RELS,
+  KB_CAUSAL_LINK_RELS,
+  KB_LINK_RELS,
+  isKbLinkRel,
   isKbRecordType,
+  type KbLinkRel,
+  type KbLinkRelSpec,
   type KbRecordTypeSpec,
 } from "./record-types.js";
 export {
   composeRecord,
   composeInputSchema,
+  composeLinkSchema,
   type ComposeInput,
+  type ComposeLink,
   type ComposedRecord,
 } from "./compose.js";
 export {
@@ -141,6 +152,7 @@ export {
 export {
   edgeNeighbours,
   neighbours,
+  DEFAULT_TYPED_LINK_RELS,
   KB_EDGE_KINDS,
   type KbEdgeKind,
   type KbNeighbour,
@@ -153,7 +165,23 @@ export {
   type KbPackResult,
   type KbPackedRecord,
 } from "./pack.js";
-export { validateBundle, type KbValidationProblem } from "./validate.js";
+export {
+  backlinks,
+  impact,
+  inboundIndex,
+  type KbBacklink,
+  type KbBacklinksResult,
+  type KbImpactOptions,
+  type KbImpactResult,
+  type KbImpactedRecord,
+  type KbInboundEdge,
+  type KbLinkEdge,
+} from "./kb-links/index.js";
+export {
+  validateBundle,
+  type KbValidationProblem,
+  type KbValidationSeverity,
+} from "./validate.js";
 export {
   doctor,
   DEFAULT_AGING_DAYS,
