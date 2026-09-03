@@ -57,6 +57,15 @@ type WithParse = {
   parse(conceptId: string, raw: string): KbRecord | null;
 };
 
+/**
+ * Isolates the store's private `ensureGitattributes` so two concurrent
+ * writers racing to create the same fresh `.gitattributes` can be simulated
+ * directly, without going through a full `write()`.
+ */
+type WithEnsureGitattributes = {
+  ensureGitattributes(root: string): Promise<void>;
+};
+
 interface Ctx {
   bundle: string;
   store: KbStore;
@@ -488,8 +497,8 @@ describe("KbStore", () => {
     expect(persisted).not.toBeNull();
   });
 
-  // Targets are marked concurrently, so both the marks landing and the order
-  // `supersededIds` reports them in are worth pinning.
+  // Targets are marked sequentially, in order, so both the marks landing and
+  // the order `supersededIds` reports them in are worth pinning.
   test("marks every supersedes target, reporting them in the order given", async ({
     store,
     bundle,
@@ -991,6 +1000,29 @@ describe(".gitattributes", () => {
     expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
       `${UNION_MERGE_LINE}\n`,
     );
+  });
+
+  // Two writers racing to create the same fresh `.gitattributes` both open it
+  // with `wx` (create-exclusive); the loser gets `EEXIST` rather than a real
+  // failure — the winner already wrote the same content, so the loser's call
+  // must resolve as success, not log an `outcome: "failed"` warning.
+  test("two concurrent ensureGitattributes calls on a fresh bundle both succeed", async ({
+    bundle,
+  }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+    mkdirSync(bundle, { recursive: true });
+
+    const internal = quiet as unknown as WithEnsureGitattributes;
+    await Promise.all([
+      internal.ensureGitattributes(bundle),
+      internal.ensureGitattributes(bundle),
+    ]);
+
+    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
+      `${UNION_MERGE_LINE}\n`,
+    );
+    expect(warnings).toEqual([]);
   });
 });
 

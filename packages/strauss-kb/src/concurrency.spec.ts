@@ -79,6 +79,57 @@ describe("mapLimit", () => {
     ).rejects.toThrow("boom");
   });
 
+  // Once one item rejects, no new item may start — in-flight items still
+  // finish (they were already running before the failure was known), but
+  // nothing past the failure point gets a chance to.
+  test("stops starting new items after a rejection, letting in-flight items finish", async () => {
+    const items = [1, 2, 3, 4, 5, 6];
+    const started = new Set<number>();
+    const gates = new Map(
+      items.filter((item) => item !== 2).map((item) => [item, gate()]),
+    );
+    let failItem2 = (): void => undefined;
+    const item2Gate = new Promise<void>((resolve) => {
+      failItem2 = resolve;
+    });
+
+    const run = mapLimit(items, 2, async (value) => {
+      started.add(value);
+      if (value === 2) {
+        await item2Gate;
+        throw new Error("boom-2");
+      }
+      await gates.get(value)!.promise;
+      return value;
+    });
+
+    // The two runners settle onto items 1 and 2, one item each.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(started).toEqual(new Set([1, 2]));
+
+    // Item 1 finishes, so its runner picks up item 3 — item 2 has not
+    // failed yet, so this is still a legitimate start.
+    gates.get(1)!.release();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(started).toEqual(new Set([1, 2, 3]));
+
+    // Same again for item 4.
+    gates.get(3)!.release();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(started).toEqual(new Set([1, 2, 3, 4]));
+
+    // Now item 2 rejects. Item 4's runner must see the failure flag before
+    // it would otherwise reach for item 5, so items 5 and 6 never start.
+    failItem2();
+    gates.get(4)!.release();
+
+    await expect(run).rejects.toThrow("boom-2");
+    expect(started).toEqual(new Set([1, 2, 3, 4]));
+  });
+
   test.each([Number.NaN, 0, -1, 1.5])(
     "rejects a limit of %p rather than silently running serially",
     async (limit) => {

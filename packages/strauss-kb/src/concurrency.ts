@@ -26,12 +26,18 @@ export async function mapLimit<T, R>(
   }
   const out = new Array<R>(items.length);
   let next = 0;
+  let failed = false;
   const runners = Array.from(
     { length: Math.min(limit, items.length) },
     async () => {
-      while (next < items.length) {
+      while (!failed && next < items.length) {
         const at = next++;
-        out[at] = await fn(items[at] as T, at);
+        try {
+          out[at] = await fn(items[at] as T, at);
+        } catch (error) {
+          failed = true;
+          throw error;
+        }
       }
     },
   );

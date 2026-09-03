@@ -193,15 +193,17 @@ export class KbStore {
     const targets = new Set(frontmatter.strauss_supersedes ?? []);
     targets.delete(conceptId);
 
-    // Targets are marked concurrently: each carries its own compare-and-swap
-    // and retry against its own file, so they share nothing to race over.
-    const ordered = [...targets];
-    const marked = await Promise.all(
-      ordered.map((old) =>
-        this.markSupersededRetrying(bundlePath, old, conceptId, actor),
-      ),
-    );
-    const supersededIds = ordered.filter((_, at) => marked[at]);
+    // Targets are marked sequentially, in order: targets are 1-3 in practice,
+    // and marking them concurrently made log.jsonl entry order depend on
+    // which retry finished first rather than on strauss_supersedes order.
+    const supersededIds: string[] = [];
+    for (const old of targets) {
+      if (
+        await this.markSupersededRetrying(bundlePath, old, conceptId, actor)
+      ) {
+        supersededIds.push(old);
+      }
+    }
 
     this.logger.info?.({
       operation: "kb.write",
@@ -874,10 +876,23 @@ export class KbStore {
       }
 
       if (existing === null) {
-        await writeFile(target, appendUnionMergeLine(""), {
-          encoding: "utf8",
-          flag: "wx",
-        });
+        try {
+          await writeFile(target, appendUnionMergeLine(""), {
+            encoding: "utf8",
+            flag: "wx",
+          });
+        } catch (error) {
+          // Another writer created the same file with the same content
+          // between our read and our write — a win for them counts as a win
+          // for us, not a failure.
+          if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+          this.logger.info?.({
+            operation: "kb.gitattributes.ensure",
+            bundlePath: root,
+            outcome: "exists",
+          });
+          return;
+        }
         this.logger.info?.({
           operation: "kb.gitattributes.ensure",
           bundlePath: root,
