@@ -60,19 +60,19 @@ and the package update from different places and neither prompts for the
 other:
 
 ```bash
-npm install -g @saasontools/strauss-kb@^0.1.8
+npm install -g @saasontools/strauss-kb@^0.1.9
 ```
 
 Skew is quiet by design: the SessionStart hook fails open, so an outdated
 binary produces no output rather than an error. `strauss-kb --version` reports
 what is installed; the MCP server reports the same value as `serverInfo.version`.
-This plugin is built against **0.1.8**.
+This plugin is built against **0.1.9**.
 
 ## What it adds
 
 **MCP server** — `strauss-kb-mcp` over stdio, no API key, one tool per
-command (`kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, `kb_write`, … see the
-package README).
+command (`kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, `kb_impact`,
+`kb_backlinks`, `kb_write`, … see the package README).
 
 **Skill** — `knowledge-base`: how to read standing, load before search, when
 to write. Skills are re-read where conversations are not, so this survives

@@ -1,5 +1,6 @@
 import { edgeNeighbours } from "./kb-edges.js";
 import type { KbRecord } from "./kb-record.schema.js";
+import { KB_CAUSAL_LINK_RELS } from "./record-types.js";
 
 /**
  * Edges a trace may follow — the shared kb-edges.ts definitions, minus
@@ -7,8 +8,24 @@ import type { KbRecord } from "./kb-record.schema.js";
  * suits a bounded pack but floods a timeline. Also absent by design:
  * `strauss_answered` carries no target id, so a question's resolution lives
  * in its own body rather than in another record.
+ *
+ * `typed-link` is in, where `body-link` is out, because the two differ in how
+ * cheaply they are made. A body link is any markdown a writer happened to
+ * type; a `strauss_links` entry is a deliberate claim from a closed vocabulary
+ * about what this record depends on. That is exactly the kind of edge a
+ * timeline should follow — "we chose this because of that" is the history.
+ *
+ * Only the causal rels, though. `related_to` asserts no dependence and reaches
+ * whatever a writer thought worth mentioning, which is the same flooding
+ * `body-link` is excluded for; a bibliography is a neighbourhood's business
+ * (`pack`), not a history's.
  */
-export const TRACE_EDGES = ["supersession", "anchor", "source"] as const;
+export const TRACE_EDGES = [
+  "typed-link",
+  "supersession",
+  "anchor",
+  "source",
+] as const;
 export type KbTraceEdge = (typeof TRACE_EDGES)[number];
 
 export type KbTraceStep = {
@@ -57,7 +74,12 @@ export function trace(
     const next: KbRecord[] = [];
     for (const from of frontier) {
       for (const edge of edges) {
-        for (const record of edgeNeighbours(from, bundle, edge)) {
+        for (const record of edgeNeighbours(
+          from,
+          bundle,
+          edge,
+          KB_CAUSAL_LINK_RELS,
+        )) {
           const existing = reached.get(record.conceptId);
           if (existing) {
             // Reached twice by different edges: keep the shorter path, but

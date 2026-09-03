@@ -38,8 +38,8 @@ bodies are not. Small or critical bases arrive whole (`mode: full` in
   line.
 - **Only the tools read a base.** A raw file read bypasses supersession
   resolution — a superseded or rejected record file reads exactly like a
-  current one. `kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, and `kb_trace`
-  are the door.
+  current one. `kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, `kb_trace`,
+  `kb_impact`, and `kb_backlinks` are the door.
 
 ## Reading: load before you search
 
@@ -92,6 +92,25 @@ shared code anchors, and shared sources. It deliberately includes the rejected
 alternatives and the superseded earlier understanding — in a history those are
 the content, and a trace without them has kept the conclusion and thrown away
 the answer.
+
+## "What breaks if I change this?"
+
+```bash
+strauss-kb impact fact.region-key       # the transitive set of dependants
+strauss-kb backlinks fact.region-key    # every inbound edge, one hop, any rel
+```
+
+Records can declare typed causal edges in `links`. An edge lives on the source
+and reads source → target: `{ "target": "fact.region-key", "rel":
+"depends_on" }` on a decision says the decision needs that fact. The vocabulary
+is closed; there is no supersession rel. Run `impact` before superseding,
+contradicting, or narrowing a record. Which end depends on which is per-rel:
+
+| Rel                                              | Who breaks when the other changes |
+| ------------------------------------------------ | --------------------------------- |
+| `depends_on`, `verified_by`, `satisfies`         | **A** — so B's impact includes A  |
+| `constrains`, `informs`, `blocks`, `invalidates` | **B** — so A's impact includes B  |
+| `related_to`                                     | neither; `impact` does not follow |
 
 ## Writing
 
