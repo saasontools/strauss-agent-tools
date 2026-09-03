@@ -1328,6 +1328,70 @@ describe("load", () => {
     expect(rejected?.standing).toBe("rejected");
     expect(rejected?.record.body).toContain("The evidence.");
   });
+
+  describe("the refusal", () => {
+    // A caller told only "too big" raises the ceiling. One told what to call
+    // instead has somewhere else to go.
+    test("names the budget and the next commands", async ({
+      store,
+      bundle,
+    }) => {
+      await store.write(bundle, decision());
+
+      const result = await store.load(bundle, { budgetTokens: 1 });
+
+      expect(result.loaded).toBe(false);
+      if (result.loaded) return;
+      expect(result.message).toContain("1-token budget");
+      expect(result.message).toContain("kb_catalog");
+      expect(result.message).toContain("kb_pack");
+      expect(result.message).toContain("kb_query");
+    });
+
+    // Symmetric with the refusal: a caller that can see how close it came can
+    // act before the base crosses the line.
+    test("a successful load reports the budget it cleared", async ({
+      store,
+      bundle,
+    }) => {
+      await store.write(bundle, fact("kept"));
+
+      const result = await store.load(bundle);
+
+      expect(result.loaded).toBe(true);
+      if (!result.loaded) return;
+      expect(result.budgetTokens).toBe(25_000);
+    });
+
+    test("all reports the budget as null, not as its default", async ({
+      store,
+      bundle,
+    }) => {
+      await store.write(bundle, fact("kept"));
+
+      const result = await store.load(bundle, { all: true });
+
+      expect(result.loaded).toBe(true);
+      if (!result.loaded) return;
+      expect(result.budgetTokens).toBeNull();
+    });
+
+    // The filter narrows what is loaded, so it has to narrow what is costed —
+    // otherwise "load one type" is refused by records it never returns.
+    test("costs the filtered slice, not the whole base", async ({
+      store,
+      bundle,
+    }) => {
+      await writeOverBudgetBundle(store, bundle);
+      await store.write(bundle, decision());
+
+      const result = await store.load(bundle, { type: "decision" });
+
+      expect(result.loaded).toBe(true);
+      if (!result.loaded) return;
+      expect(result.records).toHaveLength(1);
+    });
+  });
 });
 
 const OVER_BUDGET_RECORD_COUNT = 40;

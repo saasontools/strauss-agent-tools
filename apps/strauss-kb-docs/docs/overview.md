@@ -102,14 +102,14 @@ thousand tokens, which is cheaper than being wrong.
 
 ### The three rungs, in one rule
 
-At or under the gate, `load` the base whole. Past it,
+While the base fits the budget, `load` it whole. Once it refuses,
 [`catalog`](./cli-reference.md#catalog) to see every record in one line each,
 then [`pack`](./cli-reference.md#pack) the record the work centres on. For a
 lookup by wording — you already know roughly what the record says —
 [`query`](./cli-reference.md#query).
 
 ```bash
-strauss-kb load                          # under the gate: everything, with standing
+strauss-kb load                          # under the budget: everything, with standing
 strauss-kb catalog                       # past it: one line per record, ~30 tokens each
 strauss-kb pack decision.cursor-v2       # then the neighbourhood around the one that matters
 strauss-kb query cursor pagination       # or a point lookup by wording
@@ -122,11 +122,10 @@ so "nothing covers this" stays a supportable conclusion — and gives up the
 bodies. A query gives up both: it returns its nearest hit whatever the distance,
 so it can confirm what exists and never that something does not.
 
-`load` holds two ceilings and **refuses rather than truncating** past either: a
-25,000-token budget, and a 40-record gate. The gate is not a restatement of the
-budget — the budget asks whether the base will _fit_, the gate asks whether it
-is the right _shape_ to read whole, and a base of many short records passes the
-budget while still reading as a skim.
+`load` holds a 25,000-token budget and **refuses rather than truncating** past
+it: a truncated base reads exactly like a complete one, so a caller would answer
+"that was never decided" from a slice it did not know was a slice. The refusal
+names the budget and points at `catalog`, then `pack`.
 
 ## Where to go next
 

@@ -34,6 +34,7 @@ import { adjudicate, type KbAdjudicated } from "./adjudicate.js";
 import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
 import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
+import { catalog, type KbCatalogResult } from "./catalog.js";
 import {
   LOG_FILE,
   parseLog,
@@ -94,6 +95,8 @@ export type KbLoadResult =
       recordCount: number;
       approxTokens: number;
       budgetTokens: number;
+      /** The refusal in words, naming the budget and what to call next. */
+      message: string;
     };
 
 export type KbWriteInput = {
@@ -467,13 +470,24 @@ export class KbStore {
    * is indistinguishable from a complete one, so a caller would answer "that
    * was never decided" from a slice it did not know was a slice.
    *
-   * That refusal is the default guardrail. `all` bypasses it outright and
-   * always hands back the whole bundle: an explicit, never-accidental escape
-   * hatch for an operator who has the budget to spend, not a wider default.
+   * A token budget decides that, measured over what is actually handed back.
+   * The refusal names the estimate and the budget, because a caller told only
+   * "too big" cannot tell whether to narrow the type filter, raise the budget,
+   * or stop loading the base whole altogether. Past the budget the answer is
+   * the catalog and then a pack, which is what the refusal says.
+   *
+   * That refusal is the default guardrail. `all` bypasses the budget outright
+   * and always hands back the whole bundle: an explicit, never-accidental
+   * escape hatch for an operator who has the budget to spend, not a wider
+   * default.
    */
   async load(
     bundlePath: string,
-    options: { budgetTokens?: number; type?: string; all?: boolean } = {},
+    options: {
+      budgetTokens?: number;
+      type?: string;
+      all?: boolean;
+    } = {},
   ): Promise<KbLoadResult> {
     const budgetTokens = options.budgetTokens ?? DEFAULT_LOAD_BUDGET;
     const bundle = await this.list(bundlePath);
@@ -501,6 +515,11 @@ export class KbStore {
         recordCount: wanted.length,
         approxTokens,
         budgetTokens,
+        message: refusalMessage({
+          approxTokens,
+          budgetTokens,
+          type: options.type,
+        }),
       };
     }
 
@@ -521,6 +540,14 @@ export class KbStore {
     options: KbTraceOptions = {},
   ): Promise<KbTraceStep[]> {
     return trace(seedId, await this.list(bundlePath), options);
+  }
+
+  /** Every record named in one line each. See `catalog.ts`. */
+  async catalog(
+    bundlePath: string,
+    options: { type?: string; now?: Date } = {},
+  ): Promise<KbCatalogResult> {
+    return catalog(await this.list(bundlePath), options);
   }
 
   /** A bounded neighbourhood around one record. See `pack.ts`. */
@@ -852,6 +879,21 @@ export function estimateTokens(record: KbRecord): number {
 
 export function estimateStubTokens(entry: KbSupersededStub): number {
   return Math.ceil(JSON.stringify(entry).length / 4);
+}
+
+/** What a refused load says: what tripped the budget, and what to call next. */
+function refusalMessage(refusal: {
+  approxTokens: number;
+  budgetTokens: number;
+  type?: string;
+}): string {
+  const scope = refusal.type ? ` of type ${refusal.type}` : "";
+
+  return [
+    `Refusing to load this base whole: ~${refusal.approxTokens} tokens is past the ${refusal.budgetTokens}-token budget.`,
+    `Call kb_catalog for one line per record${scope} (id, type, title, standing), then kb_pack on the record that matters; kb_query works for a lookup by wording.`,
+    `To load anyway: raise budgetTokens (currently ${refusal.budgetTokens}), or all=true to bypass the budget.`,
+  ].join(" ");
 }
 
 /**

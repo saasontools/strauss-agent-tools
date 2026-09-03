@@ -8,7 +8,14 @@ export {
   type KbWriteInput,
 } from "./kb-store.js";
 export {
+  catalog,
+  renderCatalogLine,
+  type KbCatalogEntry,
+  type KbCatalogResult,
+} from "./catalog.js";
+export {
   KbInvalidConceptIdError,
+  KbMissingFlagValueError,
   KbPackBudgetExceededError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,

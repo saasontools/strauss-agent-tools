@@ -31,9 +31,9 @@ does nothing reads as one that worked.
 
 A flag taking a value accepts either spelling — `--budget 4000` or
 `--budget=4000` — and a flag given **no** value is an error rather than a fall
-back to the default. `strauss-kb load --max-records` quietly returning the
-default 40 would hand the caller the exact ceiling they were trying to move, and
-a trailing typo would be indistinguishable from success.
+back to the default. `strauss-kb load --budget` quietly returning the default
+25000 would hand the caller the exact ceiling they were trying to move, and a
+trailing typo would be indistinguishable from success.
 
 Errors go to stderr and exit 1. `validate` and `doctor --strict` are the
 commands whose exit code says more than "did it run": a check that reports a
@@ -225,24 +225,23 @@ rebaselined? }`. On a frozen base nothing is stamped and the result says so.
 ### `load`
 
 ```
-load [type] [--budget N] [--max-records N] [--all] [--repo-root PATH]
+load [type] [--budget N] [--all] [--repo-root PATH]
 ```
 
 Hand over the whole base, each record with its standing. The optional positional
 narrows to one record type.
 
-| Flag               | Default | Effect                                                                                                  |
-| ------------------ | ------- | ------------------------------------------------------------------------------------------------------- |
-| `--budget N`       | 25000   | Approximate token ceiling.                                                                              |
-| `--max-records N`  | 40      | How many whole records may be handed over before the load refuses. Superseded stubs are not counted.    |
-| `--all`            | —       | Load everything regardless of size, bypassing **both** ceilings. Mutually exclusive with the other two. |
-| `--repo-root PATH` | cwd     | Where the anchored source lives, for the [drift check](./specification.md#drift).                       |
+| Flag               | Default | Effect                                                                                |
+| ------------------ | ------- | ------------------------------------------------------------------------------------- |
+| `--budget N`       | 25000   | Approximate token ceiling.                                                            |
+| `--all`            | —       | Load everything regardless of size, bypassing the budget. Mutually exclusive with it. |
+| `--repo-root PATH` | cwd     | Where the anchored source lives, for the [drift check](./specification.md#drift).     |
 
-Refuses with counts rather than truncating when the base trips either ceiling —
-a truncated base is indistinguishable from a complete one. The refusal names
-every ceiling it tripped in `refusedBy` and carries a `message` pointing at the
-next rung down. A successful load reports `pageCount` and `maxRecords` too, so a
-caller can see the line coming rather than discover it.
+Refuses with counts rather than truncating when the base trips the budget — a
+truncated base is indistinguishable from a complete one. The refusal names the
+budget and carries a `message` pointing at the next rung down. A successful load
+reports `budgetTokens` too, so a caller can see the line coming rather than
+discover it.
 
 Every result carries a `digest` — one SHA-256 over the content it would hand
 back — for [cache-stable placement](./mcp-reference.md#kb_load).
@@ -250,7 +249,6 @@ back — for [cache-stable placement](./mcp-reference.md#kb_load).
 ```bash
 strauss-kb load
 strauss-kb load decision --budget 8000
-strauss-kb load --max-records 80
 strauss-kb load --all
 ```
 
@@ -268,8 +266,7 @@ narrows to one record type; there are no flags.
 
 Superseded records are listed with the replacement that stands in their place,
 so the line to follow instead is already in view. The header counts every record
-by standing and reports the `pageCount` the record gate is held against, so you
-can tell before calling whether a `load` would refuse.
+by standing.
 
 ```bash
 strauss-kb catalog
@@ -280,7 +277,6 @@ strauss-kb catalog open-question
 # KB Catalog
 bundle: /repo/.strauss/kb
 3 records: 2 current · 1 superseded
-2 pages for kb_load's record gate (40 by default); superseded records are stubs, not pages
 
 - decision.retry-timeouts-only · decision · Retry timeouts only · current
 - fact.cache-key-includes-region · fact · The cache key includes the region · current

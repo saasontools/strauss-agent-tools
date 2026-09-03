@@ -13,7 +13,8 @@ Two surfaces, one command set — use whichever the session already has:
 - MCP tools `kb_*` from the `strauss-kb` server. Clients namespace MCP tool
   names, so in your session they may appear as `mcp__strauss-kb__kb_load` or
   similar — the `kb_*` suffix is the stable part; every mention of `kb_load`,
-  `kb_query`, `kb_trace` here means whatever your client calls that tool.
+  `kb_catalog`, `kb_pack`, `kb_query`, `kb_trace` here means whatever your
+  client calls that tool.
 - The `strauss-kb` CLI (requires `npm install -g @saasontools/strauss-kb`).
 
 Every example below is written for the CLI. The MCP tool of the same name takes
@@ -37,7 +38,8 @@ bodies are not. Small or critical bases arrive whole (`mode: full` in
   line.
 - **Only the tools read a base.** A raw file read bypasses supersession
   resolution — a superseded or rejected record file reads exactly like a
-  current one. `kb_load`, `kb_query`, and `kb_trace` are the door.
+  current one. `kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, and `kb_trace`
+  are the door.
 
 ## Reading: load before you search
 
@@ -51,14 +53,19 @@ strauss-kb load               # everything, each record with its standing
 strauss-kb load decision      # narrowed to one type
 ```
 
-If `load` returns `loaded: false`, the base is over budget — it refuses rather
-than truncating, because a truncated base looks exactly like a complete one.
-Then search:
+If `load` returns `loaded: false`, the base is past its token budget (25,000
+estimated tokens by default) and its `message` names what to call next:
 
 ```bash
-strauss-kb query cursor pagination keyset
-strauss-kb list open-question
+strauss-kb catalog                       # one line per record: id, type, title, standing
+strauss-kb pack decision.cursor-v2       # the bounded neighbourhood around one record
+strauss-kb query cursor pagination keyset  # a point lookup by wording
 ```
+
+**The rule in one line:** under the budget, `load` whole; past it, `catalog`
+then `pack`; for a lookup by wording, `query`. Reach for `catalog` when the question
+is _what exists_ — it names every record, so "no record covers this" stays
+supportable, which a `query`'s nearest-hit-regardless-of-distance cannot.
 
 **Read the standing, not just the match.** Every result carries one:
 
