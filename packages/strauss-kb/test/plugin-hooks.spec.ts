@@ -629,9 +629,12 @@ process.stdout.write("[]");
     const source = readFileSync(validateHook, "utf8");
     const match = /PINNED_STRAUSS_KB_VERSION = "([^"]+)"/.exec(source);
     expect(match).not.toBeNull();
-    const pinned = match![1];
+    const pinned = match![1] ?? "";
     expect(pinned).toMatch(/^\d+\.\d+\.\d+$/);
-    const toTuple = (v: string) => v.split(".").map(Number);
+    const toTuple = (v: string): [number, number, number] => {
+      const [a = 0, b = 0, c = 0] = v.split(".").map(Number);
+      return [a, b, c];
+    };
     const [pa, pb, pc] = toTuple(pinned);
     const [qa, qb, qc] = toTuple(packageVersion);
     const notAhead =
