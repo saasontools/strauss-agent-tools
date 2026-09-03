@@ -30,7 +30,11 @@ export type AnchorUnresolvedReason =
   | "ref-not-found"
   | "repo-unauthorized"
   /** No default branch, so there is no "current" to compare against. */
-  | "default-branch-unknown";
+  | "default-branch-unknown"
+  /** The anchor's `ref` is not a name git may safely be handed. */
+  | "ref-invalid"
+  /** The anchor's `repo` is not a remote we will fetch from. */
+  | "repo-invalid";
 
 /**
  * How a ref-pinned foreign anchor stands. `drifted-on-default` is the one a

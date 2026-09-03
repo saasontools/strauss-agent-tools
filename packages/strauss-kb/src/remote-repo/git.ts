@@ -16,6 +16,23 @@ export type GitRun = {
 };
 
 /**
+ * The environment a `git` child gets. `GIT_TERMINAL_PROMPT` is cleared so a
+ * credential helper that decides to prompt cannot block the run forever on a
+ * repository the caller has no access to. `GIT_DIR`, `GIT_WORK_TREE`, and
+ * `GIT_INDEX_FILE` are stripped because they override `cwd` — a caller's
+ * environment must not be able to redirect a cache operation at another
+ * repository. The global config stays: it is where the user's own credential
+ * helper lives.
+ */
+function childEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+  for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"]) {
+    delete env[name];
+  }
+  return env;
+}
+
+/**
  * One `git` invocation, argv only — never a shell, because `repo`, `ref`, and
  * `file` are bundle data. A non-zero exit is a result, not a throw.
  */
@@ -30,9 +47,7 @@ export async function git(
       maxBuffer: options.maxBytes ?? MAX_ANCHOR_FILE_BYTES,
       encoding: "utf8",
       windowsHide: true,
-      // A credential helper that decides to prompt would otherwise block the
-      // run forever on a repository the caller has no access to.
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: childEnv(),
     });
     return { ok: true, stdout, stderr, overflowed: false };
   } catch (error) {

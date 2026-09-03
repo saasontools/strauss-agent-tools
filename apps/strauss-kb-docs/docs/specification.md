@@ -192,7 +192,8 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 
 `unresolved` carries a reason: `file-missing`, `symbol-not-found`,
 `outside-repo`, `file-too-large`, `file-unreadable`, `remote-unreachable`,
-`ref-not-found`, `repo-unauthorized`, or `default-branch-unknown`.
+`ref-not-found`, `repo-unauthorized`, `default-branch-unknown`, `ref-invalid`,
+or `repo-invalid`.
 
 **Drift is computed on read, never stored.** [`load`](./cli-reference.md#load)
 and [`query`](./cli-reference.md#query) re-resolve hash-carrying anchors against
@@ -235,6 +236,15 @@ Without a `ref` there is one state, against the default branch. Only a full URL
 can be fetched from, so `validate` warns on a short `repo`; records are never
 rewritten. `load` and `query` never fetch — they read the cache, and report
 anything they could not check as `unchecked`.
+
+`repo` and `ref` are record data, and both reach `git` argv, where an argv array
+stops the shell but not git's own option parsing. So both are checked before git
+sees them: a `ref` must be an option-free, range-free name git's own
+`check-ref-format` accepts (`ref-invalid` otherwise), and a `repo` must be an
+`https`, `ssh`, or `git` remote carrying no password (`repo-invalid` otherwise —
+`ext::`, `file://`, and plaintext `http://` are all refused).
+`STRAUSS_KB_REPO_PROTOCOLS` widens that list and exists for the test suite, not
+for production.
 
 ### Typed causal links
 

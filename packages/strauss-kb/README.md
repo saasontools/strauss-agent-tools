@@ -233,7 +233,9 @@ An anchor naming another `repo` is read from that repository's **remote**,
 through a bare cache under `~/.strauss/repo-cache` — a local checkout is one
 person's possibly stale view of the same file. With a `ref` it has three
 states: `matches-ref`, `drifted-from-ref`, and `drifted-on-default`.
-`--offline` reads the cache and never fetches.
+`--offline` reads the cache and never fetches. Only `https`, `ssh`, and `git`
+remotes are fetched, and a `repo` or `ref` git could read as an option is a
+finding, not a command.
 
 An anchor must not read outside the repository it describes, checked lexically
 and again on the real path after symlinks.

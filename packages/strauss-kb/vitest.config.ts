@@ -12,6 +12,9 @@ export default defineConfig({
     env: {
       STRAUSS_KB_USER_ROOT: "/nonexistent-strauss-user-root",
       STRAUSS_KB_REPO_CACHE: "/nonexistent-strauss-repo-cache",
+      // Remotes are `file://` bare repos on disk so the suite passes unplugged;
+      // production refuses that protocol, so the suite has to widen the list.
+      STRAUSS_KB_REPO_PROTOCOLS: "https,ssh,git,file",
     },
     include: ["src/**/*.spec.ts", "test/**/*.spec.ts"],
     testTimeout: 20_000,

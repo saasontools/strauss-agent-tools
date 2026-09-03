@@ -10,6 +10,14 @@ import {
   type RemoteRead,
   type RemoteWant,
 } from "./model.js";
+import {
+  filePathIsSafe,
+  isShortRepoName,
+  protocolArgs,
+  refIsWellFormed,
+  refShapeIsSafe,
+  repoUrlIsSafe,
+} from "./validate.js";
 
 /** Repositories fetched at once. Fetches within one repo stay serial. */
 const DEFAULT_REPO_CONCURRENCY = 4;
@@ -63,19 +71,40 @@ type RepoContext = { cacheDir: string; timeoutMs: number; offline: boolean };
 async function readOneRepo(
   repo: string,
   url: string,
-  wants: readonly RemoteWant[],
+  declared: readonly RemoteWant[],
   context: RepoContext,
 ): Promise<Map<string, RemoteRead>> {
+  let wants: readonly RemoteWant[] = declared;
   const all = (read: RemoteRead) =>
     new Map(wants.map((want) => [wantKey(repo, want.ref, want.file), read]));
 
   // A short `repo` (`org/name`) names a repository without saying where it
   // lives, so there is nothing to fetch from. `validate` warns on the spelling.
+  if (isShortRepoName(url)) {
+    return all({ ok: false, reason: "remote-unreachable" });
+  }
+  // Anything else that is not a remote we will fetch over is a finding about
+  // the record, decided before a single `git` runs.
+  if (!repoUrlIsSafe(url)) return all({ ok: false, reason: "repo-invalid" });
+
   const cache = cachePathFor(repo, context.cacheDir);
   if (!cache) return all({ ok: false, reason: "remote-unreachable" });
 
+  // Ref and path shapes are checked with no subprocess, so a want carrying an
+  // option-shaped `ref` or `file` never reaches git — not even `git init`.
+  const rejected = new Map<string, RemoteRead>();
+  const usable: RemoteWant[] = [];
+  for (const want of wants) {
+    const reason = wantReason(want);
+    if (reason)
+      rejected.set(wantKey(repo, want.ref, want.file), { ok: false, reason });
+    else usable.push(want);
+  }
+  if (!usable.length) return rejected;
+  wants = usable;
+
   const opened = await openCache(cache, url, context);
-  if (opened) return all(opened);
+  if (opened) return new Map([...rejected, ...all(opened)]);
 
   const wantsDefault = wants.some((want) => want.ref === undefined);
   const branch: Branch = wantsDefault
@@ -86,7 +115,12 @@ async function readOneRepo(
   // same lock.
   const revs = new Map<string, RemoteRead | undefined>();
   for (const rev of distinctRevs(wants, branch.name)) {
-    revs.set(rev, await ensureRev(cache, rev, context));
+    revs.set(
+      rev,
+      (await refIsWellFormed(rev))
+        ? await ensureRev(cache, rev, context)
+        : { ok: false, reason: "ref-invalid" },
+    );
   }
 
   const reads = await mapLimit(
@@ -105,12 +139,24 @@ async function readOneRepo(
       return readBlob(cache, rev, want.file, context);
     },
   );
-  return new Map(
-    wants.map((want, at) => [
-      wantKey(repo, want.ref, want.file),
-      reads[at] as RemoteRead,
-    ]),
-  );
+  return new Map([
+    ...rejected,
+    ...wants.map(
+      (want, at) =>
+        [wantKey(repo, want.ref, want.file), reads[at] as RemoteRead] as const,
+    ),
+  ]);
+}
+
+/**
+ * Why this want cannot be handed to git, or `undefined`. A ref that would be
+ * read as an option (`--upload-pack=…`) or a range (`a..b`) is a finding on the
+ * record; a `file` that would be read as an option or climbs out of the tree is
+ * the same `outside-repo` a working-tree read reports.
+ */
+function wantReason(want: RemoteWant): AnchorUnresolvedReason | undefined {
+  if (want.ref !== undefined && !refShapeIsSafe(want.ref)) return "ref-invalid";
+  return filePathIsSafe(want.file) ? undefined : "outside-repo";
 }
 
 function distinctRevs(
@@ -140,8 +186,10 @@ async function openCache(
     timeoutMs: context.timeoutMs,
   });
   if (!init.ok) return { ok: false, reason: "remote-unreachable" };
-  // `config`, not `remote add`: the second run must not fail because the
-  // first one already added it.
+  // `config`, not `remote add` or `remote set-url`: the first run has no
+  // `origin` to set and the second must not fail because the first added it.
+  // The URL is safe to pass unguarded only because the allowlist has already
+  // run — nothing starting with `-` reaches here.
   const remote = await git(["config", "remote.origin.url", url], {
     cwd: cache,
     timeoutMs: context.timeoutMs,
@@ -160,10 +208,13 @@ async function defaultBranch(
   context: RepoContext,
 ): Promise<Branch> {
   if (!context.offline) {
-    const listed = await git(["ls-remote", "--symref", "origin", "HEAD"], {
-      cwd: cache,
-      timeoutMs: context.timeoutMs,
-    });
+    const listed = await git(
+      [...protocolArgs(), "ls-remote", "--symref", "origin", "HEAD"],
+      {
+        cwd: cache,
+        timeoutMs: context.timeoutMs,
+      },
+    );
     const found = /^ref:\s+refs\/heads\/(\S+)\s+HEAD$/m.exec(listed.stdout);
     if (listed.ok && found?.[1]) {
       const name = found[1];
@@ -225,10 +276,21 @@ async function ensureRev(
   if (cached && (context.offline || IMMUTABLE_REV.test(rev))) return undefined;
   if (context.offline) return { ok: false, reason: "remote-unreachable" };
 
-  const fetched = await git(["fetch", "--depth", "1", "origin", rev], {
-    cwd: cache,
-    timeoutMs: context.timeoutMs,
-  });
+  // `--end-of-options` is what stops a rev from being parsed as an option; the
+  // ref shape already refused one, and this is the layer that does not depend
+  // on the shape being right.
+  const fetched = await git(
+    [
+      ...protocolArgs(),
+      "fetch",
+      "--depth",
+      "1",
+      "origin",
+      "--end-of-options",
+      rev,
+    ],
+    { cwd: cache, timeoutMs: context.timeoutMs },
+  );
   if (!fetched.ok) {
     // A stale cached copy beats no answer when the network is the problem;
     // a rev the remote no longer has is a finding either way.
@@ -251,10 +313,13 @@ async function readBlob(
   context: RepoContext,
 ): Promise<RemoteRead> {
   const path = file.replace(/^\.\//, "");
-  const blob = await git(["cat-file", "blob", `${revRef(rev)}:${path}`], {
-    cwd: cache,
-    timeoutMs: context.timeoutMs,
-  });
+  const blob = await git(
+    ["cat-file", "blob", "--end-of-options", `${revRef(rev)}:${path}`],
+    {
+      cwd: cache,
+      timeoutMs: context.timeoutMs,
+    },
+  );
   if (blob.ok) return { ok: true, source: blob.stdout };
   if (blob.overflowed) return { ok: false, reason: "file-too-large" };
   const text = blob.stderr.toLowerCase();

@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { describe, expect, test as baseTest } from "vitest";
+import { describe, expect, test as baseTest, vi } from "vitest";
 import {
   detectAnchorDrift,
   hashAnchorText,
@@ -245,6 +245,109 @@ describe("a foreign anchor", () => {
     expect(entry).toMatchObject({
       state: "unresolved",
       reason: "file-too-large",
+    });
+  });
+});
+
+/**
+ * Every value an anchor carries into `git` argv — `repo`, `ref`, `file` — comes
+ * out of a `.md` file the reader did not write. An argv array stops the shell,
+ * not git's own option parsing, so each is refused before a subprocess exists.
+ */
+describe("values that would be read as git options", () => {
+  /**
+   * `git init --bare` is the first thing any remote read runs, and it is what
+   * creates the cache directory. Its absence is the proof that the value was
+   * refused before a subprocess existed.
+   */
+  const cacheUntouched = (work: string, repo: string) => {
+    const path = cachePathFor(repo, join(work, "cache"));
+    return path === null || !existsSync(path);
+  };
+
+  test("refuses an option-shaped ref before git is run", async ({ work }) => {
+    const remote = publish(work);
+    const ref = "--upload-pack=touch /tmp/x";
+
+    // Read directly: a drift check on a ref-pinned anchor also asks the default
+    // branch, and that half is a legitimate reason for git to run.
+    const reads = await readRemoteAnchors(
+      [{ repo: remote.url, ref, file: FILE }],
+      { cacheDir: join(work, "cache") },
+    );
+
+    const read = reads.get(wantKey(normalizeRepoUrl(remote.url), ref, FILE));
+    expect(read).toEqual({ ok: false, reason: "ref-invalid" });
+    expect(cacheUntouched(work, remote.url)).toBe(true);
+
+    expect(
+      await driftOf(anchorFor(V1, { repo: remote.url, ref }), work),
+    ).toMatchObject({ state: "unresolved", reason: "ref-invalid" });
+  });
+
+  test("refuses a ref range, which resolves to something else entirely", async ({
+    work,
+  }) => {
+    const remote = publish(work);
+    const entry = await driftOf(
+      anchorFor(V1, { repo: remote.url, ref: "main..HEAD" }),
+      work,
+    );
+
+    expect(entry).toMatchObject({ state: "unresolved", reason: "ref-invalid" });
+  });
+
+  test("refuses git's ext transport, which is a shell command", async ({
+    work,
+  }) => {
+    const entry = await driftOf(anchorFor(V1, { repo: "ext::sh -c id" }), work);
+
+    expect(entry).toMatchObject({
+      state: "unresolved",
+      reason: "repo-invalid",
+    });
+    expect(cacheUntouched(work, "ext::sh -c id")).toBe(true);
+  });
+
+  test("refuses a protocol outside the allowlist", async ({ work }) => {
+    const remote = publish(work);
+    // The suite adds `file`; production does not, and this is that run.
+    vi.stubEnv("STRAUSS_KB_REPO_PROTOCOLS", "https,ssh,git");
+    const refused = await driftOf(anchorFor(V2, { repo: remote.url }), work);
+    vi.unstubAllEnvs();
+
+    expect(refused).toMatchObject({
+      state: "unresolved",
+      reason: "repo-invalid",
+    });
+    // The same URL resolves once `file` is back in the list.
+    expect(
+      await driftOf(anchorFor(V2, { repo: remote.url }), work),
+    ).toMatchObject({ state: "match" });
+  });
+
+  test("refuses a URL carrying a password", async ({ work }) => {
+    const entry = await driftOf(
+      anchorFor(V1, { repo: "https://user:pw@host/org/name" }),
+      work,
+    );
+
+    expect(entry).toMatchObject({
+      state: "unresolved",
+      reason: "repo-invalid",
+    });
+  });
+
+  test("refuses an option-shaped file path", async ({ work }) => {
+    const remote = publish(work);
+    const entry = await driftOf(
+      { ...anchorFor(V1), file: "-x", repo: remote.url },
+      work,
+    );
+
+    expect(entry).toMatchObject({
+      state: "unresolved",
+      reason: "outside-repo",
     });
   });
 });
