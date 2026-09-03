@@ -98,8 +98,8 @@ export type KbLoadResult =
       budgetTokens: number | null;
       /**
        * Sha256 over every record's content and standing, sorted by concept
-       * id. Flips when a body, frontmatter, or standing changes; it is what
-       * a caller holding `load`'s output in a stable prefix reloads on.
+       * id. Flips when a body, frontmatter, or standing changes; it's the
+       * base's content stamp, compared by hooks and `kb_stamp` (SAA-719).
        */
       digest: string;
     }

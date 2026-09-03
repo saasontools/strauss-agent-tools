@@ -547,11 +547,13 @@ Superseded records arrive as name, replacement and date stubs; their bodies no
 longer hold, and reading one later in a long session is the mistake the stub
 prevents. `trace` reaches them by id.
 
-Place the result in the **stable prefix** — the system prompt, or the first turn
-— and reload only when the returned `digest` changes. A prompt cache matches a
-prefix byte-for-byte and the first differing token ends the match, so a volatile
-`query` result placed ahead of a stable load prices the whole base at full rate
-on every subsequent call. Query and pack results belong at the tail.
+Place the result in the **stable prefix** — the system prompt, or the first
+turn. The returned `digest` is the base's content stamp; a change-notification
+hook and `kb_stamp` (SAA-719) compare it to detect change, not a reason to
+reload. A prompt cache matches a prefix byte-for-byte and the first differing
+token ends the match, so a volatile `query` result placed ahead of a stable
+load prices the whole base at full rate on every subsequent call. Query and
+pack results belong at the tail.
 
 `--all` is the deliberate-operator escape hatch — it bypasses the budget and
 loads everything regardless of size — and is mutually exclusive with `--budget`.

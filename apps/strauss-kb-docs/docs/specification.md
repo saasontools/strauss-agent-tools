@@ -669,8 +669,11 @@ standing flipping changes it. A refused load carries the same digest computed
 over what _would_ have been handed back, so a caller narrowing a `type` filter
 after a refusal can tell whether that changed anything without loading it.
 
-It exists for [cache-stable placement](./mcp-reference.md#kb_load): hold `load`'s
-output in a stable prefix and reload only when the digest changes.
+It exists so a change-notification hook, or `kb_stamp` (SAA-719), can detect
+whether the base changed without loading it — not so the model reloads to
+compare. [Placement](./mcp-reference.md#kb_load) stays cache economics: hold
+`load`'s output in the stable prefix; `query` and `pack` results go at the
+tail.
 
 :::caution A same-environment signal, not a cross-checkout proof
 The digest hashes each record's **canonical recomposed** form, not its on-disk
