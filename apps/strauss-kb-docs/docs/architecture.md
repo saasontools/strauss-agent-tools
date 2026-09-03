@@ -157,18 +157,54 @@ current. A workspace can enforce that with deny rules or the plugin's opt-in
 ## The plugin's hooks
 
 The store is the sole accessor only while everything goes through it, and a
-hand-edit is exactly the case that does not. The plugin therefore ships hooks
-that close the gap from the outside, all keyed on `Write`, `Edit`, and
-`MultiEdit`.
+hand-edit is exactly the case that does not. The plugin ships two scripts that
+close the gap from the outside, both keyed on `Write`, `Edit`, and `MultiEdit`.
 
-| Event          | What it does                                                                |
-| -------------- | --------------------------------------------------------------------------- |
-| `SessionStart` | emits the pinned-base context block, per profile                            |
-| `PreToolUse`   | **denies** an edit to a generated file inside a bundle                      |
-| `PostToolUse`  | runs `validate` over the bundle a manual edit touched, and reports findings |
+| Event          | Wired by      | What it does                                                                |
+| -------------- | ------------- | --------------------------------------------------------------------------- |
+| `SessionStart` | the plugin    | emits the pinned-base context block, per profile                            |
+| `PreToolUse`   | the workspace | **denies** an edit to a generated file inside a bundle                      |
+| `PostToolUse`  | the workspace | runs `validate` over the bundle a manual edit touched, and reports findings |
 
-Both new hooks first decide whether the edited path is even inside a base, by a
-pure path-segment match: a segment literally named `.kb`, or a segment `kb`
+Only `SessionStart` is wired by the plugin. A hook matcher matches a tool
+_name_, and a plugin is installed per user, so a plugin-level `Write|Edit|
+MultiEdit` entry would run on every write in every repo that user opens — for
+a ~40 ms node startup each, since nothing is read or spawned until the path
+turns out to be inside a bundle. The write hooks are therefore workspace
+policy, like read blocking: copy the script to `.claude/hooks/` and add
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/deny-kb-generated-edits.mjs\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/validate-kb-bundle.mjs\"",
+            "timeout": 65
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Both write hooks first decide whether the edited path is even inside a base, by
+a pure path-segment match: a segment literally named `.kb`, or a segment `kb`
 whose parent is `.strauss`. No bundle root, no work — they exit silently. That
 is a deliberate v1 scope cut: a base pinned somewhere else through the pin
 manifests is invisible to them.
@@ -195,8 +231,7 @@ own plumbing breaks is worse than one that misses a finding.
 so an opted-out session pays nothing, and only a genuinely truthy value counts —
 `0`, `false`, and unset all mean "not opted out", because those are common ways
 to spell "not set" in a shared env file. It names the **validate** hook
-specifically; the deny hook is disabled the ordinary way, through the runtime's
-own hook settings.
+specifically; the deny hook is turned off by removing its entry.
 
 Neither covers a `Bash` write. That is a documented side door rather than an
 oversight: a matcher wide enough to catch `INDEX.md` in a shell command would

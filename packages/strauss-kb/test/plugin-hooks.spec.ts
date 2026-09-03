@@ -930,29 +930,16 @@ describe("plugin config files parse", () => {
         { matcher?: string; hooks: { timeout?: number }[] }[]
       >;
     };
-    // SessionStart context injection, plus the two record-edit hooks (deny
-    // direct edits to generated files, validate the bundle after the rest).
-    // File-read blocking ships as a script but stays opt-in — blocking reads
-    // on project paths is workspace policy — so no PreToolUse entry for
-    // that one here.
-    expect(Object.keys(claudeHooks.hooks)).toEqual([
-      "SessionStart",
-      "PreToolUse",
-      "PostToolUse",
-    ]);
+    // SessionStart context injection, and nothing else. The three tool hooks
+    // (block reads, deny edits to generated files, validate after a manual
+    // edit) ship as scripts but stay opt-in workspace policy: a matcher can
+    // only match a tool name, and the plugin is installed per user, so a
+    // PreToolUse/PostToolUse entry here would fire on every read or write in
+    // every repo that user opens.
+    expect(Object.keys(claudeHooks.hooks)).toEqual(["SessionStart"]);
     expect(
       claudeHooks.hooks.SessionStart!.map((group) => group.matcher),
     ).toEqual(["startup|resume|clear", "compact"]);
-    expect(claudeHooks.hooks.PreToolUse!.map((group) => group.matcher)).toEqual(
-      ["Write|Edit|MultiEdit"],
-    );
-    expect(
-      claudeHooks.hooks.PostToolUse!.map((group) => group.matcher),
-    ).toEqual(["Write|Edit|MultiEdit"]);
-    // Room for the npx-fallback tier's own (60s) timeout, plus buffer —
-    // otherwise the hook harness could kill the process before the slower
-    // fallback path even gets to finish.
-    expect(claudeHooks.hooks.PostToolUse![0]!.hooks[0]!.timeout).toBe(65);
 
     expect(parse(".claude-plugin/plugin.json")).toMatchObject({
       name: "strauss-kb",

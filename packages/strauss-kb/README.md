@@ -688,14 +688,16 @@ What each runtime gets (configs in the
 | Session-start injection   | SessionStart hook  | SessionStart hook                           | PreInvocation, per turn    |
 | Post-compact re-injection | ✓ `compact` source | ✓ client-side; instruction-only when hosted | moot — injected every turn |
 | File-read blocking        | opt-in PreToolUse  | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
-| Manual-edit validation    | PostToolUse hook   | ✗                                           | ✗                          |
-| Generated-file edit guard | PreToolUse hook    | ✗                                           | ✗                          |
+| Manual-edit validation    | opt-in PostToolUse | ✗                                           | ✗                          |
+| Generated-file edit guard | opt-in PreToolUse  | ✗                                           | ✗                          |
 | Instruction file          | CLAUDE.md          | AGENTS.md                                   | AGENTS.md + rules/         |
 
 One more thing agents add: file tools. A raw read of a record file bypasses
 standing entirely — a superseded record reads exactly like a current one — so
 bases are read through the tools, and a workspace can enforce that with deny
-rules or the plugin's opt-in PreToolUse script:
+rules or one of the plugin's
+[opt-in hook scripts](../../plugins/strauss-kb/README.md#opt-in-workspace-hooks),
+which also cover manual edits to a bundle:
 
 ```json
 {

@@ -4,9 +4,12 @@
  * `strauss-kb validate` and surfaces problems to the agent (non-blocking).
  * No-ops outside a bundle. Opt out with STRAUSS_KB_NO_VALIDATE_HOOK=1. Fails
  * open on any unexpected error (no output).
+ *
+ * Wired by the workspace, not the plugin (see the plugin README): a matcher
+ * can only match a tool name, so a plugin-level entry would run this on every
+ * write in every repo the user has the plugin installed in.
  */
 import { existsSync, readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import {
   findBundleRoot,
@@ -36,7 +39,7 @@ const MAX_LISTED = 20;
 const MAX_NOTE_LEN = 200;
 const MAX_CONTEXT_LEN = 4000;
 
-function main() {
+async function main() {
   if (isOptedOut()) return 0;
 
   let input;
@@ -63,7 +66,7 @@ function main() {
   if (!bundleRoot) return 0;
   if (!looksLikeBundle(bundleRoot)) return 0;
 
-  const problems = runValidate(bundleRoot, cwd);
+  const problems = await runValidate(bundleRoot, cwd);
   if (!problems || problems.length === 0) return 0;
 
   emit(bundleRoot, problems);
@@ -121,8 +124,14 @@ function emit(bundleRoot, problems) {
  * wait for no benefit. Only "never started at all" (not found) falls
  * through to the next tier.
  */
-function runValidate(bundleRoot, cwd) {
+async function runValidate(bundleRoot, cwd) {
+  // Imported here, not at the top: every non-KB write reaches `main` and
+  // returns before this line, and `node:child_process` is the one module in
+  // this script whose load is worth not paying for on that path.
+  const { spawnSync } = await import("node:child_process");
   const args = ["--bundle", bundleRoot, "validate"];
+  const runCommand = (command, argv, timeoutMs) =>
+    runWith(spawnSync, command, argv, timeoutMs);
 
   const localBin = resolveLocalBin(cwd);
   if (localBin) {
@@ -183,7 +192,7 @@ function parseProblems(attempt) {
  * quoted argument. POSIX needs none of this: `shell: false` unconditionally,
  * argv passed straight to execve, no shell in the loop to parse anything.
  */
-function runCommand(command, args, timeoutMs) {
+function runWith(spawnSync, command, args, timeoutMs) {
   const win32 = process.platform === "win32";
   const result = spawnSync(command, win32 ? args.map(quoteWindowsArg) : args, {
     encoding: "utf8",
@@ -202,7 +211,7 @@ function runCommand(command, args, timeoutMs) {
 
 /**
  * Quotes one argv element for cmd.exe under `windowsVerbatimArguments:
- * true` (see `runCommand`) — Node does none of this itself in that mode.
+ * true` (see `runWith`) — Node does none of this itself in that mode.
  * Two independent things need handling: the CommandLineToArgvW boundary
  * (every Windows program, including node.exe itself, parses its own argv
  * this way, so an unquoted space would split one argument into two) and
@@ -223,9 +232,7 @@ function quoteWindowsArg(arg) {
   // CommandLineToArgvW quoting: a run of backslashes immediately before a
   // double quote (or at the very end, before the closing quote this adds)
   // must be doubled, and the quote itself escaped.
-  const escaped = str
-    .replace(/(\\*)"/g, '$1$1\\"')
-    .replace(/(\\+)$/, "$1$1");
+  const escaped = str.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, "$1$1");
   return `"${escaped}"`;
 }
 
@@ -241,12 +248,12 @@ function resolveLocalBin(cwd) {
   }
 }
 
-function safeMain() {
+async function safeMain() {
   try {
-    return main();
+    return await main();
   } catch {
     return 0;
   }
 }
 
-process.exit(safeMain());
+process.exit(await safeMain());
