@@ -2,6 +2,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { z } from "zod";
 import { composeRecord } from "../compose.js";
 import { pinBase } from "../kb-pins/index.js";
 import { KbStore } from "../kb-store.js";
@@ -160,6 +161,55 @@ describe("stampCommand", () => {
     const after = (await run())[0]!;
 
     expect(after.digest).not.toBe(before.digest);
+  });
+
+  test("a digest baseline over more than one base is an error, naming --bundle", async () => {
+    const second = realpathSync(
+      mkdtempSync(join(tmpdir(), "strauss-kb-stamp-digest-two-")),
+    );
+    try {
+      await seed("cursor", "Offsets skip rows under concurrent writes.");
+      await seed("cache", "No invalidation story.", { base: second });
+      await pinBase(store, workspace, bundle, AT);
+      await pinBase(store, workspace, second, AT);
+      const stale = "0".repeat(64);
+
+      const cwd = process.cwd();
+      process.chdir(workspace);
+      try {
+        await expect(
+          stampCommand.run(
+            { store, actor: "agent:reader", now: () => AT },
+            stampCommand.input.parse({ since: stale }),
+          ),
+        ).rejects.toThrow(/needs --bundle \(one base\)/);
+      } finally {
+        process.chdir(cwd);
+      }
+    } finally {
+      rmSync(second, { recursive: true, force: true });
+    }
+  });
+
+  test("a digest baseline over one base (via --bundle) is not an error", async () => {
+    await seed("cursor", "Offsets skip rows under concurrent writes.");
+    const stale = "0".repeat(64);
+
+    await expect(run({ since: stale })).resolves.toEqual([
+      expect.objectContaining({ changed: null }),
+    ]);
+  });
+
+  test("the `since` describe stays terse", () => {
+    const since = stampCommand.input.shape.since as z.ZodType;
+    const description = since.description ?? "";
+    // Cut from the prior 34-word describe; some slack around the target
+    // (whitespace word-splitting counts `stamp --json`; and similar as more
+    // tokens than a human count would) rather than an exact-match brittle to
+    // wording tweaks.
+    expect(description.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(
+      25,
+    );
   });
 
   test("--bundle is only passed on when the flag was given", () => {

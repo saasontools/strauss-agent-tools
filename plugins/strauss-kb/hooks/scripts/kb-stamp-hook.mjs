@@ -59,6 +59,11 @@ async function main() {
     `${sessionId.replace(/[^A-Za-z0-9._-]/g, "_")}.json`,
   );
 
+  // No pinned base, nothing this hook could ever report — every event exits
+  // here, before anything spawns.
+  const dirs = pinnedDirs(cwd);
+  if (dirs.length === 0) return 0;
+
   if (event === "SessionStart") {
     const stamps = await runStamp(cwd);
     if (stamps) writeState(statePath, { head: await gitHead(cwd), stamps });
@@ -71,7 +76,7 @@ async function main() {
     const raw = input?.tool_input?.command;
     const command = Array.isArray(raw) ? raw.join(" ") : raw;
     if (typeof command !== "string" || !GIT_SYNC.test(command)) return 0;
-    if (await unmovedOrUnpinned(cwd, statePath)) return 0;
+    if (await unmovedOrUnpinned(cwd, statePath, dirs)) return 0;
   } else if (event !== "SubagentStop") {
     return 0;
   }
@@ -85,7 +90,7 @@ async function main() {
  * A git call that fails or an unknown baseline is not an answer — those fall
  * through to the digest compare, which is the one thing that cannot be wrong.
  */
-async function unmovedOrUnpinned(cwd, statePath) {
+async function unmovedOrUnpinned(cwd, statePath, dirs) {
   const state = readState(statePath);
   const head = await gitHead(cwd);
   if (head && state.head === head) return true;
@@ -94,7 +99,6 @@ async function unmovedOrUnpinned(cwd, statePath) {
   const changed = await gitChangedPaths(cwd, baseline);
   if (changed === null) return false;
 
-  const dirs = pinnedDirs(cwd);
   const touched = changed.some((path) =>
     dirs.some((dir) => isInside(resolve(cwd, path), dir)),
   );
@@ -271,12 +275,20 @@ async function runStamp(cwd) {
   const commands = [resolveLocalBin(cwd), "strauss-kb"].filter(Boolean);
 
   for (const command of commands) {
-    const run = spawnSync(command, ["stamp", "--json"], {
-      cwd,
-      encoding: "utf8",
-      timeout: CLI_TIMEOUT_MS,
-      shell: win32,
-    });
+    // `shell: true` on Windows needs its own quoting (Node turns off its own
+    // argument escaping the moment `shell` is set there) — `resolveLocalBin`
+    // can hand back a `node_modules/.bin` path with spaces in it, and that
+    // path is the command itself, not just an arg.
+    const run = spawnSync(
+      win32 ? quoteWindowsArg(command) : command,
+      win32 ? ["stamp", "--json"].map(quoteWindowsArg) : ["stamp", "--json"],
+      {
+        cwd,
+        encoding: "utf8",
+        timeout: CLI_TIMEOUT_MS,
+        shell: win32,
+      },
+    );
     if (run.error && !run.signal) continue;
     try {
       const parsed = JSON.parse(run.stdout || "");
@@ -287,6 +299,19 @@ async function runStamp(cwd) {
     return null;
   }
   return null;
+}
+
+/**
+ * Quotes one argv element for cmd.exe under `windowsVerbatimArguments: true`
+ * (implied by `shell: true` on Windows) — Node does none of this itself in
+ * that mode. Copied from `validate-kb-bundle.mjs`'s `quoteWindowsArg`; these
+ * scripts are self-contained, so it is duplicated rather than imported.
+ */
+function quoteWindowsArg(arg) {
+  const str = String(arg).replace(/%/g, "%%");
+  if (str !== "" && !/[\s"]/.test(str)) return str;
+  const escaped = str.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, "$1$1");
+  return `"${escaped}"`;
 }
 
 function resolveLocalBin(cwd) {

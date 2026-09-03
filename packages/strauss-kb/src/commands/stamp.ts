@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { KbStampBaselineError } from "../kb-errors.js";
+import {
+  KbStampBaselineError,
+  KbStampDigestBaselineError,
+} from "../kb-errors.js";
 import { readMergedPins } from "../kb-pins/index.js";
 import type { KbStampResult } from "../kb-store.js";
 import { argvFlag, define } from "./model.js";
@@ -32,7 +35,7 @@ export const stampCommand = define({
       .min(1)
       .optional()
       .describe(
-        "A digest from a prior stamp or load, or a path to a prior `stamp --json`. Only bases whose digest moved come back; a file baseline also names the changed ids.",
+        "Prior digest, or path to a prior `stamp --json`; only moved bases return, with changed ids when the baseline is a file.",
       ),
   }),
   fromArgv: (argv, path, _stdin, bundleExplicit) => {
@@ -48,6 +51,13 @@ export const stampCommand = define({
       : (await readMergedPins(process.cwd())).pins.map(
           (pin) => pin.absolutePath,
         );
+
+    // A digest baseline only answers equality, and equality against which
+    // base is ambiguous once more than one is in play — a file baseline
+    // carries a digest per base and has no such limit.
+    if (since !== undefined && DIGEST.test(since) && targets.length > 1) {
+      throw new KbStampDigestBaselineError(since);
+    }
 
     const stamps = await Promise.all(
       targets.map((target) => store.stamp(target)),

@@ -169,3 +169,18 @@ export class KbStampBaselineError extends BaseError {
     });
   }
 }
+
+/** `--since` named a digest while more than one base is being stamped. */
+export class KbStampDigestBaselineError extends BaseError {
+  constructor(readonly since: string) {
+    super({
+      message: `kb: --since ${since} is a digest, which needs --bundle (one base) — a file baseline works for many`,
+      errorType: ErrorTypes.KbStampDigestBaselineAmbiguous,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { since },
+    });
+  }
+}
