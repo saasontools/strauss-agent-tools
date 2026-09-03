@@ -189,60 +189,6 @@ describe("catalog", () => {
     expect(await store.catalog(bundle)).toMatchObject({
       entries: [],
       recordCount: 0,
-      pageCount: 0,
-    });
-  });
-
-  // The catalog's whole claim to be a load-refusal predictor rests on this
-  // number meaning exactly what the gate counts. Two accountings would drift.
-  describe("pageCount predicts load's gate", () => {
-    test("equals load's pageCount, superseded records excluded", async ({
-      store,
-      bundle,
-    }) => {
-      await seed(store, bundle);
-
-      const listing = await store.catalog(bundle);
-      const loaded = await store.load(bundle);
-
-      expect(loaded.loaded).toBe(true);
-      if (!loaded.loaded) return;
-      expect(listing.pageCount).toBe(loaded.pageCount);
-      expect(listing.pageCount).toBe(
-        listing.recordCount - listing.supersededCount,
-      );
-    });
-
-    test("agrees with load under a type filter too", async ({
-      store,
-      bundle,
-    }) => {
-      await seed(store, bundle);
-
-      const listing = await store.catalog(bundle, { type: "decision" });
-      const loaded = await store.load(bundle, { type: "decision" });
-
-      expect(loaded.loaded).toBe(true);
-      if (!loaded.loaded) return;
-      expect(listing.pageCount).toBe(loaded.pageCount);
-    });
-
-    // The number is only useful if acting on it is right: a catalog reporting
-    // one page over the gate must correspond to a load that actually refuses.
-    test("a pageCount over the gate is exactly when load refuses", async ({
-      store,
-      bundle,
-    }) => {
-      await seed(store, bundle);
-      const listing = await store.catalog(bundle);
-
-      expect(
-        (await store.load(bundle, { maxRecords: listing.pageCount })).loaded,
-      ).toBe(true);
-      expect(
-        (await store.load(bundle, { maxRecords: listing.pageCount - 1 }))
-          .loaded,
-      ).toBe(false);
     });
   });
 

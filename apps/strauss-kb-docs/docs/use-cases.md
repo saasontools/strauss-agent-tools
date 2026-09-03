@@ -535,7 +535,6 @@ history is not.
 strauss-kb load                     # the whole base, each record with its standing
 strauss-kb load decision            # one type
 strauss-kb load --budget 40000      # a wider token ceiling
-strauss-kb load --max-records 80    # a wider record gate
 strauss-kb load --all               # no ceiling at all
 ```
 
@@ -554,24 +553,23 @@ prefix byte-for-byte and the first differing token ends the match, so a volatile
 `query` result placed ahead of a stable load prices the whole base at full rate
 on every subsequent call. Query and pack results belong at the tail.
 
-`--all` is the deliberate-operator escape hatch — it bypasses both ceilings and
-loads everything regardless of size — and is mutually exclusive with `--budget`
-and `--max-records`. A reader that does not need every record is better served
-by a `type` filter, a `catalog`, or a `pack`.
+`--all` is the deliberate-operator escape hatch — it bypasses the budget and
+loads everything regardless of size — and is mutually exclusive with `--budget`.
+A reader that does not need every record is better served by a `type` filter, a
+`catalog`, or a `pack`.
 
 ### When the load refuses
 
-Two ceilings can stop it: a 25,000-token budget, and a 40-record gate. The
-refusal names which, and points at the next rung down:
+A 25,000-token budget stops it. The refusal names the budget, and points at the
+next rung down:
 
 ```json
 {
   "loaded": false,
   "recordCount": 62,
-  "pageCount": 62,
-  "maxRecords": 40,
-  "refusedBy": ["pages"],
-  "message": "Refusing to load this base whole: 62 records is past the 40-record gate. …"
+  "approxTokens": 41200,
+  "budgetTokens": 25000,
+  "message": "Refusing to load this base whole: ~41200 tokens is past the 25000-token budget. …"
 }
 ```
 
@@ -582,12 +580,12 @@ strauss-kb catalog
 ```
 
 One line per record — id, type, title, standing, stale flag — at roughly thirty
-tokens each. A base far past `load`'s gate still fits in one call, and seeing
+tokens each. A base far past `load`'s budget still fits in one call, and seeing
 every id and title is what lets you name the record `pack` should centre on. It
 is the only read path with no ceiling, because it is where the others send you.
 
-Note that a **successful** load reports `pageCount` and `maxRecords` too, so a
-caller can see the line coming rather than discover it by being refused.
+Note that a **successful** load reports `budgetTokens` too, so a caller can see
+the line coming rather than discover it by being refused.
 
 A workspace can also block raw reads, so a base is only ever read through the
 tools:

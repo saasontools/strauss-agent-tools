@@ -53,9 +53,8 @@ strauss-kb load               # everything, each record with its standing
 strauss-kb load decision      # narrowed to one type
 ```
 
-If `load` returns `loaded: false`, the base is past one of its two ceilings —
-more than 40 whole records, or more than 25,000 estimated tokens — and its
-`message` names which one and what to call next:
+If `load` returns `loaded: false`, the base is past its token budget (25,000
+estimated tokens by default) and its `message` names what to call next:
 
 ```bash
 strauss-kb catalog                       # one line per record: id, type, title, standing
@@ -63,8 +62,8 @@ strauss-kb pack decision.cursor-v2       # the bounded neighbourhood around one 
 strauss-kb query cursor pagination keyset  # a point lookup by wording
 ```
 
-**The rule in one line:** under the gate, `load` whole; past it, `catalog` then
-`pack`; for a lookup by wording, `query`. Reach for `catalog` when the question
+**The rule in one line:** under the budget, `load` whole; past it, `catalog`
+then `pack`; for a lookup by wording, `query`. Reach for `catalog` when the question
 is _what exists_ — it names every record, so "no record covers this" stays
 supportable, which a `query`'s nearest-hit-regardless-of-distance cannot.
 

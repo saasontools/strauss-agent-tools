@@ -91,9 +91,10 @@ export function define<Shape extends z.ZodRawShape>(
  * opposite of what happened.
  *
  * A flag present with no value is an error rather than an absent flag, for the
- * same reason. `strauss-kb load --max-records` reading past the end of argv and
- * falling back to 40 would hand the caller the exact ceiling they were trying
- * to move, and a trailing typo would be indistinguishable from success. Note
+ * same reason. `strauss-kb load --budget` reading past the end of argv and
+ * falling back to the default would hand the caller the exact ceiling they were
+ * trying to move, and a trailing typo would be indistinguishable from success.
+ * Note
  * that a following token starting with `--` counts as no value: `--budget
  * --all` is a missing value, not a budget of "--all".
  */

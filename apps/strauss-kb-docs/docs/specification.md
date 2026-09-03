@@ -614,23 +614,20 @@ of nine probe queries returned exactly what substring returned.
 
 ### Budgets and refusals
 
-`load` **refuses rather than truncating** when a base exceeds a ceiling. A
+`load` **refuses rather than truncating** when a base exceeds its budget. A
 truncated base is indistinguishable from a complete one, so a caller would
 answer "that was never decided" from a slice it did not know was a slice. `pack`
 and `context` refuse the same way at their own budgets.
 
-Two ceilings, and they ask different questions:
+One ceiling:
 
-| Ceiling                        | Default | Held against                                                   |
-| ------------------------------ | ------- | -------------------------------------------------------------- |
-| `--max-records` / `maxRecords` | 40      | whole records handed back (`pageCount`); stubs are not counted |
-| `--budget` / `budgetTokens`    | 25,000  | the estimated size of what is handed back (`approxTokens`)     |
+| Ceiling                     | Default | Held against                                               |
+| --------------------------- | ------- | ---------------------------------------------------------- |
+| `--budget` / `budgetTokens` | 25,000  | the estimated size of what is handed back (`approxTokens`) |
 
-The record gate is not a restatement of the budget. The budget asks whether the
-base will _fit_; the gate asks whether it is the right _shape_ to read whole. A
-base of many short records passes the budget and still reads as a skim, and the
-recall a whole read buys is the entire reason to prefer it over searching. The
-comparison is strictly greater, so a base sitting exactly at the gate loads.
+The estimate is measured over what is actually handed back: superseded records
+arrive as one-line stubs, so they are costed as stubs. The comparison is
+strictly greater, so a base sitting exactly at the budget loads.
 
 A refusal is:
 
@@ -638,35 +635,22 @@ A refusal is:
 {
   "loaded": false,
   "recordCount": 62,
-  "pageCount": 62,
-  "approxTokens": 18400,
+  "approxTokens": 41200,
   "budgetTokens": 25000,
-  "maxRecords": 40,
-  "refusedBy": ["pages"],
-  "message": "Refusing to load this base whole: 62 records is past the 40-record gate. …"
+  "message": "Refusing to load this base whole: ~41200 tokens is past the 25000-token budget. …"
 }
 ```
 
-`refusedBy` names every ceiling that tripped — `pages` and `tokens`, pages
-first. The `message` names the gate value, the next calls, and both escape
-hatches, because a caller told only "too big" raises the ceiling, which is the
-one move the ceiling exists to discourage, and a caller told nothing at all
-invents a raw file read, which is worse.
+The `message` names the budget, the next calls, and both escape hatches, because
+a caller told only "too big" raises the ceiling, which is the one move the
+ceiling exists to discourage, and a caller told nothing at all invents a raw
+file read, which is worse.
 
-A **successful** load reports `pageCount` and `maxRecords` too, symmetric with
-the refusal: a caller that can see how close it came can act before the base
-crosses the line, where one that only ever hears "refused" finds out by being
-refused. It also carries `tokensLoaded`, the estimate the budget is held
-against. `budgetTokens: null` and `maxRecords: null` mark that `all` was used
-and no ceiling was applied.
-
-:::note A base of 41 or more whole records now refuses
-The record gate is on by default, so a base that loaded before may refuse. That
-is the intended behaviour — the token budget cannot see shape — but it is a
-change in what an unchanged call returns. Raise `maxRecords`, or pass `all`, to
-restore the old result on a given call; the intended path past the gate is
-`catalog` then `pack`.
-:::
+A **successful** load reports `budgetTokens` too, symmetric with the refusal: a
+caller that can see how close it came can act before the base crosses the line,
+where one that only ever hears "refused" finds out by being refused. It also
+carries `tokensLoaded`, the estimate the budget is held against.
+`budgetTokens: null` marks that `all` was used and no ceiling was applied.
 
 ### The load digest
 

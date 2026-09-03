@@ -97,7 +97,7 @@ export class KbPackBudgetExceededError extends BaseError {
 /**
  * A flag that takes a value, given none.
  *
- * `strauss-kb load --max-records` used to read the next argv entry, find
+ * `strauss-kb load --budget` used to read the next argv entry, find
  * nothing, and quietly fall back to the default — so a caller who meant to
  * raise a ceiling got the ceiling they were trying to move, and a typo looked
  * exactly like success. Refusing is the only way that stays visible.

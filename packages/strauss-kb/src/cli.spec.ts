@@ -246,62 +246,38 @@ describe("runKbCli", () => {
       budgetTokens: null,
     });
 
-    for (const ceiling of [
-      ["--budget", "1"],
-      ["--max-records", "1"],
-    ]) {
-      const run = await at(["load", "--all", ...ceiling]);
-      expect(run.stderr).toContain(
-        "(root): all is mutually exclusive with budgetTokens and maxRecords",
-      );
-    }
+    const run = await at(["load", "--all", "--budget", "1"]);
+    expect(run.stderr).toContain(
+      "(root): all is mutually exclusive with budgetTokens",
+    );
   });
 
-  // The page-count gate: a base of short records fits the token budget and
-  // still reads as a skim, so the count refuses on its own.
-  test("--max-records gates the load and the refusal says what to call next", async () => {
-    const refused = parsed(await at(["load", "--max-records", "1"])) as {
+  test("the refusal says what to call next", async () => {
+    const refused = parsed(await at(["load", "--budget", "1"])) as {
       message: string;
     };
 
-    expect(refused).toMatchObject({
-      loaded: false,
-      pageCount: 2,
-      maxRecords: 1,
-      refusedBy: ["pages"],
-    });
-    expect(refused.message).toContain("2 records is past the 1-record gate");
+    expect(refused).toMatchObject({ loaded: false, budgetTokens: 1 });
+    expect(refused.message).toContain("1-token budget");
     expect(refused.message).toContain("kb_catalog");
     expect(refused.message).toContain("kb_pack");
     expect(refused.message).toContain("kb_query");
-    // Both escape hatches named, so a caller that does need everything is not
-    // left to invent a workaround — which would be a raw file read.
-    expect(refused.message).toContain("raise maxRecords (currently 1)");
+    // The escape hatches are named, so a caller that does need everything is
+    // not left to invent a workaround — which would be a raw file read.
+    expect(refused.message).toContain("raise budgetTokens (currently 1)");
     expect(refused.message).toContain("all=true");
-  });
-
-  test("exactly at the gate loads; --all bypasses it", async () => {
-    expect(parsed(await at(["load", "--max-records", "2"]))).toMatchObject({
-      loaded: true,
-      recordCount: 2,
-    });
-    expect(parsed(await at(["load", "--all"]))).toMatchObject({ loaded: true });
   });
 
   // A caller that can see how close it came can act before the base crosses
   // the line; one that only ever hears "refused" finds out by being refused.
-  test("a successful load reports the ceilings it cleared", async () => {
+  test("a successful load reports the budget it cleared", async () => {
     expect(parsed(await at(["load"]))).toMatchObject({
       loaded: true,
-      pageCount: 2,
-      maxRecords: 40,
       budgetTokens: 25000,
     });
-    // Under --all no ceiling was applied, and both say so the same way.
+    // Under --all no ceiling was applied, and the null says so.
     expect(parsed(await at(["load", "--all"]))).toMatchObject({
       loaded: true,
-      pageCount: 2,
-      maxRecords: null,
       budgetTokens: null,
     });
   });
@@ -309,10 +285,6 @@ describe("runKbCli", () => {
   // `--flag=value` is the spelling half the world writes; silently ignoring it
   // hands back the default the caller was trying to move.
   test("flags take =-joined values as well as separated ones", async () => {
-    expect(parsed(await at(["load", "--max-records=1"]))).toMatchObject({
-      loaded: false,
-      maxRecords: 1,
-    });
     expect(parsed(await at(["load", "--budget=1"]))).toMatchObject({
       loaded: false,
       budgetTokens: 1,
@@ -323,11 +295,10 @@ describe("runKbCli", () => {
   // success, and the fallback is the very ceiling being raised.
   test("a flag with no value is an error, not a silent default", async () => {
     for (const args of [
-      ["load", "--max-records"],
       ["load", "--budget"],
-      ["load", "--max-records="],
+      ["load", "--budget="],
       // A following flag is not a value: this is a missing value too.
-      ["load", "--max-records", "--all"],
+      ["load", "--budget", "--all"],
     ]) {
       await expect(
         runKbCli(["--bundle", bundle, ...args]),
@@ -344,11 +315,6 @@ describe("runKbCli", () => {
       expect(stdout).toContain(`bundle: ${bundle}`);
       // Every record accounted for: the standings sum to the record count.
       expect(stdout).toContain("2 records: 1 current · 1 open");
-      // And the page count a load would be gated on, so a refusal is visible
-      // before the call rather than after it.
-      expect(stdout).toContain(
-        "2 pages for kb_load's record gate (40 by default)",
-      );
       // Nothing is stale here, so the overlay line is absent rather than zero.
       expect(stdout).not.toContain("stale");
       expect(stdout).toContain(
@@ -390,8 +356,6 @@ describe("runKbCli", () => {
         "- open-question.retry-scope · open-question · Which failures should the client retry? · superseded → decision.retry-timeouts-only",
       );
       expect(stdout).toContain("3 records: 2 current · 1 superseded");
-      // A stub is not a page, so the gate would count two, not three.
-      expect(stdout).toContain("2 pages for kb_load's record gate");
     });
 
     // Stale is a flag over a standing, not a standing: adding it to the run
@@ -427,7 +391,6 @@ describe("runKbCli", () => {
 
       expect(stdout).toContain("# KB Catalog — fact");
       expect(stdout).toContain("1 record: 1 current");
-      expect(stdout).toContain("1 page for kb_load's record gate");
       expect(stdout).not.toContain("open-question.retry-scope");
     });
 

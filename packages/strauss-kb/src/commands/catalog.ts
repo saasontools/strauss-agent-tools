@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { KbStanding } from "../adjudicate.js";
 import { renderCatalogLine, type KbCatalogResult } from "../catalog.js";
-import { DEFAULT_LOAD_MAX_RECORDS } from "../kb-store.js";
 import { KB_RECORD_TYPES } from "../kb-record.schema.js";
 import { bundlePath, define } from "./model.js";
 
@@ -10,7 +9,7 @@ export const catalogCommand = define({
   tool: "kb_catalog",
   usage: "catalog [type]",
   description:
-    "Lists every record as one line — concept id, type, title, standing, and a stale flag — at roughly thirty tokens each; the header also reports the page count kb_load's record gate is measured against. Pick this over kb_load once kb_load refuses: kb_catalog never refuses. Superseded records show only their replacement; fetch bodies with kb_load, kb_pack, kb_query, or kb_trace.",
+    "Lists every record as one line — concept id, type, title, standing, and a stale flag — at roughly thirty tokens each. Pick this over kb_load once kb_load refuses: kb_catalog never refuses. Superseded records show only their replacement; fetch bodies with kb_load, kb_pack, kb_query, or kb_trace.",
   input: z.object({
     bundlePath,
     type: z.enum(KB_RECORD_TYPES).optional(),
@@ -51,12 +50,7 @@ function render(
     );
   }
 
-  // What a load would have to hand over as whole records, so a reader can see
-  // a refusal coming instead of discovering it.
-  lines.push(
-    `${count(result.pageCount, "page")} for kb_load's record gate (${DEFAULT_LOAD_MAX_RECORDS} by default); superseded records are stubs, not pages`,
-    "",
-  );
+  lines.push("");
 
   if (!result.entries.length) {
     lines.push(
@@ -70,7 +64,7 @@ function render(
 
   lines.push(
     "",
-    "Bodies are not here: kb_pack <conceptId> for the neighbourhood around one record, kb_load for the whole base when it is under the gate, kb_query for a lookup by wording, kb_trace <conceptId> for how a position was arrived at.",
+    "Bodies are not here: kb_pack <conceptId> for the neighbourhood around one record, kb_load for the whole base when it fits the budget, kb_query for a lookup by wording, kb_trace <conceptId> for how a position was arrived at.",
   );
 
   return lines.join("\n");

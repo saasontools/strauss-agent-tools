@@ -1,9 +1,7 @@
 export {
   DEFAULT_LOAD_BUDGET,
-  DEFAULT_LOAD_MAX_RECORDS,
   KB_DIR,
   KbStore,
-  type KbLoadRefusal,
   type KbLoadResult,
   type KbLogger,
   type KbSupersededStub,

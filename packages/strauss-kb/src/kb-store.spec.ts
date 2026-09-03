@@ -19,7 +19,7 @@ import {
   selectDecisions,
   type DecisionInput,
 } from "./decision-record.js";
-import { DEFAULT_LOAD_MAX_RECORDS, KbStore } from "./kb-store.js";
+import { KbStore } from "./kb-store.js";
 import {
   KbInvalidConceptIdError,
   KbRecordAlreadyExistsError,
@@ -1329,125 +1329,41 @@ describe("load", () => {
     expect(rejected?.record.body).toContain("The evidence.");
   });
 
-  // The gate is a second ceiling beside the budget, not a restatement of it:
-  // many short records fit the tokens and still read as a skim.
-  describe("the record gate", () => {
-    test("refuses past the gate while comfortably under the budget", async ({
+  describe("the refusal", () => {
+    // A caller told only "too big" raises the ceiling. One told what to call
+    // instead has somewhere else to go.
+    test("names the budget and the next commands", async ({
       store,
       bundle,
     }) => {
-      for (let i = 0; i < 3; i++) await store.write(bundle, fact(`short-${i}`));
+      await store.write(bundle, decision());
 
-      const result = await store.load(bundle, { maxRecords: 2 });
-
-      expect(result.loaded).toBe(false);
-      if (result.loaded) return;
-      expect(result.refusedBy).toEqual(["pages"]);
-      expect(result.pageCount).toBe(3);
-      expect(result.maxRecords).toBe(2);
-      expect(result.approxTokens).toBeLessThan(result.budgetTokens);
-      expect(result).not.toHaveProperty("records");
-    });
-
-    // Off-by-one here is the difference between a gate and a suggestion.
-    test("at the gate loads; one past it refuses", async ({
-      store,
-      bundle,
-    }) => {
-      for (let i = 0; i < 2; i++) await store.write(bundle, fact(`short-${i}`));
-
-      expect((await store.load(bundle, { maxRecords: 2 })).loaded).toBe(true);
-
-      await store.write(bundle, fact("short-2"));
-      expect((await store.load(bundle, { maxRecords: 2 })).loaded).toBe(false);
-    });
-
-    // Held against the pages a reader would actually read. A superseded record
-    // arrives as a one-line stub, so counting it would refuse a base that is
-    // in fact small.
-    test("counts pages, not stubs", async ({ store, bundle }) => {
-      await store.write(bundle, fact("auth-throws"));
-      await store.write(bundle, fact("auth-retries"));
-      await store.write(bundle, fact("shared-cache"));
-      await store.supersede(bundle, "fact.auth-throws", "fact.auth-retries");
-
-      const result = await store.load(bundle, { maxRecords: 2 });
-
-      expect(result.loaded).toBe(true);
-      if (!result.loaded) return;
-      expect(result.recordCount).toBe(3);
-      expect(result.records).toHaveLength(2);
-    });
-
-    test("defaults to 40 pages", async ({ store, bundle }) => {
-      expect(DEFAULT_LOAD_MAX_RECORDS).toBe(40);
-      for (let i = 0; i < DEFAULT_LOAD_MAX_RECORDS + 1; i++) {
-        await store.write(bundle, fact(`short-${i}`));
-      }
-
-      const result = await store.load(bundle);
+      const result = await store.load(bundle, { budgetTokens: 1 });
 
       expect(result.loaded).toBe(false);
       if (result.loaded) return;
-      expect(result.maxRecords).toBe(DEFAULT_LOAD_MAX_RECORDS);
-      expect(result.refusedBy).toContain("pages");
-    });
-
-    // A caller told only "too big" raises the ceiling. One told which ceiling,
-    // and what to call instead, has somewhere else to go.
-    test("names the gate value and the next commands in the refusal", async ({
-      store,
-      bundle,
-    }) => {
-      for (let i = 0; i < 3; i++) await store.write(bundle, fact(`short-${i}`));
-
-      const result = await store.load(bundle, { maxRecords: 2 });
-
-      expect(result.loaded).toBe(false);
-      if (result.loaded) return;
-      expect(result.message).toContain("3 records is past the 2-record gate");
+      expect(result.message).toContain("1-token budget");
       expect(result.message).toContain("kb_catalog");
       expect(result.message).toContain("kb_pack");
       expect(result.message).toContain("kb_query");
     });
 
-    test("reports both ceilings when both trip", async ({ store, bundle }) => {
-      for (let i = 0; i < 3; i++) await store.write(bundle, fact(`short-${i}`));
-
-      const result = await store.load(bundle, {
-        maxRecords: 2,
-        budgetTokens: 1,
-      });
-
-      expect(result.loaded).toBe(false);
-      if (result.loaded) return;
-      expect(result.refusedBy).toEqual(["pages", "tokens"]);
-      expect(result.message).toContain("2-record gate");
-      expect(result.message).toContain("1-token budget");
-    });
-
-    // Symmetric with the refusal. A caller that can see how close it came can
+    // Symmetric with the refusal: a caller that can see how close it came can
     // act before the base crosses the line.
-    test("a successful load reports the ceilings it cleared", async ({
+    test("a successful load reports the budget it cleared", async ({
       store,
       bundle,
     }) => {
       await store.write(bundle, fact("kept"));
-      await store.write(bundle, fact("dropped"));
-      await store.supersede(bundle, "fact.dropped", "fact.kept");
 
       const result = await store.load(bundle);
 
       expect(result.loaded).toBe(true);
       if (!result.loaded) return;
-      expect(result.recordCount).toBe(2);
-      // The stub is a record the caller was told about, but not a page.
-      expect(result.pageCount).toBe(1);
-      expect(result.maxRecords).toBe(DEFAULT_LOAD_MAX_RECORDS);
       expect(result.budgetTokens).toBe(25_000);
     });
 
-    test("all reports both ceilings as null, not as their defaults", async ({
+    test("all reports the budget as null, not as its default", async ({
       store,
       bundle,
     }) => {
@@ -1457,38 +1373,19 @@ describe("load", () => {
 
       expect(result.loaded).toBe(true);
       if (!result.loaded) return;
-      expect(result.maxRecords).toBeNull();
-      expect(result.budgetTokens).toBeNull();
-      expect(result.pageCount).toBe(1);
-    });
-
-    test("all bypasses the gate as it bypasses the budget", async ({
-      store,
-      bundle,
-    }) => {
-      for (let i = 0; i < 3; i++) await store.write(bundle, fact(`short-${i}`));
-
-      const result = await store.load(bundle, { all: true, maxRecords: 2 });
-
-      expect(result.loaded).toBe(true);
-      if (!result.loaded) return;
-      expect(result.records).toHaveLength(3);
       expect(result.budgetTokens).toBeNull();
     });
 
-    // The filter narrows what is loaded, so it has to narrow what is gated —
+    // The filter narrows what is loaded, so it has to narrow what is costed —
     // otherwise "load one type" is refused by records it never returns.
-    test("gates the filtered slice, not the whole base", async ({
+    test("costs the filtered slice, not the whole base", async ({
       store,
       bundle,
     }) => {
-      for (let i = 0; i < 3; i++) await store.write(bundle, fact(`short-${i}`));
+      await writeOverBudgetBundle(store, bundle);
       await store.write(bundle, decision());
 
-      const result = await store.load(bundle, {
-        type: "decision",
-        maxRecords: 2,
-      });
+      const result = await store.load(bundle, { type: "decision" });
 
       expect(result.loaded).toBe(true);
       if (!result.loaded) return;
