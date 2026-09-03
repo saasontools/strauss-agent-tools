@@ -64,7 +64,7 @@ function packageFor(pluginDir, packages) {
  */
 const SHIPPED_MANIFEST_FIELDS = [
   "name",
-  "version",
+  // `version` moves on every release commit; a bump alone ships no new byte.
   "type",
   "main",
   "module",
