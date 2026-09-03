@@ -6,7 +6,7 @@ export const logCommand = define({
   tool: "kb_log",
   usage: "log",
   description:
-    "What touched what, and when. The only artifact here that cannot be reconstructed from the records, so malformed lines are reported rather than repaired.",
+    "Who touched what, and when. Append-only; malformed lines are reported, never repaired.",
   input: z.object({ bundlePath }),
   fromArgv: (_argv, path) => ({ bundlePath: path }),
   run: ({ store }, { bundlePath: path }) => store.readLog(path),

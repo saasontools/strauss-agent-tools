@@ -1,5 +1,6 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
+import { DEFAULT_IO_CONCURRENCY, mapLimit } from "./concurrency.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
 
@@ -140,7 +141,12 @@ export async function searchBase(
   }
 }
 
-/** Whether any record is newer than the index. */
+/**
+ * Whether any record is newer than the index.
+ *
+ * Stats run through a bounded pool rather than one at a time; once one record
+ * has answered "newer", the workers still queued skip their `stat` entirely.
+ */
 async function isStale(bundlePath: string): Promise<boolean> {
   const indexAt = await stat(join(bundlePath, SEARCH_INDEX_FILE))
     .then((s) => s.mtimeMs)
@@ -148,15 +154,19 @@ async function isStale(bundlePath: string): Promise<boolean> {
   if (!indexAt) return true;
 
   const { readdir } = await import("node:fs/promises");
-  const names = await readdir(bundlePath).catch(() => [] as string[]);
-  for (const name of names) {
-    if (!name.endsWith(".md") || name === INDEX_FILE) continue;
+  const names = (await readdir(bundlePath).catch(() => [] as string[])).filter(
+    (name) => name.endsWith(".md") && name !== INDEX_FILE,
+  );
+
+  let stale = false;
+  await mapLimit(names, DEFAULT_IO_CONCURRENCY, async (name) => {
+    if (stale) return;
     const at = await stat(join(bundlePath, name))
       .then((s) => s.mtimeMs)
       .catch(() => 0);
-    if (at > indexAt) return true;
-  }
-  return false;
+    if (at > indexAt) stale = true;
+  });
+  return stale;
 }
 
 /**

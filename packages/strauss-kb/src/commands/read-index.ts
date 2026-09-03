@@ -6,7 +6,7 @@ export const readIndexCommand = define({
   tool: "kb_index",
   usage: "index",
   description:
-    "The index, rebuilt if it disagrees with the records. One call gives the whole shape of the base: title, type, status, and description per record. The cheap re-orientation call after compaction or deep in a long session — a few hundred tokens; call it (or kb_context, when bases are pinned) first, then kb_load or fetch by concept id.",
+    "The index — title, type, status, description per record — rebuilt if stale. Cheapest re-orientation after compaction: call it (or kb_context) first, then kb_load or fetch by id.",
   input: z.object({ bundlePath }),
   fromArgv: (_argv, path) => ({ bundlePath: path }),
   run: ({ store }, { bundlePath: path }) => store.readIndex(path),

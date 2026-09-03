@@ -7,7 +7,7 @@ export const syncInstructionsCommand = define({
   usage:
     "sync-instructions <file> [--profile NAME] [--budget N] [--full-under N]",
   description:
-    "Idempotently plant the `context` block between sentinel comments in an instruction file (AGENTS.md, CLAUDE.md), creating the block when absent and leaving everything outside the sentinels alone. CLI-only: this is file plumbing for runtimes whose instruction files are re-read where their conversations are not, not an agent capability — the capability is kb_context.",
+    "CLI-only: plant the kb_context block between sentinel comments in AGENTS.md or CLAUDE.md, idempotently.",
   input: z.object({
     file: z.string().min(1).describe("The instruction file to edit in place."),
     budgetTokens: z.number().int().positive().optional(),

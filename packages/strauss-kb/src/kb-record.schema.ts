@@ -54,16 +54,73 @@ export const kbVerifiedEventSchema = kbActorStampSchema.extend({
  *
  * Symbolic on purpose. These are written while the code is still moving: a
  * `line: 379` recorded at minute five is wrong by minute forty, but
- * `OrderService.cancel` survives every edit that does not rename it. A later
- * pass resolves symbols to line ranges once the change has settled, and records
- * that resolution as a `verified[]` entry.
+ * `OrderService.cancel` survives every edit that does not rename it. Once the
+ * change settles, a resolution pass (`anchor-resolver.ts`) stamps `hash`,
+ * `resolved_at`, and `lines`; drift detection later re-resolves and compares.
+ *
+ * `hash` is prefixed with the algorithm so a future one can coexist with
+ * stored values. `lines` exists because the anchor keeps a hash, not the text:
+ * without the line count at hash time, a drift report could say "changed" but
+ * never how much.
+ *
+ * `repo` and `ref` say *which* code, for bases that describe more than one
+ * repository. They are author-owned identity: a resolver stamps `hash`,
+ * `lines`, and `resolved_at`, and never writes these two. Both are optional and
+ * independent of each other, so every anchor written before they existed stays
+ * valid.
  */
 export const kbAnchorSchema = z
   .object({
     file: z.string().min(1),
     symbol: z.string().min(1).optional(),
+    /**
+     * Which repository the file lives in — a remote URL
+     * (`https://github.com/org/name`) or a short name. Absent means the base's
+     * own repository, which is what nearly every anchor means.
+     *
+     * Unvalidated beyond not-blank: one repository has many spellings.
+     * Matched after normalisation; see ARCHITECTURE.
+     */
+    repo: z.string().trim().min(1).optional(),
+    /**
+     * The git rev the evidence was taken at. Prefer a commit SHA: a branch
+     * name is a moving pointer, so an anchor pinned to one says the evidence
+     * came from wherever that branch happens to be now, which is not a
+     * baseline. Recorded and preserved in v1; ref-pinned reads land with
+     * SAA-709.
+     */
+    ref: z.string().trim().min(1).optional(),
+    hash: z
+      .string()
+      .regex(/^sha256:[0-9a-f]{64}$/, {
+        message: "hash must be sha256:<64 hex chars>",
+      })
+      .optional(),
+    /** ISO 8601 timestamp of the last successful resolution. */
+    resolved_at: z.string().min(1).optional(),
+    /** Line count of the text the hash was taken over. */
+    lines: z.number().int().positive().optional(),
   })
   .strict();
+
+/**
+ * One typed causal edge, as the frontmatter stores it.
+ *
+ * Read-side, and therefore tolerant: `rel` is a plain string here even though
+ * the vocabulary is closed, for the same reason `type` is. Rejecting an unknown
+ * rel at parse time would make the file vanish from `list()`, and a bundle
+ * cannot report a defect in a record it refuses to load. `kb_validate` turns an
+ * unknown rel into an error; `composeRecord` stops one being written.
+ *
+ * `target` is likewise not required to resolve — a dangling target is a
+ * validation warning rather than a parse failure.
+ */
+export const kbLinkSchema = z
+  .object({
+    target: z.string().min(1),
+    rel: z.string().min(1),
+  })
+  .passthrough();
 
 export const KB_RECORD_TYPES = [
   "fact",
@@ -145,6 +202,11 @@ export const kbRecordFrontmatterSchema = z
     strauss_anchors: z.array(kbAnchorSchema).optional(),
     strauss_verify: z.array(z.string().min(1)).optional(),
 
+    // Typed causal edges, source → target, living on the source. `A depends_on
+    // B` means A needs B, so `kb_impact` walks these inbound: what breaks if B
+    // changes is whatever declared a dependence on it.
+    strauss_links: z.array(kbLinkSchema).optional(),
+
     // Total after parsing, tolerant before it. Our producers must supply a
     // status — an absent one would leave every reader inventing its own default
     // — but OKF calls a concept carrying only `type` fully conformant, so
@@ -172,6 +234,7 @@ export type KbSource = z.infer<typeof kbSourceSchema>;
 export type KbActorStamp = z.infer<typeof kbActorStampSchema>;
 export type KbVerifiedEvent = z.infer<typeof kbVerifiedEventSchema>;
 export type KbAnchor = z.infer<typeof kbAnchorSchema>;
+export type KbLink = z.infer<typeof kbLinkSchema>;
 export type KbRecordFrontmatter = z.infer<typeof kbRecordFrontmatterSchema>;
 
 export type KbRecord = {

@@ -10,6 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
+import { DEFAULT_IO_CONCURRENCY, mapLimit } from "./concurrency.js";
 import {
   parseMarkdownWithFrontmatter,
   stringifyMarkdownWithFrontmatter,
@@ -18,6 +19,7 @@ import {
   kbRecordFrontmatterSchema,
   kbVerifiedEventSchema,
   KB_SLUG_PATTERN,
+  type KbAnchor,
   type KbRecord,
   type KbRecordFrontmatter,
   type KbRecordStatus,
@@ -31,15 +33,33 @@ import {
 } from "./kb-errors.js";
 import { INDEX_FILE, indexIsStale, renderIndex } from "./kb-index.js";
 import { adjudicate, type KbAdjudicated } from "./adjudicate.js";
+import {
+  detectAnchorDrift,
+  looksLikeWrongRepoRoot,
+  type KbAnchorDriftEntry,
+} from "./anchor-resolver.js";
 import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
 import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
+import { catalog, type KbCatalogResult } from "./catalog.js";
+import {
+  backlinks,
+  impact,
+  type KbBacklinksResult,
+  type KbImpactOptions,
+  type KbImpactResult,
+} from "./kb-links/index.js";
 import {
   LOG_FILE,
   parseLog,
   renderLogEntry,
   type KbLogEntry,
 } from "./kb-log.js";
+import {
+  appendUnionMergeLine,
+  GITATTRIBUTES_FILE,
+  hasMergeDeclaration,
+} from "./kb-gitattributes.js";
 
 /**
  * Default bundle, relative to the working directory. A scratch base lives here
@@ -83,12 +103,27 @@ export type KbLoadResult =
       tokensLoaded: number;
       /** `null` when loaded via `all`: no ceiling was applied. */
       budgetTokens: number | null;
+      /**
+       * Sha256 over every record's content and standing, sorted by concept
+       * id. Flips when a body, frontmatter, or standing changes; it's the
+       * base's content stamp, compared by hooks and `kb_stamp` (SAA-719).
+       */
+      digest: string;
     }
   | {
       loaded: false;
       recordCount: number;
       approxTokens: number;
       budgetTokens: number;
+      /** The refusal in words, naming the budget and what to call next. */
+      message: string;
+      /**
+       * Same digest a successful load would carry, computed over what would
+       * have been handed back. Cheap here — adjudication already ran before
+       * the refusal — and it lets a caller notice a refused bundle's content
+       * changed (say, after a narrower `type` filter) without loading it.
+       */
+      digest: string;
     };
 
 export type KbWriteInput = {
@@ -169,7 +204,7 @@ export class KbStore {
     });
 
     // The new record is published and logged first, then each prior record it
-    // supersedes is marked in turn. A crash between the two leaves an old
+    // supersedes is marked. A crash between the two leaves an old
     // record with no backlink — exactly what kb_validate already reports as
     // "<old> is not marked superseded", never a silent drift.
     //
@@ -178,6 +213,9 @@ export class KbStore {
     const targets = new Set(frontmatter.strauss_supersedes ?? []);
     targets.delete(conceptId);
 
+    // Targets are marked sequentially, in order: targets are 1-3 in practice,
+    // and marking them concurrently made log.jsonl entry order depend on
+    // which retry finished first rather than on strauss_supersedes order.
     const supersededIds: string[] = [];
     for (const old of targets) {
       if (
@@ -245,10 +283,11 @@ export class KbStore {
       .map((name) => ({ name, conceptId: name.slice(0, -".md".length) }))
       .filter(({ conceptId }) => !type || conceptId.startsWith(`${type}.`));
 
-    const records = await Promise.all(
-      wanted.map(async ({ name, conceptId }) =>
+    const records = await mapLimit(
+      wanted,
+      DEFAULT_IO_CONCURRENCY,
+      async ({ name, conceptId }) =>
         this.parse(conceptId, await readFile(join(root, name), "utf8")),
-      ),
     );
     return records.filter((record): record is KbRecord => record !== null);
   }
@@ -274,6 +313,27 @@ export class KbStore {
       conceptId,
       (frontmatter) => ({ ...frontmatter, strauss_status: status }),
       { operation: `status:${status}`, by: actor },
+    );
+  }
+
+  /**
+   * Replaces a record's anchors wholesale, preserving everything else.
+   *
+   * Wholesale rather than merged: the caller just resolved the anchors it is
+   * writing, so it holds the complete current set, and a merge would keep
+   * stale entries the resolution pass deliberately dropped.
+   */
+  async updateAnchors(
+    bundlePath: string,
+    conceptId: string,
+    anchors: KbAnchor[],
+    actor = "unknown",
+  ): Promise<KbRecord> {
+    return this.mutate(
+      bundlePath,
+      conceptId,
+      (frontmatter) => ({ ...frontmatter, strauss_anchors: anchors }),
+      { operation: "anchor-resolve", by: actor },
     );
   }
 
@@ -403,16 +463,23 @@ export class KbStore {
   async query(
     bundlePath: string,
     text: string,
-    options: { type?: string; includeNonCurrent?: boolean } = {},
+    options: {
+      type?: string;
+      includeNonCurrent?: boolean;
+      repoRoot?: string;
+    } = {},
   ): Promise<KbAdjudicated[]> {
     const bundle = await this.list(bundlePath);
     const needle = text.trim();
     const hits = needle ? await this.rank(bundlePath, needle, bundle) : bundle;
+    const narrowed = options.type
+      ? hits.filter((r) => r.frontmatter.type === options.type)
+      : hits;
     const adjudicated = adjudicate(
-      options.type
-        ? hits.filter((r) => r.frontmatter.type === options.type)
-        : hits,
+      narrowed,
       bundle,
+      new Date(),
+      await this.detectDrift(narrowed, options.repoRoot),
     );
 
     if (options.includeNonCurrent) return adjudicated;
@@ -444,6 +511,54 @@ export class KbStore {
   }
 
   /**
+   * Anchor drift over the records about to be handed back. Like the search
+   * index, this is an enrichment: a filesystem failure degrades to "no drift
+   * reported" rather than failing the read. Anchors without a stored hash are
+   * skipped inside `detectAnchorDrift`, so a base nobody has stamped pays no
+   * fs cost here. `repoRoot` defaults to the working directory — the CLI runs
+   * at the repo root, and the MCP server's cwd is the workspace.
+   *
+   * Public because `doctor` needs the same map with the same degradation: a
+   * sweep that failed to read the tree should report no drift, not fail.
+   *
+   * When no root was given and not one anchored file was found, the finding is
+   * discarded. A base read from somewhere other than the tree it describes
+   * misses every file at once, and that shape is far likelier to be a wrong
+   * default root than a repository where every anchored file was deleted on
+   * the same day. Reporting it would put a drift warning on every record in
+   * the base, which teaches a reader to ignore the warning — the one outcome
+   * worse than not having it. One file found anywhere makes the root
+   * plausible, and the misses become findings again; an explicit `repoRoot` is
+   * taken at its word either way.
+   */
+  async detectDrift(
+    records: KbRecord[],
+    repoRoot?: string,
+  ): Promise<Map<string, KbAnchorDriftEntry[]> | undefined> {
+    try {
+      const drift = await detectAnchorDrift(records, {
+        repoRoot: repoRoot ?? process.cwd(),
+      });
+      if (repoRoot === undefined && looksLikeWrongRepoRoot(drift)) {
+        this.logger.warn?.({
+          operation: "kb.anchor-drift",
+          outcome: "skipped",
+          reason: "no anchored file found under the default repo root",
+        });
+        return undefined;
+      }
+      return drift;
+    } catch (error) {
+      this.logger.warn?.({
+        operation: "kb.anchor-drift",
+        outcome: "skipped",
+        error: error instanceof Error ? error.message : "unknown",
+      });
+      return undefined;
+    }
+  }
+
+  /**
    * The whole base, adjudicated, when it is small enough to hand over.
    *
    * At the sizes these reach — twenty records is about three thousand tokens —
@@ -462,13 +577,25 @@ export class KbStore {
    * is indistinguishable from a complete one, so a caller would answer "that
    * was never decided" from a slice it did not know was a slice.
    *
-   * That refusal is the default guardrail. `all` bypasses it outright and
-   * always hands back the whole bundle: an explicit, never-accidental escape
-   * hatch for an operator who has the budget to spend, not a wider default.
+   * A token budget decides that, measured over what is actually handed back.
+   * The refusal names the estimate and the budget, because a caller told only
+   * "too big" cannot tell whether to narrow the type filter, raise the budget,
+   * or stop loading the base whole altogether. Past the budget the answer is
+   * the catalog and then a pack, which is what the refusal says.
+   *
+   * That refusal is the default guardrail. `all` bypasses the budget outright
+   * and always hands back the whole bundle: an explicit, never-accidental
+   * escape hatch for an operator who has the budget to spend, not a wider
+   * default.
    */
   async load(
     bundlePath: string,
-    options: { budgetTokens?: number; type?: string; all?: boolean } = {},
+    options: {
+      budgetTokens?: number;
+      type?: string;
+      all?: boolean;
+      repoRoot?: string;
+    } = {},
   ): Promise<KbLoadResult> {
     const budgetTokens = options.budgetTokens ?? DEFAULT_LOAD_BUDGET;
     const bundle = await this.list(bundlePath);
@@ -478,7 +605,12 @@ export class KbStore {
 
     // Adjudicated against the whole base, not the filtered slice: a record's
     // replacement may be of another type.
-    const adjudicated = adjudicate(wanted, bundle);
+    const adjudicated = adjudicate(
+      wanted,
+      bundle,
+      new Date(),
+      await this.detectDrift(wanted, options.repoRoot),
+    );
     const records = adjudicated.filter((hit) => hit.standing !== "superseded");
     const superseded = adjudicated
       .filter((hit) => hit.standing === "superseded")
@@ -490,12 +622,22 @@ export class KbStore {
       records.reduce((total, hit) => total + estimateTokens(hit.record), 0) +
       superseded.reduce((total, entry) => total + estimateStubTokens(entry), 0);
 
+    // Adjudication has already run either way, so this costs nothing extra —
+    // computed once and carried on whichever branch returns.
+    const bundleDigestValue = bundleDigest(records, superseded);
+
     if (!options.all && approxTokens > budgetTokens) {
       return {
         loaded: false,
         recordCount: wanted.length,
         approxTokens,
         budgetTokens,
+        message: refusalMessage({
+          approxTokens,
+          budgetTokens,
+          type: options.type,
+        }),
+        digest: bundleDigestValue,
       };
     }
 
@@ -506,6 +648,7 @@ export class KbStore {
       budgetTokens: options.all ? null : budgetTokens,
       records,
       superseded,
+      digest: bundleDigestValue,
     };
   }
 
@@ -518,6 +661,14 @@ export class KbStore {
     return trace(seedId, await this.list(bundlePath), options);
   }
 
+  /** Every record named in one line each. See `catalog.ts`. */
+  async catalog(
+    bundlePath: string,
+    options: { type?: string; now?: Date } = {},
+  ): Promise<KbCatalogResult> {
+    return catalog(await this.list(bundlePath), options);
+  }
+
   /** A bounded neighbourhood around one record. See `pack.ts`. */
   async pack(
     bundlePath: string,
@@ -525,6 +676,23 @@ export class KbStore {
     options: KbPackOptions = {},
   ): Promise<KbPackResult> {
     return pack(await this.list(bundlePath), rootId, options);
+  }
+
+  /** What breaks if this record changes. See `kb-links/impact.ts`. */
+  async impact(
+    bundlePath: string,
+    targetId: string,
+    options: KbImpactOptions = {},
+  ): Promise<KbImpactResult> {
+    return impact(targetId, await this.list(bundlePath), options);
+  }
+
+  /** Who points at this record, one hop. See `kb-links/backlinks.ts`. */
+  async backlinks(
+    bundlePath: string,
+    targetId: string,
+  ): Promise<KbBacklinksResult> {
+    return backlinks(targetId, await this.list(bundlePath));
   }
 
   /**
@@ -699,11 +867,105 @@ export class KbStore {
     }
   }
 
+  /**
+   * Declares union merge for the log, so two worktrees writing the same
+   * bundle interleave their `log.jsonl` lines on merge rather than one
+   * side's appends silently losing to git's ordinary line-level merge.
+   *
+   * Called from `record` — every path that appends a log line, not just
+   * `write` — so a bundle only ever mutated through `setStatus`/`verify`/
+   * `supersede` still gets it. There is no cheaper reliable signal for
+   * "first write" than checking the file itself, and after the first call
+   * the check is a no-op `readFile`.
+   *
+   * A missing `.gitattributes` is created outright, with `wx` (exclusive
+   * create) rather than a plain write: if another process's `write()` won a
+   * race and created the file between the `readFile` below and this call,
+   * `wx` fails instead of truncating what that writer just wrote, and the
+   * failure is swallowed by the catch below same as any other best-effort
+   * miss. A file that exists but declares no merge strategy for the log
+   * gets the line appended, never a wholesale rewrite; one that already
+   * declares any merge strategy — this one or a user's own — is left alone
+   * entirely (see `hasMergeDeclaration`).
+   *
+   * `readFile` failing is `existing === null` only for `ENOENT` — genuinely
+   * missing. Any other error (a permission problem, a transient `EMFILE`,
+   * the path being a directory) is *not* "missing" and must not fall into
+   * the create branch, which would truncate whatever is actually there with
+   * just the union-merge line: that is the file-destroying bug this
+   * function exists to avoid, not commit. An unreadable existing file is
+   * therefore left untouched and reported as a failure like any other.
+   *
+   * Two processes racing the append branch — both read a file without the
+   * line, both append it — is possible and left unguarded: `appendFile` is
+   * `O_APPEND`, so the result is two copies of the same line rather than a
+   * torn write, and `hasMergeDeclaration` sees a duplicate declaration as
+   * "already declared" on the next call. A cheap-to-detect, harmless-to-
+   * leave residue, not a reason to add a cross-process lock (see
+   * `ARCHITECTURE.md`'s rejection of one for the same trade on records).
+   *
+   * Best-effort, like the log append it precedes: failing to write this
+   * file must not fail the mutation it guards.
+   */
+  private async ensureGitattributes(root: string): Promise<void> {
+    const target = join(root, GITATTRIBUTES_FILE);
+    try {
+      let existing: string | null;
+      try {
+        existing = await readFile(target, "utf8");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        existing = null;
+      }
+
+      if (existing === null) {
+        try {
+          await writeFile(target, appendUnionMergeLine(""), {
+            encoding: "utf8",
+            flag: "wx",
+          });
+        } catch (error) {
+          // Another writer created the same file with the same content
+          // between our read and our write — a win for them counts as a win
+          // for us, not a failure.
+          if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+          this.logger.info?.({
+            operation: "kb.gitattributes.ensure",
+            bundlePath: root,
+            outcome: "exists",
+          });
+          return;
+        }
+        this.logger.info?.({
+          operation: "kb.gitattributes.ensure",
+          bundlePath: root,
+          outcome: "created",
+        });
+        return;
+      }
+      if (!hasMergeDeclaration(existing)) {
+        await appendFile(target, appendUnionMergeLine(existing), "utf8");
+        this.logger.info?.({
+          operation: "kb.gitattributes.ensure",
+          bundlePath: root,
+          outcome: "appended",
+        });
+      }
+    } catch (error) {
+      this.logger.warn?.({
+        operation: "kb.gitattributes.ensure",
+        outcome: "failed",
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    }
+  }
+
   /** Appends one log line. Failing to log must not fail the mutation. */
   private async record(
     root: string,
     entry: Omit<KbLogEntry, "at"> & { at?: string },
   ): Promise<void> {
+    await this.ensureGitattributes(root);
     const line = renderLogEntry({ at: new Date().toISOString(), ...entry });
     await appendFile(join(root, LOG_FILE), line, "utf8").catch((error) => {
       this.logger.warn?.({
@@ -768,6 +1030,21 @@ export function estimateStubTokens(entry: KbSupersededStub): number {
   return Math.ceil(JSON.stringify(entry).length / 4);
 }
 
+/** What a refused load says: what tripped the budget, and what to call next. */
+function refusalMessage(refusal: {
+  approxTokens: number;
+  budgetTokens: number;
+  type?: string;
+}): string {
+  const scope = refusal.type ? ` of type ${refusal.type}` : "";
+
+  return [
+    `Refusing to load this base whole: ~${refusal.approxTokens} tokens is past the ${refusal.budgetTokens}-token budget.`,
+    `Call kb_catalog for one line per record${scope} (id, type, title, standing), then kb_pack on the record that matters; kb_query works for a lookup by wording.`,
+    `To load anyway: raise budgetTokens (currently ${refusal.budgetTokens}), or all=true to bypass the budget.`,
+  ].join(" ");
+}
+
 /**
  * `heads` is where the supersession chain ends, which is what a reader needs:
  * pointing at an intermediate record that is itself superseded would answer
@@ -808,4 +1085,32 @@ function normalizeActor(id: string): string {
 
 function digest(contents: string): string {
   return createHash("sha256").update(contents).digest("hex");
+}
+
+/**
+ * `load`'s bundle digest. Entries are sorted by concept id, so it never
+ * depends on listing order; each is hashed over its record's canonical
+ * recomposed form, not the on-disk bytes; superseded stubs are included, so
+ * a standing flip changes the digest even when the body did not.
+ */
+function bundleDigest(
+  records: KbAdjudicated[],
+  superseded: KbSupersededStub[],
+): string {
+  const entries = [
+    ...records.map(
+      (hit) =>
+        `${hit.record.conceptId}:current:${digest(
+          stringifyMarkdownWithFrontmatter(
+            hit.record.body,
+            hit.record.frontmatter,
+          ),
+        )}`,
+    ),
+    ...superseded.map(
+      (entry) =>
+        `${entry.conceptId}:superseded:${digest(JSON.stringify(entry))}`,
+    ),
+  ].sort();
+  return digest(entries.join("\n"));
 }

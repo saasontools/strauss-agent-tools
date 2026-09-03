@@ -94,6 +94,53 @@ export class KbPackBudgetExceededError extends BaseError {
   }
 }
 
+/**
+ * A `rels` option naming something the walk can never follow.
+ *
+ * Refused rather than ignored: dropping an unrecognised rel would return an
+ * empty impact set — "nothing breaks" — indistinguishable from a genuine
+ * result. `related_to` is refused here too, since it asserts no dependence and
+ * following it can only produce that same empty set.
+ */
+export class KbUnknownLinkRelError extends BaseError {
+  constructor(
+    readonly rel: string,
+    readonly expected: readonly string[],
+  ) {
+    super({
+      message: `kb: ${rel} is not a rel a walk can follow — expected one of ${expected.join(", ")}`,
+      errorType: ErrorTypes.KbUnknownLinkRel,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { rel, expected: expected.join(", ") },
+    });
+  }
+}
+
+/**
+ * A flag that takes a value, given none.
+ *
+ * `strauss-kb load --budget` used to read the next argv entry, find
+ * nothing, and quietly fall back to the default — so a caller who meant to
+ * raise a ceiling got the ceiling they were trying to move, and a typo looked
+ * exactly like success. Refusing is the only way that stays visible.
+ */
+export class KbMissingFlagValueError extends BaseError {
+  constructor(readonly flag: string) {
+    super({
+      message: `kb: ${flag} needs a value — pass ${flag} <value> or ${flag}=<value>`,
+      errorType: ErrorTypes.KbMissingFlagValue,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { flag },
+    });
+  }
+}
+
 export class KbInvalidConceptIdError extends BaseError {
   constructor(message: string, details: Record<string, string>) {
     super({

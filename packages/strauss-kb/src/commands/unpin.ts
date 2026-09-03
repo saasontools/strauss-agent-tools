@@ -7,7 +7,7 @@ export const unpinCommand = define({
   tool: "kb_unpin",
   usage: "unpin [bundle-path]",
   description:
-    "Remove a base from every pin manifest layer that holds it — project, local, and user — because unpinned means gone, not still injected from another file. Reports which layers were touched.",
+    "Remove a base from every manifest layer that holds it. Reports the layers touched.",
   input: z.object({ bundlePath }),
   fromArgv: (argv, path) => ({ bundlePath: argv[1] ?? path }),
   run: (_ctx, { bundlePath: path }) => unpinBase(process.cwd(), path),

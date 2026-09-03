@@ -8,7 +8,7 @@ export const pinCommand = define({
   usage:
     "pin [bundle-path] [--mode full|index] [--profiles a,b] [--local|--user] [--frozen|--unfreeze]",
   description:
-    "Pin a base into a workspace pin manifest, so `context` surfaces it at every context birth. Three layers, nearest wins: the committed project manifest (.strauss/kb-pins.json, the default), `--local` (.strauss/kb-pins.local.json, personal and gitignored), and `--user` (~/.strauss/kb-pins.json, every workspace). Idempotent — re-pinning changes nothing unless --mode, --profiles, or --frozen/--unfreeze are given, which update just those fields. `--mode full` preloads the whole base into the block regardless of the full-under threshold; `--mode index` never upgrades. `--profiles` scopes the pin to named context profiles. `--frozen` marks the base concluded: write commands against it refuse and `context` labels it read-only. A path with no records yet succeeds with a warning; bases are routinely pinned before they are populated. Pins are workspace state: the pinned base itself is never touched.",
+    "Pin a base into a workspace manifest so kb_context surfaces it. Layers, nearest wins: project `.strauss/kb-pins.json` (default), `--local` (personal, gitignored), `--user` (`~/.strauss`). Idempotent; `--mode full|index`, `--profiles`, `--frozen`/`--unfreeze` update only those fields. A path with no records pins with a warning. Never touches the base itself.",
   input: z.object({
     bundlePath,
     mode: z
