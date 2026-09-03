@@ -44,7 +44,12 @@ export function cachePathFor(repo: string, cacheDir: string): string | null {
   return join(cacheDir, ...path.slice(0, -1), `${path[path.length - 1]}.git`);
 }
 
-/** A path segment a repository URL may contribute to a directory name. */
+/**
+ * A path segment a repository URL may contribute to a directory name. A
+ * Windows `file:///C:/…` contributes its drive as the first one, and `:` is
+ * not legal in a directory name there, so it is folded like any other
+ * separator rather than special-cased.
+ */
 function safeSegment(value: string): string | null {
   return value === "." || value === ".." || value.includes("\0")
     ? null

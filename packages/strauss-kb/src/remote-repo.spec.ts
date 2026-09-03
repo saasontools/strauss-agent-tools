@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, test as baseTest, vi } from "vitest";
 import {
   detectAnchorDrift,
@@ -74,7 +75,9 @@ function publish(work: string, versions: string[] = [V1, V2]): Remote {
     stdio: "pipe",
   });
   return {
-    url: `file://${bare}`,
+    // `pathToFileURL`, not string concatenation: a Windows path is
+    // `C:\\…`, and only this spells it `file:///C:/…`.
+    url: pathToFileURL(bare).href,
     first: shas[0] as string,
     head: shas[shas.length - 1] as string,
   };
@@ -122,7 +125,7 @@ async function driftOf(
 describe("cachePathFor", () => {
   test("is <host>/<org>/<name>.git, and nothing for a short form", () => {
     expect(cachePathFor("git@github.com:org/name.git", "/c")).toBe(
-      "/c/github.com/org/name.git",
+      join("/c", "github.com", "org", "name.git"),
     );
     expect(cachePathFor("org/name", "/c")).toBeNull();
   });
@@ -208,7 +211,7 @@ describe("a foreign anchor", () => {
 
   test("reports remote-unreachable rather than throwing", async ({ work }) => {
     const entry = await driftOf(
-      anchorFor(V1, { repo: `file://${join(work, "gone.git")}` }),
+      anchorFor(V1, { repo: pathToFileURL(join(work, "gone.git")).href }),
       work,
     );
 

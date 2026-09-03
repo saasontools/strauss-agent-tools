@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { hashAnchorText, resolveAnchor } from "../anchor-resolver/index.js";
 import { composeRecord } from "../compose.js";
@@ -526,7 +527,7 @@ describe("anchorResolveCommand", () => {
         stdio: "pipe",
       });
       return {
-        url: `file://${bare}`,
+        url: pathToFileURL(bare).href,
         first: shas[0] as string,
         head: shas[1] as string,
       };
