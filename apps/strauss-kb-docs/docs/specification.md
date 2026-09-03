@@ -169,6 +169,7 @@ strauss_anchors:
 | `file`        | yes      | the repo-relative path the concept names        |
 | `symbol`      | no       | a symbol within it; absent means the file       |
 | `hash`        | no       | `sha256:<64 hex>` over the anchored text        |
+| `hash_kind`   | no       | `raw` or `ast`; absent reads as `raw`           |
 | `lines`       | no       | the **line count** that hash was taken over     |
 | `resolved_at` | no       | ISO timestamp of the last resolution            |
 | `resolver`    | no       | `tree-sitter` or `regex`; absent reads as regex |
@@ -176,9 +177,12 @@ strauss_anchors:
 | `ref`         | no       | git rev the evidence was taken at; unused in v1 |
 
 Anchors stay symbolic because they are written while the code is still moving;
-once it settles, a resolution pass stamps `hash`, `lines`, `resolved_at`, and
-`resolver`. Those four are measured; `repo` and `ref` are author-owned and never
-stamped.
+once it settles, a resolution pass stamps `hash`, `hash_kind`, `lines`,
+`resolved_at`, and `resolver`. Those five are measured; `repo` and `ref` are
+author-owned and never stamped. A tree-sitter stamp hashes the span's normalised
+token stream — comments dropped, whitespace collapsed — and records
+`hash_kind: "ast"`, so reformatting the anchored code is not drift. A `raw` hash
+keeps comparing raw text; the two kinds are never compared to each other.
 CRLF is normalized to LF before hashing, and `lines` is what lets a drift report
 say how much changed.
 
@@ -197,6 +201,40 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 `symbol-ambiguous`, `resolver-unavailable`, `outside-repo`, `file-too-large`,
 `file-unreadable`, or `foreign-repo`. `drifted` carries `resolver-changed` when
 the resolver changed and the code did not.
+
+#### Drift classes
+
+Drift is also classified, so a reader only sees what a machine cannot settle:
+
+| Class      | Meaning                                                         |
+| ---------- | --------------------------------------------------------------- |
+| `moved`    | the stored hash resolves at another file or symbol — same code  |
+| `cosmetic` | old and new spans are one token stream; only formatting changed |
+| `gone`     | the file or symbol no longer exists                             |
+| `changed`  | everything else                                                 |
+
+`gone` and `changed` are settled by the hash comparison itself and appear on
+every read path. `moved` needs a repository-wide search and `cosmetic` needs the
+committed text, so both are computed on demand by
+[`reassess`](./cli-reference.md#reassess) and
+[`doctor --drifted`](./cli-reference.md#doctor). `cosmetic` needs a grammar, so
+the regex resolver never reports it — there the class is `changed`.
+
+#### The reassessment packet
+
+Per record that still needs a reading: its title, `why`, and the claim section
+of its type; per anchor the class and, with `--with-diff`, a unified diff of the
+old span against the new; and the record's
+[`impact`](./cli-reference.md#impact) set, because a fact that stopped holding
+invalidates what depends on it. The old span is recovered with `git show
+<ref>:<file>`, or from the last commit touching that path before `resolved_at`;
+neither resolving makes the diff `unrecoverable`. Diffs are capped per anchor
+and per packet.
+
+Each packet names a type-based default — `fact`, `constraint` and `contract`
+anchored to `changed` or `gone` code read as _presumed invalidated_; `decision`
+and `risk` as _rationale may survive, check_. It is a starting point, not a
+verdict: no drift path writes `verified[]` or changes standing.
 
 #### Symbol resolution
 
