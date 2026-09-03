@@ -19,19 +19,26 @@ const RESULTS_DIR = fileURLToPath(new URL("../results", import.meta.url));
 const CHARS_PER_TOKEN = 4;
 const ESTIMATED_OUTPUT_TOKENS = 220;
 
-const KNOWN_FLAGS = new Set([
-  "full",
-  "estimate",
-  "arms",
-  "models",
-  "tasks",
-  "out",
-  "concurrency",
-]);
+/** Every flag, with the line `--help` prints for it. */
+const FLAG_HELP: Record<string, string> = {
+  full: `every arm and model over all ${TASKS.length} questions`,
+  estimate: "print the projected cost and exit without calling anything",
+  "arms=A,B": `arms to run (default A,B; --full runs ${ARM_IDS.join(",")})`,
+  "models=<id,...>": "model ids to run (default the first; --full runs both)",
+  "tasks=<n>": `how many questions to sample, 1-${TASKS.length}`,
+  "concurrency=<n>": "calls in flight, 1-32 (default 4)",
+  "out=<dir>": "where the .md and .json results are written",
+  help: "this list",
+};
+
+const KNOWN_FLAGS = new Set(
+  Object.keys(FLAG_HELP).map((flag) => flag.split("=", 1)[0] as string),
+);
 
 export class CliUsageError extends Error {}
 
 export type CliOptions = {
+  help: boolean;
   full: boolean;
   estimateOnly: boolean;
   arms: ArmId[];
@@ -117,6 +124,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   });
 
   return {
+    help: flags.get("help") === "true",
     full,
     estimateOnly: flags.get("estimate") === "true",
     arms: arms as ArmId[],
@@ -192,6 +200,14 @@ export async function main(argv: readonly string[]): Promise<number> {
     return 2;
   }
 
+  if (options.help) {
+    write("pnpm bench -- [flags]");
+    for (const [flag, description] of Object.entries(FLAG_HELP)) {
+      write(`  --${flag.padEnd(18)} ${description}`);
+    }
+    return 0;
+  }
+
   const records = await loadBundle();
   const tasks = options.full ? TASKS : sampleTasks(options.taskCount);
   const sample = tasks[0] ?? CORE_TASKS[0]!;
@@ -228,9 +244,9 @@ export async function main(argv: readonly string[]): Promise<number> {
 
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
     write(
-      "No ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN in the environment. " +
-        "Nothing was called. Re-run with credentials, or run `pnpm test` for the " +
-        "dry-run suite, which exercises prompt assembly and scoring without a model.",
+      "No ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN in the environment, so " +
+        "nothing was called. Re-run with credentials, or `pnpm test` for the " +
+        "dry-run suite.",
     );
     return 1;
   }

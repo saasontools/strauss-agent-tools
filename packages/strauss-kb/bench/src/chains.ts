@@ -1,13 +1,10 @@
 /**
  * The fixture's supersession chains, and what each replacement may not say.
  *
- * In arms B and C the only thing separating the current record from the stale
- * one must be the reader's judgement, so a body that narrates its own history
- * leaks the standing signal in prose. The narration is semantic and a
- * field-name regex cannot see it, so each pair carries a hand-written list of
- * the stale record's distinctive tokens and `bundle.spec.ts` asserts none of
- * them appear in the replacement's body. Hand-written, because a derivation
- * would flag Twilio's legitimate return two links later in the same chain.
+ * Invariant: no replacement body contains its predecessor's `staleTokens`, or
+ * standing leaks into arms B and C as prose. The lists are hand-written
+ * because a derivation would flag Twilio's legitimate return later in the
+ * notification chain.
  */
 export type SupersessionPair = {
   /** The record that no longer holds. */

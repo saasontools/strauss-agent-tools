@@ -79,12 +79,10 @@ export const ANSWER_INSTRUCTIONS = [
 ].join("\n");
 
 /**
- * The prompt for one (arm, task) pair, split at the cache breakpoint.
- *
- * `bundlePrefix` is everything constant within an arm; `question` varies per
- * call. Sent as two content blocks with the breakpoint between, so an arm's
- * thirty questions write the ~9k-token prefix once and read it back
- * twenty-nine times.
+ * The prompt for one (arm, task) pair, split at the cache breakpoint:
+ * `bundlePrefix` is constant within an arm, `question` varies per call. Sent as
+ * two content blocks so an arm's questions write the prefix once and read it
+ * back thereafter.
  */
 export type BenchPrompt = {
   system: string;

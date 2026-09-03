@@ -76,11 +76,9 @@ export type ArmBundle = {
 };
 
 /**
- * Projects the arm-A bundle into one arm's view of it.
- *
- * Deterministic and total: same input, same bytes, and every arm sees the same
- * records in the same order. Only the header fields and the presence of a body
- * differ.
+ * Projects the arm-A bundle into one arm's view: same records, same order,
+ * same bytes for the same input. Only the header fields and the presence of a
+ * body differ.
  */
 export function applyArm(records: BenchRecord[], arm: ArmId): ArmBundle {
   const spec = ARMS[arm];

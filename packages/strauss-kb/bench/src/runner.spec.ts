@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadBundle } from "./bundle.js";
 import { ANSWER_TOOL_SCHEMA, SYSTEM_PROMPT, parseAnswer } from "./prompt.js";
-import { CliUsageError, estimate, parseArgs } from "./cli.js";
+import { CliUsageError, estimate, main, parseArgs } from "./cli.js";
 import { projectCost, usageCost } from "./models.js";
 import { renderReport } from "./report.js";
 import { pairedDifferences, runBench } from "./runner.js";
@@ -568,6 +568,35 @@ describe("cli", () => {
       expect(cost.cached).toBeGreaterThan(0);
       expect(cost.cached).toBeLessThan(cost.uncached);
       expect(cost.uncached).toBeLessThan(20);
+    }
+  });
+
+  it("--help lists every flag it accepts, and calls nothing", async () => {
+    const lines: string[] = [];
+    const write = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: string) => {
+      lines.push(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+    let code: number;
+    try {
+      code = await main(["--help"]);
+    } finally {
+      process.stdout.write = write;
+    }
+    const printed = lines.join("");
+    expect(code).toBe(0);
+    for (const flag of [
+      "--full",
+      "--estimate",
+      "--arms",
+      "--models",
+      "--tasks",
+      "--concurrency",
+      "--out",
+      "--help",
+    ]) {
+      expect(printed).toContain(flag);
     }
   });
 

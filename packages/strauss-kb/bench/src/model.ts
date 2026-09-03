@@ -13,14 +13,10 @@ export type TaskType =
   "current-state" | "rejected-alternative" | "open-question" | "aggregation";
 
 /**
- * Whether a question is comparable across arms.
- *
- * `core` questions have their ground truth in record *content*, which every arm
- * sees; arms B and C can answer, they just have less to go on. `standing-only`
- * questions ask about a field the transforms delete ("how many decisions still
- * hold"), so in arms B and C the answer is absent rather than hard. Scoring
- * those inside the headline would inflate A-B by construction, so they are
- * reported on their own.
+ * Whether a question is comparable across arms. `core` ground truth lives in
+ * record *content*, which every arm sees; `standing-only` asks about a field
+ * the transforms delete, so scoring it in the headline would inflate A-B by
+ * construction. Only `core` feeds the headline.
  */
 export type TaskFamily = "core" | "standing-only";
 
@@ -98,9 +94,9 @@ export type ScoredAnswer = {
 export type CellUsage = {
   /** Uncached input, at the base rate. */
   inputTokens: number;
-  /** Written to cache this call, at 1.25x the base rate (5-minute TTL). */
+  /** Written to cache this call; billed at `CACHE_WRITE_MULTIPLIER`. */
   cacheWriteTokens: number;
-  /** Served from cache, at 0.1x the base rate. */
+  /** Served from cache; billed at `CACHE_READ_MULTIPLIER`. */
   cacheReadTokens: number;
   outputTokens: number;
 };
@@ -116,8 +112,8 @@ export type BenchCell = {
   usage: CellUsage;
   /**
    * The transport failed after its retries. An errored cell leaves the accuracy
-   * denominator and the bootstrap and is reported as its own count, so a rate
-   * limit cannot look like a model failure.
+   * denominator and the bootstrap, so a rate limit cannot read as a model
+   * failure.
    */
   errored: boolean;
   error: string | null;

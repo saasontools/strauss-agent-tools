@@ -60,13 +60,6 @@ describe("the arm-A fixture bundle", () => {
   });
 });
 
-/**
- * The leak invariants. If a body narrates its own history, arms B and C keep
- * the standing signal in prose and the A-B gap closes for the wrong reason. A
- * field-name regex cannot see that, so there are three checks: the chain data
- * must match the bundle, no body may carry a narration phrase, and no
- * replacement may name the thing it replaced.
- */
 describe("standing never leaks into prose", () => {
   it("declares exactly the supersession pairs the bundle contains", () => {
     const inBundle = records

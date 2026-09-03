@@ -84,11 +84,10 @@ export function mockTransport(
  * - **Thinking is off and the answer tool is forced.** The experiment varies
  *   one thing, the fields in the prompt.
  * - **The cache breakpoint sits on the bundle block, not the system prompt.**
- *   The ~60-token system prompt is under every model's minimum cacheable prefix
- *   (1024 on Sonnet 5, 4096 on Haiku 4.5); the bundle is ~9k tokens and
- *   identical across an arm's questions. See `bench/README.md`.
+ *   The system prompt is under every model's `minCacheableTokens`; the bundle
+ *   is large and identical across an arm's questions. See `bench/README.md`.
  * - **Default 5-minute TTL.** An arm's questions are issued back to back; the
- *   1-hour TTL would double the write premium (2x rather than 1.25x).
+ *   1-hour TTL bills a higher write premium than `CACHE_WRITE_MULTIPLIER`.
  */
 export function anthropicTransport(options: RetryOptions = {}): Transport {
   let clientPromise: Promise<{

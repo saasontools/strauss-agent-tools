@@ -59,15 +59,9 @@ export function bootstrapCi(
 }
 
 /**
- * Percentile bootstrap on a *paired* difference: mean(a) - mean(b).
- *
- * Between-question difficulty is the largest variance component in a 30-item
- * set, and resampling arms independently leaves all of it in both intervals.
- * Resampling *questions* and taking both arms' outcomes for each drawn question
- * cancels it, so a paired interval can exclude zero while the per-arm intervals
- * visibly overlap.
- *
- * `a` and `b` must be aligned: index `i` is the same question in both.
+ * Percentile bootstrap on a *paired* difference: mean(a) - mean(b). Resamples
+ * questions, not cells. `a` and `b` must be aligned: index `i` is the same
+ * question in both.
  */
 export function bootstrapPairedDiff(
   a: readonly number[],

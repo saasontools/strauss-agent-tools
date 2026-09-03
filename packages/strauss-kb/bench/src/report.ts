@@ -1,5 +1,9 @@
 import { ARMS } from "./arms.js";
-import { usageCost } from "./models.js";
+import {
+  CACHE_READ_MULTIPLIER,
+  CACHE_WRITE_MULTIPLIER,
+  usageCost,
+} from "./models.js";
 import type { BenchRun, ConfidenceInterval, TaskType } from "./model.js";
 
 const TYPE_ORDER: readonly TaskType[] = [
@@ -89,10 +93,10 @@ export function renderReport(run: BenchRun): string {
 
   lines.push("", "## Spend", "");
   lines.push(
-    "Cache writes bill at 1.25x the base input rate on the default 5-minute",
-    "TTL; cache reads at 0.1x. A cache-read column near zero means the arm",
-    "prefix is not caching -- check it against the model's minimum cacheable",
-    "prefix before reading the cost as a surprise.",
+    `Cache writes bill at ${CACHE_WRITE_MULTIPLIER}x the base input rate, reads at ${CACHE_READ_MULTIPLIER}x.`,
+    "A cache-read column near zero means the arm prefix is not caching -- check",
+    "it against the model's minimum cacheable prefix before reading the cost as",
+    "a surprise.",
     "",
   );
   lines.push(
