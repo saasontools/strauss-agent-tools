@@ -164,22 +164,27 @@ Returns `{ conceptId, verified }`, the new event count.
 ### `anchor-resolve`
 
 ```
-anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]
+anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp]
 ```
 
-Resolve a record's [anchors](./specification.md#anchors) against the working
-tree: stamp a hash onto anchors that lack one, and report drift where the code
-moved. An unreadable file or unfindable symbol is a **finding, not an error**.
+Resolve a record's [anchors](./specification.md#anchors): stamp a hash onto
+anchors that lack one, and report drift where the code moved. An anchor naming
+another repository is read from
+[that remote](./specification.md#anchors-in-another-repository); everything
+else from the working tree. An unreadable file or unreachable remote is a
+**finding, not an error**.
 
 | Flag                 | Effect                                                              |
 | -------------------- | ------------------------------------------------------------------- |
 | `--repo-root <path>` | Where the anchored source lives. Defaults to the working directory. |
+| `--offline`          | Read foreign anchors from the repo cache only, never fetching.      |
 | `--rebaseline`       | Accept the current code as the new baseline.                        |
 | `--restamp`          | Refresh `resolved_at` on anchors that already match.                |
 
 **Exits 1** when an anchor drifted, or when one carrying a hash no longer
-resolves, so a CI gate can run it. A matching anchor is left alone rather than
-re-dated; a clean run appends one `verified[]` event, subject to the same
+resolves, so a CI gate can run it. An anchor nothing could reach neither fails
+the gate nor verifies the record: a clean run appends one `verified[]` event
+only when every anchor was checked and matched, subject to the same
 self-verification rule as [`verify`](#verify).
 
 ```bash
@@ -188,7 +193,7 @@ strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
 
 Returns `{ conceptId, results, verified }`, each result
 `{ file, symbol?, state, storedHash?, currentHash?, diffSize?, reason?,
-rebaselined? }`.
+rebaselined?, repo?, remoteState? }`.
 
 ---
 
@@ -431,6 +436,7 @@ or re-dates; every finding names a record for a person to repair.
 | `broken-supersession`  | A chain that does not resolve: no replacement, a missing one, a cycle, a fork. |
 | `superseded-but-cited` | A record that still holds, whose body links to one that does not.              |
 | `drifted`              | A hash-carrying anchor whose code moved, or whose file or symbol is gone.      |
+| `unchecked`            | An anchor in another repository nothing could reach, grouped per repository.   |
 
 | Flag                  | Default | Effect                                                |
 | --------------------- | ------- | ----------------------------------------------------- |
@@ -438,6 +444,7 @@ or re-dates; every finding names a record for a person to repair.
 | `--unverified-days N` | 90      | How old an unconfirmed record must be to be reported. |
 | `--aging-days N`      | 90      | How long a record may stay `open` or `proposed`.      |
 | `--repo-root PATH`    | cwd     | Where the anchored source lives, for `drifted`.       |
+| `--offline`           | —       | Read foreign anchors from the repo cache only.        |
 | `--strict`            | —       | Exit 1 if anything has **expired**.                   |
 
 ```bash
