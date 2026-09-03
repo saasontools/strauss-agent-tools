@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { adjudicate } from "../adjudicate.js";
-import { reassessPacket, type KbReassessPacket } from "../drift/index.js";
+import {
+  movedSearch,
+  reassessPacket,
+  type KbReassessPacket,
+} from "../drift/index.js";
 import {
   doctor,
   DEFAULT_AGING_DAYS,
@@ -136,6 +140,9 @@ export const doctorCommand = define({
     );
     const packets: KbReassessPacket[] = [];
     const rebaselinable: string[] = [];
+    // One search for the whole sweep: the repository is listed once, and a
+    // candidate file is parsed once however many records anchor into it.
+    const search = movedSearch(repoRoot ?? process.cwd());
     for (const found of report.groups.find((g) => g.check === "drifted")
       ?.findings ?? []) {
       const record = records.find(
@@ -151,6 +158,7 @@ export const doctorCommand = define({
           ...(withDiff ? { withDiff: true } : {}),
           impact: await store.impact(path, record.conceptId),
           ...(standing ? { standing } : {}),
+          search,
         },
       );
       if (built.packet) packets.push(built.packet);

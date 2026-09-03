@@ -30,7 +30,7 @@ export const reassessCommand = define({
   tool: "kb_reassess",
   usage: "reassess <concept-id> [--repo-root <path>] [--with-diff]",
   description:
-    "One drifted record, as something to judge: its claim, each anchor's drift class, the old-vs-new span diff, and what depends on it. Anchors whose code only moved are rebaselined and dropped; formatting-only changes are dropped. Empty for a record with nothing to reassess. Never verifies and never supersedes.",
+    "One drifted record, as something to judge: its claim, each anchor's drift class, the old-vs-new span diff, and the records that depend on it. Formatting-only drift is dropped. Empty when there is nothing to reassess. Writes: relocates moved anchors, keeping their hash; never verifies, supersedes, or changes standing.",
   input: z.object({
     bundlePath,
     conceptId,

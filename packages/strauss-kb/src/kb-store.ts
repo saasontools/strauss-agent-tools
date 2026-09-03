@@ -705,6 +705,14 @@ export class KbStore {
 
     // Counted after the digest, so a failed or suppressed drift pass can only
     // cost the count, never the stamp.
+    //
+    // Deliberately the shallow pass: `detectAnchorDrift` compares hashes and
+    // stops, so this reads each anchored file once and never lists or parses
+    // the repository. `moved` and `cosmetic` would need both, and a count does
+    // not want them — a reload hook runs this after ordinary git commands, and
+    // it asks how many records need a look, not which of them are relocatable.
+    // That question belongs to `reassess` and `doctor --drifted`. Anchors
+    // naming another repository are never read, and never counted.
     const drift = await this.detectDrift(bundle, options.repoRoot);
     const drifted =
       drift === undefined

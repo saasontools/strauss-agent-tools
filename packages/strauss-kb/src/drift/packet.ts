@@ -131,6 +131,7 @@ export async function reassessPacket(
 }> {
   const classified = await classifyDrift(repoRoot, record, entries, {
     ...(options.reader ? { reader: options.reader } : {}),
+    ...(options.search ? { search: options.search } : {}),
     withHistory: options.withDiff !== false,
   });
 

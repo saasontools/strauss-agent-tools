@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   detectAnchorDrift,
   hashAnchorText,
@@ -23,6 +23,22 @@ import {
   type KbReassessResult,
 } from "../commands/reassess.js";
 import { classifyDrift } from "./classify.js";
+
+/**
+ * Counts repository listings. Only the `moved` search makes one, so this is
+ * how a path proves it did not run the expensive pass.
+ */
+const listings: string[] = [];
+vi.mock("./git.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./git.js")>();
+  return {
+    ...actual,
+    listRepoFiles: (repoRoot: string) => {
+      listings.push(repoRoot);
+      return actual.listRepoFiles(repoRoot);
+    },
+  };
+});
 
 /**
  * A real repository with real history, because every question this module
@@ -81,6 +97,7 @@ describe("drift classification", () => {
   });
 
   afterEach(() => {
+    listings.length = 0;
     rmSync(repo, { recursive: true, force: true });
     rmSync(bundle, { recursive: true, force: true });
   });
@@ -441,6 +458,47 @@ describe("drift classification", () => {
     const stamp = await new KbStore().stamp(bundle, { repoRoot: repo });
 
     expect(stamp.drifted).toBe(1);
+    // The shallow pass, on purpose: a count needs `gone`/`changed`, and the
+    // reload hook runs this after ordinary git commands. Listing and parsing
+    // the repository to find `moved` anchors belongs to the verbs a reader
+    // asked for.
+    expect(listings).toEqual([]);
+  });
+
+  test("a --drifted sweep lists the repository once for the whole base", async () => {
+    write(V1);
+    const anchor = await astAnchor(V1);
+    commit("seed");
+    write(REWRITTEN);
+    commit("sum amounts instead");
+    // Two anchored records, so a per-record search would list twice.
+    await seed([anchor]);
+    await new KbStore().write(
+      bundle,
+      composeRecord(
+        "fact",
+        {
+          slug: "totals-again",
+          title: "totals still counts orders",
+          why: "The same claim, anchored a second time.",
+          sections: { Claim: "`totals` returns the order count." },
+          anchors: [anchor],
+        },
+        "agent:writer",
+        STAMPED_AT,
+      ),
+    );
+
+    await doctorCommand.run(
+      { store: new KbStore(), actor: "agent:reader", now: () => NOW },
+      doctorCommand.input.parse({
+        bundlePath: bundle,
+        repoRoot: repo,
+        drifted: true,
+      }),
+    );
+
+    expect(listings).toEqual([repo]);
   });
 
   /**

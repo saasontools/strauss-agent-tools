@@ -11,7 +11,7 @@ import {
 import type { KbAnchor, KbRecord } from "../kb-record.schema.js";
 import { TreeSitterResolver } from "../tree-sitter-resolver.js";
 import { readOldSource, type OldSourceOrigin } from "./git.js";
-import { movedSearch } from "./moved.js";
+import { movedSearch, type MovedSearch } from "./moved.js";
 
 /**
  * Turning "the bytes changed" into one of four answers, two of which end the
@@ -44,6 +44,12 @@ export type ClassifyOptions = {
   reader?: AnchorFileReader;
   /** Skip the history read. `cosmetic` cannot be reached without it. */
   withHistory?: boolean;
+  /**
+   * The run's shared `moved` search. A sweep classifying many records passes
+   * one, so the repository is listed once and each candidate file is parsed
+   * once for the whole sweep rather than once per record.
+   */
+  search?: MovedSearch;
 };
 
 /**
@@ -64,7 +70,9 @@ export async function classifyDrift(
   const reader = options.reader ?? anchorFileReader(repoRoot);
   const treeSitter = new TreeSitterResolver();
   const resolvers: AnchorResolver[] = [treeSitter, regexResolver];
-  const search = movedSearch(repoRoot, { reader });
+  const search =
+    options.search ??
+    movedSearch(repoRoot, { ...(options.reader ? { reader } : {}) });
 
   const wanted: { anchor: KbAnchor; entry: KbAnchorDriftEntry }[] = [];
   entries.forEach((entry, at) => {
