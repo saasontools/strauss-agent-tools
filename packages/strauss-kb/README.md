@@ -150,15 +150,15 @@ human-verified event carries.
 Anything prefixed `strauss_` is this package's extension, namespaced so a later
 OKF version defining the same name cannot collide:
 
-| Key                                                            | Meaning                                                                                                                                    |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `strauss_status`                                               | `draft`, `proposed`, `accepted`, `open`, `resolved`, `rejected`, `superseded`. Parses with a default of `draft`.                           |
-| `strauss_supersedes` / `strauss_superseded_by`                 | Both directions of a supersession, written together.                                                                                       |
-| `strauss_anchors`                                              | `{ file, symbol? }` — where the record attaches in the code. Symbolic, because a line number written mid-change is wrong by the end of it. |
-| `strauss_assumption`                                           | The claim has no source, said as a field rather than as a fake entry in `sources`.                                                         |
-| `strauss_answered`                                             | Who resolved an open question, and when.                                                                                                   |
-| `strauss_verify`                                               | Checks that would confirm the record still holds.                                                                                          |
-| `strauss_materiality` / `strauss_confidence` / `strauss_owner` | `blocking`/`important`/`non-blocking`, `low`/`medium`/`high`, and a name.                                                                  |
+| Key                                                            | Meaning                                                                                                                                                                                       |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strauss_status`                                               | `draft`, `proposed`, `accepted`, `open`, `resolved`, `rejected`, `superseded`. Parses with a default of `draft`.                                                                              |
+| `strauss_supersedes` / `strauss_superseded_by`                 | Both directions of a supersession, written together.                                                                                                                                          |
+| `strauss_anchors`                                              | `{ file, symbol?, hash?, lines?, resolved_at? }` — where the record attaches in the code, and optionally what that code looked like when it did. See [Anchors and drift](#anchors-and-drift). |
+| `strauss_assumption`                                           | The claim has no source, said as a field rather than as a fake entry in `sources`.                                                                                                            |
+| `strauss_answered`                                             | Who resolved an open question, and when.                                                                                                                                                      |
+| `strauss_verify`                                               | Checks that would confirm the record still holds.                                                                                                                                             |
+| `strauss_materiality` / `strauss_confidence` / `strauss_owner` | `blocking`/`important`/`non-blocking`, `low`/`medium`/`high`, and a name.                                                                                                                     |
 
 Edges are markdown links in the body, as OKF specifies — untyped, with the kind
 conveyed by the surrounding prose. Broken links are legal: records are routinely
@@ -244,6 +244,55 @@ decide (an idempotent `decision.none` record). It exists for workflow gates:
 "did you write a decision?" rewards writing a junk one, "did you answer?"
 does not — so silence has to be expressible.
 
+## Anchors and drift
+
+An anchor names where a record attaches in the code: a `file`, optionally a
+`symbol` — symbolic, because a line number written mid-change is wrong by the
+end of it. Five optional fields extend it:
+
+| Field         | Meaning                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `hash`        | `sha256:<hex>` over the anchored text, algorithm-prefixed.                                                       |
+| `lines`       | Line count the hash covered.                                                                                     |
+| `resolved_at` | When the anchor last resolved.                                                                                   |
+| `repo`        | Which repository — remote URL or short name. Absent means this base's own repository.                            |
+| `ref`         | Git rev the evidence was taken at. Recorded but unused until [SAA-709](https://linear.app/saason/issue/SAA-709). |
+
+`hash`, `lines`, and `resolved_at` are **measured** — a resolution pass stamps
+them; `repo` and `ref` are **author-owned identity** and a resolution pass
+never writes them.
+
+`anchor-resolve <concept-id>` (`kb_anchor_resolve`) is `verify`'s mechanical
+counterpart: it checks the anchored code against the working tree
+(`--repo-root` when the base is not inside it). Per anchor:
+
+- **stamped** — no hash yet; hash, line count, and timestamp are written.
+- **match** — unchanged; nothing written. `--restamp` re-dates on purpose.
+- **drifted** — hash changed. Baseline kept unless `--rebaseline`.
+- **unresolved** — not comparable, with a reason. A finding, not an error.
+
+An anchor naming another `repo` is skipped: never read, stamped, or counted.
+
+An anchor must not read outside the repository it describes, checked lexically
+and again on the real path after symlinks.
+
+Exit code is non-zero on **drifted**, or on **unresolved** for an anchor that
+carries a hash; unstamped and foreign anchors never fail.
+
+A fully clean run — every checkable anchor `match`, none stamped this run —
+appends a `verified[]` event.
+
+Symbol resolution is a v1 heuristic; ties and unclosed blocks return
+`unresolved`.
+
+Drift also surfaces on read: `kb_load` and `kb_query` attach a
+`{ kind: "drifted" }` warning, and `kb_doctor` lists every drifted anchor
+base-wide — all three take `--repo-root`. With no `--repo-root` given, a run
+that finds not one anchored file drops the finding as a wrong root; an explicit
+`--repo-root` is taken at its word.
+
+Details: [specification](https://saasontools.github.io/strauss-agent-tools/specification).
+
 ## CLI
 
 ```
@@ -256,19 +305,21 @@ strauss-kb [--bundle PATH] <command> [args]
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
-  load [type] [--budget N] [--all]
+  anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]
+                                           Resolve anchors against the working tree: stamp, or report drift.
+  load [type] [--budget N | --all] [--repo-root PATH]
                                            Hand over the whole base, each record with its standing.
   catalog [type]                           Every record in one line — id, type, title, standing, stale flag.
   pack <conceptId> [--hops N] [--max-nodes N] [--budget N]
                                            The bounded neighbourhood around one record, every cut named.
-  query <text...>                          Search; every match arrives flagged with its standing.
+  query <text...> [--repo-root PATH]       Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
   list [type]                              Every record, optionally narrowed to one type.
   index                                    The index, rebuilt if it disagrees with the records.
   log                                      What touched what, and when.
   validate                                 Cross-record checks. Exits 1 when it reports a problem.
-  doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--strict]
-                                           Health sweep: what expired, went unconfirmed, aged, or was orphaned.
+  doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--repo-root PATH] [--strict]
+                                           Health sweep: what expired, went unconfirmed, aged, was orphaned, or drifted.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
   pin [bundle-path] [flags]                Pin a base. --mode, --profiles, --frozen; --local/--user pick the layer.
@@ -288,10 +339,10 @@ they are, and `doctor` prints a table unless `--json` asks for the object
 behind it. `--json` is refused rather than ignored on the commands that have
 only one form, since a flag that quietly does nothing reads as one that
 worked; `--` ends flag parsing, for the verbs that end in free prose. Errors
-go to stderr and exit 1. `validate` and `doctor --strict` are the commands
-whose exit code is not just "did it run": a check that reports a problem
-succeeded as a command and failed as a check, so it exits 1 with its findings
-on stdout.
+go to stderr and exit 1. `validate`, `anchor-resolve`, and `doctor --strict`
+are the commands whose exit code is not just "did it run": a check that
+reports a problem succeeded as a command and failed as a check, so each exits
+1 with its findings on stdout.
 
 A flag accepts either spelling — `--budget 4000` or `--budget=4000` — and a
 flag given no value is an error rather than a silent fallback to the default,
@@ -316,9 +367,9 @@ strauss-kb validate || echo "problems above"
 
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_catalog`,
-`kb_pack`, `kb_query`, `kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`,
-`kb_doctor`, `kb_schema`, `kb_types`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`,
+`kb_load`, `kb_catalog`, `kb_pack`, `kb_query`, `kb_trace`, `kb_list`,
+`kb_index`, `kb_log`, `kb_validate`, `kb_doctor`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
 `kb_pins` and `kb_context` read the workspace pin manifests instead. The one
@@ -356,7 +407,7 @@ const hits = await store.query(".strauss/kb", "cache key");
 for (const hit of hits) {
   hit.standing; // current | superseded | rejected | unsettled | open
   hit.heads; // where the supersession chain ends
-  hit.warnings; // rejected, broken-chain, forked-chain, stale, unverified…
+  hit.warnings; // rejected, broken-chain, forked-chain, stale, unverified, drifted…
 }
 ```
 
@@ -505,20 +556,25 @@ it asks only whether pointers between records agree.
 | `orphaned`             | No other record links to it, by body link or supersession.                     |
 | `broken-supersession`  | A chain that does not resolve: no replacement, a missing one, a cycle, a fork. |
 | `superseded-but-cited` | A record that still holds, whose body links to one that does not.              |
+| `drifted`              | A hash-carrying anchor whose code moved, or whose file or symbol is gone.      |
 
-The last check's name is for its common case: a rejected target counts too, and
-is the worse half — a superseded record at least names its replacement, while a
-rejected one is a well-formed assertion of what someone decided _not_ to do,
-cited by a record the reader trusts.
+Pass `doctor --repo-root PATH` when the base does not sit inside the tree it
+describes; without it the sweep looks under the working directory.
+
+`superseded-but-cited`'s name is for its common case: a rejected target counts
+too, and is the worse half — a superseded record at least names its
+replacement, while a rejected one is a well-formed assertion of what someone
+decided _not_ to do, cited by a record the reader trusts.
 
 ```bash
 strauss-kb doctor                       # the table
 strauss-kb doctor --json                # the object behind it
 strauss-kb doctor --strict              # exit 1 if anything has expired
 strauss-kb doctor --unverified-days 30  # a stricter confirmation window
+strauss-kb doctor --repo-root ../app    # where the anchored source lives
 ```
 
-All seven groups are reported even when empty. A check that found nothing and
+All eight groups are reported even when empty. A check that found nothing and
 a check that never ran look identical in a report that only lists findings,
 which is the whole value of a sweep.
 
@@ -554,8 +610,13 @@ Judgments the checks make, worth knowing before reading a report:
   record left `accepted` while naming a replacement was hand-edited — and
   adjudication reads it as current no matter what the pointer says, which is
   what makes it worth naming.
+- **`drifted` reports and never repairs.** It reads the same comparison
+  `kb_load` and `kb_query` do, so the sweep and the read paths cannot disagree
+  about what drift is. Unresolvable anchors ride in this group rather than a
+  ninth check, anchors carrying no hash are never read, and `--strict` does not
+  gate on drift.
 
-`--strict` gates on expiry alone. The other six report debt a reader decides
+`--strict` gates on expiry alone. The other seven report debt a reader decides
 about; an expired record is the base itself saying it would stop standing
 behind something, which is the one finding a pipeline can act on without a
 judgment call.

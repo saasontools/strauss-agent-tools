@@ -1,5 +1,6 @@
 /* eslint-disable no-empty-pattern -- vitest fixtures require object destructuring */
 import {
+  appendFileSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -11,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, vi, test as baseTest } from "vitest";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
 import { composeRecord, type ComposeInput } from "./compose.js";
 import {
   composeDecisionRecord,
@@ -53,6 +55,15 @@ type WithMarkSuperseded = {
  */
 type WithParse = {
   parse(conceptId: string, raw: string): KbRecord | null;
+};
+
+/**
+ * Isolates the store's private `ensureGitattributes` so two concurrent
+ * writers racing to create the same fresh `.gitattributes` can be simulated
+ * directly, without going through a full `write()`.
+ */
+type WithEnsureGitattributes = {
+  ensureGitattributes(root: string): Promise<void>;
 };
 
 interface Ctx {
@@ -234,6 +245,42 @@ describe("KbStore", () => {
     expect(moved.frontmatter.strauss_status).toBe("rejected");
     expect(moved.frontmatter.title).toBe("Region is part of the cache key");
     expect(moved.frontmatter.strauss_anchors).toHaveLength(1);
+  });
+
+  test("replaces anchors and logs the resolution", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+    const anchors = [
+      {
+        file: "src/cache/order-cache.ts",
+        symbol: "OrderCache.get",
+        hash: `sha256:${"cd".repeat(32)}`,
+        resolved_at: "2026-08-26T10:00:00Z",
+        lines: 14,
+      },
+    ];
+
+    const updated = await store.updateAnchors(
+      bundle,
+      "decision.region-in-cache-key",
+      anchors,
+      "agent:resolver",
+    );
+
+    expect(updated.frontmatter.strauss_anchors).toEqual(anchors);
+    expect(updated.frontmatter.title).toBe("Region is part of the cache key");
+
+    const read = await store.read(bundle, "decision.region-in-cache-key");
+    expect(read?.frontmatter.strauss_anchors).toEqual(anchors);
+
+    const { entries } = await store.readLog(bundle);
+    expect(entries.at(-1)).toMatchObject({
+      operation: "anchor-resolve",
+      conceptId: "decision.region-in-cache-key",
+      by: "agent:resolver",
+    });
   });
 
   test("reports a mutation against a record that does not exist", async ({
@@ -448,6 +495,73 @@ describe("KbStore", () => {
 
     const persisted = await store.read(bundle, "fact.auth-retries");
     expect(persisted).not.toBeNull();
+  });
+
+  // Targets are marked sequentially, in order, so both the marks landing and
+  // the order `supersededIds` reports them in are worth pinning.
+  test("marks every supersedes target, reporting them in the order given", async ({
+    store,
+    bundle,
+  }) => {
+    for (const slug of ["old-a", "old-b", "old-c"]) {
+      await store.write(bundle, fact(slug));
+    }
+
+    const written = await store.write(
+      bundle,
+      fact("replacement", {
+        supersedes: ["fact.old-a", "fact.old-b", "fact.old-c"],
+      }),
+    );
+
+    expect(written.supersededIds).toEqual([
+      "fact.old-a",
+      "fact.old-b",
+      "fact.old-c",
+    ]);
+    for (const id of written.supersededIds) {
+      const old = await store.read(bundle, id);
+      expect(old?.frontmatter.strauss_status).toBe("superseded");
+      expect(old?.frontmatter.strauss_superseded_by).toBe("fact.replacement");
+    }
+  });
+
+  // One missing target must not take the others down with it, and the gap
+  // must not shift the reported order.
+  test("marks the targets that exist when one is missing", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("old-a"));
+    await store.write(bundle, fact("old-c"));
+
+    const written = await store.write(
+      bundle,
+      fact("replacement", {
+        supersedes: ["fact.old-a", "fact.gone", "fact.old-c"],
+      }),
+    );
+
+    expect(written.supersededIds).toEqual(["fact.old-a", "fact.old-c"]);
+    expect(
+      (await store.read(bundle, "fact.old-c"))?.frontmatter.strauss_status,
+    ).toBe("superseded");
+  });
+
+  // `list` fans out through a bounded pool; more records than the bound is
+  // the case that would have gone missing if the pool dropped its tail.
+  test("lists every record when there are more than the concurrency bound", async ({
+    store,
+    bundle,
+  }) => {
+    for (let index = 0; index < 40; index++) {
+      await store.write(bundle, fact(`bulk-${String(index).padStart(2, "0")}`));
+    }
+
+    const listed = await store.list(bundle, "fact");
+
+    expect(listed).toHaveLength(40);
+    expect(new Set(listed.map((record) => record.conceptId)).size).toBe(40);
   });
 
   test("answers an open question, appending the answer to the body", async ({
@@ -886,6 +1000,29 @@ describe(".gitattributes", () => {
     expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
       `${UNION_MERGE_LINE}\n`,
     );
+  });
+
+  // Two writers racing to create the same fresh `.gitattributes` both open it
+  // with `wx` (create-exclusive); the loser gets `EEXIST` rather than a real
+  // failure — the winner already wrote the same content, so the loser's call
+  // must resolve as success, not log an `outcome: "failed"` warning.
+  test("two concurrent ensureGitattributes calls on a fresh bundle both succeed", async ({
+    bundle,
+  }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+    mkdirSync(bundle, { recursive: true });
+
+    const internal = quiet as unknown as WithEnsureGitattributes;
+    await Promise.all([
+      internal.ensureGitattributes(bundle),
+      internal.ensureGitattributes(bundle),
+    ]);
+
+    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
+      `${UNION_MERGE_LINE}\n`,
+    );
+    expect(warnings).toEqual([]);
   });
 });
 
@@ -1391,6 +1528,155 @@ describe("load", () => {
       if (!result.loaded) return;
       expect(result.records).toHaveLength(1);
     });
+  });
+});
+
+/** What a whole-file anchor's `lines` is, per `resolveAnchor`. */
+function anchorLines(source: string): number {
+  const resolved = resolveAnchor(source, { file: "src/order.ts" });
+  if (!resolved) throw new Error("fixture did not resolve");
+  return resolved.endLine - resolved.startLine + 1;
+}
+
+describe("load anchor drift", () => {
+  const SOURCE = [
+    "export function total(items: number[]): number {",
+    "  return items.reduce((sum, n) => sum + n, 0);",
+    "}",
+    "",
+  ].join("\n");
+
+  async function seedAnchored(store: KbStore, bundle: string): Promise<void> {
+    mkdirSync(join(bundle, "src"), { recursive: true });
+    writeFileSync(join(bundle, "src", "order.ts"), SOURCE);
+    await store.write(
+      bundle,
+      fact("order-total", {
+        anchors: [
+          {
+            file: "src/order.ts",
+            hash: hashAnchorText(SOURCE),
+            resolved_at: "2026-08-26T10:00:00Z",
+            // Counted the way the resolver counts, so `diffSize` measures the
+            // edit rather than a disagreement about trailing newlines.
+            lines: anchorLines(SOURCE),
+          },
+        ],
+      }),
+    );
+  }
+
+  test("stays quiet while the anchored code is unchanged", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+
+    const result = await store.load(bundle, { repoRoot: bundle });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records[0]?.warnings.some((w) => w.kind === "drifted")).toBe(
+      false,
+    );
+  });
+
+  test("flags an edited anchor with how far it moved", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+    appendFileSync(
+      join(bundle, "src", "order.ts"),
+      "\nexport const VERSION = 2;\n",
+    );
+
+    const result = await store.load(bundle, { repoRoot: bundle });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    const drifted = result.records[0]?.warnings.find(
+      (w) => w.kind === "drifted",
+    );
+    expect(drifted).toBeDefined();
+    if (drifted?.kind !== "drifted") return;
+    expect(drifted.anchors).toEqual([{ file: "src/order.ts", diffSize: 2 }]);
+  });
+
+  // The default fixture's anchor carries no hash and names a file that does
+  // not exist under the default repoRoot — neither may surface as drift.
+  test("says nothing about anchors nobody stamped", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, decision());
+
+    const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records[0]?.warnings.some((w) => w.kind === "drifted")).toBe(
+      false,
+    );
+  });
+
+  // A base read from somewhere other than the tree it describes misses every
+  // anchored file. Reporting that as drift would flag every record at once,
+  // which teaches a reader to ignore the warning.
+  test("says nothing when no root was given and no anchored file was found", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+    rmSync(join(bundle, "src"), { recursive: true, force: true });
+
+    // No repoRoot: the default is the working directory, which holds none of
+    // this fixture's anchored files.
+    const result = await store.load(bundle);
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records[0]?.warnings.some((w) => w.kind === "drifted")).toBe(
+      false,
+    );
+  });
+
+  // An explicit root is taken at its word: the caller said where the code is,
+  // so a file that is not there is a deleted file, which is a real finding.
+  test("reports a missing file when the caller named the root", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+    rmSync(join(bundle, "src"), { recursive: true, force: true });
+
+    const result = await store.load(bundle, { repoRoot: bundle });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    const drifted = result.records[0]?.warnings.find(
+      (w) => w.kind === "drifted",
+    );
+    expect(drifted).toBeDefined();
+    if (drifted?.kind !== "drifted") return;
+    expect(drifted.anchors[0]).toMatchObject({ reason: "file-missing" });
+  });
+
+  // One file found anywhere makes the root plausible again, so the misses
+  // beside it go back to being findings.
+  test("reports misses once any anchored file was found", async ({
+    store,
+    bundle,
+  }) => {
+    await seedAnchored(store, bundle);
+
+    const result = await store.load(bundle, { repoRoot: bundle });
+
+    expect(result.loaded).toBe(true);
+    if (!result.loaded) return;
+    expect(result.records[0]?.warnings.some((w) => w.kind === "drifted")).toBe(
+      false,
+    );
   });
 });
 

@@ -1,13 +1,15 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { composeRecord } from "./compose.js";
 import { KbStore } from "./kb-store.js";
+import { INDEX_FILE } from "./kb-index.js";
 import {
   loadQmd,
   resolveHits,
   searchBase,
+  SEARCH_INDEX_FILE,
   type QmdModule,
   type SearchHit,
 } from "./search-index.js";
@@ -137,6 +139,64 @@ describe("searchBase", () => {
       // score is zero rather than undefined.
       { displayPath: "kb/fact-b.md", score: 0 },
     ]);
+  });
+
+  /**
+   * Staleness decides whether a query pays for a re-index. Reading it through
+   * the injected backend's call log is the only seam onto the private check.
+   */
+  describe("staleness", () => {
+    const INDEX_AT = new Date("2026-08-02T09:00:00Z");
+
+    function seed(mtimes: Record<string, Date>): void {
+      writeFileSync(join(bundle, SEARCH_INDEX_FILE), "");
+      utimesSync(join(bundle, SEARCH_INDEX_FILE), INDEX_AT, INDEX_AT);
+      for (const [name, at] of Object.entries(mtimes)) {
+        writeFileSync(join(bundle, name), "# record\n");
+        utimesSync(join(bundle, name), at, at);
+      }
+    }
+
+    const older = (n: number): Record<string, Date> =>
+      Object.fromEntries(
+        Array.from({ length: n }, (_, at) => [
+          `fact.older-${at}.md`,
+          new Date(INDEX_AT.getTime() - 60_000),
+        ]),
+      );
+
+    test("skips the re-index when every record predates the index", async () => {
+      const calls: string[] = [];
+      seed(older(40));
+
+      await searchBase(bundle, "cache", { qmd: fakeQmd([], calls) });
+
+      expect(calls).toEqual(["search:cache", "close"]);
+    });
+
+    // One newer record anywhere in the directory is enough — the bounded pool
+    // must not lose it to whichever stat happened to finish first.
+    test("re-indexes when a single record is newer than the index", async () => {
+      const calls: string[] = [];
+      seed({
+        ...older(40),
+        "fact.newer.md": new Date(INDEX_AT.getTime() + 60_000),
+      });
+
+      await searchBase(bundle, "cache", { qmd: fakeQmd([], calls) });
+
+      expect(calls).toEqual(["update", "search:cache", "close"]);
+    });
+
+    // The index it would be comparing against is itself.
+    test("ignores INDEX.md, which is generated rather than indexed", async () => {
+      const calls: string[] = [];
+      seed({ [INDEX_FILE]: new Date(INDEX_AT.getTime() + 60_000) });
+
+      await searchBase(bundle, "cache", { qmd: fakeQmd([], calls) });
+
+      expect(calls).toEqual(["search:cache", "close"]);
+    });
   });
 
   test("drops a hit that names no path at all", async () => {
