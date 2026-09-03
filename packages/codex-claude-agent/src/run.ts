@@ -488,7 +488,7 @@ async function runClaudeInternal(
   let costUsd: number | undefined;
   let model: string | undefined;
   let sessionId: string | undefined;
-  let attempts = 1;
+  let attempts: number;
   let seq = 0;
   let eventQueue = Promise.resolve();
   let eventWriter: JobEventWriter | undefined;
