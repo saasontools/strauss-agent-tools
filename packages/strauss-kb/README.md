@@ -336,7 +336,9 @@ strauss-kb [--bundle PATH] <command> [args]
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
-  load [type] [--budget N | --all]         Hand over the whole base, each record with its standing.
+  load [type] [--budget N] [--all]
+                                           Hand over the whole base, each record with its standing.
+  catalog [type]                           Every record in one line — id, type, title, standing, stale flag.
   pack <conceptId> [--hops N] [--max-nodes N] [--budget N]
                                            The bounded neighbourhood around one record, every cut named.
   query <text...>                          Search; every match arrives flagged with its standing.
@@ -364,7 +366,7 @@ strauss-kb [--bundle PATH] <command> [args]
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
-Results go to stdout as JSON — `index` and `pack` are markdown, which is what
+Results go to stdout as JSON — `index`, `catalog` and `pack` are markdown, which is what
 they are, and `doctor` prints a table unless `--json` asks for the object
 behind it. `--json` is refused rather than ignored on the commands that have
 only one form, since a flag that quietly does nothing reads as one that
@@ -374,6 +376,10 @@ whose exit code is not just "did it run": a check that reports a problem
 succeeded as a command and failed as a check, so it exits 1 with its findings
 on stdout. Only `validate` findings with `severity: "error"` do that — a base
 mid-write is full of links to records not written yet, so warnings alone exit 0.
+
+A flag accepts either spelling — `--budget 4000` or `--budget=4000` — and a
+flag given no value is an error rather than a silent fallback to the default,
+so a trailing typo cannot look like success.
 
 ```bash
 strauss-kb --bundle .strauss/kb write fact <<'JSON'
@@ -394,9 +400,9 @@ strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_pack`, `kb_query`,
-`kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`, `kb_index`, `kb_log`,
-`kb_validate`, `kb_doctor`, `kb_schema`, `kb_types`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_load`, `kb_catalog`,
+`kb_pack`, `kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`,
+`kb_index`, `kb_log`, `kb_validate`, `kb_doctor`, `kb_schema`, `kb_types`,
 `kb_pin`, `kb_unpin`, `kb_pins`, `kb_context`. Most tools take a `bundlePath`;
 `kb_schema` and `kb_types` describe the format rather than any one base, and
 `kb_pins` and `kb_context` read the workspace pin manifests instead. The one
@@ -480,40 +486,66 @@ Read for a question, not for a session: a base loaded at the start of a long
 conversation is summarised away by the end of it, and reloading costs about
 three thousand tokens. Read it again at the point of use.
 
-`load` refuses rather than truncating when a base exceeds its budget (25,000
-tokens by default). A truncated base is indistinguishable from a complete one,
-so a caller would answer "that was never decided" from a slice it did not know
-was a slice. `context` refuses the same way at its own, tighter budget (4,000
-by default). Superseded records come back as name, replacement and date only —
-their bodies no longer hold, and a body read later in a long session outlives
-the qualifier that said so. `trace` still reaches them by id.
+**The three rungs, in one rule.** While the base fits the budget, `load` it
+whole. Once `load` refuses, `catalog` then `pack` the record that matters. For
+a lookup by wording, `query`.
 
-`--all` (`all: true` over MCP) is the escape hatch: it bypasses the refusal
-outright and hands back the entire bundle whatever its size. A loaded result
-carries `tokensLoaded`, the same estimate the budget is held against, and
-`budgetTokens: null` marks that no ceiling was applied; `--all` is mutually
-exclusive with `--budget`. That refusal is the guardrail an agent needs so a
-wide base does not silently consume its whole context; `--all` is for a
-deliberate operator who has decided the size is worth the tokens, not a
-setting to reach for by default. A reader that does not actually need every
-record is better served by a narrower `type` filter or a `query` than by
-turning the guardrail off.
+```bash
+strauss-kb load                          # under the budget: everything, with standing
+strauss-kb catalog                       # past it: one line per record, ~30 tokens each
+strauss-kb pack decision.cursor-v2       # then the neighbourhood around the one that matters
+strauss-kb query cursor pagination       # or a point lookup by wording
+```
 
-**Pack is the middle rung.** Under budget, load the base whole — perfect
-recall beats any ranking. Over budget, when the work centres on a record you
-can name, `pack` hands over that record's bounded neighbourhood instead:
-everything within `--hops` of the root, walked over the base's edges — body
-links (a `relatedConceptIds` entry is stored as one), supersession in both
-directions, shared code anchors, and shared sources — ranked and cut to
-`--max-nodes`. Standing travels with it: superseded neighbours arrive as the
-same name, replacement and date stubs `load` emits. Every record the cut
-dropped is named under Excluded, because a named gap is knowable and a silent
-one is not, and past its own token budget `pack` refuses exactly as `load`
-does — naming what was already cut, so the caller can narrow the walk or
-raise the ceiling. Below the header, the only place a timestamp appears, the
-output is byte-identical across runs over an unchanged base: two packs diff,
-and a changed byte means changed knowledge. With neither a budget problem nor
-a root record in hand, the question is a point lookup, and that is `query`.
+A whole read gives perfect recall and can say _no record answers this_, which
+no ranker can. `catalog` keeps that at a fraction of the cost by naming every
+record instead of every body; `query` gives up both, returning its nearest hit
+whatever the distance.
+
+`load` refuses rather than truncating past its token budget (`--budget` /
+`budgetTokens`, 25,000 by default, held against the estimated size of what is
+handed back) — a truncated base reads as a complete one, so a caller would
+answer "never decided" from a slice it did not know was a slice. `context`
+refuses the same way at its own, tighter budget (4,000 by default). Superseded
+records come back as name, replacement and date only; `trace` still reaches
+them by id.
+
+A refusal reports `approxTokens` against `budgetTokens` and carries a `message`
+naming the budget and the next calls. A successful load reports `budgetTokens`
+too, so a caller can see how close it came before crossing the line.
+
+`--all` (`all: true` over MCP) bypasses the budget and hands back the entire
+bundle regardless of size. A loaded result carries `tokensLoaded`, and
+`budgetTokens: null` marks that no ceiling applied; `--all` is mutually
+exclusive with `--budget`. It is for an operator who has decided the size is
+worth the tokens — a narrower `type` filter, `catalog`, or `query` fits better
+when it is not.
+
+**Catalog is the rung that keeps the base knowable.** One line per record —
+concept id, type, title, standing, stale flag — sorted by type then title, at
+roughly thirty tokens each, so a base far past `load`'s budget still fits in
+one call. Superseded records show the replacement in place of a body. The
+header sums record counts by standing and reports staleness separately (a
+current record can be stale). Bodies live in `load`, `pack`, and `trace`.
+
+`catalog` alone has no ceiling and never refuses — cost is linear at roughly
+thirty tokens a record (a thousand-record base is about 30k, five thousand
+about 150k); narrow with `type` at that scale. Output is deterministic given
+a fixed clock — no timestamp, ordering total down to the concept id — so two
+catalogs of an unchanged base diff to nothing except a stale flag flipping as
+`stale_after` passes. Pass an explicit `now` (library callers) to hold
+byte-equality across that boundary.
+
+**Pack is the middle rung.** Under the budget, load the base whole. Past it, when the work centres on a record you can name (`catalog` is how you
+name it), `pack` hands over that record's bounded neighbourhood: everything
+within `--hops` of the root, walked over the base's edges — body links (a
+`relatedConceptIds` entry is one), supersession in both directions, shared
+code anchors, and shared sources — ranked and cut to `--max-nodes`. Standing
+travels with it: superseded neighbours arrive as the same stubs `load` emits.
+Every dropped record is named under Excluded, and past its own token budget
+`pack` refuses exactly as `load` does. Output is byte-identical across runs
+over an unchanged base below the header. With neither a size problem nor a
+root record in hand, the question is a point lookup — `query`.
 
 **Flag, never filter.** `query` returns every hit with its standing, because a
 filtered result set is invisible — the caller cannot tell it missed anything.

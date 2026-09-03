@@ -7,6 +7,7 @@
 import { DECISION_TYPE } from "../decision-record.js";
 import { answerCommand } from "./answer.js";
 import { backlinksCommand } from "./backlinks.js";
+import { catalogCommand } from "./catalog.js";
 import { contextCommand } from "./context.js";
 import { doctorCommand } from "./doctor.js";
 import { impactCommand } from "./impact.js";
@@ -41,6 +42,7 @@ export const KB_COMMANDS: KbCommand[] = [
   answerCommand,
   verifyCommand,
   loadCommand,
+  catalogCommand,
   packCommand,
   queryCommand,
   traceCommand,
