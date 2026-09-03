@@ -60,7 +60,15 @@ jobs:
           pnpm nx run-many -t validate
           claude plugin validate .
 
-      - run: pnpm audit --audit-level=high
+      - name: Audit dependencies
+        # The advisory endpoint times out often enough to fail a green PR.
+        run: |
+          for attempt in 1 2 3; do
+            pnpm audit --audit-level=high && exit 0
+            echo "audit attempt $attempt failed; retrying" >&2
+            sleep $((attempt * 15))
+          done
+          exit 1
 
       - name: Upload coverage
         if: always()
