@@ -28,6 +28,7 @@
   },
   "files": [
     "dist",
+    "grammars",
     "README.md",
     "ARCHITECTURE.md",
     "LICENSE"
@@ -55,11 +56,13 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "sync-grammars": "node scripts/sync-grammars.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "gray-matter": "^4.0.3",
+    "web-tree-sitter": "~0.25.10",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
