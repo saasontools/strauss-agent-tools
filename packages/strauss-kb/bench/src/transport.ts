@@ -17,6 +17,11 @@ export type BenchRequest = {
 
 export type BenchResponse = {
   answer: ModelAnswer | null;
+  /**
+   * The output cap this call actually ran under: `null` when the transport has
+   * no way to cap output. Absent means the request's own `maxTokens` held.
+   */
+  maxTokens?: number | null;
   usage: CellUsage;
 };
 

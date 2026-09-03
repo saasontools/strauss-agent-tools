@@ -108,3 +108,10 @@ login, no API key, spending quota rather than dollars; the reported bill is list
 price for the same tokens. Claude Code adds ~900 tokens of scaffolding per call,
 so it is a second condition, not a cheaper API. `MAX_THINKING_TOKENS=0` turns
 thinking off -- `--effort low` alone does not -- and the run records the total.
+
+The two transports place the bundle differently -- a cached user block on the
+API, a `--system-prompt-file` on the CLI -- so cells are comparable within a
+transport, never across the two. The CLI has no max-tokens flag either, so
+output is uncapped there and those cells record `maxTokens: null`. POSIX only:
+on Windows the binary is `claude.cmd`, which will not spawn without a shell, and
+preflight says so rather than erroring 240 cells.

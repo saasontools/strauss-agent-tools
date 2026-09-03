@@ -226,6 +226,7 @@ describe("paired differences", () => {
       answer: null,
       scored: { correct, checks: {} },
       usage: EMPTY_USAGE,
+      maxTokens: 2000,
       errored,
       error: errored ? "boom" : null,
     });

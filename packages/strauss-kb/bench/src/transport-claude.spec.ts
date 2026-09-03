@@ -1,15 +1,21 @@
+import { access, readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseArgs } from "./cli.js";
 import { runBench } from "./runner.js";
 import { CORE_TASKS } from "./tasks.js";
 import { loadBundle } from "./bundle.js";
 import {
+  ClaudePreflightError,
   DEFAULT_CLAUDE_CONCURRENCY,
+  childEnv,
   claudeArgs,
   claudeCodeTransport,
   limitConcurrency,
+  preflightClaude,
 } from "./transport-claude.js";
 import type { ExecFile } from "./transport-claude.js";
+import { EMPTY_USAGE } from "./transport.js";
 import type { BenchRequest } from "./transport.js";
 
 const request: BenchRequest = {
@@ -46,7 +52,7 @@ const fakeExec =
   async () => ({ stdout, stderr: "" });
 
 describe("claudeArgs", () => {
-  const args = claudeArgs(request);
+  const args = claudeArgs(request, "/tmp/kb-bench-1/system-prompt-1.md");
 
   it("keeps the model toolless, MCP-less, and settings-free", () => {
     expect(args).toContain("--strict-mcp-config");
@@ -68,12 +74,34 @@ describe("claudeArgs", () => {
     expect(args).not.toContain("--bare");
   });
 
-  it("caps one call's spend and puts the bundle in the system prompt", () => {
+  it("caps one call's spend and passes the system prompt by path", () => {
     expect(args[args.indexOf("--max-budget-usd") + 1]).toBe("0.2");
-    expect(args[args.indexOf("--system-prompt") + 1]).toContain(
-      "# Project notes",
+    expect(args).not.toContain("--system-prompt");
+    expect(args[args.indexOf("--system-prompt-file") + 1]).toBe(
+      "/tmp/kb-bench-1/system-prompt-1.md",
     );
+  });
+
+  it("ends the flags before the question, whatever it starts with", () => {
     expect(args.at(-1)).toBe(request.question);
+    expect(args.at(-2)).toBe("--");
+  });
+});
+
+describe("childEnv", () => {
+  it("drops every key that would redirect the call off the CLI login", () => {
+    const env = childEnv({
+      PATH: "/usr/bin",
+      ANTHROPIC_API_KEY: "sk-ant-1",
+      ANTHROPIC_AUTH_TOKEN: "tok",
+      ANTHROPIC_BASE_URL: "https://proxy.example",
+      ANTHROPIC_MODEL: "claude-opus-4",
+      ANTHROPIC_SMALL_FAST_MODEL: "claude-haiku-4",
+      CLAUDE_CODE_USE_BEDROCK: "1",
+      CLAUDE_CODE_MAX_OUTPUT_TOKENS: "64",
+    });
+
+    expect(Object.keys(env).sort()).toEqual(["MAX_THINKING_TOKENS", "PATH"]);
   });
 });
 
@@ -88,14 +116,101 @@ describe("claudeCodeTransport", () => {
     expect(response.usage.thinkingTokens).toBe(0);
   });
 
-  it("runs with thinking disabled in the child environment", async () => {
+  it("runs with thinking disabled and no API key in the child environment", async () => {
     let seen: NodeJS.ProcessEnv | undefined;
     const exec = (async (_file, _args, options) => {
       seen = options.env;
       return { stdout: payload(), stderr: "" };
     }) as ExecFile;
-    await claudeCodeTransport({ execFile: exec, cwd: "/tmp" })(request);
+    const transport = claudeCodeTransport({
+      execFile: exec,
+      cwd: "/tmp",
+      env: { PATH: "/usr/bin", ANTHROPIC_API_KEY: "sk-ant-1" },
+    });
+    await transport(request);
+    await transport.dispose();
+
     expect(seen?.MAX_THINKING_TOKENS).toBe("0");
+    expect(seen).not.toHaveProperty("ANTHROPIC_API_KEY");
+  });
+
+  it("writes the bundle to a file before the spawn and unlinks it after", async () => {
+    let promptPath: string | undefined;
+    let contents: string | undefined;
+    const exec = (async (_file, args) => {
+      promptPath = args[args.indexOf("--system-prompt-file") + 1];
+      contents = await readFile(promptPath as string, "utf8");
+      return { stdout: payload(), stderr: "" };
+    }) as ExecFile;
+
+    const transport = claudeCodeTransport({ execFile: exec });
+    await transport(request);
+
+    expect(contents).toContain("# Project notes");
+    expect(contents).toContain("system");
+    await expect(access(promptPath as string)).rejects.toThrow();
+
+    const dir = join(promptPath as string, "..");
+    expect(await readdir(dir)).toEqual([]);
+    await transport.dispose();
+    await expect(access(dir)).rejects.toThrow();
+  });
+
+  it("keeps one temp directory across cells", async () => {
+    const seen: string[] = [];
+    const exec = (async (_file, args) => {
+      seen.push(args[args.indexOf("--system-prompt-file") + 1] as string);
+      return { stdout: payload(), stderr: "" };
+    }) as ExecFile;
+
+    const transport = claudeCodeTransport({ execFile: exec });
+    await transport(request);
+    await transport(request);
+    await transport.dispose();
+
+    expect(new Set(seen).size).toBe(2);
+    expect(join(seen[0] as string, "..")).toBe(join(seen[1] as string, ".."));
+  });
+
+  it("scores a non-zero exit that still printed a result payload", async () => {
+    const exec = (async () => {
+      throw Object.assign(new Error("Command failed"), {
+        code: 1,
+        stdout: payload({ structured_output: null }),
+        stderr: "",
+      });
+    }) as ExecFile;
+    const transport = claudeCodeTransport({ execFile: exec, cwd: "/tmp" });
+
+    await expect(transport(request)).resolves.toMatchObject({ answer: null });
+    await transport.dispose();
+  });
+
+  it("errors a non-zero exit whose stdout is not JSON, with the code and stderr", async () => {
+    const exec = (async () => {
+      throw Object.assign(new Error("Command failed"), {
+        code: 127,
+        stdout: "",
+        stderr: "claude: command not found",
+      });
+    }) as ExecFile;
+    const transport = claudeCodeTransport({ execFile: exec, cwd: "/tmp" });
+
+    await expect(transport(request)).rejects.toThrow(
+      /exited 127.*command not found/s,
+    );
+    await transport.dispose();
+  });
+
+  it("reports no output cap, because the CLI has no flag for one", async () => {
+    const transport = claudeCodeTransport({
+      execFile: fakeExec(payload()),
+      cwd: "/tmp",
+    });
+    await expect(transport(request)).resolves.toMatchObject({
+      maxTokens: null,
+    });
+    await transport.dispose();
   });
 
   it("throws on an is_error payload, so the cell leaves the denominator", async () => {
@@ -168,6 +283,61 @@ describe("claudeCodeTransport", () => {
     await Promise.all(calls);
 
     expect(peak).toBe(DEFAULT_CLAUDE_CONCURRENCY);
+  });
+});
+
+describe("preflightClaude", () => {
+  const version: ExecFile = async () => ({
+    stdout: "2.1.259 (Claude Code)\n",
+    stderr: "",
+  });
+
+  it("pings with the run's own first model through the run's transport", async () => {
+    let model: string | undefined;
+    const transport = async (pinged: BenchRequest) => {
+      model = pinged.model;
+      return { answer: null, usage: EMPTY_USAGE };
+    };
+
+    await expect(
+      preflightClaude({
+        execFile: version,
+        transport,
+        model: "claude-opus-4-5",
+        platform: "darwin",
+      }),
+    ).resolves.toBe("2.1.259");
+    expect(model).toBe("claude-opus-4-5");
+  });
+
+  it("prints the CLI's own result text after the generic message", async () => {
+    const transport = claudeCodeTransport({
+      execFile: fakeExec(
+        payload({ is_error: true, result: "Credit balance is too low" }),
+      ),
+      cwd: "/tmp",
+    });
+
+    await expect(
+      preflightClaude({
+        execFile: version,
+        transport,
+        model: "claude-haiku-4-5",
+        platform: "darwin",
+      }),
+    ).rejects.toThrow(/Credit balance is too low/);
+    await transport.dispose();
+  });
+
+  it("refuses on Windows, where the CLI cannot be spawned without a shell", async () => {
+    await expect(
+      preflightClaude({
+        execFile: version,
+        transport: async () => ({ answer: null, usage: EMPTY_USAGE }),
+        model: "claude-haiku-4-5",
+        platform: "win32",
+      }),
+    ).rejects.toThrow(ClaudePreflightError);
   });
 });
 

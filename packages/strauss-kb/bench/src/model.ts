@@ -117,6 +117,11 @@ export type BenchCell = {
   scored: ScoredAnswer;
   usage: CellUsage;
   /**
+   * The output cap the call ran under. `null` on the Claude Code transport,
+   * whose CLI has no max-tokens flag, so its output is uncapped.
+   */
+  maxTokens: number | null;
+  /**
    * The transport failed after its retries. An errored cell leaves the accuracy
    * denominator and the bootstrap, so a rate limit cannot read as a model
    * failure.

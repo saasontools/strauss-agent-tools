@@ -285,18 +285,29 @@ export async function main(argv: readonly string[]): Promise<number> {
 
   let transport = anthropicTransport();
   let transportVersion: string | null = null;
+  // The Claude Code transport owns a temp directory; whoever creates it hands
+  // it back, on the failing path as well as the finishing one.
+  let dispose: (() => Promise<void>) | null = null;
   if (options.transport === "claude") {
+    // Preflight goes through the run's own transport: one temp directory, and
+    // the ping is answered by the first model the run will actually use.
+    const claude = claudeCodeTransport({ concurrency: options.concurrency });
+    dispose = () => claude.dispose();
     try {
-      transportVersion = await preflightClaude();
+      transportVersion = await preflightClaude({
+        transport: claude,
+        model: options.models[0] ?? DEFAULT_MODEL_IDS[0] ?? "claude-sonnet-5",
+      });
     } catch (error) {
       if (!(error instanceof ClaudePreflightError)) throw error;
+      await claude.dispose();
       write(`bench: ${error.message}`);
       return 2;
     }
     write(
       `Claude Code ${transportVersion}, thinking disabled via MAX_THINKING_TOKENS=0.`,
     );
-    transport = claudeCodeTransport({ concurrency: options.concurrency });
+    transport = claude;
   } else if (
     !process.env.ANTHROPIC_API_KEY &&
     !process.env.ANTHROPIC_AUTH_TOKEN
@@ -310,6 +321,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   }
 
   let done = 0;
+  // The transport's temp directory goes back whether the run finished or threw.
   const run = await runBench({
     records,
     tasks,
@@ -326,7 +338,7 @@ export async function main(argv: readonly string[]): Promise<number> {
           `${cell.errored ? `ERROR ${cell.error}` : cell.scored.correct ? "ok" : "miss"}`,
       );
     },
-  });
+  }).finally(() => dispose?.());
 
   await mkdir(options.outDir, { recursive: true });
   const stamp = run.startedAt.replace(/[:.]/g, "-");

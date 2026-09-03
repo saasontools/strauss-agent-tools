@@ -111,6 +111,8 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
           answer: response.answer,
           scored: scoreAnswer(response.answer, job.task.rubric),
           usage: response.usage,
+          maxTokens:
+            response.maxTokens === undefined ? maxTokens : response.maxTokens,
           // A transport that returns without an answer -- a refused tool call,
           // a truncated response -- is a real failure to answer, and is scored
           // as one. Only a thrown transport error leaves the denominator.
@@ -123,6 +125,7 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
           answer: null,
           scored: { correct: false, checks: { answered: false } },
           usage: EMPTY_USAGE,
+          maxTokens: null,
           errored: true,
           error: error instanceof Error ? error.message : String(error),
         };
