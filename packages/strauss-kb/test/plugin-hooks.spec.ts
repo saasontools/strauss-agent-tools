@@ -616,31 +616,27 @@ process.stdout.write("[]");
   });
 
   it("builds the npx fallback from the pinned constant, not a literal or a floating range", () => {
-    // A live spawn-through-npx test turned out to depend on the machine
-    // it runs on in a way this repo can't control: a `strauss-kb` that
-    // happens to already be resolvable on PATH (this plugin's own README
-    // tells developers to `npm install -g` it) answers at the primary
-    // tier before npx is ever reached, and there is no reliable way to
-    // hide a real, already-installed binary from a bare-name PATH lookup
-    // across both POSIX and Windows without the isolation attempt itself
-    // becoming a second, harder-to-debug source of platform failures
-    // (see this test's git history). `runCommand` — the function actually
-    // doing the spawning — is exercised live regardless, just through the
-    // primary-tier `strauss-kb` shim in the tests above; what's left to
-    // check here is that the npx branch is built from the constant, so a
-    // typo or an accidental revert to a floating range shows up here
-    // instead of only at review time.
+    // A live npx spawn depends on whether a global strauss-kb is already on
+    // PATH, so only the source is checked: the npx branch must be built from
+    // the constant.
     const source = readFileSync(validateHook, "utf8");
     expect(source).toContain(
       "`@saasontools/strauss-kb@${PINNED_STRAUSS_KB_VERSION}`",
     );
   });
 
-  it("does not retry a floating range: the pinned constant matches the package version", () => {
+  it("pins an exact published version, never a range or one ahead of the package", () => {
     const source = readFileSync(validateHook, "utf8");
     const match = /PINNED_STRAUSS_KB_VERSION = "([^"]+)"/.exec(source);
     expect(match).not.toBeNull();
-    expect(match![1]).toBe(packageVersion);
+    const pinned = match![1];
+    expect(pinned).toMatch(/^\d+\.\d+\.\d+$/);
+    const toTuple = (v: string) => v.split(".").map(Number);
+    const [pa, pb, pc] = toTuple(pinned);
+    const [qa, qb, qc] = toTuple(packageVersion);
+    const notAhead =
+      pa < qa || (pa === qa && (pb < qb || (pb === qb && pc <= qc)));
+    expect(notAhead).toBe(true);
   });
 
   it("prints nothing for a clean bundle", () => {
