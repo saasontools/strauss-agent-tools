@@ -22,6 +22,7 @@ import { pinsCommand } from "./pins.js";
 import { queryCommand } from "./query.js";
 import { readIndexCommand } from "./read-index.js";
 import { schemaCommand } from "./schema.js";
+import { stampCommand } from "./stamp.js";
 import { statusCommand } from "./status.js";
 import { supersedeCommand } from "./supersede.js";
 import { syncInstructionsCommand } from "./sync-instructions.js";
@@ -53,6 +54,7 @@ export const KB_COMMANDS: KbCommand[] = [
   listCommand,
   readIndexCommand,
   logCommand,
+  stampCommand,
   validateCommand,
   doctorCommand,
   schemaCommand,

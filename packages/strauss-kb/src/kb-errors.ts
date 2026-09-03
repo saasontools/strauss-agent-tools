@@ -154,3 +154,18 @@ export class KbInvalidConceptIdError extends BaseError {
     });
   }
 }
+
+/** `--since` named a baseline that is neither a digest nor a readable stamp. */
+export class KbStampBaselineError extends BaseError {
+  constructor(readonly since: string) {
+    super({
+      message: `kb: --since ${since} is neither a 64-character digest nor a readable stamp file`,
+      errorType: ErrorTypes.KbStampBaselineUnreadable,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { since },
+    });
+  }
+}
