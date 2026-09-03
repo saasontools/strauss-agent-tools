@@ -1,27 +1,9 @@
 #!/usr/bin/env node
 /**
- * PostToolUse hook: validates a KB bundle after a manual edit to one of its
- * record files.
- *
- * Write/Edit/MultiEdit bypass the store's write path (kb_write,
- * kb_supersede, ...), which is what keeps supersession links, backlinks, and
- * INDEX.md in agreement with each other. A hand edit can silently break that
- * agreement without anyone noticing until a later read trips over it. This
- * hook runs `strauss-kb validate` against the touched bundle right after
- * such an edit and surfaces any problems to the agent.
- *
- * Non-blocking, deliberately: PostToolUse fires after the tool already ran,
- * and a hand edit is often exactly what was wanted (fixing a typo,
- * recovering a bad merge) — this informs the agent so it can decide whether
- * to fix up the bundle, not reverts or gates anything.
- *
- * Opt out per project or per session with STRAUSS_KB_NO_VALIDATE_HOOK=1 (see
- * the plugin README).
- *
- * Fails open throughout, like the plugin's other hooks: an unresolvable
- * CLI, a directory that doesn't actually look like a bundle, or any
- * unexpected error (including a broken stdout pipe) produces no output
- * rather than noise, a stuck hook, or a crash.
+ * PostToolUse hook: after Write/Edit/MultiEdit touches a KB bundle file, runs
+ * `strauss-kb validate` and surfaces problems to the agent (non-blocking).
+ * No-ops outside a bundle. Opt out with STRAUSS_KB_NO_VALIDATE_HOOK=1. Fails
+ * open on any unexpected error (no output).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";

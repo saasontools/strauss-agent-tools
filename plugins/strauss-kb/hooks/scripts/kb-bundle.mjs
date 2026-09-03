@@ -1,11 +1,5 @@
 #!/usr/bin/env node
-/**
- * Shared helpers for the record-edit hooks (validate-kb-bundle.mjs,
- * deny-kb-generated-edits.mjs). Both only ever run from this plugin's own
- * tree — wired through hooks/hooks.json, not copied out to a project like
- * block-kb-reads.mjs is — so importing a sibling module here costs nothing
- * the plugin doesn't already carry.
- */
+/** Shared bundle helpers for validate-kb-bundle.mjs and deny-kb-generated-edits.mjs: findBundleRoot, isStoreOwnedFile, looksLikeBundle. */
 import { existsSync, readdirSync } from "node:fs";
 import { basename, sep } from "node:path";
 
@@ -22,34 +16,10 @@ export const STORE_OWNED_BASENAMES = new Set([
 ]);
 
 /**
- * The bundle root a path lives under, or null outside one.
- *
- * Matches the two conventions this plugin documents: a directory literally
- * named `.kb`, or a `kb` directory under `.strauss` (the default bundle —
- * `KB_DIR` in the package). This is a path-segment match, not a filesystem
- * walk: it costs no I/O and works for a path that doesn't exist on disk yet
- * (a `Write` creating a brand-new record), which a `stat`-based walk would
- * miss. The nearest enclosing match wins, for the (unusual) case of a bundle
- * nested under another.
- *
- * Splits on `/` and `\` both, regardless of the current platform's own
- * `path.sep`: the caller is expected to have run the path through
- * `path.resolve` first (native separators, `..` collapsed), but this stays
- * correct even for a raw path someone hands it directly — a Windows
- * drive-absolute path spelled with forward slashes (`C:/Users/...`, which
- * `path.win32.isAbsolute` accepts) would otherwise never split on a bare
- * `path.sep` of `\`, silently turning the whole path into one segment and
- * the hook into a permanent no-op on that platform. The match is returned
- * joined with the current platform's `sep`, so it composes cleanly with
- * `path.dirname`/`path.resolve` on whatever's left of the string.
- *
- * Known scope cut (documented, not a bug): this only recognises the two
- * *conventional* directory names. A base pinned somewhere else entirely
- * (`docs/kb`, `docs/adr`, ... via `.strauss/kb-pins.json` and its local/user
- * layers — see `block-kb-reads.mjs`) is invisible to it. Reading those pin
- * manifests would mean this pure, I/O-free path match growing filesystem
- * reads and JSON parsing on every single edit; the plugin README calls this
- * out as a v1 limitation rather than silently covering only some bases.
+ * The bundle root a path lives under, or null outside one. Matches a `.kb`
+ * or `.strauss/kb` path segment (nearest enclosing wins); does not read
+ * `kb-pins.json`, so a pinned-elsewhere base is invisible to it. Splits on
+ * `/` and `\` both, so a forward-slash Windows drive path is handled too.
  */
 export function findBundleRoot(filePath) {
   const parts = filePath.replace(/\\/g, "/").split("/");
