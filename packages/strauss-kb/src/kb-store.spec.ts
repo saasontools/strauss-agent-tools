@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, vi, test as baseTest } from "vitest";
-import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver/index.js";
 import { composeRecord, type ComposeInput } from "./compose.js";
 import {
   composeDecisionRecord,
@@ -1234,6 +1234,39 @@ describe("validateBundle", () => {
         conceptId: "fact.orphan",
         note: "superseded with no replacement",
         severity: "error",
+      },
+    ]);
+  });
+
+  // A short form still matches this root's own origin, so it is not wrong —
+  // only unfetchable, which is the thing a cross-repo base needs told.
+  test("warns on an anchor repo that is not a full remote URL", async ({
+    store,
+    bundle,
+  }) => {
+    writeFileSync(
+      join(bundle, "fact.short-repo.md"),
+      [
+        "---",
+        "type: fact",
+        "strauss_status: accepted",
+        "strauss_anchors:",
+        "  - file: src/a.ts",
+        "    repo: org/name",
+        "  - file: src/b.ts",
+        "    repo: https://github.com/org/name",
+        "---",
+        "Body.",
+        "",
+      ].join("\n"),
+    );
+
+    expect(validateBundle(await store.list(bundle))).toEqual([
+      {
+        check: "anchor_repo",
+        conceptId: "fact.short-repo",
+        note: 'anchor repo "org/name" is not a full remote URL, so it cannot be resolved against a remote',
+        severity: "warning",
       },
     ]);
   });

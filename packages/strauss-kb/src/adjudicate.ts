@@ -1,4 +1,5 @@
-import type { KbAnchorDriftEntry } from "./anchor-resolver.js";
+import type { KbAnchorDriftEntry } from "./anchor-resolver/index.js";
+import { isUncheckedReason } from "./remote-repo/index.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 
 /**
@@ -28,16 +29,21 @@ export type KbWarning =
   | { kind: "unverified" }
   /** The code this record anchors to has changed since its hash was recorded —
    *  the record may describe code that no longer exists in that form. */
-  | {
-      kind: "drifted";
-      anchors: {
-        file: string;
-        symbol?: string;
-        /** `null` when the anchor recorded no line count — size unknown. */
-        diffSize: number | null;
-        reason?: string;
-      }[];
-    };
+  | { kind: "drifted"; anchors: KbWarningAnchor[] }
+  /** A foreign anchor nothing could check: the remote was unreachable, refused,
+   *  or the run was offline. Neither drift nor a clean match. */
+  | { kind: "unchecked"; anchors: KbWarningAnchor[] };
+
+export type KbWarningAnchor = {
+  file: string;
+  symbol?: string;
+  /** `null` when the anchor recorded no line count — size unknown. */
+  diffSize: number | null;
+  reason?: string;
+  /** Set only for an anchor resolved against another repository. */
+  repo?: string;
+  remoteState?: string;
+};
 
 export type KbStanding =
   "current" | "superseded" | "rejected" | "unsettled" | "open";
@@ -107,27 +113,37 @@ export function adjudicate(
       warnings.push({ kind: "unverified" });
     }
 
-    // `foreign-repo` is not a finding: the anchor names a repository this root
-    // is not, which a base describing several repositories does by design.
-    // Filtered at the one point every read path and `doctor` share, so none of
-    // them can start reporting it as decay.
-    const moved = (anchorDrift?.get(record.conceptId) ?? []).filter(
-      (entry) => entry.state !== "match" && entry.reason !== "foreign-repo",
+    // Split at the one point every read path and `doctor` share, so none of
+    // them can report "no drift" for an anchor nobody could reach.
+    const found = (anchorDrift?.get(record.conceptId) ?? []).filter(
+      (entry) => entry.state !== "match",
     );
+    const unchecked = found.filter((entry) => isUncheckedReason(entry.reason));
+    const moved = found.filter((entry) => !isUncheckedReason(entry.reason));
     if (moved.length) {
+      warnings.push({ kind: "drifted", anchors: moved.map(warningAnchor) });
+    }
+    if (unchecked.length) {
       warnings.push({
-        kind: "drifted",
-        anchors: moved.map(({ file, symbol, diffSize, reason }) => ({
-          file,
-          ...(symbol !== undefined ? { symbol } : {}),
-          diffSize,
-          ...(reason !== undefined ? { reason } : {}),
-        })),
+        kind: "unchecked",
+        anchors: unchecked.map(warningAnchor),
       });
     }
 
     return { record, standing: STANDING[status], heads, warnings };
   });
+}
+
+function warningAnchor(entry: KbAnchorDriftEntry): KbWarningAnchor {
+  const { file, symbol, diffSize, reason, repo, remoteState } = entry;
+  return {
+    file,
+    ...(symbol !== undefined ? { symbol } : {}),
+    diffSize,
+    ...(reason !== undefined ? { reason } : {}),
+    ...(repo !== undefined ? { repo } : {}),
+    ...(remoteState !== undefined ? { remoteState } : {}),
+  };
 }
 
 /**

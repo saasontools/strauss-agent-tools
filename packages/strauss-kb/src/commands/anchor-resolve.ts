@@ -3,17 +3,25 @@ import {
   anchorFileReader,
   hashAnchorText,
   LazyOrigin,
+  normalizeRepoUrl,
   readAnchorFiles,
+  remoteWants,
   resolveAnchor,
   type AnchorRead,
   type AnchorUnresolvedReason,
-} from "../anchor-resolver.js";
+  type RemoteAnchorState,
+} from "../anchor-resolver/index.js";
 import {
   KbRecordNotFoundError,
   KbSelfVerificationError,
 } from "../kb-errors.js";
 import { assertBaseNotFrozen, KbBaseFrozenError } from "../kb-pins/index.js";
 import type { KbAnchor } from "../kb-record.schema.js";
+import {
+  isUncheckedReason,
+  readRemoteAnchors,
+  wantKey,
+} from "../remote-repo/index.js";
 import { argvFlag, bundlePath, conceptId, define } from "./model.js";
 
 type AnchorResolveResult = {
@@ -26,19 +34,33 @@ type AnchorResolveResult = {
   diffSize?: number | null;
   reason?: AnchorUnresolvedReason;
   rebaselined?: boolean;
+  /** Set only when the anchor was resolved against another repository. */
+  repo?: string;
+  remoteState?: RemoteAnchorState;
 };
+
+/** What one anchor was compared against, and what "current" is beside it. */
+type AnchorSource =
+  | { ok: true; source: string; repo?: string; head?: string }
+  | { ok: false; reason: AnchorUnresolvedReason; repo?: string };
 
 export const anchorResolveCommand = define({
   name: "anchor-resolve",
   tool: "kb_anchor_resolve",
   usage:
-    "anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]",
+    "anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp]",
   description:
-    "Resolve a record's anchors against the working tree: stamp a hash onto anchors that lack one, report drift where the code moved. kb_verify's mechanical counterpart — reach for it when the question is whether the code still is what it was, not whether the claim still holds. Anchors naming another repository are skipped. Exits non-zero on drift.",
+    "Resolve a record's anchors: stamp a hash onto anchors that lack one, report drift where the code moved. An anchor naming another repository is read from that remote through a bare cache; --offline uses the cache only. kb_verify's mechanical counterpart — reach for it when the question is whether the code still is what it was. Exits non-zero on drift.",
   input: z.object({
     bundlePath,
     conceptId,
     repoRoot: z.string().min(1).optional(),
+    offline: z
+      .boolean()
+      .optional()
+      .describe(
+        "Resolve foreign anchors from the local repo cache only, never fetching.",
+      ),
     rebaseline: z
       .boolean()
       .optional()
@@ -56,12 +78,13 @@ export const anchorResolveCommand = define({
     bundlePath: path,
     conceptId: argv[1],
     repoRoot: argvFlag(argv, "--repo-root"),
+    offline: argv.includes("--offline"),
     rebaseline: argv.includes("--rebaseline"),
     restamp: argv.includes("--restamp"),
   }),
   run: async (
     { store, actor, now },
-    { bundlePath: path, conceptId: id, repoRoot, rebaseline, restamp },
+    { bundlePath: path, conceptId: id, repoRoot, offline, rebaseline, restamp },
   ) => {
     const root = repoRoot ?? process.cwd();
     const record = await store.read(path, id);
@@ -79,50 +102,32 @@ export const anchorResolveCommand = define({
 
     const results: AnchorResolveResult[] = [];
     const updated: KbAnchor[] = [];
-    const origin = new LazyOrigin(root);
     let dirty = false;
 
-    // Foreign anchors are settled first so their files are never read, then
-    // the rest of the record's distinct files are fetched in one pass.
-    if (anchors.some((anchor) => anchor.repo)) await origin.prime();
-    const foreign = new Map(
-      anchors.map((anchor) => [anchor, origin.isForeign(anchor)] as const),
-    );
-    const reads = await readAnchorFiles(
-      anchors
-        .filter((anchor) => !foreign.get(anchor))
-        .map((anchor) => anchor.file),
-      anchorFileReader(root),
-    );
+    const sources = await readSources(anchors, root, offline === true);
 
     for (const anchor of anchors) {
-      const base: Pick<AnchorResolveResult, "file" | "symbol" | "storedHash"> =
-        {
-          file: anchor.file,
-          ...(anchor.symbol ? { symbol: anchor.symbol } : {}),
-          // Carried onto unresolved findings too: an anchor that once hashed
-          // and now resolves to nothing is a broken anchor, and the exit code
-          // has to be able to tell it from one nobody ever stamped.
-          ...(anchor.hash ? { storedHash: anchor.hash } : {}),
-        };
+      const base: Pick<
+        AnchorResolveResult,
+        "file" | "symbol" | "storedHash" | "repo"
+      > = {
+        file: anchor.file,
+        ...(anchor.symbol ? { symbol: anchor.symbol } : {}),
+        // Carried onto unresolved findings too: an anchor that once hashed
+        // and now resolves to nothing is a broken anchor, and the exit code
+        // has to be able to tell it from one nobody ever stamped.
+        ...(anchor.hash ? { storedHash: anchor.hash } : {}),
+      };
+      const source = sources.get(anchor) as AnchorSource;
+      if (source.repo) base.repo = source.repo;
 
-      // Another repository's anchor: left exactly as it is, not read, not
-      // stamped, and not counted against the record. Resolving it needs a
-      // second checkout, which is SAA-709.
-      if (foreign.get(anchor)) {
-        results.push({ ...base, state: "unresolved", reason: "foreign-repo" });
+      if (!source.ok) {
+        results.push({ ...base, state: "unresolved", reason: source.reason });
         updated.push(anchor);
         continue;
       }
 
-      const fileRead = reads.get(anchor.file) as AnchorRead;
-      if (!fileRead.ok) {
-        results.push({ ...base, state: "unresolved", reason: fileRead.reason });
-        updated.push(anchor);
-        continue;
-      }
-
-      const resolved = resolveAnchor(fileRead.source, anchor);
+      const resolved = resolveAnchor(source.source, anchor);
       if (!resolved) {
         results.push({
           ...base,
@@ -141,6 +146,7 @@ export const anchorResolveCommand = define({
         lines: currentLines,
         resolved_at: now(),
       };
+      const pinned = anchor.ref !== undefined && source.repo !== undefined;
 
       if (!anchor.hash) {
         // The write path for hashes: kb_write callers record symbols, not
@@ -148,33 +154,52 @@ export const anchorResolveCommand = define({
         results.push({ ...base, state: "stamped", currentHash });
         updated.push(stamped);
         dirty = true;
-      } else if (anchor.hash === currentHash) {
-        results.push({
-          ...base,
-          state: "match",
-          currentHash,
-        });
-        // Nothing changed, so nothing is written: a re-dated record on every
-        // green CI run would be a mutation, a log line, and a git diff saying
-        // only that a check ran. `resolved_at` is filled in when it is absent
-        // (the anchor predates hashing), or on request.
-        const refresh = restamp || anchor.resolved_at === undefined;
-        updated.push(refresh ? { ...anchor, resolved_at: now() } : anchor);
-        if (refresh) dirty = true;
-      } else {
+        continue;
+      }
+
+      if (anchor.hash !== currentHash) {
         results.push({
           ...base,
           state: "drifted",
           currentHash,
-          diffSize:
-            anchor.lines === undefined
-              ? null
-              : Math.abs(currentLines - anchor.lines),
+          diffSize: lineDelta(anchor, currentLines),
+          ...(pinned ? { remoteState: "drifted-from-ref" as const } : {}),
           ...(rebaseline ? { rebaselined: true } : {}),
         });
         updated.push(rebaseline ? stamped : anchor);
         if (rebaseline) dirty = true;
+        continue;
       }
+
+      // The evidence still holds at the pinned commit and the default branch
+      // has moved past it. Never rebaselined: the repair is to move `ref`,
+      // which is the author's field, not this command's.
+      const onDefault = pinned ? headHash(source, anchor) : undefined;
+      if (onDefault && onDefault.hash !== anchor.hash) {
+        results.push({
+          ...base,
+          state: "drifted",
+          currentHash: onDefault.hash,
+          diffSize: lineDelta(anchor, onDefault.lines),
+          remoteState: "drifted-on-default",
+        });
+        updated.push(anchor);
+        continue;
+      }
+
+      results.push({
+        ...base,
+        state: "match",
+        currentHash,
+        ...(pinned ? { remoteState: "matches-ref" as const } : {}),
+      });
+      // Nothing changed, so nothing is written: a re-dated record on every
+      // green CI run would be a mutation, a log line, and a git diff saying
+      // only that a check ran. `resolved_at` is filled in when it is absent
+      // (the anchor predates hashing), or on request.
+      const refresh = restamp || anchor.resolved_at === undefined;
+      updated.push(refresh ? { ...anchor, resolved_at: now() } : anchor);
+      if (refresh) dirty = true;
     }
 
     // Frozen bases refuse writes, not reads: pure drift reporting is
@@ -196,22 +221,24 @@ export const anchorResolveCommand = define({
       : {};
 
     // Evidence only when every checkable anchor already matched: a freshly
-    // stamped anchor is a baseline nobody has checked. Anchors in another
-    // repository are outside the denominator rather than against it, and the
-    // note says how many were skipped.
-    const checked = results.filter((entry) => entry.reason !== "foreign-repo");
-    const skipped = results.length - checked.length;
-    const matches = checked.filter((entry) => entry.state === "match").length;
-    const clean =
-      checked.length > 0 && checked.every((entry) => entry.state === "match");
+    // stamped anchor is a baseline nobody has checked. An anchor nothing could
+    // reach stays outside the denominator rather than against it, and also
+    // keeps the run from verifying — "could not look" is not "matches".
+    const unreachable = results.filter((entry) =>
+      isUncheckedReason(entry.reason),
+    ).length;
+    const checked = results.length - unreachable;
+    const matches = results.filter((entry) => entry.state === "match").length;
+    const note = `${matches}/${checked} anchors match${
+      unreachable ? `, ${unreachable} unreachable` : ""
+    }`;
+    const clean = checked > 0 && matches === checked && unreachable === 0;
     if (clean) {
       try {
         await store.verify(
           path,
           id,
-          `anchor-resolve: ${matches}/${checked.length} anchors match${
-            skipped ? `, ${skipped} in another repo` : ""
-          } (regex resolver)`,
+          `anchor-resolve: ${note} (regex resolver)`,
           actor,
           now(),
         );
@@ -230,20 +257,105 @@ export const anchorResolveCommand = define({
       return { conceptId: id, results, verified: true, ...frozenNote };
     }
 
-    return { conceptId: id, results, verified: false, ...frozenNote };
+    return {
+      conceptId: id,
+      results,
+      verified: false,
+      ...(unreachable ? { note } : {}),
+      ...frozenNote,
+    };
   },
   // A stored hash that no longer resolves is a broken anchor, not an absence:
   // the file was deleted or the symbol renamed, and exiting zero on it would
   // let the one edit that destroys an anchor pass the gate that exists to
   // catch it. An anchor nobody ever stamped is still just unstamped, and one
-  // belonging to another repository was never this run's to check — failing CI
-  // on either would gate on work this command did not do.
+  // whose remote nothing could reach was never checked — failing CI on either
+  // would gate on work this command did not do.
   failsWhen: (result) =>
     (result as { results: AnchorResolveResult[] }).results.some(
       (entry) =>
         entry.state === "drifted" ||
         (entry.state === "unresolved" &&
           entry.storedHash !== undefined &&
-          entry.reason !== "foreign-repo"),
+          !isUncheckedReason(entry.reason)),
     ),
 });
+
+function lineDelta(anchor: KbAnchor, current: number): number | null {
+  return anchor.lines === undefined ? null : Math.abs(current - anchor.lines);
+}
+
+/** The anchor's hash on the remote's default branch, when one was read. */
+function headHash(
+  source: { head?: string },
+  anchor: KbAnchor,
+): { hash: string; lines: number } | undefined {
+  if (source.head === undefined) return undefined;
+  const resolved = resolveAnchor(source.head, anchor);
+  if (!resolved) return undefined;
+  return {
+    hash: hashAnchorText(resolved.text),
+    lines: resolved.endLine - resolved.startLine + 1,
+  };
+}
+
+/**
+ * What each anchor is read from: the working tree for this repository's own
+ * anchors, a bare remote cache for every other. Both sets are collected first,
+ * so git is spawned once per (repo, rev) and never inside the loop.
+ */
+async function readSources(
+  anchors: readonly KbAnchor[],
+  root: string,
+  offline: boolean,
+): Promise<Map<KbAnchor, AnchorSource>> {
+  const origin = new LazyOrigin(root);
+  if (anchors.some((anchor) => anchor.repo)) await origin.prime();
+  const foreign = new Map(
+    anchors.map((anchor) => [anchor, origin.isForeign(anchor)] as const),
+  );
+
+  const local = anchors.filter((anchor) => !foreign.get(anchor));
+  const remote = anchors.filter((anchor) => foreign.get(anchor));
+  const reads = await readAnchorFiles(
+    local.map((anchor) => anchor.file),
+    anchorFileReader(root),
+  );
+  const blobs = await readRemoteAnchors(remote.flatMap(remoteWants), {
+    offline,
+  });
+
+  const sources = new Map<KbAnchor, AnchorSource>();
+  for (const anchor of local) {
+    const read = reads.get(anchor.file) as AnchorRead;
+    sources.set(
+      anchor,
+      read.ok
+        ? { ok: true, source: read.source }
+        : { ok: false, reason: read.reason },
+    );
+  }
+  for (const anchor of remote) {
+    const repo = anchor.repo as string;
+    const key = normalizeRepoUrl(repo);
+    const atDefault = blobs.get(wantKey(key, undefined, anchor.file));
+    const primary = anchor.ref
+      ? blobs.get(wantKey(key, anchor.ref, anchor.file))
+      : atDefault;
+    if (!primary?.ok) {
+      sources.set(anchor, {
+        ok: false,
+        reason: primary?.ok === false ? primary.reason : "remote-unreachable",
+        repo,
+      });
+      continue;
+    }
+    sources.set(anchor, {
+      ok: true,
+      source: primary.source,
+      repo,
+      ...(anchor.ref && atDefault?.ok ? { head: atDefault.source } : {}),
+    });
+  }
+  return sources;
+}

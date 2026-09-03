@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { adjudicate } from "./adjudicate.js";
-import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver/index.js";
 import { composeRecord } from "./compose.js";
 import { KbStore } from "./kb-store.js";
 import { trace } from "./trace.js";

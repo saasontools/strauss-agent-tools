@@ -6,7 +6,13 @@ export default defineConfig({
     // The user pin layer reads ~/.strauss by default; tests must never see
     // the developer's real one. Suites that exercise the layer point this at
     // a fixture of their own.
-    env: { STRAUSS_KB_USER_ROOT: "/nonexistent-strauss-user-root" },
+    // The repo cache is the same hazard one step further out: an unwritable
+    // default means a test that forgets to point somewhere of its own fails
+    // to open a cache rather than reaching the network.
+    env: {
+      STRAUSS_KB_USER_ROOT: "/nonexistent-strauss-user-root",
+      STRAUSS_KB_REPO_CACHE: "/nonexistent-strauss-repo-cache",
+    },
     include: ["src/**/*.spec.ts", "test/**/*.spec.ts"],
     testTimeout: 20_000,
     hookTimeout: 30_000,
