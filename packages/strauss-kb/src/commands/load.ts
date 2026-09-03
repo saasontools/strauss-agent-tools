@@ -5,9 +5,9 @@ import { argvFlag, bundlePath, define } from "./model.js";
 export const loadCommand = define({
   name: "load",
   tool: "kb_load",
-  usage: "load [type] [--budget N] [--max-records N] [--all]",
+  usage: "load [type] [--budget N] [--all]",
   description:
-    "Loads the whole knowledge base at once, each record with its standing. Superseded records arrive as stubs (name, replacement, date); rejected and open records arrive whole. Refuses past the record gate (40 by default) or the token budget rather than truncating — call kb_catalog first, then kb_pack on the record that matters, or narrow with `type`; for a lookup by wording, use kb_query instead. `all` bypasses both ceilings and is mutually exclusive with `budgetTokens` and `maxRecords`. Place this output in the stable prefix (system prompt or first turn) and reload only when `digest` changes.",
+    "Loads the whole knowledge base at once, each record with its standing. Superseded records arrive as stubs (name, replacement, date); rejected and open records arrive whole. Refuses past the token budget rather than truncating — call kb_catalog, then kb_pack on the record that matters, or narrow with `type`; kb_query for a lookup by wording. `all` bypasses the budget. Place this output in the stable prefix (system prompt or first turn) and reload only when `digest` changes.",
   input: z
     .object({
       bundlePath,
@@ -18,51 +18,30 @@ export const loadCommand = define({
         .positive()
         .optional()
         .describe("Approximate token ceiling. Defaults to 25000."),
-      maxRecords: z
-        .number()
-        .int()
-        .positive()
-        .optional()
-        .describe(
-          "How many whole records may be handed over before the load refuses and sends you to kb_catalog. Defaults to 40. Superseded records arrive as stubs and are not counted.",
-        ),
       all: z
         .boolean()
         .optional()
         .describe(
-          "Loads the entire base regardless of size, bypassing the record gate and the token budget; mutually exclusive with budgetTokens and maxRecords.",
+          "Loads the entire base regardless of size, bypassing the token budget; mutually exclusive with budgetTokens.",
         ),
     })
-    .refine(
-      (value) =>
-        !(
-          value.all &&
-          (value.budgetTokens !== undefined || value.maxRecords !== undefined)
-        ),
-      {
-        message:
-          "all is mutually exclusive with budgetTokens and maxRecords: pass a ceiling or none, not both.",
-      },
-    ),
+    .refine((value) => !(value.all && value.budgetTokens !== undefined), {
+      message:
+        "all is mutually exclusive with budgetTokens: pass a ceiling or none, not both.",
+    }),
   fromArgv: (argv, path) => {
     const budget = argvFlag(argv, "--budget");
-    const maxRecords = argvFlag(argv, "--max-records");
     return {
       bundlePath: path,
       ...(argv[1] && !argv[1].startsWith("--") ? { type: argv[1] } : {}),
       ...(budget ? { budgetTokens: Number(budget) } : {}),
-      ...(maxRecords ? { maxRecords: Number(maxRecords) } : {}),
       ...(argv.includes("--all") ? { all: true } : {}),
     };
   },
-  run: async (
-    { store },
-    { bundlePath: path, type, budgetTokens, maxRecords, all },
-  ) => {
+  run: async ({ store }, { bundlePath: path, type, budgetTokens, all }) => {
     const result = await store.load(path, {
       ...(type ? { type } : {}),
       ...(budgetTokens ? { budgetTokens } : {}),
-      ...(maxRecords ? { maxRecords } : {}),
       ...(all ? { all } : {}),
     });
     if (!result.loaded) return result;

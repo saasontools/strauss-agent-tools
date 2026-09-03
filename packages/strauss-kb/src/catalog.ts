@@ -22,13 +22,6 @@ export type KbCatalogResult = {
    * has exactly one standing, so the reader can see that nothing went missing.
    */
   standings: Record<KbStanding, number>;
-  /**
-   * What `load` would hand over as whole records, and therefore exactly what
-   * its record gate counts: everything except the superseded, which arrive as
-   * one-line stubs and are not pages. A catalog reader comparing this to the
-   * gate can predict a refusal before making the call.
-   */
-  pageCount: number;
   /** Shorthand for `standings.current` — records that simply hold. */
   currentCount: number;
   /** Shorthand for `standings.superseded`. */
@@ -108,7 +101,6 @@ export function catalog(
     entries,
     recordCount: entries.length,
     standings,
-    pageCount: entries.length - standings.superseded,
     currentCount: standings.current,
     supersededCount: standings.superseded,
     staleCount: entries.filter((entry) => entry.stale).length,

@@ -19,8 +19,8 @@ markdown records carrying standing, supersession, and history.
   `kb_pack`, `kb_query`, `kb_trace`. A raw file read bypasses supersession
   resolution, and a superseded or rejected record file reads exactly like a
   current one.
-- When `kb_load` refuses, the base is past its record gate or its token
-  budget — take the next rung down rather than raising the ceiling:
+- When `kb_load` refuses, the base is past its token budget — take the next
+  rung down rather than raising the ceiling:
   `kb_catalog` for one line per record, then `kb_pack` on the record the work
   centres on. `kb_query` is the lookup by wording.
 - Record what a later reader could not reconstruct from the code — decisions

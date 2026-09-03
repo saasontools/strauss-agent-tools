@@ -256,7 +256,7 @@ strauss-kb [--bundle PATH] <command> [args]
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
-  load [type] [--budget N] [--max-records N] [--all]
+  load [type] [--budget N] [--all]
                                            Hand over the whole base, each record with its standing.
   catalog [type]                           Every record in one line — id, type, title, standing, stale flag.
   pack <conceptId> [--hops N] [--max-nodes N] [--budget N]
@@ -402,12 +402,12 @@ Read for a question, not for a session: a base loaded at the start of a long
 conversation is summarised away by the end of it, and reloading costs about
 three thousand tokens. Read it again at the point of use.
 
-**The three rungs, in one rule.** At or under the gate, `load` the base whole.
-Past it, `catalog` then `pack` the record that matters. For a lookup by
-wording, `query`.
+**The three rungs, in one rule.** While the base fits the budget, `load` it
+whole. Once `load` refuses, `catalog` then `pack` the record that matters. For
+a lookup by wording, `query`.
 
 ```bash
-strauss-kb load                          # under the gate: everything, with standing
+strauss-kb load                          # under the budget: everything, with standing
 strauss-kb catalog                       # past it: one line per record, ~30 tokens each
 strauss-kb pack decision.cursor-v2       # then the neighbourhood around the one that matters
 strauss-kb query cursor pagination       # or a point lookup by wording
@@ -418,44 +418,31 @@ no ranker can. `catalog` keeps that at a fraction of the cost by naming every
 record instead of every body; `query` gives up both, returning its nearest hit
 whatever the distance.
 
-`load` refuses rather than truncating past either of two independent
-ceilings — a truncated base reads as a complete one, so a caller would answer
-"never decided" from a slice it did not know was a slice. `context` refuses
-the same way at its own, tighter budget (4,000 by default). Superseded records
-come back as name, replacement and date only; `trace` still reaches them by
-id.
+`load` refuses rather than truncating past its token budget (`--budget` /
+`budgetTokens`, 25,000 by default, held against the estimated size of what is
+handed back) — a truncated base reads as a complete one, so a caller would
+answer "never decided" from a slice it did not know was a slice. `context`
+refuses the same way at its own, tighter budget (4,000 by default). Superseded
+records come back as name, replacement and date only; `trace` still reaches
+them by id.
 
-| Ceiling                        | Default | Held against                                                   |
-| ------------------------------ | ------- | -------------------------------------------------------------- |
-| `--max-records` / `maxRecords` | 40      | whole records handed back (`pageCount`); stubs are not counted |
-| `--budget` / `budgetTokens`    | 25,000  | the estimated size of what is handed back (`approxTokens`)     |
+A refusal reports `approxTokens` against `budgetTokens` and carries a `message`
+naming the budget and the next calls. A successful load reports `budgetTokens`
+too, so a caller can see how close it came before crossing the line.
 
-The gate is not a restatement of the budget: many short records can fit the
-token budget and still read as a skim rather than a whole. A refusal reports
-both counts, names every tripped ceiling in `refusedBy`, and carries a
-`message` naming the gate and the next calls. A successful load reports
-`pageCount` and `maxRecords` too, so a caller can see how close it came before
-crossing the line.
-
-> **Upgrading from 0.1.7.** The record gate is on by default, so a base of 41+
-> whole records that loaded before now refuses. Pass a higher `maxRecords` or
-> `all: true` to restore the old result; the intended path past the gate is
-> `catalog` then `pack`.
-
-`--all` (`all: true` over MCP) bypasses **both** ceilings and hands back the
-entire bundle regardless of size. A loaded result carries `tokensLoaded`, and
-both `budgetTokens: null` and `maxRecords: null` mark that no ceiling applied;
-`--all` is mutually exclusive with `--budget` and `--max-records`. It is for
-an operator who has decided the size is worth the tokens — a narrower `type`
-filter, `catalog`, or `query` fits better when it is not.
+`--all` (`all: true` over MCP) bypasses the budget and hands back the entire
+bundle regardless of size. A loaded result carries `tokensLoaded`, and
+`budgetTokens: null` marks that no ceiling applied; `--all` is mutually
+exclusive with `--budget`. It is for an operator who has decided the size is
+worth the tokens — a narrower `type` filter, `catalog`, or `query` fits better
+when it is not.
 
 **Catalog is the rung that keeps the base knowable.** One line per record —
 concept id, type, title, standing, stale flag — sorted by type then title, at
-roughly thirty tokens each, so a base far past `load`'s gate still fits in one
-call. Superseded records show the replacement in place of a body. The header
-sums record counts by standing, reports staleness separately (a current
-record can be stale), and gives the `pageCount` the record gate is measured
-against. Bodies live in `load`, `pack`, and `trace`.
+roughly thirty tokens each, so a base far past `load`'s budget still fits in
+one call. Superseded records show the replacement in place of a body. The
+header sums record counts by standing and reports staleness separately (a
+current record can be stale). Bodies live in `load`, `pack`, and `trace`.
 
 `catalog` alone has no ceiling and never refuses — cost is linear at roughly
 thirty tokens a record (a thousand-record base is about 30k, five thousand
@@ -465,8 +452,7 @@ catalogs of an unchanged base diff to nothing except a stale flag flipping as
 `stale_after` passes. Pass an explicit `now` (library callers) to hold
 byte-equality across that boundary.
 
-**Pack is the middle rung.** Under the ceilings, load the base whole. Past
-them, when the work centres on a record you can name (`catalog` is how you
+**Pack is the middle rung.** Under the budget, load the base whole. Past it, when the work centres on a record you can name (`catalog` is how you
 name it), `pack` hands over that record's bounded neighbourhood: everything
 within `--hops` of the root, walked over the base's edges — body links (a
 `relatedConceptIds` entry is one), supersession in both directions, shared

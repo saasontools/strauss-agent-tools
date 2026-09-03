@@ -65,20 +65,6 @@ export type KbLogger = {
 export const DEFAULT_LOAD_BUDGET = 25_000;
 
 /**
- * How many whole records `load` will hand over before it sends the reader to
- * `catalog` instead.
- *
- * A structural ceiling beside the token one, and not a duplicate of it. The
- * token budget asks "will this fit", which a base of many short records passes
- * while still being the wrong shape to read whole — forty bodies in one call is
- * a reader skimming, not a reader with recall, and the recall is the entire
- * reason `load` beats searching. Held against the records actually handed back
- * (superseded ones arrive as one-line stubs and cost nothing to skip), so the
- * count means what a caller would count on the page.
- */
-export const DEFAULT_LOAD_MAX_RECORDS = 40;
-
-/**
  * A superseded record, named but not spelled out.
  *
  * Standing is a qualifier on a body, and over a long session the body outlives
@@ -100,18 +86,9 @@ export type KbLoadResult =
       /** Named only. Their bodies are reachable through `trace`. */
       superseded: KbSupersededStub[];
       recordCount: number;
-      /** Whole records handed over — what the record gate counts. */
-      pageCount: number;
       tokensLoaded: number;
       /** `null` when loaded via `all`: no ceiling was applied. */
       budgetTokens: number | null;
-      /**
-       * The gate this load cleared, `null` under `all`. Reported on the way
-       * through and not only on refusal: a caller that can see how close it
-       * came can act before the base crosses the line, where one that only
-       * ever hears "refused" finds out by being refused.
-       */
-      maxRecords: number | null;
       /**
        * Sha256 over the bundle's content — every record's own digest plus
        * standing, sorted by concept id so the result never depends on listing
@@ -128,14 +105,9 @@ export type KbLoadResult =
   | {
       loaded: false;
       recordCount: number;
-      /** Whole records the load would have emitted — what the gate counts. */
-      pageCount: number;
       approxTokens: number;
       budgetTokens: number;
-      maxRecords: number;
-      /** Which ceiling refused, so a caller can raise the right one. */
-      refusedBy: KbLoadRefusal[];
-      /** The refusal in words, naming the ceilings and what to call next. */
+      /** The refusal in words, naming the budget and what to call next. */
       message: string;
       /**
        * Same digest a successful load would carry, computed over what would
@@ -145,9 +117,6 @@ export type KbLoadResult =
        */
       digest: string;
     };
-
-/** `pages` is the record-count gate; `tokens` the estimate-versus-budget one. */
-export type KbLoadRefusal = "pages" | "tokens";
 
 export type KbWriteInput = {
   type: string;
@@ -520,32 +489,26 @@ export class KbStore {
    * is indistinguishable from a complete one, so a caller would answer "that
    * was never decided" from a slice it did not know was a slice.
    *
-   * Two independent ceilings decide that: a token budget, and a page-count
-   * gate over the whole records a load would emit. Either one refuses on its
-   * own, and a refusal names both counts and every ceiling it tripped, because
-   * a caller told only "too big" cannot tell whether to narrow the type filter,
-   * raise a number, or stop loading the base whole altogether. The gate exists
-   * because the budget cannot see shape: a base of many short records fits the
-   * tokens and still reads as a skim, and the recall a whole read buys is the
-   * entire reason to prefer it over searching. Past the gate the answer is the
-   * catalog and then a pack, which is what the refusal says.
+   * A token budget decides that, measured over what is actually handed back.
+   * The refusal names the estimate and the budget, because a caller told only
+   * "too big" cannot tell whether to narrow the type filter, raise the budget,
+   * or stop loading the base whole altogether. Past the budget the answer is
+   * the catalog and then a pack, which is what the refusal says.
    *
-   * That refusal is the default guardrail. `all` bypasses both ceilings
-   * outright and always hands back the whole bundle: an explicit,
-   * never-accidental escape hatch for an operator who has the budget to spend,
-   * not a wider default.
+   * That refusal is the default guardrail. `all` bypasses the budget outright
+   * and always hands back the whole bundle: an explicit, never-accidental
+   * escape hatch for an operator who has the budget to spend, not a wider
+   * default.
    */
   async load(
     bundlePath: string,
     options: {
       budgetTokens?: number;
-      maxRecords?: number;
       type?: string;
       all?: boolean;
     } = {},
   ): Promise<KbLoadResult> {
     const budgetTokens = options.budgetTokens ?? DEFAULT_LOAD_BUDGET;
-    const maxRecords = options.maxRecords ?? DEFAULT_LOAD_MAX_RECORDS;
     const bundle = await this.list(bundlePath);
     const wanted = options.type
       ? bundle.filter((record) => record.frontmatter.type === options.type)
@@ -565,35 +528,17 @@ export class KbStore {
       records.reduce((total, hit) => total + estimateTokens(hit.record), 0) +
       superseded.reduce((total, entry) => total + estimateStubTokens(entry), 0);
 
-    // The gate counts what the reader would actually have to read: superseded
-    // records arrive as one-line stubs, so they are not pages.
-    const pageCount = records.length;
-
-    const refusedBy: KbLoadRefusal[] = [];
-    if (!options.all) {
-      // Pages first, because it is the structural answer and the one whose
-      // remedy — catalog, then pack — does not depend on the token estimate.
-      if (pageCount > maxRecords) refusedBy.push("pages");
-      if (approxTokens > budgetTokens) refusedBy.push("tokens");
-    }
-
     // Adjudication has already run either way, so this costs nothing extra —
     // computed once and carried on whichever branch returns.
     const bundleDigestValue = bundleDigest(records, superseded);
 
-    if (refusedBy.length) {
+    if (!options.all && approxTokens > budgetTokens) {
       return {
         loaded: false,
         recordCount: wanted.length,
-        pageCount,
         approxTokens,
         budgetTokens,
-        maxRecords,
-        refusedBy,
         message: refusalMessage({
-          refusedBy,
-          pageCount,
-          maxRecords,
           approxTokens,
           budgetTokens,
           type: options.type,
@@ -605,10 +550,8 @@ export class KbStore {
     return {
       loaded: true,
       recordCount: wanted.length,
-      pageCount,
       tokensLoaded: approxTokens,
       budgetTokens: options.all ? null : budgetTokens,
-      maxRecords: options.all ? null : maxRecords,
       records,
       superseded,
       digest: bundleDigestValue,
@@ -963,38 +906,18 @@ export function estimateStubTokens(entry: KbSupersededStub): number {
   return Math.ceil(JSON.stringify(entry).length / 4);
 }
 
-/** What a refused load says: which ceiling tripped, and what to call next. */
+/** What a refused load says: what tripped the budget, and what to call next. */
 function refusalMessage(refusal: {
-  refusedBy: KbLoadRefusal[];
-  pageCount: number;
-  maxRecords: number;
   approxTokens: number;
   budgetTokens: number;
   type?: string;
 }): string {
-  const reasons: string[] = [];
-  if (refusal.refusedBy.includes("pages")) {
-    reasons.push(
-      `${refusal.pageCount} ${
-        refusal.pageCount === 1 ? "record" : "records"
-      } is past the ${refusal.maxRecords}-record gate`,
-    );
-  }
-  if (refusal.refusedBy.includes("tokens")) {
-    reasons.push(
-      `~${refusal.approxTokens} tokens is past the ${refusal.budgetTokens}-token budget`,
-    );
-  }
   const scope = refusal.type ? ` of type ${refusal.type}` : "";
 
-  const hatches = refusal.refusedBy.includes("pages")
-    ? `raise maxRecords (currently ${refusal.maxRecords}), or all=true to bypass both ceilings`
-    : `raise budgetTokens (currently ${refusal.budgetTokens}), or all=true to bypass both ceilings`;
-
   return [
-    `Refusing to load this base whole: ${reasons.join(", and ")}.`,
+    `Refusing to load this base whole: ~${refusal.approxTokens} tokens is past the ${refusal.budgetTokens}-token budget.`,
     `Call kb_catalog for one line per record${scope} (id, type, title, standing), then kb_pack on the record that matters; kb_query works for a lookup by wording.`,
-    `To load anyway: ${hatches}.`,
+    `To load anyway: raise budgetTokens (currently ${refusal.budgetTokens}), or all=true to bypass the budget.`,
   ].join(" ");
 }
 
