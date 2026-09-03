@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { validateBundle } from "../validate.js";
+import { validateBundle, type KbValidationProblem } from "../validate.js";
 import { bundlePath, define } from "./model.js";
 
 export const validateCommand = define({
@@ -7,10 +7,15 @@ export const validateCommand = define({
   tool: "kb_validate",
   usage: "validate",
   description:
-    "Cross-record checks: supersession pointers that disagree, assumptions that cite sources. Exits 1 on a finding. A finding here means a hand edit.",
+    "Check pointers no single record can see: supersession links that disagree between the two records, typed causal links, and assumptions that cite sources. Each finding carries a severity: errors fail the exit code, warnings do not.",
   input: z.object({ bundlePath }),
   fromArgv: (_argv, path) => ({ bundlePath: path }),
   run: async ({ store }, { bundlePath: path }) =>
     validateBundle(await store.list(path)),
-  failsWhen: (result) => Array.isArray(result) && result.length > 0,
+  // Warnings never fail the exit code; every other severity does.
+  failsWhen: (result) =>
+    Array.isArray(result) &&
+    (result as KbValidationProblem[]).some(
+      (problem) => problem.severity !== "warning",
+    ),
 });

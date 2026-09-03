@@ -1,3 +1,24 @@
+## 0.1.13 (2026-09-03)
+
+### 🩹 Fixes
+
+- typed causal edges (strauss_links) with kb_impact and kb_backlinks ([54ee155](https://github.com/saasontools/strauss-agent-tools/commit/54ee155))
+
+  Records may carry `strauss_links` — `{ target, rel }` edges from a closed
+  vocabulary of eight, reading source → target on the source's frontmatter and
+  also rendered as one prose sentence per rel. Each rel declares which of its two
+  ends depends on the other; `kb_impact` walks the transitive dependants in that
+  direction, `kb_backlinks` is the flat one-hop counterpart, and
+  `kb_pack`/`kb_trace` follow the new `typed-link` edge kind. `kb_validate`
+  findings now carry `severity` — an unknown rel or malformed target is an
+  `error`, an absent target a `warning`, only errors fail the exit code — so
+  every finding object has one more key.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.12 (2026-09-03)
 
 ### 🩹 Fixes

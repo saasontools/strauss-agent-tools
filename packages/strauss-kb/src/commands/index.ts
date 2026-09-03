@@ -7,9 +7,11 @@
 import { DECISION_TYPE } from "../decision-record.js";
 import { anchorResolveCommand } from "./anchor-resolve.js";
 import { answerCommand } from "./answer.js";
+import { backlinksCommand } from "./backlinks.js";
 import { catalogCommand } from "./catalog.js";
 import { contextCommand } from "./context.js";
 import { doctorCommand } from "./doctor.js";
+import { impactCommand } from "./impact.js";
 import { listCommand } from "./list.js";
 import { loadCommand } from "./load.js";
 import { logCommand } from "./log.js";
@@ -46,6 +48,8 @@ export const KB_COMMANDS: KbCommand[] = [
   packCommand,
   queryCommand,
   traceCommand,
+  impactCommand,
+  backlinksCommand,
   listCommand,
   readIndexCommand,
   logCommand,

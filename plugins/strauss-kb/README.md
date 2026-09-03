@@ -38,17 +38,18 @@ The SessionStart hook and skill examples shell out to `strauss-kb` from
 `PATH` — install it globally and keep it current:
 
 ```bash
-npm install -g @saasontools/strauss-kb@^0.1.8
+npm install -g @saasontools/strauss-kb@^0.1.9
 ```
 
 `strauss-kb --version` reports what is installed, matching `serverInfo.version`
-on the MCP server (built against **0.1.8**). The SessionStart hook fails
+on the MCP server (built against **0.1.9**). The SessionStart hook fails
 open — an outdated CLI produces no output, not an error.
 
 ## What it adds
 
 **MCP server** — `strauss-kb-mcp` over stdio, one tool per command (`kb_load`,
-`kb_catalog`, `kb_pack`, `kb_query`, `kb_write`, … see the package README).
+`kb_catalog`, `kb_pack`, `kb_query`, `kb_impact`, `kb_backlinks`, `kb_write`, …
+see the package README).
 
 **Skill** — `knowledge-base`: how to read standing, load before search, when
 to write.

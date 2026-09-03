@@ -16,7 +16,8 @@ markdown records carrying standing, supersession, and history.
   rather than guessing — and never conclude "nothing was decided" when all
   you hold is an index line.
 - Read records only through the strauss-kb MCP tools: `kb_load`, `kb_catalog`,
-  `kb_pack`, `kb_query`, `kb_trace`. A raw file read bypasses supersession
+  `kb_pack`, `kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`. A raw file
+  read bypasses supersession
   resolution, and a superseded or rejected record file reads exactly like a
   current one.
 - When `kb_load` refuses, the base is past its token budget: `kb_catalog` for

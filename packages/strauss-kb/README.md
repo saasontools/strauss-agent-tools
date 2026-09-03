@@ -122,6 +122,7 @@ later OKF key of the same name:
 | `strauss_status`                                               | `draft`, `proposed`, `accepted`, `open`, `resolved`, `rejected`, `superseded`. Default `draft`.                                                                 |
 | `strauss_supersedes` / `strauss_superseded_by`                 | Both directions of a supersession, written together.                                                                                                            |
 | `strauss_anchors`                                              | `{ file, symbol?, hash?, lines?, resolved_at? }` — where the record attaches, and what that code looked like then. See [Anchors and drift](#anchors-and-drift). |
+| `strauss_links`                                                | `{ target, rel }` — a typed causal edge, source → target. See [Links](#links).                                                                                  |
 | `strauss_assumption`                                           | The claim has no source, as a field rather than a fake entry in `sources`.                                                                                      |
 | `strauss_answered`                                             | Who resolved an open question, and when.                                                                                                                        |
 | `strauss_verify`                                               | Checks that would confirm the record still holds.                                                                                                               |
@@ -158,6 +159,35 @@ Read-modify-write checks a content digest immediately before publishing.
 A lock file. It closes the window and adds a stale-hold failure mode that is
 worse than the residue.
 ```
+
+## Links
+
+`strauss_links` is a typed causal edge, `[{ target, rel }]` on the source
+record, read source → target: `A depends_on B` means A needs B. The vocabulary
+is closed: eight rels. The **dependant** — the end that breaks when the other
+changes — is per-rel.
+
+| `rel`         | `A <rel> B` means            | Dependant |
+| ------------- | ---------------------------- | --------- |
+| `depends_on`  | A needs B to hold            | A         |
+| `verified_by` | B confirms A                 | A         |
+| `satisfies`   | A discharges B's requirement | A         |
+| `constrains`  | A bounds what B may do       | B         |
+| `informs`     | A shaped B, not binding      | B         |
+| `blocks`      | B waits on A                 | B         |
+| `invalidates` | A makes B no longer hold     | B         |
+| `related_to`  | no dependence                | —         |
+
+`kb_impact` (`strauss-kb impact <id>`): the transitive set of dependants, each
+rel followed in its own direction, never `related_to`.
+
+`kb_backlinks` (`strauss-kb backlinks <id>`): every inbound edge, one hop, any rel.
+
+`kb_validate`: unknown rel or malformed target is an `error`, absent target a
+`warning`. Only errors fail the exit code.
+
+The [specification](https://saasontools.github.io/strauss-agent-tools/specification)
+has the rest.
 
 ## Writes
 
@@ -242,6 +272,9 @@ strauss-kb [--bundle PATH] <command> [args]
                                            The bounded neighbourhood around one record, every cut named.
   query <text...> [--repo-root PATH]       Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
+  impact <concept-id> [--depth N] [--rels a,b]
+                                           What breaks if this changes: its dependants, transitively.
+  backlinks <concept-id>                   Who points at this record — one hop, every rel.
   list [type]                              Every record, optionally narrowed to one type.
   index                                    The index, rebuilt if it disagrees with the records.
   log                                      What touched what, and when.
@@ -265,7 +298,8 @@ strauss-kb [--bundle PATH] <command> [args]
 Results go to stdout as JSON; `index`, `catalog` and `pack` are markdown, and
 `doctor` prints a table unless `--json`. `--json` is refused where a command has
 one form; `--` ends flag parsing. Errors go to stderr with exit 1; `validate`,
-`anchor-resolve` and `doctor --strict` exit 1 with findings on stdout. Per-command flags:
+`anchor-resolve` and `doctor --strict` exit 1 with findings on stdout; only
+`validate` findings with `severity: "error"` do, so warnings alone exit 0. Per-command flags:
 [cli-reference](https://saasontools.github.io/strauss-agent-tools/cli-reference).
 
 A flag accepts either spelling — `--budget 4000` or `--budget=4000` — and a
@@ -284,7 +318,7 @@ strauss-kb --bundle .strauss/kb write fact <<'JSON'
 JSON
 
 strauss-kb query cache key region
-strauss-kb validate || echo "problems above"
+strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 ```
 
 ## MCP server
@@ -302,7 +336,7 @@ strauss-kb validate || echo "problems above"
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_load`, `kb_catalog`,
 `kb_pack`,
-`kb_query`, `kb_trace`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`,
+`kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`,
 `kb_doctor`, `kb_schema`, `kb_types`, `kb_pin`, `kb_unpin`, `kb_pins`,
 `kb_context`. Most take a `bundlePath`. The one CLI verb with no tool is
 `sync-instructions`; the agent capability is `kb_context`.

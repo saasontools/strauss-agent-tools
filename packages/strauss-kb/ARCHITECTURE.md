@@ -57,6 +57,21 @@ nothing but an index line. Free-text tags drift the way `auth` /
 closed enum, which `type` already is. `strauss_anchors` names a file and symbol,
 which either match the repository or not.
 
+## Typed links
+
+Supersession is not a rel. It is a lifecycle, and
+`strauss_supersedes`/`strauss_superseded_by` already carry it in both
+directions; a rel would be a second spelling free to disagree with them.
+
+The rel vocabulary is closed, but the read schema tolerates an unknown one.
+Frontmatter strict enough to reject it would make the file fail to parse, and a
+file that fails to parse is skipped by `list()` rather than reported — the
+bundle would drop the record instead of naming it. Tolerant read, strict write:
+`kb_write` refuses an unknown rel, `kb_validate` reports one as an error.
+
+`kb_impact` reports a superseded or rejected record and stops there. A withdrawn
+record's declared dependencies are not obligations anyone still owes.
+
 ## Rejected: a format that needs a parser
 
 A hand-rolled frontmatter reader could not express nested maps, misreading every
