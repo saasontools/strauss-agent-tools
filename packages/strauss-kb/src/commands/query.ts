@@ -7,7 +7,7 @@ export const queryCommand = define({
   tool: "kb_query",
   usage: "query <text...>",
   description:
-    "Search and return each match with its standing. Results are flagged, never filtered: a superseded record comes back alongside whatever replaced it, and a rejected one is marked as something explicitly not adopted. This is the lookup-by-wording rung, and the narrowest of the three: use it when you know roughly what the record says. The decision rule around it — while the base fits kb_load's token budget, kb_load it whole, because on this package's measurements a reader holding the whole base answered eight of nine questions whose wording appears in no record where embedding search answered four; once kb_load refuses, kb_catalog for one line per record and then kb_pack on the record the work centres on; and kb_query when the question is a point lookup rather than a neighbourhood. A query cannot tell you that nothing was decided — it returns its nearest hit whatever the distance — so reach for kb_catalog when the question is what exists. Never read record files directly: this tool (with kb_load, kb_catalog, kb_pack and kb_trace) is the only supported way to read a base; a file read bypasses supersession resolution and returns replaced records as if current.\n\nThese results are volatile — place them at the tail, not the stable prefix.",
+    "Search; every hit carries its standing. Flagged, never filtered: a superseded hit returns with its replacement, a rejected one is marked. Prefer kb_load when the base fits its budget — a full read beats search. Results are volatile: place them at the tail, not the cached prefix. Never read record files directly.",
   input: z.object({
     bundlePath,
     text: z.string().optional(),

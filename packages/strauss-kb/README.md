@@ -484,27 +484,11 @@ the most care, because returning the stale record unmarked looks exactly like
 success.
 
 **Placement is cache economics.** `load`'s output belongs in the stable
-prefix — the system prompt, or the first turn — and reloads only when its
-content changed; `query` and `pack` results belong at the tail, since they
-differ every call. A provider prompt cache discounts a request by roughly
-0.1x on the prefix it matches byte-for-byte against a prior call, so one
-volatile result ahead of a stable load prices the whole base at full rate
-thereafter.
-
-`load`'s result carries a `digest`: one sha256 over every record it would
-hand back, current and superseded alike, sorted so it never depends on
-listing order. Any record changing (body, frontmatter, or a supersession
-flipping its standing) flips it. Hold `load`'s output in a stable prefix and
-reload only when `digest` changes; a refused load carries the same digest,
-computed over what would have been handed back, so a narrower `type` filter
-after a refusal can be checked without loading it.
-
-The digest hashes each record's canonical recomposed form, not the raw file
-— it is not a substitute for the write path's content-addressed check. One
-gap: gray-matter does not normalize line endings, so the same record
-digests differently authored with CRLF versus LF. It is a same-environment
-signal, not proof that two checkouts on different machines hold identical
-content.
+prefix — system prompt or first turn — reloaded only when its `digest`
+changes; `query` and `pack` results belong at the tail. A prompt cache
+matches a byte-for-byte prefix, so one volatile result ahead of a stable load
+prices the base at full rate thereafter. Mechanism and digest caveats:
+<https://saasontools.github.io/strauss-agent-tools/mcp-reference>.
 
 ## Health
 
