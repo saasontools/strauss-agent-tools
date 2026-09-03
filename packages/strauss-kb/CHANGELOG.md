@@ -1,3 +1,9 @@
+## 0.1.11 (2026-09-03)
+
+### 🩹 Fixes
+
+- anchor content hashes and drift detection (`strauss_anchors`), with an `anchor-resolve` command and a `kb_doctor` drifted check. Anchors gain optional `repo` and `ref`: an anchor naming another repository is skipped as `foreign-repo`, and `ref` is recorded but not yet used for resolution. ([](https://github.com/saasontools/strauss-agent-tools/commit/))
+
 ## 0.1.10 (2026-09-03)
 
 ### 🩹 Fixes
