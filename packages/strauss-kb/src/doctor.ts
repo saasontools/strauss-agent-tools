@@ -506,6 +506,9 @@ function drifted(hits: ReturnType<typeof adjudicate>): KbDoctorFinding[] {
             const at = anchor.symbol
               ? `${anchor.file}:${anchor.symbol}`
               : anchor.file;
+            if (anchor.class === "gone") {
+              return `${at} gone${anchor.reason ? ` (${anchor.reason})` : ""}`;
+            }
             if (anchor.reason) return `${at} (${anchor.reason})`;
             if (anchor.diffSize === null) {
               return `${at} (changed, size unrecorded)`;

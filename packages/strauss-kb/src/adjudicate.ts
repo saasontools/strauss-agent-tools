@@ -1,4 +1,4 @@
-import type { KbAnchorDriftEntry } from "./anchor-resolver.js";
+import type { KbAnchorDriftEntry, KbDriftClass } from "./anchor-resolver.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 
 /**
@@ -36,6 +36,12 @@ export type KbWarning =
         /** `null` when the anchor recorded no line count — size unknown. */
         diffSize: number | null;
         reason?: string;
+        /**
+         * `gone` or `changed` — what a hash comparison alone can settle.
+         * `moved` and `cosmetic` cost a repository search and a git read, so
+         * they are `kb_reassess`'s answer, not a read path's.
+         */
+        class?: KbDriftClass;
       }[];
     };
 
@@ -117,12 +123,15 @@ export function adjudicate(
     if (moved.length) {
       warnings.push({
         kind: "drifted",
-        anchors: moved.map(({ file, symbol, diffSize, reason }) => ({
-          file,
-          ...(symbol !== undefined ? { symbol } : {}),
-          diffSize,
-          ...(reason !== undefined ? { reason } : {}),
-        })),
+        anchors: moved.map(
+          ({ file, symbol, diffSize, reason, class: kind }) => ({
+            file,
+            ...(symbol !== undefined ? { symbol } : {}),
+            diffSize,
+            ...(reason !== undefined ? { reason } : {}),
+            ...(kind !== undefined ? { class: kind } : {}),
+          }),
+        ),
       });
     }
 

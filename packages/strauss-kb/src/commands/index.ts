@@ -21,6 +21,7 @@ import { pinCommand } from "./pin.js";
 import { pinsCommand } from "./pins.js";
 import { queryCommand } from "./query.js";
 import { readIndexCommand } from "./read-index.js";
+import { reassessCommand } from "./reassess.js";
 import { schemaCommand } from "./schema.js";
 import { stampCommand } from "./stamp.js";
 import { statusCommand } from "./status.js";
@@ -44,6 +45,7 @@ export const KB_COMMANDS: KbCommand[] = [
   answerCommand,
   verifyCommand,
   anchorResolveCommand,
+  reassessCommand,
   loadCommand,
   catalogCommand,
   packCommand,
