@@ -99,10 +99,9 @@ export class TreeSitterResolver implements AnchorResolver {
   }
 
   /**
-   * A grammar that cannot be obtained is already explained by the grammars
-   * module; a query that will not compile against the release it is pinned to
-   * is a different fault with a different repair, and is reported there too so
-   * every hint has one home.
+   * An unobtainable grammar and a query that will not compile are different
+   * faults with different repairs; both are reported through the grammars
+   * module so every hint has one home.
    */
   private async load(language: string): Promise<Loaded | null> {
     const source = definitionsQuery(language, this.tagsDir);
