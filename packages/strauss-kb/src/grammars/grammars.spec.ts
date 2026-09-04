@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -47,26 +53,22 @@ function cached(language: string): string {
 
 describe("the shipped manifest", () => {
   test("pins a sha256 the fixtures still hash to", () => {
-    for (const [language, entry] of Object.entries(manifest.grammars)) {
+    const fixtures = readdirSync(GRAMMAR_FIXTURES).map((name) =>
+      name.slice("tree-sitter-".length, -".wasm".length),
+    );
+    // Fixtures exist for the languages the suite parses; the manifest carries
+    // every grammar the pinned release ships, which is many more.
+    expect(fixtures.length).toBeGreaterThan(0);
+    for (const language of fixtures) {
+      const entry = manifest.grammars[language];
       const bytes = readFileSync(
         join(GRAMMAR_FIXTURES, `tree-sitter-${language}.wasm`),
       );
       expect(
         `${language}:${createHash("sha256").update(bytes).digest("hex")}`,
-      ).toBe(`${language}:${entry.sha256}`);
-      expect(bytes.byteLength).toBe(entry.bytes);
+      ).toBe(`${language}:${entry?.sha256}`);
+      expect(bytes.byteLength).toBe(entry?.bytes);
     }
-  });
-
-  test("covers every language the resolver knows", () => {
-    expect(Object.keys(manifest.grammars).sort()).toEqual([
-      "go",
-      "javascript",
-      "python",
-      "rust",
-      "tsx",
-      "typescript",
-    ]);
   });
 });
 
@@ -138,7 +140,7 @@ describe("ensureGrammar", () => {
   });
 
   test("a language the manifest does not carry is never fetched", async () => {
-    expect(await ensureGrammar("ruby", options())).toBeNull();
+    expect(await ensureGrammar("haskell", options())).toBeNull();
     expect(server.requests).toHaveLength(0);
   });
 });
