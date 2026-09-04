@@ -61,14 +61,21 @@ jobs:
           claude plugin validate .
 
       - name: Audit dependencies
-        # The advisory endpoint times out often enough to fail a green PR.
+        # The advisory endpoint is down or slow often enough to fail green
+        # PRs. An unreachable registry is a warning; a real advisory fails.
+        env:
+          npm_config_fetch_timeout: "180000"
         run: |
+          set -o pipefail
           for attempt in 1 2 3; do
-            pnpm audit --audit-level=high && exit 0
-            echo "audit attempt $attempt failed; retrying" >&2
+            if pnpm audit --audit-level=high 2>&1 | tee audit.log; then exit 0; fi
+            if ! grep -qE 'TimeoutError|ERR_PNPM_FETCH|error \((23|5[0-9][0-9])\)' audit.log; then
+              exit 1
+            fi
+            echo "audit attempt $attempt: registry unreachable; retrying" >&2
             sleep $((attempt * 15))
           done
-          exit 1
+          echo "::warning::pnpm audit skipped: advisory endpoint unreachable after 3 attempts"
 
       - name: Upload coverage
         if: always()
