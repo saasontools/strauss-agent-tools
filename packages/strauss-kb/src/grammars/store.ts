@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import type { GrammarEntry } from "./model.js";
+import type { GrammarWasm } from "./model.js";
 
 /** Where downloaded grammars live. Overridable so a test never writes to `$HOME`. */
 export function grammarsCacheRoot(override?: string): string {
@@ -13,20 +13,23 @@ export function grammarsCacheRoot(override?: string): string {
   );
 }
 
-/** Versioned, so a re-pin downloads beside the old file instead of over it. */
+/**
+ * Named by the hash the manifest pins, so a re-pin downloads beside the old
+ * file instead of over it and a rollback finds its own still there.
+ */
 export function grammarCachePath(
   root: string,
-  version: string,
   language: string,
+  sha256: string,
 ): string {
-  return join(root, version, `tree-sitter-${language}.wasm`);
+  return join(root, language, `${sha256.slice(0, 12)}.wasm`);
 }
 
 export function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-export function matches(bytes: Uint8Array, entry: GrammarEntry): boolean {
+export function matches(bytes: Uint8Array, entry: GrammarWasm): boolean {
   return bytes.byteLength === entry.bytes && sha256(bytes) === entry.sha256;
 }
 
@@ -37,7 +40,7 @@ export function matches(bytes: Uint8Array, entry: GrammarEntry): boolean {
  */
 export async function verifyCached(
   path: string,
-  entry: GrammarEntry,
+  entry: GrammarWasm,
 ): Promise<boolean> {
   let bytes: Uint8Array;
   try {

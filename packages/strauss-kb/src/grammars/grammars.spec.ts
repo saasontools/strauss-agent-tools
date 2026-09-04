@@ -48,7 +48,11 @@ function options(extra: Record<string, unknown> = {}) {
 }
 
 function cached(language: string): string {
-  return grammarCachePath(cacheRoot, manifest.version, language);
+  return grammarCachePath(
+    cacheRoot,
+    language,
+    manifest.packs[language]?.wasm.sha256 as string,
+  );
 }
 
 describe("the shipped manifest", () => {
@@ -56,11 +60,11 @@ describe("the shipped manifest", () => {
     const fixtures = readdirSync(GRAMMAR_FIXTURES).map((name) =>
       name.slice("tree-sitter-".length, -".wasm".length),
     );
-    // Fixtures exist for the languages the suite parses; the manifest carries
-    // every grammar the pinned release ships, which is many more.
+    // Fixtures exist for the languages the suite parses; the lock carries
+    // every pack, which is many more.
     expect(fixtures.length).toBeGreaterThan(0);
     for (const language of fixtures) {
-      const entry = manifest.grammars[language];
+      const entry = manifest.packs[language]?.wasm;
       const bytes = readFileSync(
         join(GRAMMAR_FIXTURES, `tree-sitter-${language}.wasm`),
       );
@@ -98,7 +102,7 @@ describe("ensureGrammar", () => {
     server = await startGrammarsServer({ corrupt: true });
 
     expect(await ensureGrammar("python", options())).toBeNull();
-    await expect(readdir(join(cacheRoot, manifest.version))).rejects.toThrow();
+    await expect(readdir(join(cacheRoot, "python"))).rejects.toThrow();
   });
 
   test("a server error leaves nothing behind", async () => {
@@ -106,7 +110,7 @@ describe("ensureGrammar", () => {
     server = await startGrammarsServer({ status: 500 });
 
     expect(await ensureGrammar("rust", options())).toBeNull();
-    await expect(readdir(join(cacheRoot, manifest.version))).rejects.toThrow();
+    await expect(readdir(join(cacheRoot, "rust"))).rejects.toThrow();
   });
 
   test("a hanging server times out rather than hanging the run", async () => {
@@ -126,7 +130,7 @@ describe("ensureGrammar", () => {
     expect(await ensureGrammar("go", options())).toBe(cached("go"));
     expect(server.requests).toHaveLength(2);
     expect(readFileSync(cached("go")).byteLength).toBe(
-      manifest.grammars["go"]?.bytes,
+      manifest.packs["go"]?.wasm.bytes,
     );
   });
 
@@ -160,7 +164,7 @@ describe("retrying a download", () => {
     expect(await ensureGrammar("rust", options({ log }))).toBeNull();
     expect(server.requests).toHaveLength(3);
     expect(lines[0]).toMatch(
-      /^strauss-kb: downloading tree-sitter-rust \(\d+ KB from manifest\) from http/,
+      /^strauss-kb: downloading tree-sitter-rust \([\d.]+ [KM]B from manifest\) from http/,
     );
     expect(lines.slice(1)).toEqual([
       "strauss-kb: tree-sitter-rust attempt 1/3 failed: HTTP 500\n",

@@ -1,4 +1,4 @@
-; tree-sitter-javascript@0.20.4 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-javascript@0.25.0/queries/tags.scm
 (
   (comment)* @doc
   .
@@ -99,7 +99,7 @@
  (call_expression)
 ]))) @definition.constant
 
-; tree-sitter-typescript@0.20.5 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-typescript@0.23.2/queries/tags.scm
 (function_signature
   name: (identifier) @name) @definition.function
 

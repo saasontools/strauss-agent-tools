@@ -16,12 +16,16 @@ import {
 
 /**
  * The tests that reach the real CDN, so the pinned hashes are checked against
- * what jsDelivr actually serves rather than against the fixtures, and every
- * tags query is compiled against the grammar release it is pinned to.
+ * what the CDN actually serves rather than against the fixtures, and the
+ * download path is exercised end to end.
  *
- * Off by default and out of CI's way: `pnpm test` must pass unplugged. The
- * weekly `grammars-net.yml` workflow runs it, which is where a re-published
- * or rotted `tree-sitter-wasms@<version>` surfaces.
+ * Every pack is also loaded together here, the way `pnpm grammars check`
+ * does: a grammar built at an ABI the pinned web-tree-sitter does not accept,
+ * or by a toolchain that corrupts the shared WASM heap, only shows up with the
+ * others resident. Both run in the weekly `grammars-net.yml` workflow, which
+ * is where a re-published or withdrawn release surfaces.
+ *
+ * Off by default and out of CI's way: `pnpm test` must pass unplugged.
  */
 const enabled = process.env["STRAUSS_KB_NET_TESTS"] === "1";
 
@@ -50,7 +54,7 @@ describe.skipIf(!enabled)("the real CDN", () => {
 
     const bytes = readFileSync(path as string);
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(
-      manifest.grammars["python"]?.sha256,
+      manifest.packs["python"]?.wasm.sha256,
     );
   });
 
@@ -70,10 +74,9 @@ describe.skipIf(!enabled)("the real CDN", () => {
     });
   });
 
-  test("and every pinned grammar verifies and compiles its query", async () => {
-    await Parser.init();
+  test("and every pinned grammar downloads and hashes as the lock says", async () => {
     const failures: string[] = [];
-    for (const [language, entry] of Object.entries(manifest.grammars)) {
+    for (const [language, pack] of Object.entries(manifest.packs)) {
       const path = await ensureGrammar(language, { cacheRoot });
       if (path === null) {
         failures.push(`${language}: not downloaded`);
@@ -82,18 +85,30 @@ describe.skipIf(!enabled)("the real CDN", () => {
       const digest = createHash("sha256")
         .update(readFileSync(path))
         .digest("hex");
-      if (digest !== entry.sha256) {
+      if (digest !== pack.wasm.sha256)
         failures.push(`${language}: sha256 ${digest}`);
-        continue;
-      }
-      const source = definitionsQuery(language);
-      if (source === undefined) continue;
+    }
+    expect(failures).toEqual([]);
+  }, 900_000);
+
+  test("and every pinned grammar loads and parses in one process", async () => {
+    await Parser.init();
+    const parser = new Parser();
+    const failures: string[] = [];
+    for (const language of Object.keys(manifest.packs)) {
+      const path = await ensureGrammar(language, { cacheRoot });
       try {
-        new Query(await Language.load(path), source);
+        const grammar = await Language.load(path as string);
+        const source = definitionsQuery(language);
+        if (source) new Query(grammar, source);
+        parser.setLanguage(grammar);
+        if (!parser.parse("a b\n"))
+          failures.push(`${language}: parsed to nothing`);
       } catch (error) {
-        failures.push(`${language} (${entry.grammar}): ${String(error)}`);
+        failures.push(`${language}: ${(error as Error).message || "rejected"}`);
       }
     }
+    parser.delete();
     expect(failures).toEqual([]);
   }, 900_000);
 });

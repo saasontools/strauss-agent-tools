@@ -1,33 +1,27 @@
 import { fetchTimeoutMs } from "../remote-repo/index.js";
-import {
-  DEFAULT_GRAMMARS_BASE_URL,
-  type GrammarEntry,
-  type GrammarOptions,
-} from "./model.js";
+import type { GrammarOptions, GrammarWasm } from "./model.js";
 import { matches } from "./store.js";
 
 /** Attempts per grammar, and the pause after attempt `n`. */
 const ATTEMPTS = 3;
 const BACKOFF_MS = 250;
 
-/** `<base>/tree-sitter-wasms@<version>/out/tree-sitter-<language>.wasm`. */
-export function grammarUrl(
-  base: string,
-  pkg: string,
-  version: string,
-  language: string,
-): string {
+/**
+ * The manifest pins a fully resolved URL per pack. An override — a mirror, or
+ * the suite's own server — replaces its scheme and host and nothing else, so
+ * one setting redirects every pack whatever CDN it was pinned from.
+ */
+export function grammarUrl(url: string, override?: string): string {
+  const base = grammarsBaseUrl(override);
+  if (!base) return url;
   let root = base;
   while (root.endsWith("/")) root = root.slice(0, -1);
-  return `${root}/${pkg}@${version}/out/tree-sitter-${language}.wasm`;
+  const pinned = new URL(url);
+  return `${root}${pinned.pathname}${pinned.search}`;
 }
 
-export function grammarsBaseUrl(override?: string): string {
-  return (
-    override ??
-    process.env["STRAUSS_KB_GRAMMARS_URL"] ??
-    DEFAULT_GRAMMARS_BASE_URL
-  );
+export function grammarsBaseUrl(override?: string): string | undefined {
+  return override ?? process.env["STRAUSS_KB_GRAMMARS_URL"];
 }
 
 /** Bytes, or why the last attempt failed — for the log line and the hint. */
@@ -41,7 +35,7 @@ export type Download = { bytes: Uint8Array } | { cause: string };
 export async function downloadGrammar(
   url: string,
   language: string,
-  entry: GrammarEntry,
+  entry: GrammarWasm,
   options: GrammarOptions = {},
 ): Promise<Download> {
   const log =
@@ -68,7 +62,7 @@ export async function downloadGrammar(
 
 async function attemptDownload(
   url: string,
-  entry: GrammarEntry,
+  entry: GrammarWasm,
   timeoutMs: number | undefined,
 ): Promise<{ bytes: Uint8Array } | { cause: string; retry: boolean }> {
   try {

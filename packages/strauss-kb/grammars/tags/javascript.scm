@@ -1,4 +1,4 @@
-; tree-sitter-javascript@0.20.4 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-javascript@0.25.0/queries/tags.scm
 (
   (comment)* @doc
   .

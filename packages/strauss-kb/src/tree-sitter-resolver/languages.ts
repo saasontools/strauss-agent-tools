@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
-import { grammarsDataPath } from "../grammars/index.js";
+import { grammarManifest, grammarsDataPath } from "../grammars/index.js";
 
 /**
  * Which grammar a file extension is parsed with, and which definitions query
- * runs over it. Both tables are generated — `pnpm grammars:pin --tags` — from
- * GitHub Linguist and from each grammar release's own `queries/tags.scm`, so
- * adding a language is a pin run rather than a hand-written query.
+ * runs over it. Both are generated — `pnpm grammars pin` — from GitHub
+ * Linguist and from each pack's own tags query, so adding a language is a pin
+ * run rather than a hand-written query.
  *
  * `tagsDir` overrides where the queries are read from, for tests.
  */
@@ -14,9 +14,11 @@ import { grammarsDataPath } from "../grammars/index.js";
 let extensions: Record<string, string> | undefined;
 
 function extensionTable(): Record<string, string> {
-  extensions ??= JSON.parse(
-    readFileSync(grammarsDataPath("extensions.json"), "utf8"),
-  ) as Record<string, string>;
+  extensions ??= Object.fromEntries(
+    Object.entries(grammarManifest().packs).flatMap(([language, pack]) =>
+      pack.extensions.map((extension) => [extension, language]),
+    ),
+  );
   return extensions;
 }
 

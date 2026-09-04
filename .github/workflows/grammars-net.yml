@@ -1,7 +1,8 @@
 name: Grammars (network)
 
-# The pinned grammar hashes are checked against the fixtures on every PR; this
-# is the only job that checks them against what jsDelivr actually serves.
+# Every pack's hashes are checked against the fixtures on every PR; this is the
+# only job that checks them against what the CDN actually serves, and the only
+# one that notices a newer release upstream.
 on:
   schedule:
     - cron: "17 5 * * 1"
@@ -10,11 +11,12 @@ on:
 permissions: {}
 
 jobs:
-  cdn:
-    name: Download a grammar from the CDN
+  check:
+    name: Check every language pack
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -34,7 +36,61 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm vitest run test/grammars.net.spec.ts
+      - name: Download every part and prove it
+        id: check
+        continue-on-error: true
+        run: pnpm grammars check --outdated 2>&1 | tee "$RUNNER_TEMP/report.txt"
+        working-directory: packages/strauss-kb
+
+      - name: Download a grammar from the CDN
+        run: pnpm vitest run test/grammars.net.spec.ts
         working-directory: packages/strauss-kb
         env:
           STRAUSS_KB_NET_TESTS: "1"
+
+      # One issue, reopened and rewritten each week, rather than a new one per
+      # run: the report is a standing state, not an event.
+      - name: Report a failing or outdated pack
+        if: steps.check.outcome == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REPORT_PATH: ${{ runner.temp }}/report.txt
+        with:
+          script: |
+            const title = "Grammar packs: check report";
+            const report = require("node:fs").readFileSync(
+              process.env.REPORT_PATH,
+              "utf8",
+            );
+            const body = [
+              `\`pnpm grammars check --outdated\` reported a problem in run ${context.runId}.`,
+              "",
+              "```",
+              report.slice(-50000),
+              "```",
+              "",
+              "Re-pin with `pnpm grammars upgrade <lang>`, or point the pack at another",
+              "locator in `packages/strauss-kb/grammars/packs.json`.",
+            ].join("\n");
+            const { owner, repo } = context.repo;
+            const found = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue in:title "${title}"`,
+            });
+            const existing = found.data.items.find(
+              (issue) => issue.title === title,
+            );
+            if (existing) {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body,
+                state: "open",
+              });
+            } else {
+              await github.rest.issues.create({ owner, repo, title, body });
+            }
+
+      - name: Fail the run when a pack did
+        if: steps.check.outcome == 'failure'
+        run: exit 1

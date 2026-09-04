@@ -11,10 +11,9 @@ import {
 export { grammarsBaseUrl, grammarUrl } from "./fetch.js";
 export { grammarManifest, grammarsDataPath } from "./manifest.js";
 export {
-  DEFAULT_GRAMMARS_BASE_URL,
   grammarManifestSchema,
-  type GrammarEntry,
   type GrammarManifest,
+  type GrammarPack,
   type GrammarOptions,
 } from "./model.js";
 export { grammarCachePath, grammarsCacheRoot } from "./store.js";
@@ -27,6 +26,9 @@ const missing = new Map<string, string | undefined>();
 
 /** Languages whose pinned tags query would not compile, and why. */
 const uncompilable = new Map<string, string>();
+
+/** Languages whose pinned grammar this runtime refused to load, and why. */
+const rejected = new Map<string, string>();
 
 /** `STRAUSS_KB_GRAMMARS=off` keeps a run off the wire; the cache still counts. */
 export function grammarsDownloadDisabled(): boolean {
@@ -43,13 +45,13 @@ export async function ensureGrammar(
   language: string,
   options: GrammarOptions = {},
 ): Promise<string | null> {
-  const manifest = grammarManifest();
-  const entry = manifest.grammars[language];
-  if (!entry) return null;
+  const pack = grammarManifest().packs[language];
+  if (!pack) return null;
 
+  const entry = pack.wasm;
   const root = grammarsCacheRoot(options.cacheRoot);
-  const path = grammarCachePath(root, manifest.version, language);
-  const key = `${path} ${grammarsBaseUrl(options.baseUrl)}`;
+  const path = grammarCachePath(root, language, entry.sha256);
+  const key = `${path} ${grammarsBaseUrl(options.baseUrl) ?? ""}`;
   const existing = inFlight.get(key);
   if (existing) return existing;
 
@@ -63,12 +65,7 @@ export async function ensureGrammar(
       return null;
     }
     const download = await downloadGrammar(
-      grammarUrl(
-        grammarsBaseUrl(options.baseUrl),
-        manifest.package,
-        manifest.version,
-        language,
-      ),
+      grammarUrl(entry.url, options.baseUrl),
       language,
       entry,
       options,
@@ -96,21 +93,36 @@ export function noteUncompilableQuery(language: string, cause: string): void {
 }
 
 /**
+ * A grammar the runtime will not load — a WASM built at an ABI outside the
+ * range this `web-tree-sitter` accepts. The resolver reports the language
+ * unavailable; the repair is a re-pin against the installed runtime.
+ */
+export function noteRejectedGrammar(language: string, cause: string): void {
+  rejected.set(language, cause);
+}
+
+/**
  * One line per grammar this process could not use, for the doctor and
  * anchor-resolve reports. The only place a repair is spelled out.
  */
 export function grammarHints(): string[] {
-  const grammars = grammarManifest().grammars;
+  const manifest = grammarManifest();
+  const packs = manifest.packs;
   const lines = new Map<string, string>();
   for (const [language, cause] of missing)
     lines.set(
       language,
       `grammar tree-sitter-${language} not cached${cause ? ` (${cause})` : ""}; run online once, or set STRAUSS_KB_GRAMMARS_DIR`,
     );
+  for (const [language, cause] of rejected)
+    lines.set(
+      language,
+      `${packs[language]?.package ?? `tree-sitter-${language}`} rejected by web-tree-sitter ${manifest.webTreeSitter}${cause ? `: ${cause}` : ""}; re-pin with pnpm grammars pin ${language}`,
+    );
   for (const [language, cause] of uncompilable)
     lines.set(
       language,
-      `tags query for ${language} does not compile against ${grammars[language]?.grammar ?? `tree-sitter-${language}`}: ${cause}; re-pin with pnpm grammars:pin --tags`,
+      `tags query for ${language} does not compile against ${packs[language]?.package ?? `tree-sitter-${language}`}: ${cause}; re-pin with pnpm grammars pin ${language}`,
     );
   return [...lines]
     .sort(([a], [b]) => a.localeCompare(b))
@@ -122,4 +134,5 @@ export function resetGrammarState(): void {
   inFlight.clear();
   missing.clear();
   uncompilable.clear();
+  rejected.clear();
 }

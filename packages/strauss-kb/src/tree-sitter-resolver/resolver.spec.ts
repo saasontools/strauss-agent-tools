@@ -293,7 +293,7 @@ describe("TreeSitterResolver: availability", () => {
           "tags query for typescript does not compile against tree-sitter-typescript@",
         ),
       ]);
-      expect(grammarHints()[0]).toContain("pnpm grammars:pin --tags");
+      expect(grammarHints()[0]).toContain("pnpm grammars pin typescript");
     } finally {
       resetGrammarState();
       rmSync(tags, { recursive: true, force: true });

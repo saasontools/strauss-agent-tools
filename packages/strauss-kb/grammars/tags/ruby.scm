@@ -1,4 +1,4 @@
-; tree-sitter-ruby@0.20.1 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-ruby@0.23.1/queries/tags.scm
 ; Method definitions
 
 (

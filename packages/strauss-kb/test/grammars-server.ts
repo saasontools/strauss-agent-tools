@@ -1,5 +1,4 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { createReadStream, existsSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,9 +23,11 @@ export type GrammarsServer = {
 };
 
 /**
- * Serves the fixtures at the CDN's own path shape. `status` forces a response
- * code, `corrupt` serves bytes that will not hash as the manifest says, and
- * `failFirst` fails that many requests before serving normally.
+ * Serves the fixtures at the paths the manifest's own URLs carry — the base
+ * override replaces scheme and host and nothing else, so the path is whatever
+ * the pack was pinned from. `status` forces a response code, `corrupt` serves
+ * bytes that will not hash as the manifest says, and `failFirst` fails that
+ * many requests before serving normally.
  */
 export async function startGrammarsServer(
   options: {
@@ -36,7 +37,11 @@ export async function startGrammarsServer(
     failFirst?: number;
   } = {},
 ): Promise<GrammarsServer> {
-  const prefix = `/${grammarManifest().package}@${grammarManifest().version}/out/`;
+  const files = new Map<string, string>();
+  for (const [language, pack] of Object.entries(grammarManifest().packs)) {
+    const file = join(GRAMMAR_FIXTURES, `tree-sitter-${language}.wasm`);
+    if (existsSync(file)) files.set(new URL(pack.wasm.url).pathname, file);
+  }
   const requests: string[] = [];
   const server: Server = createServer((request, response) => {
     const path = request.url ?? "";
@@ -54,15 +59,12 @@ export async function startGrammarsServer(
       response.writeHead(200).end("not a wasm module");
       return;
     }
-    if (!path.startsWith(prefix)) {
+    const file = files.get(path);
+    if (!file) {
       response.writeHead(404).end();
       return;
     }
-    const file = join(GRAMMAR_FIXTURES, path.slice(prefix.length));
-    stat(file).then(
-      () => createReadStream(file).pipe(response.writeHead(200)),
-      () => response.writeHead(404).end(),
-    );
+    createReadStream(file).pipe(response.writeHead(200));
   });
 
   await new Promise<void>((resolve) =>

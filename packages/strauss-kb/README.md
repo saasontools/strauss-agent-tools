@@ -248,9 +248,10 @@ carries a hash; unstamped anchors and unreachable remotes never fail.
 A fully clean run — every anchor checked and `match`, none stamped this run —
 appends a `verified[]` event.
 
-Symbols resolve tree-sitter first — the 18 languages that have both a pinned
-grammar in `grammars/manifest.json` and an upstream definitions query in
-`grammars/tags/` — then the regex heuristic for other extensions, then a
+Symbols resolve tree-sitter first — the 20 language packs that have both a
+grammar and a definitions query, pinned together by `pnpm grammars pin` from
+`grammars/packs.json` and proved at pin time — then the regex heuristic for
+other extensions, then a
 whole-file hash when the anchor names no symbol; an ambiguous or undefined symbol returns
 `unresolved` rather than a guess. Grammars are not published with the package:
 each downloads on first use, sha256-pinned against `grammars/manifest.json`,

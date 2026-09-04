@@ -1,4 +1,4 @@
-; tree-sitter-c@0.20.8 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-c@0.24.1/queries/tags.scm
 (struct_specifier name: (type_identifier) @name body:(_)) @definition.class
 
 (declaration type: (union_specifier name: (type_identifier) @name)) @definition.class

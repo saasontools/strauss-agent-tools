@@ -1,4 +1,4 @@
-; tree-sitter-rust@0.20.4 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-rust@0.24.0/queries/tags.scm
 ; ADT definitions
 
 (struct_item
@@ -19,7 +19,7 @@
 
 (declaration_list
     (function_item
-        name: (identifier) @name)) @definition.method
+        name: (identifier) @name) @definition.method)
 
 ; function definitions
 

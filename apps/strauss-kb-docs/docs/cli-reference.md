@@ -24,7 +24,7 @@ strauss-kb [--bundle PATH] <command> [args]
 | `STRAUSS_KB_ACTOR`            | Names the writer in the log and in `generated.by` / `verified[].by`. Defaults to `unknown`.                                                                                                                                    |
 | `STRAUSS_KB_GRAMMARS_DIR`     | Where downloaded tree-sitter grammars are cached. Defaults to `~/.strauss/grammars`. Usually unset. For CI or air-gapped hosts, set it in the MCP server's `env` block (`.mcp.json` / plugin `mcp.json`) or the shell profile. |
 | `STRAUSS_KB_GRAMMARS`         | `off` never downloads a grammar; the cache is still read. Same effect as `--offline`.                                                                                                                                          |
-| `STRAUSS_KB_GRAMMARS_URL`     | Base a `tree-sitter-wasms@<version>/out/<file>` path is appended to. Defaults to `https://cdn.jsdelivr.net/npm`.                                                                                                               |
+| `STRAUSS_KB_GRAMMARS_URL`     | Replaces the scheme and host of every grammar URL `grammars/manifest.json` pins, for a mirror. Usually unset.                                                                                                                  |
 | `STRAUSS_KB_FETCH_TIMEOUT_MS` | Per-request timeout for remote reads and grammar downloads. Defaults to `30000`.                                                                                                                                               |
 
 Results go to stdout as JSON; `index`, `catalog`, and `pack` emit markdown,

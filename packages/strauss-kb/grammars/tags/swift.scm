@@ -1,4 +1,4 @@
-; tree-sitter-swift@0.4.3 queries/tags.scm
+; https://cdn.jsdelivr.net/gh/alex-pinkus/tree-sitter-swift@b8b22bffbb3441780e6471665bacfb263741c86a/queries/tags.scm
 (class_declaration
   name: (type_identifier) @name) @definition.class
 
