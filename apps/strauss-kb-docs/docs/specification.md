@@ -204,22 +204,29 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 A symbol resolves through a chain, and the first resolver that understands the
 file answers for it:
 
-| Resolver      | Covers                                                                         |
-| ------------- | ------------------------------------------------------------------------------ |
-| `tree-sitter` | `.ts` `.mts` `.cts` `.tsx` `.js` `.mjs` `.cjs` `.jsx` `.py` `.pyi` `.go` `.rs` |
-| `regex`       | every other extension                                                          |
-| whole-file    | an anchor with no `symbol`                                                     |
+| Resolver      | Covers                                                       |
+| ------------- | ------------------------------------------------------------ |
+| `tree-sitter` | the 23 languages with both a grammar and a definitions query |
+| `regex`       | every other extension                                        |
+| whole-file    | an anchor with no `symbol`                                   |
 
-Tree-sitter parses the file and matches `tags.scm`-style definition queries. A
-dotted symbol (`KbStore.setStatus`) resolves to the definition whose enclosing
-chain matches — a Go method through its receiver, a Rust function through its
-`impl` block. A bare symbol must match exactly one definition; two make it
-`symbol-ambiguous`. Only declarations count, so a symbol that appears only in a
-call is `symbol-not-found` rather than the call site.
+Which languages those are is data, not code: `grammars/manifest.json` pins the
+36 grammars `tree-sitter-wasms` ships, `grammars/tags/` holds the 23 that have
+an upstream `queries/tags.scm`, and `grammars/extensions.json` maps extension
+to language from GitHub Linguist. A grammar with no tags query parses but
+resolves nothing — `resolver-unavailable`, with the reason in the hint.
+
+Definitions are whatever upstream's tags query captures as `@definition.*`,
+named by its `@name`. A dotted symbol (`KbStore.setStatus`) resolves to the
+definition whose enclosing chain matches — a Go method through its receiver, a
+Rust function through its `impl` block. A bare symbol must match exactly one
+definition; two make it `symbol-ambiguous`, except that a signature loses to
+the implementation of the same symbol. Only declarations count, so a symbol
+that appears only in a call is `symbol-not-found` rather than the call site.
 
 Grammars are **not** shipped with the package. Each downloads from jsDelivr on
 first use, is verified against the sha256 pinned in `grammars/manifest.json`,
-and is cached under `~/.strauss/grammars/<version>/` — 6.6 MB of WASM in every
+and is cached under `~/.strauss/grammars/<version>/` — 49 MB of WASM in every
 install, for a feature most installs never reach, is a bad trade. A grammar
 that cannot be obtained or verified is `resolver-unavailable`, never a throw
 and never a silent fall back to regex, whose span for the same symbol is a

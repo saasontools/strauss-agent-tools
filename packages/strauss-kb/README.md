@@ -247,9 +247,10 @@ carries a hash; unstamped anchors and unreachable remotes never fail.
 A fully clean run — every anchor checked and `match`, none stamped this run —
 appends a `verified[]` event.
 
-Symbols resolve tree-sitter first (TypeScript, TSX, JavaScript, Python, Go,
-Rust), then the regex heuristic for other extensions, then a whole-file hash
-when the anchor names no symbol; an ambiguous or undefined symbol returns
+Symbols resolve tree-sitter first — the 23 languages that have both a pinned
+grammar in `grammars/manifest.json` and an upstream definitions query in
+`grammars/tags/` — then the regex heuristic for other extensions, then a
+whole-file hash when the anchor names no symbol; an ambiguous or undefined symbol returns
 `unresolved` rather than a guess. Grammars are not published with the package:
 each downloads on first use, sha256-pinned against `grammars/manifest.json`,
 and is cached under `~/.strauss/grammars`. A hash the old resolver still reproduces and
