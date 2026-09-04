@@ -36,6 +36,6 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@nx/devkit": "23.1.1"
+    "@nx/devkit": "23.1.2"
   }
 }
