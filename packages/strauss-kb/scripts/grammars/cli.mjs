@@ -151,7 +151,7 @@ async function pin(flags, { upgrade = false }) {
   }
 
   writeTags(queries, log);
-  writeManifest({
+  await writeManifest({
     linguist: { tag: linguist.tag, commit: linguist.commit },
     packs: locked,
   });
@@ -189,7 +189,7 @@ async function add(flags) {
   if (tags !== undefined) entry["tags"] = tags === "null" ? null : tags;
   if (ext) entry["extensions"] = ext.split(",").map((one) => one.trim());
   packs.packs[language] = entry;
-  writePacks(packs);
+  await writePacks(packs);
   log(`added ${language} to grammars/packs.json`);
   await pin({ languages: [language], all: false, options: {} }, {});
 }

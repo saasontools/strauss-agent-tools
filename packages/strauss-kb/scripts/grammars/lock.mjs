@@ -4,6 +4,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdirSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { format } from "prettier";
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const grammarsDir = join(root, "grammars");
@@ -22,11 +23,11 @@ export function readPacks() {
 }
 
 /** Sorted by language, so a hand edit anywhere reads back the same. */
-export function writePacks(packs) {
+export async function writePacks(packs) {
   const sorted = Object.fromEntries(
     Object.entries(packs.packs).sort(([a], [b]) => a.localeCompare(b)),
   );
-  writeFileSync(packsPath, `${json({ ...packs, packs: sorted })}\n`);
+  await writeJson(packsPath, { ...packs, packs: sorted });
 }
 
 export function readManifest() {
@@ -51,18 +52,15 @@ export function webTreeSitterVersion() {
  * packs.json over the same registry state writes the same bytes.
  * @param {{ linguist: { tag: string, commit: string }, packs: Record<string, unknown> }} lock
  */
-export function writeManifest(lock) {
+export async function writeManifest(lock) {
   const packs = Object.fromEntries(
     Object.entries(lock.packs).sort(([a], [b]) => a.localeCompare(b)),
   );
-  writeFileSync(
-    manifestPath,
-    `${json({
-      webTreeSitter: webTreeSitterVersion(),
-      linguist: lock.linguist,
-      packs,
-    })}\n`,
-  );
+  await writeJson(manifestPath, {
+    webTreeSitter: webTreeSitterVersion(),
+    linguist: lock.linguist,
+    packs,
+  });
 }
 
 /**
@@ -95,7 +93,12 @@ export function refreshFixture(language, bytes) {
   return true;
 }
 
-/** @param {unknown} value */
-export function json(value) {
-  return JSON.stringify(value, null, 2);
+/**
+ * Written the way the repository's formatter would write it, so a pin run and
+ * the pre-commit hook never disagree about the same bytes.
+ * @param {string} path @param {unknown} value
+ */
+async function writeJson(path, value) {
+  const body = JSON.stringify(value, null, 2);
+  writeFileSync(path, await format(body, { parser: "json", filepath: path }));
 }
