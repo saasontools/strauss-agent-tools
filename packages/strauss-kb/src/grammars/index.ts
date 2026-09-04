@@ -27,6 +27,9 @@ const missing = new Map<string, string | undefined>();
 /** Languages whose pinned tags query would not compile, and why. */
 const uncompilable = new Map<string, string>();
 
+/** Languages whose pinned grammar this runtime refused to load, and why. */
+const rejected = new Map<string, string>();
+
 /** `STRAUSS_KB_GRAMMARS=off` keeps a run off the wire; the cache still counts. */
 export function grammarsDownloadDisabled(): boolean {
   return process.env["STRAUSS_KB_GRAMMARS"] === "off";
@@ -90,16 +93,31 @@ export function noteUncompilableQuery(language: string, cause: string): void {
 }
 
 /**
+ * A grammar the runtime will not load — a WASM built at an ABI outside the
+ * range this `web-tree-sitter` accepts. The resolver reports the language
+ * unavailable; the repair is a re-pin against the installed runtime.
+ */
+export function noteRejectedGrammar(language: string, cause: string): void {
+  rejected.set(language, cause);
+}
+
+/**
  * One line per grammar this process could not use, for the doctor and
  * anchor-resolve reports. The only place a repair is spelled out.
  */
 export function grammarHints(): string[] {
-  const packs = grammarManifest().packs;
+  const manifest = grammarManifest();
+  const packs = manifest.packs;
   const lines = new Map<string, string>();
   for (const [language, cause] of missing)
     lines.set(
       language,
       `grammar tree-sitter-${language} not cached${cause ? ` (${cause})` : ""}; run online once, or set STRAUSS_KB_GRAMMARS_DIR`,
+    );
+  for (const [language, cause] of rejected)
+    lines.set(
+      language,
+      `${packs[language]?.package ?? `tree-sitter-${language}`} rejected by web-tree-sitter ${manifest.webTreeSitter}${cause ? `: ${cause}` : ""}; re-pin with pnpm grammars pin ${language}`,
     );
   for (const [language, cause] of uncompilable)
     lines.set(
@@ -116,4 +134,5 @@ export function resetGrammarState(): void {
   inFlight.clear();
   missing.clear();
   uncompilable.clear();
+  rejected.clear();
 }

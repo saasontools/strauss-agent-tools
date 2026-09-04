@@ -8,6 +8,7 @@ import type {
 import { DEFAULT_IO_CONCURRENCY, mapLimit } from "../concurrency.js";
 import {
   ensureGrammar,
+  noteRejectedGrammar,
   noteUncompilableQuery,
   type GrammarOptions,
 } from "../grammars/index.js";
@@ -99,28 +100,32 @@ export class TreeSitterResolver implements AnchorResolver {
   }
 
   /**
-   * An unobtainable grammar and a query that will not compile are different
-   * faults with different repairs; both are reported through the grammars
-   * module so every hint has one home.
+   * An unobtainable grammar, one this runtime refuses, and a query that will
+   * not compile are three faults with three repairs; all are reported through
+   * the grammars module so every hint has one home.
    */
   private async load(language: string): Promise<Loaded | null> {
     const source = definitionsQuery(language, this.tagsDir);
     if (!source) return null;
+    let wasm: string | null;
+    try {
+      wasm = await ensureGrammar(language, this.grammars);
+    } catch {
+      return null;
+    }
+    if (!wasm) return null;
+
     let grammar: Language;
     try {
-      const wasm = await ensureGrammar(language, this.grammars);
-      if (!wasm) return null;
       grammar = await Language.load(wasm);
-    } catch {
+    } catch (error) {
+      noteRejectedGrammar(language, why(error));
       return null;
     }
     try {
       return { language: grammar, query: new Query(grammar, source) };
     } catch (error) {
-      noteUncompilableQuery(
-        language,
-        error instanceof Error ? error.message : String(error),
-      );
+      noteUncompilableQuery(language, why(error));
       return null;
     }
   }
@@ -206,4 +211,10 @@ export class TreeSitterResolver implements AnchorResolver {
     this.stats.parses = 0;
     this.stats.cacheHits = 0;
   }
+}
+
+/** web-tree-sitter throws bare Errors for a rejected module; say so. */
+function why(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error);
+  return text || "no reason given";
 }
