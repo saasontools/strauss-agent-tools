@@ -1,4 +1,4 @@
-; tree-sitter/tree-sitter-c queries/tags.scm @ b780e47fc780ddc8da13afa35a3f4ed5c157823d
+; tree-sitter-c@0.20.8 queries/tags.scm
 (struct_specifier name: (type_identifier) @name body:(_)) @definition.class
 
 (declaration type: (union_specifier name: (type_identifier) @name)) @definition.class

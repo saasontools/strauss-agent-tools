@@ -248,7 +248,7 @@ carries a hash; unstamped anchors and unreachable remotes never fail.
 A fully clean run — every anchor checked and `match`, none stamped this run —
 appends a `verified[]` event.
 
-Symbols resolve tree-sitter first — the 23 languages that have both a pinned
+Symbols resolve tree-sitter first — the 18 languages that have both a pinned
 grammar in `grammars/manifest.json` and an upstream definitions query in
 `grammars/tags/` — then the regex heuristic for other extensions, then a
 whole-file hash when the anchor names no symbol; an ambiguous or undefined symbol returns

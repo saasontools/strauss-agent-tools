@@ -1,4 +1,4 @@
-; tree-sitter/tree-sitter-ruby queries/tags.scm @ ad907a69da0c8a4f7a943a7fe012712208da6dee
+; tree-sitter-ruby@0.20.1 queries/tags.scm
 ; Method definitions
 
 (

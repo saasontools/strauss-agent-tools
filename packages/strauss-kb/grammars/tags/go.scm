@@ -1,4 +1,4 @@
-; tree-sitter/tree-sitter-go queries/tags.scm @ 2346a3ab1bb3857b48b29d779a1ef9799a248cd7
+; tree-sitter-go@0.20.0 queries/tags.scm
 (
   (comment)* @doc
   .
@@ -29,15 +29,3 @@
   name: (type_identifier) @name) @definition.type
 
 (type_identifier) @name @reference.type
-
-(package_clause "package" (package_identifier) @name)
-
-(type_declaration (type_spec name: (type_identifier) @name type: (interface_type)))
-
-(type_declaration (type_spec name: (type_identifier) @name type: (struct_type)))
-
-(import_declaration (import_spec) @name)
-
-(var_declaration (var_spec name: (identifier) @name))
-
-(const_declaration (const_spec name: (identifier) @name))

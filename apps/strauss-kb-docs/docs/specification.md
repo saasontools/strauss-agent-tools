@@ -244,15 +244,17 @@ file answers for it:
 
 | Resolver      | Covers                                                       |
 | ------------- | ------------------------------------------------------------ |
-| `tree-sitter` | the 23 languages with both a grammar and a definitions query |
+| `tree-sitter` | the 18 languages with both a grammar and a definitions query |
 | `regex`       | every other extension                                        |
 | whole-file    | an anchor with no `symbol`                                   |
 
 Which languages those are is data, not code: `grammars/manifest.json` pins the
-36 grammars `tree-sitter-wasms` ships, `grammars/tags/` holds the 23 that have
+36 grammars `tree-sitter-wasms` ships, `grammars/tags/` holds the 18 that have
 an upstream `queries/tags.scm`, and `grammars/extensions.json` maps extension
-to language from GitHub Linguist. An extension whose grammar has no tags
-query stays with the regex heuristic, as before the resolver existed.
+to language from GitHub Linguist. Each query is vendored from the exact grammar
+release its WASM was built from — `manifest.json` names it — so a query cannot
+drift into one the grammar will not compile. An extension whose grammar has no
+tags query stays with the regex heuristic, as before the resolver existed.
 
 Definitions are whatever upstream's tags query captures as `@definition.*`,
 named by its `@name`. A dotted symbol (`KbStore.setStatus`) resolves to the

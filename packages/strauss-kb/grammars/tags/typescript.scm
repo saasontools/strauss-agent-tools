@@ -1,4 +1,4 @@
-; tree-sitter/tree-sitter-javascript queries/tags.scm @ 58404d8cf191d69f2674a8fd507bd5776f46cb11
+; tree-sitter-javascript@0.20.4 queries/tags.scm
 (
   (comment)* @doc
   .
@@ -99,7 +99,7 @@
  (call_expression)
 ]))) @definition.constant
 
-; tree-sitter/tree-sitter-typescript queries/tags.scm @ 75b3874edb2dc714fb1fd77a32013d0f8699989f
+; tree-sitter-typescript@0.20.5 queries/tags.scm
 (function_signature
   name: (identifier) @name) @definition.function
 

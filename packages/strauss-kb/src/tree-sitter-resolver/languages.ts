@@ -1,12 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
-import { extname } from "node:path";
+import { extname, join } from "node:path";
 import { grammarsDataPath } from "../grammars/index.js";
 
 /**
  * Which grammar a file extension is parsed with, and which definitions query
  * runs over it. Both tables are generated — `pnpm grammars:pin --tags` — from
- * GitHub Linguist and from each grammar's own `queries/tags.scm`, so adding a
- * language is a pin run rather than a hand-written query.
+ * GitHub Linguist and from each grammar release's own `queries/tags.scm`, so
+ * adding a language is a pin run rather than a hand-written query.
+ *
+ * `tagsDir` overrides where the queries are read from, for tests.
  */
 
 let extensions: Record<string, string> | undefined;
@@ -18,23 +20,31 @@ function extensionTable(): Record<string, string> {
   return extensions;
 }
 
-function queryPath(language: string): string {
-  return grammarsDataPath("tags", `${language}.scm`);
+function queryPath(language: string, tagsDir?: string): string {
+  return tagsDir
+    ? join(tagsDir, `${language}.scm`)
+    : grammarsDataPath("tags", `${language}.scm`);
 }
 
 /**
- * Grammar for a path, or `undefined` when the extension has none — or when
- * upstream ships no tags query for it, so the regex heuristic keeps those
- * files, as before the resolver existed.
+ * Grammar for a path, or `undefined` when the extension has none — or when the
+ * pinned grammar release ships no tags query for it, so the regex heuristic
+ * keeps those files, as before the resolver existed.
  */
-export function languageForFile(file: string): string | undefined {
+export function languageForFile(
+  file: string,
+  tagsDir?: string,
+): string | undefined {
   const language = extensionTable()[extname(file).toLowerCase()];
-  return language && definitionsQuery(language) ? language : undefined;
+  return language && definitionsQuery(language, tagsDir) ? language : undefined;
 }
 
-/** The tags query for a language, or `undefined` when upstream ships none. */
-export function definitionsQuery(language: string): string | undefined {
-  const path = queryPath(language);
+/** The tags query for a language, or `undefined` when its release ships none. */
+export function definitionsQuery(
+  language: string,
+  tagsDir?: string,
+): string | undefined {
+  const path = queryPath(language, tagsDir);
   return existsSync(path) ? readFileSync(path, "utf8") : undefined;
 }
 

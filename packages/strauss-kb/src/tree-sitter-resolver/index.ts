@@ -4,4 +4,8 @@ export {
   languageForFile,
   treeSitterLanguages,
 } from "./languages.js";
-export { TreeSitterResolver, type TreeSitterStats } from "./resolver.js";
+export {
+  TreeSitterResolver,
+  type TreeSitterOptions,
+  type TreeSitterStats,
+} from "./resolver.js";

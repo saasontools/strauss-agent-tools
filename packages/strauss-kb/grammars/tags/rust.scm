@@ -1,4 +1,4 @@
-; tree-sitter/tree-sitter-rust queries/tags.scm @ 77a3747266f4d621d0757825e6b11edcbf991ca5
+; tree-sitter-rust@0.20.4 queries/tags.scm
 ; ADT definitions
 
 (struct_item
@@ -19,7 +19,7 @@
 
 (declaration_list
     (function_item
-        name: (identifier) @name) @definition.method)
+        name: (identifier) @name)) @definition.method
 
 ; function definitions
 
