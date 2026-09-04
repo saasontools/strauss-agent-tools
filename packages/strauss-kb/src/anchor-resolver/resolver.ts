@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { KbAnchor } from "../kb-record.schema.js";
+import type { GrammarOptions } from "../grammars/index.js";
 import { TreeSitterResolver } from "../tree-sitter-resolver.js";
 import type {
   AnchorResolution,
@@ -401,10 +402,14 @@ export async function prepareResolvers(
 
 /**
  * The read-path chain. A fresh tree-sitter resolver per call, so its parse
- * cache lives exactly as long as the run that owns it.
+ * cache lives exactly as long as the run that owns it. `offline` rides down to
+ * grammar loading: a run that may not reach the network uses the cache or
+ * reports `resolver-unavailable`.
  */
-export function defaultAnchorResolvers(): AnchorResolver[] {
-  return [new TreeSitterResolver(), regexResolver];
+export function defaultAnchorResolvers(
+  grammars: GrammarOptions = {},
+): AnchorResolver[] {
+  return [new TreeSitterResolver(grammars), regexResolver];
 }
 
 /**

@@ -16,6 +16,9 @@ export default defineConfig({
       // production refuses that protocol, so the suite has to widen the list.
       STRAUSS_KB_REPO_PROTOCOLS: "https,ssh,git,file",
     },
+    // Grammars download on first use; the setup file serves the fixtures over
+    // localhost so no test reaches the CDN.
+    setupFiles: ["test/grammars.setup.ts"],
     include: ["src/**/*.spec.ts", "test/**/*.spec.ts"],
     testTimeout: 20_000,
     hookTimeout: 30_000,

@@ -215,8 +215,16 @@ dotted symbol (`KbStore.setStatus`) resolves to the definition whose enclosing
 chain matches — a Go method through its receiver, a Rust function through its
 `impl` block. A bare symbol must match exactly one definition; two make it
 `symbol-ambiguous`. Only declarations count, so a symbol that appears only in a
-call is `symbol-not-found` rather than the call site. Grammars ship as WASM with
-the package; one that cannot be loaded is `resolver-unavailable`, never a throw.
+call is `symbol-not-found` rather than the call site.
+
+Grammars are **not** shipped with the package. Each downloads from jsDelivr on
+first use, is verified against the sha256 pinned in `grammars/manifest.json`,
+and is cached under `~/.strauss/grammars/<version>/` — 6.6 MB of WASM in every
+install, for a feature most installs never reach, is a bad trade. A grammar
+that cannot be obtained or verified is `resolver-unavailable`, never a throw
+and never a silent fall back to regex, whose span for the same symbol is a
+different hash. `--offline` and `STRAUSS_KB_GRAMMARS=off` use the cache without
+fetching; the report names the grammar and the repair.
 
 The regex resolver ranks candidates by shape, scopes a dotted symbol to the
 nearest parent above it, and captures by brace depth or Python indentation. It

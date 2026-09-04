@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
-import { dirname, extname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { extname } from "node:path";
 import { Language, Parser, Query, type Node, type Tree } from "web-tree-sitter";
 import type {
   AnchorResolver,
   ResolvedSymbol,
   ResolverAttempt,
 } from "./anchor-resolver/index.js";
+import { DEFAULT_IO_CONCURRENCY, mapLimit } from "./concurrency.js";
+import { ensureGrammar, type GrammarOptions } from "./grammars/index.js";
 
 /**
  * AST-backed anchor resolution: a symbol resolves to the byte range of the
@@ -113,16 +114,6 @@ const DEFINITION_QUERIES: Record<string, string> = {
 `,
 };
 
-/**
- * Grammar WASM lives beside the package, not beside the compiled entry point:
- * `dist/index.js` and `src/tree-sitter-resolver.ts` are both one level under
- * the package root, so `../grammars` is the same directory either way. tsup's
- * `shims` option makes `import.meta.url` work in the CJS output too.
- */
-export function defaultGrammarsDir(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), "..", "grammars");
-}
-
 /** How many parsed trees to keep. Trees are large; anchors cluster in few files. */
 const TREE_CACHE_LIMIT = 32;
 
@@ -148,7 +139,7 @@ export type TreeSitterStats = { parses: number; cacheHits: number };
 export class TreeSitterResolver implements AnchorResolver {
   readonly name = "tree-sitter";
 
-  private readonly grammarsDir: string;
+  private readonly grammars: GrammarOptions;
   private readonly loaded = new Map<string, Loaded | null>();
   private readonly trees = new Map<string, ParsedFile>();
   private parser: Parser | undefined;
@@ -157,15 +148,16 @@ export class TreeSitterResolver implements AnchorResolver {
   /** Cache effectiveness, for tests and for the latency numbers. */
   readonly stats: TreeSitterStats = { parses: 0, cacheHits: 0 };
 
-  constructor(options: { grammarsDir?: string } = {}) {
-    this.grammarsDir = options.grammarsDir ?? defaultGrammarsDir();
+  constructor(options: GrammarOptions = {}) {
+    this.grammars = options;
   }
 
   /**
-   * Loads the grammars these files need, once per language per process.
+   * Loads the grammars these files need, once per language per process,
+   * downloading each one on first use.
    *
    * A grammar that will not load is remembered as unavailable rather than
-   * retried per anchor, and never throws: a missing WASM is a finding.
+   * retried per anchor, and never throws: an unobtainable WASM is a finding.
    */
   async prepare(files: readonly string[]): Promise<void> {
     const wanted = new Set<string>();
@@ -186,16 +178,24 @@ export class TreeSitterResolver implements AnchorResolver {
       }
     }
 
-    for (const language of wanted) {
-      this.loaded.set(language, await this.load(language));
-    }
+    // Downloads dominate a cold first run, so the languages a bundle needs
+    // are fetched together rather than one after another.
+    const languages = [...wanted];
+    const loaded = await mapLimit(
+      languages,
+      Math.min(DEFAULT_IO_CONCURRENCY, languages.length),
+      (language) => this.load(language),
+    );
+    languages.forEach((language, at) =>
+      this.loaded.set(language, loaded[at] ?? null),
+    );
   }
 
   private async load(language: string): Promise<Loaded | null> {
     try {
-      const grammar = await Language.load(
-        join(this.grammarsDir, `tree-sitter-${language}.wasm`),
-      );
+      const wasm = await ensureGrammar(language, this.grammars);
+      if (!wasm) return null;
+      const grammar = await Language.load(wasm);
       const source = DEFINITION_QUERIES[language];
       if (!source) return null;
       return { language: grammar, query: new Query(grammar, source) };

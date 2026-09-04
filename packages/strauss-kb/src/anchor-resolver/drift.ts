@@ -61,7 +61,11 @@ export async function detectAnchorDrift(
   const repoRoot = options.repoRoot ?? process.cwd();
   const resolvers =
     options.resolvers ??
-    (options.resolver ? [options.resolver] : defaultAnchorResolvers());
+    (options.resolver
+      ? [options.resolver]
+      : defaultAnchorResolvers({
+          offline: options.remote?.offline === true,
+        }));
   const origin = new LazyOrigin(repoRoot);
 
   const planned = new Map<string, Planned[]>();
