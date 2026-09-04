@@ -11,66 +11,48 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 `strauss-kb-mcp` speaks stdio and takes no API key and no required environment.
 
 ```json
-{
-  "mcpServers": {
-    "strauss-kb": { "command": "strauss-kb-mcp" }
-  }
-}
+{ "mcpServers": { "strauss-kb": { "command": "strauss-kb-mcp" } } }
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-six tools;
-the one CLI verb with no tool is `sync-instructions` — file plumbing for hooks,
-not an agent capability, and the capability it serves is `kb_context`.
-
-`STRAUSS_KB_ACTOR` names the writer in the log, defaulting to `mcp` on this
-surface. Diagnostics go to stderr, because stdout is the JSON-RPC transport.
+[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-three tools;
+the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
+the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
+because stdout is the JSON-RPC transport.
 
 ## Shared parameters
 
-| Parameter    | Type     | Notes                                                                                                                                                                   |
-| ------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bundlePath` | `string` | **Absolute** path to the knowledge base directory. Required by every tool except `kb_schema`, `kb_types`, `kb_pins`, and `kb_context`.                                  |
-| `conceptId`  | `string` | `<type>.<slug>`, both kebab-case — e.g. `decision.cursor-v2`.                                                                                                           |
-| `type`       | enum     | One of `fact`, `requirement`, `constraint`, `decision`, `assumption`, `open-question`, `risk`, `contract`, `flow`, `affected-system`, `test-obligation`, `source-note`. |
+- `bundlePath` (`string`) — **absolute** path to the base. Required by every
+  tool except `kb_schema`, `kb_types`, `kb_pins`, and `kb_context`.
+- `conceptId` (`string`) — `<type>.<slug>`, both kebab-case, e.g.
+  `decision.cursor-v2`.
+- `type` (enum) — one of `fact`, `requirement`, `constraint`, `decision`,
+  `assumption`, `open-question`, `risk`, `contract`, `flow`, `affected-system`,
+  `test-obligation`, `source-note`.
 
-`kb_schema` and `kb_types` describe the format rather than any one base;
-`kb_pins` and `kb_context` read the workspace pin manifests instead. Those four
-take no `bundlePath`.
-
-The tool descriptions the server registers carry the judgment a schema cannot —
-that an unsourced claim is an `assumption` and not a `fact` with a vague source,
-that a conflict between two records belongs in a `risk` or a superseding
-`decision` rather than being quietly resolved, and that `kb_load` is usually the
-right first call.
+The tool descriptions the server registers carry the judgment a schema cannot:
+an unsourced claim is an `assumption`, a conflict belongs in a `risk` or a
+superseding `decision`, and `kb_load` is usually the right first call.
 
 ---
 
 ## Write tools
 
-Each of these refuses when the base is pinned `--frozen` in the workspace.
+Each refuses when the base is pinned `--frozen` in the workspace.
 
 ### `kb_write`
 
-Write one record. Search first; a duplicate concept id is rejected rather than
-overwritten.
+As CLI [`write`](./cli-reference.md#write); the record object is the
+`input` parameter rather than stdin.
 
-| Parameter    | Type            | Required |
-| ------------ | --------------- | -------- |
-| `bundlePath` | `string`        | yes      |
-| `type`       | enum (12 types) | yes      |
-| `input`      | object          | yes      |
-
-`input` is the write object — `slug`, `title`, `why` required; `sections`,
-`anchors`, `sources`, `assumption`, `stale_after`, `verify`, `tags`,
+Parameters: `bundlePath`, `type` (enum, 12 types), `input` (object) — all
+required. `input` is the write object — `slug`, `title`, `why` required;
+`sections`, `anchors`, `sources`, `assumption`, `stale_after`, `verify`, `tags`,
 `relatedConceptIds`, `links` (max 64), `supersedes` (max 32), `materiality`,
 `confidence`, `owner` optional. Unknown keys are rejected, and `sections` keys
-must be headings the type defines (see [`kb_types`](#kb_types)).
-
-`links` are [typed causal edges](./specification.md#typed-causal-links) —
-`{ target, rel }`, source → target, so a link on this record says _this record
-`<rel>` the target_. The rel must be one of the eight in the closed vocabulary,
-and a self-link is refused.
+must be headings the type defines (see [`kb_types`](#kb_types)). `links` are
+[typed causal edges](./specification.md#typed-causal-links) — `{ target, rel }`,
+source → target, from the closed eight-rel vocabulary; a self-link is refused.
 
 ```json
 {
@@ -79,28 +61,17 @@ and a self-link is refused.
   "input": {
     "slug": "cache-key-includes-region",
     "title": "The cache key includes the region",
-    "why": "A region-less key serves one region another region's data.",
-    "sections": { "Claim": "Every key is prefixed with the region." },
-    "anchors": [
-      { "file": "src/cache/order-cache.ts", "symbol": "OrderCache.get" }
-    ]
+    "why": "A region-less key serves another region's data.",
+    "sections": { "Claim": "Every key is prefixed with the region." }
   }
 }
 ```
 
-Returns `{ conceptId, action, supersededIds }`.
-
 ### `kb_write_decision`
 
-Write a decision, with the rejected alternative as a field.
-
-| Parameter    | Type     | Required |
-| ------------ | -------- | -------- |
-| `bundlePath` | `string` | yes      |
-| `input`      | object   | yes      |
-
-`input` is `kb_write`'s object minus `sections`, plus optional `alternative`
-(what you turned down and why) and `impact`.
+As CLI [`write-decision`](./cli-reference.md#write-decision). Parameters:
+`bundlePath` and `input`, both required; `input` is `kb_write`'s object minus
+`sections`, plus optional `alternative` and `impact`.
 
 ```json
 {
@@ -109,44 +80,29 @@ Write a decision, with the rejected alternative as a field.
     "slug": "cas-not-lock",
     "title": "Compare-and-swap rather than a lock",
     "why": "A stale lock hold blocks every later writer.",
-    "alternative": "A lock file, which adds a stale-hold failure mode.",
-    "supersedes": ["decision.lock-file"]
+    "alternative": "A lock file, which adds a stale-hold failure mode."
   }
 }
 ```
 
-Returns `{ conceptId, action, supersededIds }`.
-
 ### `kb_no_decision`
 
-Claim in one sentence that there was nothing to decide. Idempotent.
-
-| Parameter    | Type     | Required |
-| ------------ | -------- | -------- |
-| `bundlePath` | `string` | yes      |
-| `reason`     | `string` | yes      |
+As CLI [`no-decision`](./cli-reference.md#no-decision). Parameters:
+`bundlePath` and `reason` (`string`), both required.
 
 ```json
-{
-  "bundlePath": "/repo/.strauss/kb",
-  "reason": "Renamed a private helper; the diff answers it."
-}
+{ "bundlePath": "/repo/.strauss/kb", "reason": "The diff answers it." }
 ```
 
 ### `kb_status`
 
-Move a record's status, leaving everything else alone. Compare-and-swap, so a
-concurrent change fails loudly.
-
-| Parameter    | Type                                                                                      | Required |
-| ------------ | ----------------------------------------------------------------------------------------- | -------- |
-| `bundlePath` | `string`                                                                                  | yes      |
-| `conceptId`  | `string`                                                                                  | yes      |
-| `status`     | `draft` \| `proposed` \| `accepted` \| `open` \| `resolved` \| `rejected` \| `superseded` | yes      |
+As CLI [`status`](./cli-reference.md#status). Parameters: `bundlePath`,
+`conceptId`, and `status` — one of `draft`, `proposed`, `accepted`, `open`,
+`resolved`, `rejected`, `superseded` — all required.
 
 ```json
 {
-  "bundlePath": "/repo/.strauss/kb",
+  "bundlePath": "…/kb",
   "conceptId": "requirement.export-csv",
   "status": "accepted"
 }
@@ -154,17 +110,12 @@ concurrent change fails loudly.
 
 ### `kb_supersede`
 
-Mark a record superseded by another, linking both directions.
-
-| Parameter       | Type     | Required |
-| --------------- | -------- | -------- |
-| `bundlePath`    | `string` | yes      |
-| `conceptId`     | `string` | yes      |
-| `replacementId` | `string` | yes      |
+As CLI [`supersede`](./cli-reference.md#supersede). Parameters:
+`bundlePath`, `conceptId`, `replacementId` — all required.
 
 ```json
 {
-  "bundlePath": "/repo/.strauss/kb",
+  "bundlePath": "…/kb",
   "conceptId": "decision.cursor-v1",
   "replacementId": "decision.cursor-v2"
 }
@@ -172,18 +123,12 @@ Mark a record superseded by another, linking both directions.
 
 ### `kb_answer`
 
-Resolve an open question: sets the status, stamps who answered and when, and
-appends an Answer section.
-
-| Parameter    | Type     | Required |
-| ------------ | -------- | -------- |
-| `bundlePath` | `string` | yes      |
-| `conceptId`  | `string` | yes      |
-| `answer`     | `string` | yes      |
+As CLI [`answer`](./cli-reference.md#answer). Parameters: `bundlePath`,
+`conceptId`, `answer` (`string`) — all required.
 
 ```json
 {
-  "bundlePath": "/repo/.strauss/kb",
+  "bundlePath": "…/kb",
   "conceptId": "open-question.retry-budget",
   "answer": "Three retries with full jitter."
 }
@@ -191,112 +136,64 @@ appends an Answer section.
 
 ### `kb_verify`
 
-Append one `verified[]` event. Appends only; a record's own generator is refused
-unless the actor is `human:`-prefixed.
-
-| Parameter    | Type               | Required                               |
-| ------------ | ------------------ | -------------------------------------- |
-| `bundlePath` | `string`           | yes                                    |
-| `conceptId`  | `string`           | yes                                    |
-| `note`       | non-blank `string` | yes — it must say what the check found |
+As CLI [`verify`](./cli-reference.md#verify); `--note` is the `note`
+parameter, a non-blank string that must say what the check found. Parameters:
+`bundlePath`, `conceptId`, `note` — all required.
 
 ```json
 {
-  "bundlePath": "/repo/.strauss/kb",
+  "bundlePath": "…/kb",
   "conceptId": "decision.cas-not-lock",
-  "note": "Re-read KbStore.setStatus; the digest check is still immediately before publish."
+  "note": "Re-read KbStore.setStatus; the digest check is still before publish."
 }
 ```
 
 ### `kb_anchor_resolve`
 
-Resolve a record's [anchors](./specification.md#anchors) against the working
-tree: stamp a hash onto anchors that lack one, and report drift where the code
-moved out from under a stored hash. An unreadable file or unfindable symbol is a
-**finding, not an error**.
+As CLI [`anchor-resolve`](./cli-reference.md#anchor-resolve), with the
+flags as camelCase parameters. The non-zero exit on drift is CLI-only.
 
-| Parameter    | Type      | Required | Notes                                                               |
-| ------------ | --------- | -------- | ------------------------------------------------------------------- |
-| `bundlePath` | `string`  | yes      |                                                                     |
-| `conceptId`  | `string`  | yes      |                                                                     |
-| `repoRoot`   | `string`  | no       | where the anchored source lives. Defaults to the working directory. |
-| `rebaseline` | `boolean` | no       | accept the current code as the new baseline.                        |
-| `restamp`    | `boolean` | no       | refresh `resolved_at` on anchors that already match.                |
-
-An anchor that still matches is left alone rather than re-dated, so a green run
-writes **nothing at all** — `restamp` exists for when you want the record to say
-when it was last checked. On the CLI this exits non-zero when an anchor drifted
-or when one carrying a hash no longer resolves, so a CI gate can run it.
+Parameters: `bundlePath` and `conceptId` required; `repoRoot` (`string`,
+defaults to the working directory), `rebaseline` (`boolean`) and `restamp`
+(`boolean`) optional.
 
 ```json
 {
-  "bundlePath": "/repo/.strauss/kb",
+  "bundlePath": "…/kb",
   "conceptId": "decision.cas-not-lock",
   "repoRoot": "/repo"
 }
 ```
-
-Returns `{ conceptId, results, verified }`, each result carrying a `state` of
-`stamped`, `match`, `drifted`, or `unresolved`. A clean run appends one
-`verified[]` event and is subject to the same self-verification rule as
-`kb_verify`.
 
 ---
 
 ## Read tools
 
 `kb_load`, `kb_catalog`, `kb_query`, `kb_pack`, and `kb_trace` are the only
-supported ways to read a base. A raw file read bypasses supersession resolution
-and returns replaced records as if current.
-
-**The decision rule, in one line:** at or under the record gate (40 by default),
-`kb_load` the base whole; past it, `kb_catalog` to see every record in one line
-each and then `kb_pack` on the record the work centres on; for a lookup by
-wording, `kb_query`.
-
-The rungs are ordered by what they cost and by what they can tell you. A whole
-read gives perfect recall and can say _no record answers this_. A catalog keeps
-that second property at a fraction of the price — it names every record, so
-"nothing covers this" stays a supportable conclusion — and gives up the bodies.
-A query gives up both: it returns its nearest hit whatever the distance, so it
-can confirm what exists and never that something does not.
+supported ways to read a base: a raw file read bypasses supersession resolution.
 
 ### `kb_load`
 
-Load the whole base at once, each record with its standing. Usually the right
-first call: these bases run to a few thousand tokens, and a reader holding all
-of it has perfect recall and knows why it is asking, which no ranker does.
+As CLI [`load`](./cli-reference.md#load), with the flags as camelCase
+parameters. Usually the right first call.
 
-| Parameter      | Type             | Required | Notes                                                                                          |
-| -------------- | ---------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `bundlePath`   | `string`         | yes      |                                                                                                |
-| `type`         | enum (12 types)  | no       | narrow to one record type                                                                      |
-| `budgetTokens` | positive integer | no       | approximate token ceiling. Defaults to 25000.                                                  |
-| `maxRecords`   | positive integer | no       | whole records handed over before the load refuses. Defaults to 40; stubs are not counted.      |
-| `all`          | `boolean`        | no       | load everything regardless of size, bypassing **both** ceilings. Mutually exclusive with them. |
-| `repoRoot`     | `string`         | no       | where the anchored source lives, for the drift check. Defaults to the working directory.       |
+Parameters: `bundlePath` required; `type` (enum, narrows to one record type),
+`budgetTokens` (positive integer, default 25000), `all` (`boolean` — bypasses
+the budget, mutually exclusive with `budgetTokens`), and `repoRoot` (`string`, default cwd, for the drift
+check) optional. Superseded records arrive as name, replacement and date
+stubs — pass the id to `kb_trace` for the history.
 
-Refuses with counts rather than truncating when the base trips either ceiling,
-naming each one in `refusedBy` and pointing at the next rung down in `message`.
-Superseded records arrive as name, replacement and date stubs — pass the id to
-`kb_trace` for the history.
+Refuses over budget rather than truncating, `message` naming the next rung.
+
+Every result — refused or not — carries a `digest`, the base's content stamp
+(see [the load digest](./specification.md#the-load-digest)).
 
 :::tip Place this output in the stable prefix
 `kb_load`'s result belongs in the **stable prefix** — the system prompt, or the
-first turn — and should be reloaded only when the returned `digest` changes. In
-the tail, next to `kb_query` and `kb_pack`'s volatile results, it is prompt-cache
-money left on the table.
-
-A provider prompt cache matches a prefix byte-for-byte, and the first token that
-differs ends the match — so one volatile result placed ahead of a stable load
-prices the whole base at full rate on every call after the first. A long context
-also privileges its beginning: the base that is supposed to anchor a session's
-answers earns that by sitting where it is read most reliably, not by merely
-being present somewhere.
-
-The [`digest`](./specification.md#the-load-digest) is what makes that cheap to
-maintain — identical content digests identically, any record changing flips it,
-and a refused load carries the same digest over what would have been handed back.
+first turn — and should be reloaded only when the returned
+[`digest`](./specification.md#the-load-digest) changes. A prompt cache matches a
+prefix byte-for-byte, so one volatile result placed ahead of a stable load
+prices the whole base at full rate on every later call.
 :::
 
 ```json
@@ -305,53 +202,26 @@ and a refused load carries the same digest over what would have been handed back
 
 ### `kb_catalog`
 
-Every record in the base as one line — concept id, type, title, standing, and a
-stale flag — sorted by type then title, at roughly thirty tokens each. The
-**tier-one listing**: it costs a fraction of `kb_load` and is what to reach for
-when `kb_load` refuses, because a base too large to hold whole is still small
-enough to name.
+As CLI [`catalog`](./cli-reference.md#catalog): every record as one line —
+concept id, type, title, standing, stale flag — at roughly thirty tokens each.
+Parameters: `bundlePath` required, `type` optional.
 
-| Parameter    | Type            | Required | Notes                     |
-| ------------ | --------------- | -------- | ------------------------- |
-| `bundlePath` | `string`        | yes      |                           |
-| `type`       | enum (12 types) | no       | narrow to one record type |
-
-What that buys is the ability to **choose**: seeing every id and title, you know
-which record `kb_pack` should centre on, and you can conclude that no record
-covers a question at all — the one conclusion a truncated read can never
-support. Superseded records are listed with the replacement that stands in their
-place. The header counts every record by standing and reports the page count
-`kb_load`'s gate is held against, so you can tell before calling whether a load
-would refuse.
-
-Alone among the read tools this one has **no ceiling and never refuses** — it is
-where the others send you, so a refusal here would leave nowhere to go. Its cost
-is linear and predictable: a hundred records is about 3k tokens, a thousand
-about 30k, five thousand about 150k. On a base of that last size, narrow with
-`type` rather than listing everything.
+The **tier-one listing**, and what to reach for when `kb_load` refuses: alone
+among the read tools it has **no ceiling and never refuses**. Bodies are not
+here.
 
 ```json
 { "bundlePath": "/repo/.strauss/kb", "type": "open-question" }
 ```
 
-Bodies are not here; `kb_load`, `kb_pack`, and `kb_trace` fetch them.
-
 ### `kb_query`
 
-Search and return each match with its standing. Flagged, never filtered.
+As CLI [`query`](./cli-reference.md#query); the query text is `text`, and
+this surface adds `type` and `includeNonCurrent`.
 
-| Parameter           | Type            | Required | Notes                                                                                    |
-| ------------------- | --------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `bundlePath`        | `string`        | yes      |                                                                                          |
-| `text`              | `string`        | no       | the query                                                                                |
-| `type`              | enum (12 types) | no       | narrow to one record type                                                                |
-| `includeNonCurrent` | `boolean`       | no       | include records that are not current. The CLI always sets this.                          |
-| `repoRoot`          | `string`        | no       | where the anchored source lives, for the drift check. Defaults to the working directory. |
-
-This is the lookup-by-wording rung, and the narrowest of the three: use it when
-you know roughly what the record says. A query **cannot** tell you that nothing
-was decided — it returns its nearest hit whatever the distance — so reach for
-`kb_catalog` when the question is what exists.
+Parameters: `bundlePath` required; `text` (`string`), `type` (enum),
+`includeNonCurrent` (`boolean` — the CLI always sets this), and `repoRoot`
+(`string`, default cwd, for the drift check) optional.
 
 :::note These results are volatile per call
 Place them at the **tail** of the context, not the stable prefix `kb_load`'s
@@ -360,149 +230,76 @@ otherwise hold.
 :::
 
 ```json
-{
-  "bundlePath": "/repo/.strauss/kb",
-  "text": "cache key region",
-  "includeNonCurrent": true
-}
+{ "bundlePath": "/repo/.strauss/kb", "text": "cache key region" }
 ```
-
-Each hit is `{ conceptId, title, description, standing, supersededBy, warnings,
-body }`.
 
 ### `kb_pack`
 
-The bounded neighbourhood around one record, ranked and cut, with every excluded
-record named. Emits markdown.
-
-| Parameter      | Type             | Required | Default  |
-| -------------- | ---------------- | -------- | -------- |
-| `bundlePath`   | `string`         | yes      |          |
-| `conceptId`    | `string`         | yes      | the root |
-| `hops`         | positive integer | no       | 2        |
-| `maxNodes`     | positive integer | no       | 20       |
-| `budgetTokens` | positive integer | no       | 25000    |
-
-Refuses outright rather than truncating past its budget, reporting the record
-count and every already-cut id.
+As CLI [`pack`](./cli-reference.md#pack), with the flags as camelCase
+parameters. Emits markdown. Parameters: `bundlePath` and `conceptId` (the root)
+required; `hops` (default 2), `maxNodes` (default 20) and `budgetTokens`
+(default 25000) optional positive integers.
 
 ```json
-{
-  "bundlePath": "/repo/.strauss/kb",
-  "conceptId": "decision.cursor-v2",
-  "hops": 2,
-  "maxNodes": 20
-}
+{ "bundlePath": "/repo/.strauss/kb", "conceptId": "decision.cursor-v2" }
 ```
 
 ### `kb_trace`
 
-How a position was arrived at, as a timeline ordered by when each record was
-written. Deliberately includes rejected, draft, and superseded records.
+As CLI [`trace`](./cli-reference.md#trace); the edge names are the `edges`
+array, and this surface adds `depth`.
 
-| Parameter    | Type                                                            | Required | Default  |
-| ------------ | --------------------------------------------------------------- | -------- | -------- |
-| `bundlePath` | `string`                                                        | yes      |          |
-| `conceptId`  | `string`                                                        | yes      | the seed |
-| `edges`      | array of `typed-link` \| `supersession` \| `anchor` \| `source` | no       | all four |
-| `depth`      | positive integer                                                | no       | 3        |
-
-`typed-link` follows only the **causal** rels — `related_to` is excluded for the
-same flooding reason body links are. A `strauss_links` entry is a deliberate
-claim from a closed vocabulary, which is exactly the kind of edge a timeline
-should follow; a body link is any markdown a writer happened to type.
+Parameters: `bundlePath` and `conceptId` (the seed) required; `edges` (array of
+`typed-link`, `supersession`, `anchor`, `source`; default all four) and `depth`
+(positive integer, default 3) optional. `typed-link` follows only the **causal**
+rels — `related_to` is excluded for the same flooding reason body links are.
 
 ```json
 {
-  "bundlePath": "/repo/.strauss/kb",
+  "bundlePath": "…/kb",
   "conceptId": "decision.cursor-v2",
-  "edges": ["supersession"],
-  "depth": 3
+  "edges": ["supersession"]
 }
 ```
 
-Each step is `{ conceptId, at, status, title, depth, via, body }`.
-
 ### `kb_impact`
 
-What breaks if this record changes: its transitive set of **dependants**. Use it
-before superseding, contradicting, or narrowing a record — the answer is the set
-of records whose claims were written assuming the current one holds, which is
-exactly what a diff cannot show you.
+As CLI [`impact`](./cli-reference.md#impact): the transitive set of
+**dependants** of a record.
 
-| Parameter    | Type                 | Required | Default    | Notes                                                           |
-| ------------ | -------------------- | -------- | ---------- | --------------------------------------------------------------- |
-| `bundlePath` | `string`             | yes      |            |                                                                 |
-| `conceptId`  | `string`             | yes      |            | the root                                                        |
-| `depth`      | positive integer     | no       | unbounded  | hops out. A walk this cuts reports `truncated: true`.           |
-| `rels`       | array of causal rels | no       | all causal | narrow which rels the walk follows — every rel but `related_to` |
+Parameters: `bundlePath` and `conceptId` (the root) required; `depth` (positive
+integer, unbounded by default — a walk it cuts reports `truncated: true`) and
+`rels` (array of causal rels, default every rel but `related_to`) optional.
 
-Each rel says which of its two ends depends on the other, and it is **not always
-the source**: `A depends_on B` means A needs B, so B's dependants include A;
-`A informs B` means B was shaped by A, so A's dependants include B. The walk
-follows each rel in whichever direction its dependence runs, which is why this
-is not simply "inbound links".
-
-`related_to` carries no dependence and is not followed. Naming it — or an
-unknown rel — in `rels` is an **error** rather than an empty result, because
-"nothing breaks" is the one answer you must never receive from a typo.
-
-Every result carries its standing and nothing is filtered out, but a superseded
-or rejected record is reported and **not walked through** — its own declared
-edges no longer hold — and every such stopping point is named under `stopped`.
-Unbounded by default, because a blast radius silently cut at some depth looks
-exactly like a small one.
+The walk follows each rel in whichever direction its dependence runs. Naming
+`related_to` — or an unknown rel — in `rels` is an **error**, not an empty
+result.
 
 ```json
 {
-  "bundlePath": "/repo/.strauss/kb",
+  "bundlePath": "…/kb",
   "conceptId": "fact.region-key",
   "rels": ["depends_on", "satisfies"]
 }
 ```
 
-Returns `{ root, impacted, stopped, truncated, unexpanded }`. Each impacted
-record is `{ conceptId, title, standing, warnings, depth, via }`, where `depth`
-1 is a direct dependant and `via` holds every edge that reached it as
-`{ source, target, rel }` — the edge as it is **written**, not as it was walked.
-
-For one flat hop of every rel, including `related_to`, use `kb_backlinks`.
+`via` holds each edge as `{ source, target, rel }` — the edge as **written**,
+not as walked. For one flat hop of every rel, use `kb_backlinks`.
 
 ### `kb_backlinks`
 
-Who points at this record: every inbound typed causal link, one hop, every rel
-including `related_to`, each with the rel it was made with and the standing of
-the record that made it.
-
-| Parameter    | Type     | Required |
-| ------------ | -------- | -------- |
-| `bundlePath` | `string` | yes      |
-| `conceptId`  | `string` | yes      |
-
-The flat counterpart to `kb_impact` — this answers "what does the base currently
-say about this id", where `kb_impact` answers "what breaks if it changes" and
-takes positions to do it. Reach for it when reviewing or renaming a record and
-you need the exact edges rather than a causal closure. A backlink from a
-superseded record is not a live dependency, which is why every row carries its
-standing rather than arriving as a bare id.
+As CLI [`backlinks`](./cli-reference.md#backlinks): every inbound typed
+link, one hop, every rel including `related_to`, each with its rel and the
+standing of the record that made it. Parameters: `bundlePath`, `conceptId`.
 
 ```json
 { "bundlePath": "/repo/.strauss/kb", "conceptId": "fact.region-key" }
 ```
 
-Returns `{ target, backlinks }`, each `{ from, rel, title, standing, warnings }`,
-ordered by source id then rel. The outbound direction is on the record itself,
-in its own `strauss_links`.
-
 ### `kb_list`
 
-Every record, optionally narrowed to one type. For enumerating — use `kb_query`
-when you have a question.
-
-| Parameter    | Type            | Required |
-| ------------ | --------------- | -------- |
-| `bundlePath` | `string`        | yes      |
-| `type`       | enum (12 types) | no       |
+As CLI [`list`](./cli-reference.md#list): every record, optionally narrowed
+to one type. Parameters: `bundlePath` required, `type` optional.
 
 ```json
 { "bundlePath": "/repo/.strauss/kb", "type": "open-question" }
@@ -510,14 +307,9 @@ when you have a question.
 
 ### `kb_index`
 
-The index, rebuilt if it disagrees with the records. The cheap re-orientation
-call after compaction or deep in a long session — a few hundred tokens. Call it
-(or `kb_context`, when bases are pinned) first, then `kb_load` or fetch by
-concept id.
-
-| Parameter    | Type     | Required |
-| ------------ | -------- | -------- |
-| `bundlePath` | `string` | yes      |
+As CLI [`index`](./cli-reference.md#index): the index, rebuilt if it
+disagrees with the records — the cheap re-orientation call after compaction.
+Parameter: `bundlePath`.
 
 ```json
 { "bundlePath": "/repo/.strauss/kb" }
@@ -525,11 +317,8 @@ concept id.
 
 ### `kb_log`
 
-What touched what, and when. Malformed lines are reported rather than repaired.
-
-| Parameter    | Type     | Required |
-| ------------ | -------- | -------- |
-| `bundlePath` | `string` | yes      |
+As CLI [`log`](./cli-reference.md#log): what touched what, and when.
+Malformed lines are reported rather than repaired. Parameter: `bundlePath`.
 
 ```json
 { "bundlePath": "/repo/.strauss/kb" }
@@ -541,55 +330,31 @@ What touched what, and when. Malformed lines are reported rather than repaired.
 
 ### `kb_validate`
 
-Cross-record checks: supersession links that disagree between the two records,
-typed causal links whose rel is outside the closed vocabulary or whose target is
-not in the bundle, and assumptions that cite sources. Per-record shape is
-enforced on every read, so a problem here means someone edited a file by hand.
-
-| Parameter    | Type     | Required |
-| ------------ | -------- | -------- |
-| `bundlePath` | `string` | yes      |
+As CLI [`validate`](./cli-reference.md#validate): cross-record checks over
+supersession pointers, typed-link rels and targets, and assumptions that cite
+sources. Parameter: `bundlePath`.
 
 ```json
 { "bundlePath": "/repo/.strauss/kb" }
 ```
 
-Returns an array of `{ check, conceptId, note, severity }` — empty when the base
-is clean. An unknown rel is an `error`, because no walk can ever traverse it; a
-link to a record that does not exist yet is a `warning`, because writing a
-record before the one it points at is ordinary. Only errors fail the check.
+Returns an array of `{ check, conceptId, note, severity }`. Only errors fail the
+check; the non-zero exit is CLI-only.
 
 ### `kb_doctor`
 
-A health sweep over a whole base: what the calendar has already retired, what
-nobody ever confirmed, what has been open or proposed long enough that the
-status is now the answer, and what the graph has dropped on the floor.
-**Read-only** — it never writes, never supersedes, and never re-dates anything;
-every finding names a record for a person to repair.
+As CLI [`doctor`](./cli-reference.md#doctor), with the flags as camelCase
+parameters. **Read-only** — every finding names a record for a person to repair.
 
-| Parameter        | Type             | Required | Default | Notes                                                                                 |
-| ---------------- | ---------------- | -------- | ------- | ------------------------------------------------------------------------------------- |
-| `bundlePath`     | `string`         | yes      |         |                                                                                       |
-| `expiringDays`   | positive integer | no       | 30      | how far ahead `expiring` looks                                                        |
-| `unverifiedDays` | positive integer | no       | 90      | how old an unconfirmed record must be before it is reported                           |
-| `agingDays`      | positive integer | no       | 90      | how long a record may stay `open` or `proposed`                                       |
-| `repoRoot`       | `string`         | no       | cwd     | where the anchored source lives, for `drifted`                                        |
-| `strict`         | `boolean`        | no       | —       | turns an expired record into a non-zero **CLI** exit. No effect on the report itself. |
+Parameters: `bundlePath` required; `expiringDays` (default 30), `unverifiedDays`
+(default 90), `agingDays` (default 90), `repoRoot` (default cwd, for `drifted`),
+and `strict` (`boolean` — turns an expired record into a non-zero **CLI** exit,
+with no effect on the report) optional.
 
 The checks are `expired`, `expiring`, `unverified`, `aging`, `orphaned`,
 `broken-supersession`, `superseded-but-cited`, and `drifted` — see the
-[CLI reference](./cli-reference.md#doctor) for what each detects and the
-judgments they make.
-
-**Every group is reported even when empty**, because a check that found nothing
-and a check that never ran look identical in a report that only lists findings.
-
-This is the question no reader thinks to ask, which is why it needs a tool:
-decay is invisible from inside a single record — a stale one reads exactly like
-a live one, and a question nobody answered reads exactly like one nobody asked.
-Reach for it when picking up a base someone else kept, before trusting a base
-you have not touched in months, or on a schedule. `kb_validate` is the narrower
-neighbour, checking only whether pointers between records agree.
+[CLI reference](./cli-reference.md#doctor) for what each detects. **Every group
+is reported even when empty.**
 
 ```json
 { "bundlePath": "/repo/.strauss/kb", "unverifiedDays": 30 }
@@ -602,8 +367,8 @@ findingCount, healthy }`, where each group is
 
 ### `kb_schema`
 
-JSON Schema for the frontmatter, the write input, and log entries — generated
-from the code that enforces them. Takes no parameters.
+As CLI [`schema`](./cli-reference.md#schema): JSON Schema for the
+frontmatter, the write input, and log entries. Takes no parameters.
 
 ```json
 {}
@@ -611,9 +376,9 @@ from the code that enforces them. Takes no parameters.
 
 ### `kb_types`
 
-The twelve record types with their purpose, body sections, and starting status.
-Read this before writing rather than guessing headings — a section the type does
-not define is rejected. Takes no parameters.
+As CLI [`types`](./cli-reference.md#types): the twelve record types with
+their purpose, body sections, and starting status. Read this before writing
+rather than guessing headings. Takes no parameters.
 
 ```json
 {}
@@ -625,20 +390,17 @@ not define is rejected. Takes no parameters.
 
 ### `kb_pin`
 
-Pin a base into a workspace pin manifest, so `kb_context` surfaces it at every
-context birth. Idempotent — re-pinning changes nothing unless `mode`,
-`profiles`, or `frozen` is given, which updates just those fields.
+As CLI [`pin`](./cli-reference.md#pin); the base to pin is `bundlePath`
+rather than a positional, and the layer flags become one `layer` parameter.
+Idempotent.
 
-| Parameter    | Type                           | Required | Notes                                                                                                                                                     |
-| ------------ | ------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bundlePath` | `string`                       | yes      | the base to pin                                                                                                                                           |
-| `mode`       | `full` \| `index`              | no       | `full`: always emit this base's records whole (still under the block budget). `index`: never upgrade. Absent: the profile's full-under threshold decides. |
-| `profiles`   | `string[]`                     | no       | context profiles this pin surfaces in. Absent: all of them.                                                                                               |
-| `layer`      | `project` \| `local` \| `user` | no       | which manifest to write. Defaults to `project` — the committed `.strauss/kb-pins.json`.                                                                   |
-| `frozen`     | `boolean`                      | no       | `true`: the base is concluded, and writes against it refuse while pinned. `false`: lift a freeze.                                                         |
-
-A path with no records yet succeeds with a warning. Pins are workspace state:
-the pinned base itself is never touched.
+Parameters: `bundlePath` required; optional `mode` (`full`: always emit this
+base's records whole, still under the block budget — `index`: never upgrade —
+absent: the profile's full-under threshold decides), `profiles` (`string[]`, the
+context profiles this pin surfaces in; absent means all), `layer` (`project` |
+`local` | `user`, default `project`, the committed `.strauss/kb-pins.json`), and
+`frozen` (`boolean`: `true` concludes the base so writes against it refuse,
+`false` lifts the freeze).
 
 ```json
 { "bundlePath": "/repo/docs/adr", "mode": "full", "layer": "project" }
@@ -646,13 +408,9 @@ the pinned base itself is never touched.
 
 ### `kb_unpin`
 
-Remove a base from every manifest layer that holds it — project, local, and user
-— because unpinned means gone, not still injected from another file. Reports
-which layers were touched.
-
-| Parameter    | Type     | Required |
-| ------------ | -------- | -------- |
-| `bundlePath` | `string` | yes      |
+As CLI [`unpin`](./cli-reference.md#unpin): remove a base from every
+manifest layer that holds it, reporting which were touched. Parameter:
+`bundlePath`.
 
 ```json
 { "bundlePath": "/repo/docs/adr" }
@@ -660,9 +418,9 @@ which layers were touched.
 
 ### `kb_pins`
 
-Every pinned base across the manifest layers, each with its layer and whether it
-currently resolves to readable records. Takes no parameters — it reads the
-workspace manifests rather than any one base.
+As CLI [`pins`](./cli-reference.md#pins): every pinned base across the
+layers, each with its layer and whether it currently resolves to readable
+records. Takes no parameters.
 
 ```json
 {}
@@ -670,20 +428,20 @@ workspace manifests rather than any one base.
 
 ### `kb_context`
 
-The pinned-base index block, for injection at every context birth. An index, not
-the content: concept ids, titles and standing, with the bodies left behind
-`kb_load` at the point of use. Emits nothing when nothing is pinned, and refuses
-with the list of bases and their sizes rather than truncating past its budget.
+As CLI [`context`](./cli-reference.md#context), with the flags as camelCase
+parameters. Emits nothing when nothing is
+pinned, and refuses with the list of bases and their sizes rather than
+truncating past its budget. Takes no `bundlePath`.
 
-Takes no `bundlePath` — which bases a session should see is workspace state.
-
-| Parameter         | Type                 | Required | Notes                                                                                                                                          |
-| ----------------- | -------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `budgetTokens`    | positive integer     | no       | ceiling on the whole block. Defaults to 4000.                                                                                                  |
-| `fullUnderTokens` | positive integer     | no       | per-base threshold applied before the budget: a base whose complete load fits under this arrives as full records. Off by default.              |
-| `profile`         | `string`             | no       | named budget set. Built-ins: `session-start` (full-under 1500), `compact` and `turn` (budget 2500). An unknown name falls through to defaults. |
-| `format`          | `markdown` \| `json` | no       | CLI envelope for hook protocols requiring strict JSON on stdout. MCP callers omit this — the block itself is identical.                        |
-| `event`           | `string`             | no       | `hookEventName` stamped into the JSON envelope. Only meaningful with `format: "json"`.                                                         |
+All parameters are optional: `budgetTokens` (ceiling on the whole block, default
+4000), `fullUnderTokens` (per-base threshold applied before the budget: a base
+whose complete load fits under it arrives as full records; off by default),
+`profile` (named budget set — built-ins `session-start` (full-under 1500),
+`compact` and `turn` (budget 2500); an unknown name falls through to defaults),
+`format` (`markdown` | `json` — the CLI envelope for hook protocols requiring
+strict JSON on stdout; MCP callers omit it, the block itself is identical), and
+`event` (`string`, the `hookEventName` stamped into that envelope, only
+meaningful with `format: "json"`).
 
 Budgets resolve most-specific-first: explicit parameters, then the workspace
 manifests' `context` tables (per profile, over their `default`), then the

@@ -7,7 +7,7 @@ export const traceCommand = define({
   tool: "kb_trace",
   usage: "trace <concept-id> [edges...]",
   description:
-    'How a position was arrived at, as a timeline ordered by when each record was written. Deliberately includes rejected, draft, and superseded records — in a history those are the content, not noise. Follows supersession, shared code anchors, and shared sources. Use when the question is "why is this the way it is" rather than "what do we hold now". This tool (with kb_load and kb_query) is the only supported way to read a base; a raw file read bypasses supersession resolution and returns replaced records as if current.',
+    'Timeline of how a position was reached, ordered by write time, following supersession, shared anchors and shared sources. Includes rejected, draft and superseded records — in a history they are the content. For "why is it like this"; kb_load answers "what holds now".',
   input: z.object({
     bundlePath,
     conceptId,

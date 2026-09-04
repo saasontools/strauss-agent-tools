@@ -1,6 +1,6 @@
 {
   "name": "@saasontools/strauss-kb",
-  "version": "0.1.9",
+  "version": "0.1.14",
   "description": "Knowledge base of markdown records with standing, supersession and trace: library, CLI, and MCP server over one command set",
   "license": "MIT",
   "author": "Assaf Kamil",
@@ -61,7 +61,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "gray-matter": "^4.0.3",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.72.1",

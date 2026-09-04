@@ -7,7 +7,7 @@ export const schemaCommand = define({
   tool: "kb_schema",
   usage: "schema",
   description:
-    "JSON Schema for the frontmatter, the write input, and log entries — generated from the code that enforces them, so it cannot drift from what a write will accept.",
+    "JSON Schema for frontmatter, write input, and log entries, generated from the enforcing code.",
   input: z.object({}),
   fromArgv: () => ({}),
   run: () => Promise.resolve(kbJsonSchemas()),

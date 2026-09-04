@@ -1,3 +1,65 @@
+## 0.1.14 (2026-09-03)
+
+### 🩹 Fixes
+
+- Terse MCP tool descriptions (~2,300 → ~1,100 tokens per context), and shorter README, ARCHITECTURE and docs. No behaviour change. ([8ca35a3](https://github.com/saasontools/strauss-agent-tools/commit/8ca35a3))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5.1
+
+## 0.1.13 (2026-09-03)
+
+### 🩹 Fixes
+
+- typed causal edges (strauss_links) with kb_impact and kb_backlinks ([54ee155](https://github.com/saasontools/strauss-agent-tools/commit/54ee155))
+
+  Records may carry `strauss_links` — `{ target, rel }` edges from a closed
+  vocabulary of eight, reading source → target on the source's frontmatter and
+  also rendered as one prose sentence per rel. Each rel declares which of its two
+  ends depends on the other; `kb_impact` walks the transitive dependants in that
+  direction, `kb_backlinks` is the flat one-hop counterpart, and
+  `kb_pack`/`kb_trace` follow the new `typed-link` edge kind. `kb_validate`
+  findings now carry `severity` — an unknown rel or malformed target is an
+  `error`, an absent target a `warning`, only errors fail the exit code — so
+  every finding object has one more key.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
+## 0.1.12 (2026-09-03)
+
+### 🩹 Fixes
+
+- kb_load: bundle content digest and cache-stable placement rule ([6840983](https://github.com/saasontools/strauss-agent-tools/commit/6840983))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
+## 0.1.11 (2026-09-03)
+
+### 🩹 Fixes
+
+- anchor content hashes and drift detection (`strauss_anchors`), with an `anchor-resolve` command and a `kb_doctor` drifted check. Anchors gain optional `repo` and `ref`: an anchor naming another repository is skipped as `foreign-repo`, and `ref` is recorded but not yet used for resolution. ([](https://github.com/saasontools/strauss-agent-tools/commit/))
+
+## 0.1.10 (2026-09-03)
+
+### 🩹 Fixes
+
+- kb_catalog: a tier-one listing, and a refusal that names the next call ([dd3b314](https://github.com/saasontools/strauss-agent-tools/commit/dd3b314))
+
+  New `kb_catalog` (CLI `catalog [type]`) lists every record in one line — id, type, title, standing, stale flag — sorted by type then title, at roughly thirty tokens each, and never refuses: it is where a refused `kb_load` sends you. `kb_load`'s refusal now names the next calls (`kb_catalog`, then `kb_pack` on the record that matters; `kb_query` for a lookup by wording) and both escape hatches, instead of only reporting that the base was too big. CLI flags now accept `--flag=value` and error on a missing value instead of silently falling back to the default.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5
+
 ## 0.1.9 (2026-09-02)
 
 ### 🩹 Fixes

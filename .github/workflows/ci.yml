@@ -19,7 +19,7 @@ jobs:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -47,6 +47,9 @@ jobs:
       - run: pnpm nx affected -t test -- --coverage
 
       - name: Check plugin/package version drift
+        # A PR gate: on main the base is the last green run, which a release
+        # commit has already moved past.
+        if: github.event_name == 'pull_request'
         run: node scripts/check-plugin-package-drift.mjs
         env:
           NX_BASE: ${{ env.NX_BASE }}
@@ -57,7 +60,15 @@ jobs:
           pnpm nx run-many -t validate
           claude plugin validate .
 
-      - run: pnpm audit --audit-level=high
+      - name: Audit dependencies
+        # The advisory endpoint times out often enough to fail a green PR.
+        run: |
+          for attempt in 1 2 3; do
+            pnpm audit --audit-level=high && exit 0
+            echo "audit attempt $attempt failed; retrying" >&2
+            sleep $((attempt * 15))
+          done
+          exit 1
 
       - name: Upload coverage
         if: always()

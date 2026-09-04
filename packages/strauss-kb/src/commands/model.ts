@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { KbMissingFlagValueError } from "../kb-errors.js";
 import type { KbStore } from "../kb-store.js";
 
 /**
@@ -76,14 +77,57 @@ export const bundlePath = z
 
 export const conceptId = z.string().min(1).describe("e.g. decision.cursor-v2");
 
+/**
+ * Where the code an anchor points at lives, for the drift check.
+ *
+ * Pass it whenever the base is not inside the tree it describes: the default is
+ * the working directory, where a bundle read from elsewhere finds none of its
+ * anchored files. `KbStore.detectDrift` suppresses that case rather than
+ * reporting the whole base as drifted.
+ */
+export const REPO_ROOT = z
+  .string()
+  .min(1)
+  .optional()
+  .describe(
+    "Where the anchored source lives, for the drift check. Defaults to the working directory.",
+  );
+
 export function define<Shape extends z.ZodRawShape>(
   command: KbCommand<Shape>,
 ): KbCommand<z.ZodRawShape> {
   return command as unknown as KbCommand<z.ZodRawShape>;
 }
 
-/** The value after `--name` in argv, or undefined when the flag is absent. */
+/**
+ * The value of `--name`, in either spelling, or undefined when it is absent.
+ *
+ * Both `--name value` and `--name=value` are accepted, because a caller who
+ * writes the second and is silently given the default has been told the
+ * opposite of what happened.
+ *
+ * A flag present with no value is an error rather than an absent flag, for the
+ * same reason. `strauss-kb load --budget` reading past the end of argv and
+ * falling back to the default would hand the caller the exact ceiling they were
+ * trying to move, and a trailing typo would be indistinguishable from success.
+ * Note
+ * that a following token starting with `--` counts as no value: `--budget
+ * --all` is a missing value, not a budget of "--all".
+ */
 export function argvFlag(argv: string[], name: string): string | undefined {
+  const joined = argv.find((arg) => arg.startsWith(`${name}=`));
+  if (joined !== undefined) {
+    const value = joined.slice(name.length + 1);
+    if (!value) throw new KbMissingFlagValueError(name);
+    return value;
+  }
+
   const at = argv.indexOf(name);
-  return at !== -1 ? argv[at + 1] : undefined;
+  if (at === -1) return undefined;
+
+  const value = argv[at + 1];
+  if (value === undefined || value.startsWith("--")) {
+    throw new KbMissingFlagValueError(name);
+  }
+  return value;
 }

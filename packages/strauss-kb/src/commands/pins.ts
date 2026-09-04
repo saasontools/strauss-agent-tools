@@ -7,7 +7,7 @@ export const pinsCommand = define({
   tool: "kb_pins",
   usage: "pins",
   description:
-    "Every pinned base across the manifest layers, each with its layer and whether it currently resolves to readable records. Reads the workspace manifests rather than any one base, like kb_context.",
+    "Every pinned base across the manifest layers, with its layer and whether it resolves to records. Takes no bundlePath.",
   input: z.object({}),
   fromArgv: () => ({}),
   run: ({ store }) => listPins(store, process.cwd()),

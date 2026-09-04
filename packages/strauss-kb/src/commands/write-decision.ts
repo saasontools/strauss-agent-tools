@@ -10,14 +10,8 @@ export const writeDecisionCommand = define({
   name: "write-decision",
   tool: "kb_write_decision",
   usage: "write-decision < decision.json",
-  description: [
-    "Write a decision. Takes `alternative` and `impact` as fields rather than free sections, because what was rejected is the part a later reader cannot reconstruct from the code — a heading is too easy to leave empty.",
-    "",
-    "What belongs in one:",
-    '- Record a decision when a later reader would otherwise "simplify" the constraint away. If the diff already answers the question, there is nothing here to write.',
-    "- `alternative` is what you turned down and why, not a list of everything considered.",
-    "- A reference to material you read goes in `sources`; a reference to code goes in `anchors`; a reference to another record goes in `relatedConceptIds`.",
-  ].join("\n"),
+  description:
+    "Write a decision, with `alternative` (what was rejected and why) and `impact` as fields. Record one when a later reader would otherwise simplify the constraint away; skip when the diff already answers it. `sources` for material read, `anchors` for code, `relatedConceptIds` for records.",
   input: z.object({ bundlePath, input: decisionInputSchema }),
   fromArgv: async (_argv, path, stdin) => ({
     bundlePath: path,
