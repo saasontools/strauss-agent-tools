@@ -1,5 +1,6 @@
 // @ts-check
 /** What the npm registry and the GitHub API are asked, each answer memoised. */
+import { repoOf } from "./locators.mjs";
 import { getJson, text, tryGet } from "./http.mjs";
 
 const REGISTRY = "https://registry.npmjs.org";
@@ -36,6 +37,28 @@ export async function latestVersion(pkg) {
     .at(-1);
   if (!newest) throw new Error(`${pkg}: no published release on npm`);
   return newest;
+}
+
+/**
+ * The newest release of a pack: a published version for an npm package, a
+ * release tag for a `gh:` one, whose release assets are its only build.
+ * @param {string} pkg
+ */
+export function newestVersion(pkg) {
+  const repo = repoOf(pkg);
+  return repo ? latestRelease(repo) : latestVersion(pkg);
+}
+
+/** The newest non-prerelease release tag of a repository. */
+export async function latestRelease(repo) {
+  return once(`release:${repo}`, async () => {
+    const bytes = await tryGet(`${GITHUB}/repos/${repo}/releases?per_page=100`);
+    const tag = /** @type {{ tag_name: string, prerelease: boolean }[]} */ (
+      bytes ? JSON.parse(text(bytes)) : []
+    ).find((release) => !release.prerelease)?.tag_name;
+    if (!tag) throw new Error(`${repo}: no published release on GitHub`);
+    return tag;
+  });
 }
 
 /** @param {string} pkg @param {string} version */

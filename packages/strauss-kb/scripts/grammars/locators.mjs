@@ -1,21 +1,24 @@
 // @ts-check
 /**
- * Where one part of a language pack comes from. Four forms, all of which end
+ * Where one part of a language pack comes from. Five forms, all of which end
  * as one fully-resolved https URL in the lock:
  *
- * - `queries/tags.scm` — relative to `npm:<the pack's package>@<pinned>/`
+ * - `queries/tags.scm` — relative to the pack's own package at its pin
  * - `npm:<pkg>[@<ver>]/<path>` — jsDelivr's npm mirror
  * - `gh:<owner>/<repo>@<ref>/<path>` — jsDelivr's GitHub mirror
+ * - `gh-release:<owner>/<repo>@<tag>/<asset>` — a GitHub release asset
  * - `https://…` — verbatim
  */
 
 const NPM = "https://cdn.jsdelivr.net/npm";
 const GH = "https://cdn.jsdelivr.net/gh";
+const RELEASE = "https://github.com";
 
 /**
  * @typedef {{ kind: "npm", pkg: string, version?: string, path: string,
  *     own?: boolean }
  *   | { kind: "gh", repo: string, ref: string, path: string }
+ *   | { kind: "release", repo: string, ref: string, path: string }
  *   | { kind: "url", url: string }} Locator
  *
  * `own` marks the bare-path form, whose version is the pack's own rather than
@@ -24,15 +27,27 @@ const GH = "https://cdn.jsdelivr.net/gh";
 
 /**
  * @param {string} value @param {string} pkg the pack's own package
+ * @param {string} [version] the pack's own pin, for a bare path under `gh:`
  * @returns {Locator}
  */
-export function parseLocator(value, pkg) {
+export function parseLocator(value, pkg, version) {
   if (/^https?:\/\//.test(value)) return { kind: "url", url: value };
   if (value.startsWith("npm:")) return npmLocator(value.slice(4));
+  if (value.startsWith("gh-release:"))
+    return { ...ghLocator(value.slice("gh-release:".length)), kind: "release" };
   if (value.startsWith("gh:")) return ghLocator(value.slice(3));
   if (value.includes(":"))
-    throw new Error(`${value}: not a locator (npm:, gh:, https:, or a path)`);
+    throw new Error(
+      `${value}: not a locator (npm:, gh:, gh-release:, https:, or a path)`,
+    );
+  const repo = repoOf(pkg);
+  if (repo) return { kind: "gh", repo, ref: `${version}`, path: strip(value) };
   return { kind: "npm", pkg, path: strip(value), own: true };
+}
+
+/** A pack whose `package` is `gh:<owner>/<repo>` is released, not published. */
+export function repoOf(pkg) {
+  return pkg.startsWith("gh:") ? pkg.slice(3) : undefined;
 }
 
 /** @param {string} rest @returns {Locator} */
@@ -51,7 +66,7 @@ function npmLocator(rest) {
   };
 }
 
-/** @param {string} rest @returns {Locator} */
+/** @param {string} rest @returns {{ kind: "gh", repo: string, ref: string, path: string }} */
 function ghLocator(rest) {
   const found = /^([^/]+\/[^/@]+)@([^/]+)\/(.+)$/.exec(rest);
   if (!found)
@@ -66,12 +81,15 @@ function ghLocator(rest) {
 
 /**
  * The URL the lock records. `version` and `commit` are what the caller
- * resolved for a locator that named neither.
+ * resolved for a locator that named neither. A release asset is served by
+ * GitHub itself — jsDelivr mirrors packages and repositories, not releases.
  * @param {Locator} locator
  * @param {{ version?: string, commit?: string }} resolved
  */
 export function locatorUrl(locator, resolved) {
   if (locator.kind === "url") return locator.url;
+  if (locator.kind === "release")
+    return `${RELEASE}/${locator.repo}/releases/download/${locator.ref}/${locator.path}`;
   if (locator.kind === "gh")
     return `${GH}/${locator.repo}@${resolved.commit}/${locator.path}`;
   const version = locator.version ?? resolved.version;
@@ -85,7 +103,8 @@ export function locatorUrl(locator, resolved) {
  * @param {Locator} locator @param {string | undefined} url
  */
 export function lockedRef(locator, url) {
-  if (!url || locator.kind === "url") return undefined;
+  if (!url || locator.kind === "url" || locator.kind === "release")
+    return undefined;
   const [prefix, suffix] =
     locator.kind === "gh"
       ? [`${GH}/${locator.repo}@`, `/${locator.path}`]
@@ -98,6 +117,8 @@ export function lockedRef(locator, url) {
 /** How a part reads in a log line or an error. */
 export function locatorLabel(locator) {
   if (locator.kind === "url") return locator.url;
+  if (locator.kind === "release")
+    return `gh-release:${locator.repo}@${locator.ref}/${locator.path}`;
   if (locator.kind === "gh")
     return `gh:${locator.repo}@${locator.ref}/${locator.path}`;
   return `npm:${locator.pkg}${locator.version ? `@${locator.version}` : ""}/${locator.path}`;

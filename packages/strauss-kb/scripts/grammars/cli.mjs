@@ -16,15 +16,10 @@ import {
   writePacks,
   writeTags,
 } from "./lock.mjs";
-import { githubLicense, latestVersion, npmLicense } from "./registry.mjs";
+import { repoOf } from "./locators.mjs";
+import { githubLicense, newestVersion, npmLicense } from "./registry.mjs";
 import { resolvePack } from "./resolve.mjs";
-import {
-  concatenate,
-  download,
-  prove,
-  sha256,
-  validate,
-} from "./validate.mjs";
+import { concatenate, download, proveAll, sha256 } from "./validate.mjs";
 
 const USAGE = `Usage:
   grammars pin <lang>... | --all
@@ -33,7 +28,8 @@ const USAGE = `Usage:
   grammars check [--outdated]
 
 A locator is a path relative to the pack's package, npm:<pkg>[@<ver>]/<path>,
-gh:<owner>/<repo>@<ref>/<path>, or an https URL.`;
+gh:<owner>/<repo>@<ref>/<path>, gh-release:<owner>/<repo>@<tag>/<asset>, or an
+https URL.`;
 
 /** @param {string[]} argv */
 export async function run(argv) {
@@ -76,8 +72,10 @@ function parseFlags(argv) {
 }
 
 /**
- * Resolve, download, validate, write. Languages left out keep the entry they
- * already have, so pinning one language never re-resolves the other 35.
+ * Resolve, download, prove, write. Languages left out keep the entry they
+ * already have, so pinning one language never re-resolves the rest — but
+ * every pack's WASM is still fetched, because the proof is that all of them
+ * load together.
  */
 async function pin(flags, { upgrade = false }) {
   const packs = readPacks();
@@ -97,6 +95,8 @@ async function pin(flags, { upgrade = false }) {
   const locked = {};
   /** @type {Map<string, string>} */
   const queries = new Map();
+  /** @type {import("./validate.mjs").Provable[]} */
+  const provable = [];
   let withTags = 0;
 
   for (const language of Object.keys(packs.packs).sort()) {
@@ -109,9 +109,17 @@ async function pin(flags, { upgrade = false }) {
         );
       locked[language] = { ...carried, extensions };
       const vendored = join(tagsDir, `${language}.scm`);
-      if (existsSync(vendored))
-        queries.set(language, readFileSync(vendored, "utf8"));
+      const query = existsSync(vendored)
+        ? readFileSync(vendored, "utf8")
+        : undefined;
+      if (query) queries.set(language, query);
       if (carried.tags?.length) withTags++;
+      provable.push({
+        language,
+        label: carried.package,
+        wasm: await fetchLocked(language, carried.wasm.url),
+        ...(query ? { query } : {}),
+      });
       continue;
     }
 
@@ -121,11 +129,17 @@ async function pin(flags, { upgrade = false }) {
       upgrade,
     });
     const fetched = await download(resolved);
-    const { compiled } = await validate(resolved, fetched);
+    const compiled = fetched.tags.length > 0;
     if (compiled) {
       queries.set(language, fetched.query);
       withTags++;
     }
+    provable.push({
+      language,
+      label: resolved.label,
+      wasm: fetched.wasm.body,
+      ...(compiled ? { query: fetched.query } : {}),
+    });
     if (refreshFixture(language, fetched.wasm.body))
       log(`  fixture test/fixtures/grammars/tree-sitter-${language}.wasm`);
 
@@ -150,6 +164,7 @@ async function pin(flags, { upgrade = false }) {
     );
   }
 
+  await proveAll(provable, log);
   writeTags(queries, log);
   await writeManifest({
     linguist: { tag: linguist.tag, commit: linguist.commit },
@@ -205,6 +220,8 @@ async function check(flags) {
   const rows = [];
   const failures = [];
   const outdated = [];
+  /** @type {import("./validate.mjs").Provable[]} */
+  const provable = [];
 
   for (const [language, entry] of Object.entries(manifest.packs).sort(
     ([a], [b]) => a.localeCompare(b),
@@ -227,23 +244,26 @@ async function check(flags) {
       else parts.push({ url: part.url, body });
     }
 
-    if (wasm && parts.length === (entry.tags ?? []).length && !notes.length) {
-      const failed = await prove(wasm, concatenate(parts));
-      if (failed) notes.push(`${failed.part}: ${failed.message}`);
-    }
+    if (wasm && parts.length === (entry.tags ?? []).length && !notes.length)
+      provable.push({
+        language,
+        label: entry.package,
+        wasm,
+        ...(parts.length ? { query: concatenate(parts) } : {}),
+      });
 
     if (flags.options["outdated"]) {
       const [pkg, version] = splitLabel(entry.package);
       const newest = packs.packs[language]?.version
         ? version
-        : await latestVersion(pkg);
+        : await newestVersion(pkg);
       if (newest !== version)
         outdated.push(`${language}: ${version} -> ${newest}`);
     }
 
     if (notes.length) failures.push(`${language}: ${notes.join("; ")}`);
     rows.push(
-      `${notes.length ? "FAIL" : "ok  "}  ${language.padEnd(18)}${entry.package.padEnd(44)}${(entry.tags ?? []).length ? `tags ${(entry.tags ?? []).length}` : "no tags"}`,
+      `${notes.length ? "FAIL" : "ok  "}  ${language.padEnd(18)}${entry.package.padEnd(46)}${(entry.tags ?? []).length ? `tags ${(entry.tags ?? []).length}` : "no tags"}`,
     );
   }
 
@@ -254,12 +274,24 @@ async function check(flags) {
     `${rows.length} packs, ${failures.length} failing, ${outdated.length} outdated`,
   );
   if (failures.length || outdated.length) process.exitCode = 1;
+  await proveAll(provable, log);
+}
+
+/** The wasm a carried-forward pack was locked at, for the load pass. */
+async function fetchLocked(language, url) {
+  const bytes = await tryGet(url);
+  if (!bytes?.byteLength)
+    throw new Error(`${language}: locked wasm is gone from ${url}`);
+  return bytes;
 }
 
 /** npm for a package part, the repository for a GitHub one. */
 async function licenseOf(resolved) {
+  const repo = repoOf(resolved.pkg);
+  if (repo) return githubLicense(repo);
   const first = resolved.tags[0] ?? resolved.wasm;
-  if (first.locator.kind === "gh") return githubLicense(first.locator.repo);
+  if (first.locator.kind === "gh" || first.locator.kind === "release")
+    return githubLicense(first.locator.repo);
   return npmLicense(resolved.pkg, resolved.version);
 }
 

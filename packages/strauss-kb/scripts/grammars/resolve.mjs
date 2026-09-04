@@ -6,11 +6,16 @@
  * reused, so re-pinning the same packs.json reproduces the same manifest. Only
  * `upgrade` re-asks the registry what is newest.
  */
-import { lockedRef, locatorUrl, parseLocator } from "./locators.mjs";
-import { latestVersion, refCommit } from "./registry.mjs";
+import {
+  lockedRef,
+  locatorUrl,
+  parseLocator,
+  repoOf,
+} from "./locators.mjs";
+import { newestVersion, refCommit } from "./registry.mjs";
 
 /** What a pack gets when it names neither `wasm` nor `tags`. */
-const DEFAULT_WASM = (pkg) => `${pkg.replace(/^@[^/]+\//, "")}.wasm`;
+const DEFAULT_WASM = (pkg) => `${pkg.replace(/^.*[/@]/, "")}.wasm`;
 const DEFAULT_TAGS = "queries/tags.scm";
 
 /**
@@ -31,9 +36,12 @@ export async function resolvePack(language, pack, options = {}) {
     throw new Error(`${language}: packs.json entry has no "package"`);
   const version = await packVersion(pack, options);
   const previousTags = options.previous?.tags ?? [];
+  const repo = repoOf(pack.package);
 
   const wasm = await resolvePart(
-    parseLocator(pack.wasm ?? DEFAULT_WASM(pack.package), pack.package),
+    pack.wasm
+      ? parseLocator(pack.wasm, pack.package, version)
+      : defaultWasm(pack.package, repo, version),
     version,
     options.upgrade === true ? undefined : options.previous?.wasm?.url,
   );
@@ -41,7 +49,7 @@ export async function resolvePack(language, pack, options = {}) {
   for (const [at, source] of tagSources(pack).entries()) {
     tags.push(
       await resolvePart(
-        parseLocator(source, pack.package),
+        parseLocator(source, pack.package, version),
         version,
         options.upgrade === true ? undefined : previousTags[at]?.url,
       ),
@@ -59,6 +67,18 @@ export async function resolvePack(language, pack, options = {}) {
   };
 }
 
+/**
+ * A published pack's grammar sits in its npm tarball; a released one is an
+ * asset of the release its version names — npm has none to ship.
+ * @returns {import("./locators.mjs").Locator}
+ */
+function defaultWasm(pkg, repo, version) {
+  const path = DEFAULT_WASM(pkg);
+  return repo
+    ? { kind: "release", repo, ref: version, path }
+    : { kind: "npm", pkg, path, own: true };
+}
+
 /** `tags: null` is the maintainer saying upstream ships none — not an omission. */
 export function tagSources(pack) {
   if (pack.tags === null) return [];
@@ -66,12 +86,20 @@ export function tagSources(pack) {
   return Array.isArray(pack.tags) ? pack.tags : [pack.tags];
 }
 
-/** Explicit beats locked beats newest. */
+/**
+ * Explicit beats locked beats newest. A lock naming a different package pins
+ * nothing: the entry has been repointed since that lock was written.
+ */
 async function packVersion(pack, options) {
   if (pack.version) return pack.version;
-  const locked = options.previous?.package?.split("@").pop();
+  const label = options.previous?.package ?? "";
+  const cut = label.lastIndexOf("@");
+  const locked =
+    cut > 0 && label.slice(0, cut) === pack.package
+      ? label.slice(cut + 1)
+      : undefined;
   if (locked && options.upgrade !== true) return locked;
-  return latestVersion(pack.package);
+  return newestVersion(pack.package);
 }
 
 /**
@@ -87,7 +115,7 @@ async function resolvePart(locator, version, previousUrl) {
     return { locator, url: locatorUrl(locator, { commit }) };
   }
   if (locator.kind === "npm" && !locator.version && locator.own !== true) {
-    const resolved = locked ?? (await latestVersion(locator.pkg));
+    const resolved = locked ?? (await newestVersion(locator.pkg));
     return { locator, url: locatorUrl(locator, { version: resolved }) };
   }
   return { locator, url: locatorUrl(locator, { version }) };

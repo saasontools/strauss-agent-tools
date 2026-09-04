@@ -6,12 +6,12 @@
  * shipping a language the resolver would report unavailable at read time.
  */
 import { createHash } from "node:crypto";
-import { join } from "node:path";
-import { Worker } from "node:worker_threads";
+import { Language, Parser, Query } from "web-tree-sitter";
 import { text, tryGet } from "./http.mjs";
 import { locatorLabel } from "./locators.mjs";
 
-const PROVE = join(import.meta.dirname, "prove.mjs");
+/** Enough to make each grammar build a tree, in one line, for any syntax. */
+const SNIPPET = "a b\n";
 
 /**
  * @typedef {{ url: string, sha256: string, bytes: number, body: Uint8Array }} Fetched
@@ -79,49 +79,68 @@ export class PartError extends Error {
         `  locator ${locatorLabel(part.locator)}\n` +
         `  tried   ${part.url}\n` +
         `  set "${kind}" on the ${pack.language} entry in grammars/packs.json ` +
-        `to another locator (npm:, gh:, https:)${alternative}`,
+        `to another locator (npm:, gh:, gh-release:, https:)${alternative}`,
     );
     this.name = "PartError";
   }
 }
 
 /**
- * @param {import("./resolve.mjs").Resolved} pack @param {Downloaded} fetched
+ * @typedef {{ language: string, label: string, wasm: Uint8Array,
+ *   query?: string }} Provable
  */
-export async function validate(pack, fetched) {
-  const failed = await prove(fetched.wasm.body, fetched.query);
-  if (failed?.part === "wasm")
-    throw new PartError(
-      pack,
-      "wasm",
-      pack.wasm,
-      `does not load under web-tree-sitter: ${failed.message}`,
-    );
-  if (failed)
-    throw new PartError(
-      pack,
-      "tags",
-      pack.tags[0],
-      `does not compile against ${pack.label}: ${failed.message}`,
-    );
-  return { compiled: fetched.tags.length > 0 };
-}
 
 /**
- * `null` when the grammar loads and the query compiles, otherwise which part
- * failed and why. Runs in a worker; see prove.mjs.
- * @param {Uint8Array} wasm @param {string} query
- * @returns {Promise<{ part: "wasm" | "tags", message: string } | null>}
+ * Every pack loaded, compiled and parsed with in one process, in manifest
+ * order — which is how the runtime meets them, an MCP server holding all the
+ * grammars a repository needs at once. A grammar built at an ABI this
+ * `web-tree-sitter` does not accept is rejected here rather than at read time,
+ * and the first failure names the pack and stops the run.
+ * @param {Provable[]} packs @param {(line: string) => void} log
  */
-export function prove(wasm, query) {
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(PROVE, { workerData: { wasm, query } });
-    worker.once("message", (result) => {
-      resolve(result);
-      void worker.terminate();
-    });
-    worker.once("error", reject);
-  });
+export async function proveAll(packs, log) {
+  await Parser.init();
+  const parser = new Parser();
+  let queries = 0;
+  for (const pack of packs) {
+    let grammar;
+    try {
+      grammar = await Language.load(pack.wasm);
+    } catch (error) {
+      throw new ProveError(pack, "wasm", `${message(error)}`);
+    }
+    if (pack.query) {
+      try {
+        new Query(grammar, pack.query);
+      } catch (error) {
+        throw new ProveError(pack, "tags", message(error));
+      }
+      queries++;
+    }
+    try {
+      parser.setLanguage(grammar);
+      if (!parser.parse(SNIPPET)) throw new Error("parsed to nothing");
+    } catch (error) {
+      throw new ProveError(pack, "wasm", `does not parse: ${message(error)}`);
+    }
+  }
+  parser.delete();
+  log(
+    `${packs.length} grammars loaded together, ${queries} tags queries compiled`,
+  );
+}
+
+/** Which pack failed, at which part, under which runtime. */
+class ProveError extends Error {
+  /** @param {Provable} pack @param {"wasm" | "tags"} kind @param {string} why */
+  constructor(pack, kind, why) {
+    super(
+      kind === "wasm"
+        ? `${pack.language}: ${pack.label} rejected by web-tree-sitter: ${why || "no reason given"}`
+        : `${pack.language}: tags query does not compile against ${pack.label}: ${why}`,
+    );
+    this.name = "ProveError";
+  }
 }
 
 export function sha256(bytes) {
