@@ -396,6 +396,27 @@ are reported with their 1-based position and never repaired.
 strauss-kb log
 ```
 
+### `stamp`
+
+```
+stamp [--bundle PATH] [--since DIGEST|FILE]
+```
+
+The base's content stamp without its bodies: `load`'s
+[`digest`](./specification.md#the-load-digest), record and superseded counts,
+the newest record date, and a digest per record. With no `--bundle` it stamps
+every pinned base — the list `context` injects.
+
+| Flag             | Effect                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `--since DIGEST` | Prints nothing and exits 0 when the digest still matches; otherwise reports the base.        |
+| `--since FILE`   | A prior `stamp --json` (or a hook's session state): reports the changed bases and their ids. |
+
+```bash
+strauss-kb stamp --json
+strauss-kb stamp --bundle docs/kb --since 9f2c…
+```
+
 ---
 
 ## Format and housekeeping

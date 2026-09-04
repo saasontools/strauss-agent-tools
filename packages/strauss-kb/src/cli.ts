@@ -12,7 +12,11 @@ import { VERSION } from "./version.js";
 
 export async function runKbCli(argv: string[]): Promise<void> {
   const { flags, literal } = takeLiteral(argv);
-  const { bundle, rest: withFlags } = takeBundle(flags);
+  const {
+    bundle,
+    explicit: bundleExplicit,
+    rest: withFlags,
+  } = takeBundle(flags);
   const name = withFlags[0] ?? "";
 
   if (!name || name === "-h" || name === "--help") {
@@ -46,7 +50,7 @@ export async function runKbCli(argv: string[]): Promise<void> {
     ...literal,
   ];
 
-  const raw = await command.fromArgv(rest, bundle, readStdin);
+  const raw = await command.fromArgv(rest, bundle, readStdin, bundleExplicit);
   const parsed = command.input.safeParse(raw);
   if (!parsed.success) {
     die(
@@ -81,6 +85,9 @@ export async function runKbCli(argv: string[]): Promise<void> {
       : typeof result === "string"
         ? result
         : JSON.stringify(result, null, 2);
+  // A renderer may also have nothing to say — `stamp --since` when no base
+  // moved is silence, and even a bare newline is noise in a hook's output.
+  if (text === "") return;
   process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
 }
 
@@ -104,14 +111,22 @@ function takeLiteral(argv: string[]): { flags: string[]; literal: string[] } {
  * one under the current directory. A base belongs to whatever prompted it, so
  * the default cannot be the only option.
  */
-function takeBundle(argv: string[]): { bundle: string; rest: string[] } {
+function takeBundle(argv: string[]): {
+  bundle: string;
+  explicit: boolean;
+  rest: string[];
+} {
   const at = argv.indexOf("--bundle");
   if (at === -1) {
-    return { bundle: join(process.cwd(), KB_DIR), rest: argv };
+    return { bundle: join(process.cwd(), KB_DIR), explicit: false, rest: argv };
   }
   const bundle = argv[at + 1];
   if (!bundle) die("--bundle requires a path");
-  return { bundle, rest: [...argv.slice(0, at), ...argv.slice(at + 2)] };
+  return {
+    bundle,
+    explicit: true,
+    rest: [...argv.slice(0, at), ...argv.slice(at + 2)],
+  };
 }
 
 function readStdin(): Promise<string> {

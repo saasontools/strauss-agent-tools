@@ -34,6 +34,10 @@ sentinel instead:
 strauss-kb sync-instructions AGENTS.md
 ```
 
+**No reload hook here.** The Claude Code and Codex plugins watch for a pinned
+base changing mid-session; `PreInvocation` re-injects the index every turn, so
+Antigravity never holds a stale one long enough to need telling.
+
 **File-read blocking is opt-in.** `scripts/block-kb-reads.mjs` ships unwired;
 add a `PreToolUse` entry to `.agents/hooks.json` or this plugin's
 `hooks.json`. Matcher width: `view_file` alone, or the full read surface:

@@ -74,7 +74,7 @@ and pins live in `.strauss/kb-pins.json`:
 
 Pin options and budget resolution: [package README](../../packages/strauss-kb/README.md#living-in-an-agent-session).
 
-That is the only hook the plugin wires. Three more scripts ship with it,
+That is the only hook the plugin wires. Four more scripts ship with it,
 opt-in — below.
 
 ## Opt-in workspace hooks
@@ -82,10 +82,10 @@ opt-in — below.
 A matcher matches a tool _name_, and the plugin installs per user, so anything
 wired here fires in every repo. Wire the ones a workspace wants: copy the
 script from [`hooks/scripts/`](./hooks/scripts/) (node builtins only) to
-`.claude/hooks/`, add its entry to `.claude/settings.json`. Each runs ~40 ms
-on an unrelated write (node startup); nothing is read or spawned unless the
-path is inside a bundle. All fail open, and none parses `Bash` — `cat .strauss/kb/x.md` stays a
-deliberate side door.
+`.claude/hooks/`, add its entry to `.claude/settings.json`. The three bundle
+guards run ~40 ms on an unrelated write (node startup); nothing is read or
+spawned unless the path is inside a bundle. All fail open, and none inspects a
+`Bash` read — `cat .strauss/kb/x.md` stays a deliberate side door.
 
 **`block-kb-reads.mjs`** (`PreToolUse`, `Read`) — a superseded record file
 reads exactly like a current one; records belong to the tools. Widen to
@@ -101,9 +101,28 @@ bundle root; the store overwrites those. No env opt-out: remove the entry.
 problems as context. Advisory, never blocking. Opt out with
 `STRAUSS_KB_NO_VALIDATE_HOOK=1`.
 
+**`kb-stamp-hook.mjs`** (`SessionStart`, `PostToolUse` on `Bash`,
+`SubagentStop`) — after a git sync or a sub-agent's own `kb_write`, names a
+pinned base that changed since it was loaded; `SessionStart` seeds the state,
+in `$TMPDIR/strauss-kb/<session id>.json`. A `Bash` command that is not a git
+sync exits on a regex (~31 ms), and a sync whose `git diff` names no pinned
+path exits before the CLI is spawned. No env opt-out: remove the entries.
+
 ```json
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/kb-stamp-hook.mjs\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Read",
@@ -132,6 +151,27 @@ problems as context. Advisory, never blocking. Opt out with
             "type": "command",
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/validate-kb-bundle.mjs\"",
             "timeout": 65
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/kb-stamp-hook.mjs\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/kb-stamp-hook.mjs\"",
+            "timeout": 20
           }
         ]
       }
