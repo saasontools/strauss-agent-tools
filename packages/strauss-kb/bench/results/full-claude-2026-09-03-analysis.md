@@ -88,7 +88,7 @@ B 96%, C 92%, D 96%.
 | ------ | --- | ------------------------------------------------------------------- |
 | sonnet | A   | ag-open-question-count                                              |
 | sonnet | B   | 4 aggregation                                                       |
-| sonnet | C   | cs-access-tokens (chose the superseded JWT design), 5 aggregation   |
+| sonnet | C   | cs-access-tokens (hedged between old and new), 5 aggregation        |
 | sonnet | D   | ag-open-question-count                                              |
 | haiku  | A   | ag-open-question-count, ag-aws-services                             |
 | haiku  | B   | cs-payload-cap, 4 aggregation                                       |
