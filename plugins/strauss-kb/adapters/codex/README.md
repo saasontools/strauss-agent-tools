@@ -18,12 +18,13 @@ on Windows add `commandWindows` or rely on the sentinel below.
 
 ## What Codex gets, layer by layer
 
-| Layer                     | Status                                                                              |
-| ------------------------- | ----------------------------------------------------------------------------------- |
-| MCP tool descriptions     | Re-sent every request; survives compaction.                                         |
-| Session-start injection   | `hooks.json`: `SessionStart` sources `startup`, `resume`, `clear`, `compact`.       |
-| Post-compact re-injection | Covered by the `compact` matcher; server-side compaction relies on instruction.     |
-| PreToolUse blocking       | Not shipped — Codex has no Read/Glob/Grep, only shell. AGENTS.md is the mitigation. |
+| Layer                     | Status                                                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| MCP tool descriptions     | Re-sent every request; survives compaction.                                                                    |
+| Session-start injection   | `hooks.json`: `SessionStart` sources `startup`, `resume`, `clear`, `compact`.                                  |
+| Post-compact re-injection | Covered by the `compact` matcher; server-side compaction relies on instruction.                                |
+| Reload after a pull       | Opt-in `PostToolUse` on `shell` — [plugin README](../../README.md#opt-in-workspace-hooks); no sub-agent event. |
+| PreToolUse blocking       | Not shipped — Codex has no Read/Glob/Grep, only shell. AGENTS.md is the mitigation.                            |
 
 ## AGENTS.md sentinel block
 
