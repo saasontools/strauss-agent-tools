@@ -1,4 +1,4 @@
-; tree-sitter-java@0.20.2 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-java@0.23.5/queries/tags.scm
 (class_declaration
   name: (identifier) @name) @definition.class
 

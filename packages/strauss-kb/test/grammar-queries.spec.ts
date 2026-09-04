@@ -28,7 +28,7 @@ describe("the fixture grammars", () => {
     const grammar = await Language.load(path as string);
     expect(
       () => new Query(grammar, source as string),
-      grammarManifest().grammars[language]?.grammar,
+      grammarManifest().packs[language]?.package,
     ).not.toThrow();
   });
 });

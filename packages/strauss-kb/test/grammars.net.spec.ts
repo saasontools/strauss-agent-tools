@@ -3,25 +3,24 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { Language, Parser, Query } from "web-tree-sitter";
 import {
   ensureGrammar,
   grammarManifest,
   resetGrammarState,
 } from "../src/grammars/index.js";
-import {
-  definitionsQuery,
-  TreeSitterResolver,
-} from "../src/tree-sitter-resolver/index.js";
+import { TreeSitterResolver } from "../src/tree-sitter-resolver/index.js";
 
 /**
  * The tests that reach the real CDN, so the pinned hashes are checked against
- * what jsDelivr actually serves rather than against the fixtures, and every
- * tags query is compiled against the grammar release it is pinned to.
+ * what the CDN actually serves rather than against the fixtures, and the
+ * download path is exercised end to end.
  *
- * Off by default and out of CI's way: `pnpm test` must pass unplugged. The
- * weekly `grammars-net.yml` workflow runs it, which is where a re-published
- * or rotted `tree-sitter-wasms@<version>` surfaces.
+ * Loading every grammar is `pnpm grammars check`, which proves each pack in a
+ * worker of its own — web-tree-sitter's WASM heap does not survive 36 loads in
+ * one thread. Both run in the weekly `grammars-net.yml` workflow, which is
+ * where a re-published or withdrawn release surfaces.
+ *
+ * Off by default and out of CI's way: `pnpm test` must pass unplugged.
  */
 const enabled = process.env["STRAUSS_KB_NET_TESTS"] === "1";
 
@@ -50,7 +49,7 @@ describe.skipIf(!enabled)("the real CDN", () => {
 
     const bytes = readFileSync(path as string);
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(
-      manifest.grammars["python"]?.sha256,
+      manifest.packs["python"]?.wasm.sha256,
     );
   });
 
@@ -70,10 +69,9 @@ describe.skipIf(!enabled)("the real CDN", () => {
     });
   });
 
-  test("and every pinned grammar verifies and compiles its query", async () => {
-    await Parser.init();
+  test("and every pinned grammar downloads and hashes as the lock says", async () => {
     const failures: string[] = [];
-    for (const [language, entry] of Object.entries(manifest.grammars)) {
+    for (const [language, pack] of Object.entries(manifest.packs)) {
       const path = await ensureGrammar(language, { cacheRoot });
       if (path === null) {
         failures.push(`${language}: not downloaded`);
@@ -82,17 +80,8 @@ describe.skipIf(!enabled)("the real CDN", () => {
       const digest = createHash("sha256")
         .update(readFileSync(path))
         .digest("hex");
-      if (digest !== entry.sha256) {
+      if (digest !== pack.wasm.sha256)
         failures.push(`${language}: sha256 ${digest}`);
-        continue;
-      }
-      const source = definitionsQuery(language);
-      if (source === undefined) continue;
-      try {
-        new Query(await Language.load(path), source);
-      } catch (error) {
-        failures.push(`${language} (${entry.grammar}): ${String(error)}`);
-      }
     }
     expect(failures).toEqual([]);
   }, 900_000);

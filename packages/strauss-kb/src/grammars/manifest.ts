@@ -6,8 +6,8 @@ import { grammarManifestSchema, type GrammarManifest } from "./model.js";
 let cached: GrammarManifest | undefined;
 
 /**
- * The shipped `grammars/manifest.json`: the pinned `tree-sitter-wasms` version
- * and a sha256 per grammar. Read once per process.
+ * The shipped `grammars/manifest.json`: the URL, hash and extensions of every
+ * language pack. Read once per process.
  */
 export function grammarManifest(): GrammarManifest {
   cached ??= grammarManifestSchema.parse(

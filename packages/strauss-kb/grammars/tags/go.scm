@@ -1,4 +1,4 @@
-; tree-sitter-go@0.20.0 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-go@0.25.0/queries/tags.scm
 (
   (comment)* @doc
   .
@@ -29,3 +29,15 @@
   name: (type_identifier) @name) @definition.type
 
 (type_identifier) @name @reference.type
+
+(package_clause "package" (package_identifier) @name)
+
+(type_declaration (type_spec name: (type_identifier) @name type: (interface_type)))
+
+(type_declaration (type_spec name: (type_identifier) @name type: (struct_type)))
+
+(import_declaration (import_spec) @name)
+
+(var_declaration (var_spec name: (identifier) @name))
+
+(const_declaration (const_spec name: (identifier) @name))

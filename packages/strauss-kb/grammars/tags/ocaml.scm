@@ -1,4 +1,4 @@
-; tree-sitter-ocaml@0.20.4 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-ocaml@0.20.4/queries/tags.scm
 ; Modules
 ;--------
 

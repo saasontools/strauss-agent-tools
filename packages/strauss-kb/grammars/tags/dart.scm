@@ -1,4 +1,4 @@
-; UserNobody14/tree-sitter-dart queries/tags.scm @ d4d8f3e337d8be23be27ffc35a0aef972343cd54
+; https://cdn.jsdelivr.net/gh/UserNobody14/tree-sitter-dart@d4d8f3e337d8be23be27ffc35a0aef972343cd54/queries/tags.scm
 
 (class_definition
   name: (identifier) @name) @definition.class
@@ -90,4 +90,3 @@
 	  (argument_part 
 		(arguments
 		  (argument)*))?)?) @reference.call
-

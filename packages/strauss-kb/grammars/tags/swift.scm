@@ -1,4 +1,4 @@
-; tree-sitter-swift@0.4.3 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-swift@0.4.3/queries/tags.scm
 (class_declaration
   name: (type_identifier) @name) @definition.class
 

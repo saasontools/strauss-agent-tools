@@ -11,10 +11,9 @@ import {
 export { grammarsBaseUrl, grammarUrl } from "./fetch.js";
 export { grammarManifest, grammarsDataPath } from "./manifest.js";
 export {
-  DEFAULT_GRAMMARS_BASE_URL,
   grammarManifestSchema,
-  type GrammarEntry,
   type GrammarManifest,
+  type GrammarPack,
   type GrammarOptions,
 } from "./model.js";
 export { grammarCachePath, grammarsCacheRoot } from "./store.js";
@@ -43,13 +42,13 @@ export async function ensureGrammar(
   language: string,
   options: GrammarOptions = {},
 ): Promise<string | null> {
-  const manifest = grammarManifest();
-  const entry = manifest.grammars[language];
-  if (!entry) return null;
+  const pack = grammarManifest().packs[language];
+  if (!pack) return null;
 
+  const entry = pack.wasm;
   const root = grammarsCacheRoot(options.cacheRoot);
-  const path = grammarCachePath(root, manifest.version, language);
-  const key = `${path} ${grammarsBaseUrl(options.baseUrl)}`;
+  const path = grammarCachePath(root, language, entry.sha256);
+  const key = `${path} ${grammarsBaseUrl(options.baseUrl) ?? ""}`;
   const existing = inFlight.get(key);
   if (existing) return existing;
 
@@ -63,12 +62,7 @@ export async function ensureGrammar(
       return null;
     }
     const download = await downloadGrammar(
-      grammarUrl(
-        grammarsBaseUrl(options.baseUrl),
-        manifest.package,
-        manifest.version,
-        language,
-      ),
+      grammarUrl(entry.url, options.baseUrl),
       language,
       entry,
       options,
@@ -100,7 +94,7 @@ export function noteUncompilableQuery(language: string, cause: string): void {
  * anchor-resolve reports. The only place a repair is spelled out.
  */
 export function grammarHints(): string[] {
-  const grammars = grammarManifest().grammars;
+  const packs = grammarManifest().packs;
   const lines = new Map<string, string>();
   for (const [language, cause] of missing)
     lines.set(
@@ -110,7 +104,7 @@ export function grammarHints(): string[] {
   for (const [language, cause] of uncompilable)
     lines.set(
       language,
-      `tags query for ${language} does not compile against ${grammars[language]?.grammar ?? `tree-sitter-${language}`}: ${cause}; re-pin with pnpm grammars:pin --tags`,
+      `tags query for ${language} does not compile against ${packs[language]?.package ?? `tree-sitter-${language}`}: ${cause}; re-pin with pnpm grammars pin ${language}`,
     );
   return [...lines]
     .sort(([a], [b]) => a.localeCompare(b))

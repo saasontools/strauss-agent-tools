@@ -1,4 +1,4 @@
-; JoranHonig/tree-sitter-solidity queries/tags.scm @ b239a95f94cfcc6e7b3e961bc73a28d55e214f02
+; https://cdn.jsdelivr.net/npm/tree-sitter-solidity@1.2.13/queries/tags.scm
 ;; Method and Function declarations
 (contract_declaration (_
     (function_definition
@@ -23,22 +23,22 @@
 (event_definition name: (identifier) @name) @definition.class
 
 ;; Function calls
-(call_expression (identifier) @name ) @reference.call
+(call_expression (expression (identifier)) @name ) @reference.call
 
-(call_expression 
-    (member_expression 
-        property: (identifier) @name )) @reference.call
+(call_expression
+    (expression (member_expression
+        property: (_) @name ))) @reference.call
 
 ;; Log emit
-(emit_statement name: (identifier) @name) @reference.class
+(emit_statement name: (_) @name) @reference.class
 
 
 ;; Inheritance
 
 (inheritance_specifier
-    ancestor: (user_defined_type (identifier) @name . )) @reference.class
-    
+    ancestor: (user_defined_type (_) @name . )) @reference.class
+
 
 ;; Imports ( note that unknown is not standardised )
-(import_directive 
-  import_name: (identifier) @name ) @reference.unknown
+(import_directive
+  import_name: (_) @name ) @reference.unknown

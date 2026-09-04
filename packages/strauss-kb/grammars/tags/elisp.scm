@@ -1,4 +1,4 @@
-; tree-sitter-elisp@1.5.0 queries/tags.scm
+; https://cdn.jsdelivr.net/npm/tree-sitter-elisp@1.5.0/queries/tags.scm
 ;; defun/defsubst
 (function_definition name: (symbol) @name) @definition.function
 

@@ -1,187 +1,661 @@
 {
-  "package": "tree-sitter-wasms",
-  "version": "0.1.13",
   "webTreeSitter": "0.25.10",
-  "grammars": {
+  "linguist": {
+    "tag": "v9.7.0",
+    "commit": "e0c78d62c42abae6122235d8e68a7aa43eef89da"
+  },
+  "packs": {
     "bash": {
-      "grammar": "tree-sitter-bash@0.20.5",
-      "sha256": "807dcdb1380a59befb112ed8fbd3d3872c7fadaf5903a769282b50973b30696d",
-      "bytes": 1400214
+      "package": "tree-sitter-bash@0.25.1",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-bash@0.25.1/tree-sitter-bash.wasm",
+        "sha256": "8292919c88a0f7d3fb31d0cd0253ca5a9531bc1ede82b0537f2c63dd8abe6a7a",
+        "bytes": 1358224
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [
+        ".bash",
+        ".bats",
+        ".command",
+        ".ksh",
+        ".pacscript",
+        ".sbatch",
+        ".sh",
+        ".sh.in",
+        ".slurm",
+        ".tmux",
+        ".tool",
+        ".trigger",
+        ".zsh",
+        ".zsh-theme"
+      ]
     },
     "c": {
-      "grammar": "tree-sitter-c@0.20.8",
-      "sha256": "056b25072382f72deee2c64ec238ffc4bb8cf42844ef21502c0e70f03a8a0d66",
-      "bytes": 792959
+      "package": "tree-sitter-c@0.24.1",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-c@0.24.1/tree-sitter-c.wasm",
+        "sha256": "c852c2a85ebf2beb636aa3b0ef7f7e70458684d74f6741b20dcb296885bed9f9",
+        "bytes": 625918
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-c@0.24.1/queries/tags.scm",
+          "sha256": "774ca67cfe23b0e0d1d3a4f01788049a822beb1311feee72b20a595a37be1e28"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".c", ".cats", ".h", ".h.in", ".idc"]
     },
     "c_sharp": {
-      "grammar": "tree-sitter-c-sharp@0.20.0",
-      "sha256": "6266a7e32d68a3459104d994dc848df15d5672b0ea8e86d327274b694f8e6991",
-      "bytes": 3978594
+      "package": "tree-sitter-c-sharp@0.23.5",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-c-sharp@0.23.5/tree-sitter-c_sharp.wasm",
+        "sha256": "6f69e1cae44e1c32c1eccc170dc5a9778fb94ff716f71113fe1f8c4299aa2f40",
+        "bytes": 5350581
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-c-sharp@0.23.5/queries/tags.scm",
+          "sha256": "4ed08da0162ecd48206ac34bebe7ea9757a8c7b617f6ad8f70c168d685d514fe"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".cake", ".cs", ".cs.pp", ".csx", ".linq"]
     },
     "cpp": {
-      "grammar": "tree-sitter-cpp@0.20.5",
-      "sha256": "f6afdf53bfd6de76557bb7edb624a3a3869e14d9a83b78433f93617ecee42527",
-      "bytes": 4662978
+      "package": "tree-sitter-cpp@0.23.4",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-cpp@0.23.4/tree-sitter-cpp.wasm",
+        "sha256": "174eb0deb75b2ec7881bcacda9f995648d8e683956e5c2267e69ab6dc503fcbf",
+        "bytes": 3434931
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-cpp@0.23.4/queries/tags.scm",
+          "sha256": "029731ca946e32f919491d9f76c85a50e5deb5ad1934e37fd6849312c0d4a705"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [
+        ".c++",
+        ".cc",
+        ".cp",
+        ".cpp",
+        ".cppm",
+        ".cxx",
+        ".h++",
+        ".hh",
+        ".hpp",
+        ".hxx",
+        ".inl",
+        ".ino",
+        ".ipp",
+        ".ixx",
+        ".re",
+        ".tcc",
+        ".tpp",
+        ".txx"
+      ]
     },
     "css": {
-      "grammar": "tree-sitter-css@0.20.0",
-      "sha256": "5fc615467b1b98420ed7517e5bf9e1f88468132dd903d842dfb13714f6a1cb0c",
-      "bytes": 98133
+      "package": "tree-sitter-css@0.25.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-css@0.25.0/tree-sitter-css.wasm",
+        "sha256": "8a23977fe271357cce6f254ef88c9bebf3854602d8046605aef6a45c02135c59",
+        "bytes": 128668
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".css"]
     },
     "dart": {
-      "grammar": "tree-sitter-dart@d4d8f3e337d8be23be27ffc35a0aef972343cd54",
-      "sha256": "7f5364e4256cf7e55efd01dd52421ef2663caa8061b82659b7e4bf61064545ec",
-      "bytes": 984666
+      "package": "tree-sitter-wasms@0.1.13",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-dart.wasm",
+        "sha256": "7f5364e4256cf7e55efd01dd52421ef2663caa8061b82659b7e4bf61064545ec",
+        "bytes": 984666
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/gh/UserNobody14/tree-sitter-dart@d4d8f3e337d8be23be27ffc35a0aef972343cd54/queries/tags.scm",
+          "sha256": "8fe038cc09d042897d6e7e927e44aca273821115f82b1ae74766936cc77738ba"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".dart"]
     },
     "elisp": {
-      "grammar": "tree-sitter-elisp@1.5.0",
-      "sha256": "deedb03ccf150329ddfcc4ed92861c235bbae6f9692be6b93cac71617a4d42ab",
-      "bytes": 53740
+      "package": "tree-sitter-elisp@1.5.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-elisp.wasm",
+        "sha256": "deedb03ccf150329ddfcc4ed92861c235bbae6f9692be6b93cac71617a4d42ab",
+        "bytes": 53740
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-elisp@1.5.0/queries/tags.scm",
+          "sha256": "d1331d36a581b83cc7e7dfcb421bd3165767f77c5401d7fa4e92d5d5dfe6d8d3"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".el", ".emacs", ".emacs.desktop"]
     },
     "elixir": {
-      "grammar": "tree-sitter-elixir@0.1.1",
-      "sha256": "82e91b9759ddca30d8978ebbfa8e347b4451b64c931f9ae62112e6db9b8fac20",
-      "bytes": 1617756
+      "package": "tree-sitter-elixir@0.3.5",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-elixir@0.3.5/tree-sitter-elixir.wasm",
+        "sha256": "ed99093c548c12d43f7e337fd3440e9e2daa2ec671a5e29aadb6c6dcb2232a62",
+        "bytes": 1412267
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-elixir@0.3.5/queries/tags.scm",
+          "sha256": "5456eeebf3bfcd8d13cec8bb7638a258523ba2a0e6b8d799e51d27c11e679b49"
+        }
+      ],
+      "license": "Apache-2.0",
+      "extensions": [".ex", ".exs"]
     },
     "elm": {
-      "grammar": "tree-sitter-elm@4.5.0",
-      "sha256": "962b8668a0e16a6fb1fe232ba3e07ba4537a6b72c47293fddea0f6ea6ff9912e",
-      "bytes": 148886
+      "package": "tree-sitter-elm@4.5.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-elm.wasm",
+        "sha256": "962b8668a0e16a6fb1fe232ba3e07ba4537a6b72c47293fddea0f6ea6ff9912e",
+        "bytes": 148886
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".elm"]
     },
     "embedded_template": {
-      "grammar": "tree-sitter-embedded-template@0.20.0",
-      "sha256": "68584527f712dbf2cc39776c56980c08516991f184a4a17bb67c2f436f0fc373",
-      "bytes": 5124
+      "package": "tree-sitter-embedded-template@0.25.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-embedded-template@0.25.0/tree-sitter-embedded_template.wasm",
+        "sha256": "d15bbf3cb90901d0372b5599761c7a1ada344a0f11573c173ace7042636a6174",
+        "bytes": 5531
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".erb", ".erb.deface", ".rhtml"]
     },
     "go": {
-      "grammar": "tree-sitter-go@0.20.0",
-      "sha256": "9963ca89b616eaf04b08a43bc1fb0f07b85395bec313330851f1f1ead2f755b6",
-      "bytes": 235957
+      "package": "tree-sitter-go@0.25.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-go@0.25.0/tree-sitter-go.wasm",
+        "sha256": "9504573f352b20be7f2f1911754d710622aedc15afff16d5ed8fb5645681aee7",
+        "bytes": 217182
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-go@0.25.0/queries/tags.scm",
+          "sha256": "d1a9b1f678fe0278b85054e2dc56a28ef26aa478b8c88fb2b0dd83cdcdb9db35"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".go"]
     },
     "html": {
-      "grammar": "tree-sitter-html@0.20.4",
-      "sha256": "11b3405c1543fb012f5ed7f8ee73125076dce8b168301e1e787e4c717da6b456",
-      "bytes": 18468
+      "package": "tree-sitter-html@0.23.2",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-html@0.23.2/tree-sitter-html.wasm",
+        "sha256": "c48fcd82c7ea8bf943180088ba7f28c48b2bb5287874179168bf9d31e394cf85",
+        "bytes": 18385
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".hta", ".htm", ".html", ".html.hl", ".xht", ".xhtml"]
     },
     "java": {
-      "grammar": "tree-sitter-java@0.20.2",
-      "sha256": "637aac4415fb39a211a4f4292d63c66b5ce9c32fa2cd35464af4f681d91b9a1f",
-      "bytes": 430239
+      "package": "tree-sitter-java@0.23.5",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-java@0.23.5/tree-sitter-java.wasm",
+        "sha256": "4fdeac4ca6ca089f06c6f7e562abcac1733cd465728cc7031ebb73c2019122c4",
+        "bytes": 414641
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-java@0.23.5/queries/tags.scm",
+          "sha256": "bcb22147b8582d92743fc973864cefb894a4c12b3957f16f3d472b2ec7cd4c49"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".jav", ".java", ".jsh"]
     },
     "javascript": {
-      "grammar": "tree-sitter-javascript@0.20.4",
-      "sha256": "63812b9e275d26851264734868d27a1656bd44a2ef6eb3e85e6b03728c595ab5",
-      "bytes": 647334
+      "package": "tree-sitter-javascript@0.25.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-javascript@0.25.0/tree-sitter-javascript.wasm",
+        "sha256": "5fb488d0cabb4775a594bab85682de5ad6ce83c0d6ac997a9f82dd084d571240",
+        "bytes": 411770
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-javascript@0.25.0/queries/tags.scm",
+          "sha256": "6ef988cce5a428a15b5460e3ee96f1478705f965fc6e848a91a18bfa6c6f0212"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [
+        "._js",
+        ".bones",
+        ".cjs",
+        ".es",
+        ".es6",
+        ".frag",
+        ".gs",
+        ".jake",
+        ".javascript",
+        ".js",
+        ".jsb",
+        ".jscad",
+        ".jsfl",
+        ".jslib",
+        ".jsm",
+        ".jspre",
+        ".jss",
+        ".jsx",
+        ".mjs",
+        ".njs",
+        ".pac",
+        ".sjs",
+        ".ssjs",
+        ".xsjs",
+        ".xsjslib"
+      ]
     },
     "json": {
-      "grammar": "tree-sitter-json@0.20.2",
-      "sha256": "fdb5219abe058369e16897aaa11eecf47ef4f546752c3ddbac339cdd89e1e667",
-      "bytes": 5961
+      "package": "tree-sitter-json@0.24.8",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-json@0.24.8/tree-sitter-json.wasm",
+        "sha256": "d2119fb98d5912719b13f9458574f8608d2d29dfbe45f6be1f860ea1fe2a2405",
+        "bytes": 5596
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [
+        ".4dform",
+        ".4dproject",
+        ".avsc",
+        ".geojson",
+        ".gltf",
+        ".har",
+        ".ice",
+        ".json",
+        ".json-tmlanguage",
+        ".json.example",
+        ".jsonl",
+        ".mcmeta",
+        ".sarif",
+        ".slnlaunch",
+        ".tact",
+        ".tfstate",
+        ".tfstate.backup",
+        ".topojson",
+        ".webapp",
+        ".webmanifest",
+        ".yy",
+        ".yyp"
+      ]
     },
     "kotlin": {
-      "grammar": "tree-sitter-kotlin@0.3.8",
-      "sha256": "b5cb00c8d06ed0f10f1dbe497205b437809d7e87db1f638721a8cfb30e044449",
-      "bytes": 4052705
+      "package": "tree-sitter-kotlin@0.3.8",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-kotlin.wasm",
+        "sha256": "b5cb00c8d06ed0f10f1dbe497205b437809d7e87db1f638721a8cfb30e044449",
+        "bytes": 4052705
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/gh/fwcd/tree-sitter-kotlin@1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1/queries/tags.scm",
+          "sha256": "8e7a33f68e154cfff250089e2a6984c42e0c421f55d5d024a647058fe676e7f8"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".kt", ".ktm", ".kts"]
     },
     "lua": {
-      "grammar": "tree-sitter-lua@2.1.3",
-      "sha256": "75ef809136d610068c5b2135741d89f5df62690a3d55169203351cb7cc85727d",
-      "bytes": 43539
+      "package": "tree-sitter-lua@2.1.3",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-lua.wasm",
+        "sha256": "75ef809136d610068c5b2135741d89f5df62690a3d55169203351cb7cc85727d",
+        "bytes": 43539
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [
+        ".lua",
+        ".nse",
+        ".p8",
+        ".pd_lua",
+        ".rbxs",
+        ".rockspec",
+        ".wlua"
+      ]
     },
     "objc": {
-      "grammar": "tree-sitter-objc@2.1.0",
-      "sha256": "7c1b5bfdca7e64b6c63b6040bb7ba0afc347df116f9030ca32f8535d7377f6ff",
-      "bytes": 7708264
+      "package": "tree-sitter-objc@3.0.2",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-objc@3.0.2/tree-sitter-objc.wasm",
+        "sha256": "155bf61fc94941fa9d07c86cd46895f14dfb2549fb7f646faeb83765af05c970",
+        "bytes": 5317155
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".m"]
     },
     "ocaml": {
-      "grammar": "tree-sitter-ocaml@0.20.4",
-      "sha256": "60849b6320ee956233d77b017c65c45660e507d03ae70aa1bd5783458e2e9e18",
-      "bytes": 5018068
+      "package": "tree-sitter-ocaml@0.20.4",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-ocaml.wasm",
+        "sha256": "60849b6320ee956233d77b017c65c45660e507d03ae70aa1bd5783458e2e9e18",
+        "bytes": 5018068
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-ocaml@0.20.4/queries/tags.scm",
+          "sha256": "ab68f9dd80618c7eedf350ec0ed21dee33b66771baff2c7edeb1f4eae23e8fb0"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".eliom", ".eliomi", ".ml", ".ml4", ".mli", ".mll", ".mly"]
     },
     "php": {
-      "grammar": "tree-sitter-php@0.22.8",
-      "sha256": "55bb617b6f01e14bab997861f0b20a2420cf6ba3199ffeb295b9ec398966d8a3",
-      "bytes": 812594
+      "package": "tree-sitter-php@0.24.2",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-php@0.24.2/tree-sitter-php.wasm",
+        "sha256": "d4df6a6ff08c87c3ec4f9cbb785fe09998a0cb570e03f57d7b19b3acfb146aa7",
+        "bytes": 1058041
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-php@0.24.2/queries/tags.scm",
+          "sha256": "4ac5e30f99f3abe5417dcb42219e0790c66f9b4bb3be071bc60160dd012f3cd8"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [
+        ".aw",
+        ".ctp",
+        ".inc",
+        ".php",
+        ".php3",
+        ".php4",
+        ".php5",
+        ".phps",
+        ".phpt"
+      ]
     },
     "python": {
-      "grammar": "tree-sitter-python@0.21.0",
-      "sha256": "9056d0fb0c337810d019fae350e8167786119da98f0f282aceae7ab89ee8253b",
-      "bytes": 476105
+      "package": "tree-sitter-python@0.25.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-python@0.25.0/tree-sitter-python.wasm",
+        "sha256": "16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47",
+        "bytes": 457883
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-python@0.25.0/queries/tags.scm",
+          "sha256": "d0f3e577878167bfabc30e526e497bce58d1699b9bcabf8ab3a50698efb5ca3e"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [
+        ".gyp",
+        ".gypi",
+        ".lmi",
+        ".py",
+        ".py3",
+        ".pyde",
+        ".pyi",
+        ".pyp",
+        ".pyt",
+        ".pyw",
+        ".rpy",
+        ".tac",
+        ".wsgi",
+        ".xpy"
+      ]
     },
     "ql": {
-      "grammar": "tree-sitter-ql@1.0.0",
-      "sha256": "836b2a51f6b2b4605ef7bfa908b978fed0fe838afb4eabaa9451552f12e953c1",
-      "bytes": 544940
+      "package": "tree-sitter-ql@1.0.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-ql.wasm",
+        "sha256": "836b2a51f6b2b4605ef7bfa908b978fed0fe838afb4eabaa9451552f12e953c1",
+        "bytes": 544940
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".ql", ".qll"]
     },
     "rescript": {
-      "grammar": "tree-sitter-rescript@6376fa028f31aa4e26ca2c8f007e322cd2a5eb4a",
-      "sha256": "ae18d46336768b6c0eea07eb0b003408848766b3b67df1d807b40cbd93017bda",
-      "bytes": 677948
+      "package": "tree-sitter-wasms@0.1.13",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-rescript.wasm",
+        "sha256": "ae18d46336768b6c0eea07eb0b003408848766b3b67df1d807b40cbd93017bda",
+        "bytes": 677948
+      },
+      "tags": [],
+      "license": "Unlicense",
+      "extensions": [".res", ".resi"]
     },
     "ruby": {
-      "grammar": "tree-sitter-ruby@0.20.1",
-      "sha256": "93a5022855314cdb45458c7bb026a24a0ebc3a5ff6439e542e881f14dfa13a39",
-      "bytes": 2106447
+      "package": "tree-sitter-ruby@0.23.1",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-ruby@0.23.1/tree-sitter-ruby.wasm",
+        "sha256": "09a96427d7c72f0613ed470cd9812223fc4a91d6a9c025c0235cc6bd59ff96f4",
+        "bytes": 2106352
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-ruby@0.23.1/queries/tags.scm",
+          "sha256": "ed1e7dc07a95b87aef267e7f9715c6717a70f09efbd7b6f48bbd51c7b7510cf3"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [
+        ".builder",
+        ".eye",
+        ".gemspec",
+        ".god",
+        ".jbuilder",
+        ".mspec",
+        ".pluginspec",
+        ".podspec",
+        ".prawn",
+        ".rabl",
+        ".rake",
+        ".rb",
+        ".rbi",
+        ".rbuild",
+        ".rbw",
+        ".rbx",
+        ".ru",
+        ".ruby",
+        ".thor",
+        ".watchr"
+      ]
     },
     "rust": {
-      "grammar": "tree-sitter-rust@0.20.4",
-      "sha256": "4409921a70d0aa5bec7d1d7ce809a557a8ee1cf6ace901e3ac6a76e62cfea903",
-      "bytes": 818756
+      "package": "tree-sitter-rust@0.24.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-rust@0.24.0/tree-sitter-rust.wasm",
+        "sha256": "f65f354215611fd94ad34134b3427eb3d58cbb745df7b6509ba722184db73d57",
+        "bytes": 1102547
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-rust@0.24.0/queries/tags.scm",
+          "sha256": "f22867fdebde5cb091861c08d34690dc2540f4318068bf81be9f6b0d348ab8c1"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".rs", ".rs.in"]
     },
     "scala": {
-      "grammar": "tree-sitter-scala@0.19.0",
-      "sha256": "160cfbb8ff7220886e99ed9699abceb6d837b4cd28993b9282c7f445a0554abd",
-      "bytes": 215264
+      "package": "tree-sitter-scala@0.24.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-scala@0.24.0/tree-sitter-scala.wasm",
+        "sha256": "b7ec2bb29c19827abcefd18ed5cb5a43596009f96a5d53c5b9d1f9676d7521c3",
+        "bytes": 3786700
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-scala@0.24.0/queries/tags.scm",
+          "sha256": "f56794ad2bc9ae5c7ffd332a40fa67a3af65880e18ba4124a0053f0bfff54757"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".kojo", ".sbt", ".sc", ".scala"]
     },
     "solidity": {
-      "grammar": "tree-sitter-solidity@b239a95f94cfcc6e7b3e961bc73a28d55e214f02",
-      "sha256": "160745e470f234cae903a9ba445d19e758d0b02e1197401fc765976c6254d2b6",
-      "bytes": 423940
+      "package": "tree-sitter-solidity@1.2.13",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-solidity@1.2.13/tree-sitter-solidity.wasm",
+        "sha256": "07420813d7668445152a5d5d2017e0fb84cb27342257e1add3cc7462eec7f811",
+        "bytes": 508582
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-solidity@1.2.13/queries/tags.scm",
+          "sha256": "21057fc777d90cba70cb26f1f3df66214ac6f488e06ca17e0233e20678c3ece8"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".sol"]
     },
     "swift": {
-      "grammar": "tree-sitter-swift@0.4.3",
-      "sha256": "41c4fdb2249a3aa6d87eed0d383081ff09725c2248b4977043a43825980ffcc7",
-      "bytes": 3147876
+      "package": "tree-sitter-swift@0.4.3",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-swift.wasm",
+        "sha256": "41c4fdb2249a3aa6d87eed0d383081ff09725c2248b4977043a43825980ffcc7",
+        "bytes": 3147876
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-swift@0.4.3/queries/tags.scm",
+          "sha256": "6d3884e3f785d621128356a23ac81dfc438d9a853b8ee24b8070dc2caaf631ca"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".swift"]
     },
     "systemrdl": {
-      "grammar": "tree-sitter-systemrdl@0.7.0",
-      "sha256": "09129542bbea6d19aa33b54f93bae2b41128144970be13ce09af6697146c4527",
-      "bytes": 82495
+      "package": "tree-sitter-systemrdl@0.7.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-systemrdl.wasm",
+        "sha256": "09129542bbea6d19aa33b54f93bae2b41128144970be13ce09af6697146c4527",
+        "bytes": 82495
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".rdl"]
     },
     "tlaplus": {
-      "grammar": "@tlaplus/tree-sitter-tlaplus@1.5.0",
-      "sha256": "72a07f94b0bc88b9123a6e41058e37ab9ca70d84a03b79511b25af7f435129b5",
-      "bytes": 4878724
+      "package": "@tlaplus/tree-sitter-tlaplus@1.5.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/@tlaplus/tree-sitter-tlaplus@1.5.0/tree-sitter-tlaplus.wasm",
+        "sha256": "40e066a8cf25a4415dbb5340bb401c80aa96837d05ee2710b00ae951b046b22c",
+        "bytes": 4878089
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".tla"]
     },
     "toml": {
-      "grammar": "tree-sitter-toml@0.5.1",
-      "sha256": "7849ac8ce9d10a4684ca189ea8ad3654c20c38acb2d674a014a164398cbd37a2",
-      "bytes": 25436
+      "package": "tree-sitter-toml@0.5.1",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-toml.wasm",
+        "sha256": "7849ac8ce9d10a4684ca189ea8ad3654c20c38acb2d674a014a164398cbd37a2",
+        "bytes": 25436
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".toml", ".toml.example"]
     },
     "tsx": {
-      "grammar": "tree-sitter-typescript@0.20.5",
-      "sha256": "6aa3b2c70e76f5d48eafef1093e9c4de383e13f2fdde2f4e9b98a378f6a8f1b6",
-      "bytes": 2411272
+      "package": "tree-sitter-typescript@0.23.2",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-typescript@0.23.2/tree-sitter-tsx.wasm",
+        "sha256": "79e5da75ea62855a0cd67177685f0164eac87d5f630b3cbe1e0a099751ad30f8",
+        "bytes": 1445638
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-javascript@0.25.0/queries/tags.scm",
+          "sha256": "6ef988cce5a428a15b5460e3ee96f1478705f965fc6e848a91a18bfa6c6f0212"
+        },
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-typescript@0.23.2/queries/tags.scm",
+          "sha256": "b391288bcc71b513a5df7c9bb232d8bc7418d7e274b125aa0aa4bdd6121a0338"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".tsx"]
     },
     "typescript": {
-      "grammar": "tree-sitter-typescript@0.20.5",
-      "sha256": "8515404dceed38e1ed86aa34b09fcf3379fff1b4ff9dd3967bcd6d1eb5ac3d8f",
-      "bytes": 2342690
+      "package": "tree-sitter-typescript@0.23.2",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-typescript@0.23.2/tree-sitter-typescript.wasm",
+        "sha256": "778025db5a8be0e70f8ccc3671e486dfeddd048c25d9e8a70c26de2e1bf6f97d",
+        "bytes": 1413849
+      },
+      "tags": [
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-javascript@0.25.0/queries/tags.scm",
+          "sha256": "6ef988cce5a428a15b5460e3ee96f1478705f965fc6e848a91a18bfa6c6f0212"
+        },
+        {
+          "url": "https://cdn.jsdelivr.net/npm/tree-sitter-typescript@0.23.2/queries/tags.scm",
+          "sha256": "b391288bcc71b513a5df7c9bb232d8bc7418d7e274b125aa0aa4bdd6121a0338"
+        }
+      ],
+      "license": "MIT",
+      "extensions": [".cts", ".mts", ".ts"]
     },
     "vue": {
-      "grammar": "tree-sitter-vue@7e48557b903a9db9c38cea3b7839ef7e1f36c693",
-      "sha256": "6244521bb3fb60f34ce5f677f2af81facb2c38691193985ca5fa85e1b6f29250",
-      "bytes": 23895
+      "package": "tree-sitter-wasms@0.1.13",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-vue.wasm",
+        "sha256": "6244521bb3fb60f34ce5f677f2af81facb2c38691193985ca5fa85e1b6f29250",
+        "bytes": 23895
+      },
+      "tags": [],
+      "license": "Unlicense",
+      "extensions": [".vue"]
     },
     "yaml": {
-      "grammar": "tree-sitter-yaml@0.5.0",
-      "sha256": "5dea7cfff83d41d8f87fb8e434e1a5b292c0d670bfcdc42cb2af420ef490dde5",
-      "bytes": 182936
+      "package": "tree-sitter-yaml@0.5.0",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/tree-sitter-wasms@0.1.13/out/tree-sitter-yaml.wasm",
+        "sha256": "5dea7cfff83d41d8f87fb8e434e1a5b292c0d670bfcdc42cb2af420ef490dde5",
+        "bytes": 182936
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [
+        ".mir",
+        ".reek",
+        ".rviz",
+        ".sublime-syntax",
+        ".syntax",
+        ".yaml",
+        ".yaml-tmlanguage",
+        ".yaml.sed",
+        ".yml",
+        ".yml.mysql"
+      ]
     },
     "zig": {
-      "grammar": "@tree-sitter-grammars/tree-sitter-zig@1.1.2",
-      "sha256": "59cc4531aa661e2de4c5bc04e4045b6bdd5d2bfa75045cbda5f673102d140eef",
-      "bytes": 690754
+      "package": "@tree-sitter-grammars/tree-sitter-zig@1.1.2",
+      "wasm": {
+        "url": "https://cdn.jsdelivr.net/npm/@tree-sitter-grammars/tree-sitter-zig@1.1.2/tree-sitter-zig.wasm",
+        "sha256": "54b3b83dd9c62da5815f06132bc3fc914d9dcc780370b32416446a0b7969e8c6",
+        "bytes": 691726
+      },
+      "tags": [],
+      "license": "MIT",
+      "extensions": [".zig", ".zig.zon"]
     }
   }
 }
