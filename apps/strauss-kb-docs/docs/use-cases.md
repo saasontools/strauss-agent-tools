@@ -273,7 +273,8 @@ Run it again later and the [states](./specification.md#drift) become the answer.
 It **exits non-zero** on drift or an unresolvable hash-carrying anchor, so it
 works as a CI gate, and a green run writes **nothing at all**. You do not have
 to run it to see drift: `load` and `query` re-resolve hash-carrying anchors as
-they read and attach a `drifted` warning.
+they read and attach a `drifted` warning — or `unchecked`, for an anchor in
+another repository whose remote was not in the cache.
 
 ## Sweeping a base for decay
 
@@ -297,11 +298,12 @@ thresholds: expiring within 30d, unverified over 90d, aging over 90d
   broken-supersession     0  the supersession pointers do not resolve
   superseded-but-cited    1  a live record's body links to one that no longer holds
   drifted                 0  the code an anchor points at moved
+  unchecked               0  an anchor in another repository nothing could reach
 
 ## expired (1)
 - fact.tls-cipher-list — The accepted cipher list: stale since 2026-06-01
 
-7 findings across 4 of 8 checks.
+7 findings across 4 of 9 checks.
 ```
 
 Every group is reported even when empty, and it is **read-only**: every finding

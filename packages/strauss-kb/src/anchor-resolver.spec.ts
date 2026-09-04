@@ -21,7 +21,7 @@ import {
   regexResolver,
   repoIdentifies,
   resolveAnchor,
-} from "./anchor-resolver.js";
+} from "./anchor-resolver/index.js";
 import { composeInputSchema } from "./compose.js";
 import { kbAnchorSchema, type KbRecord } from "./kb-record.schema.js";
 
@@ -789,8 +789,8 @@ describe("detectAnchorDrift", () => {
   });
 
   // A base can describe more than one repository. An anchor naming another one
-  // is expected here, not wrong: it is skipped, never read, and never surfaces
-  // as drift. Resolving it needs a second checkout — SAA-709.
+  // resolves against that repository's remote, never against this tree — the
+  // remote suite covers the fetch; these cases cover which side is chosen.
   describe("a repo the root is not", () => {
     const asGitRepo = (repo: string, origin: string) => {
       const git = (...args: string[]) =>
@@ -799,11 +799,12 @@ describe("detectAnchorDrift", () => {
       git("remote", "add", "origin", origin);
     };
 
-    test("is unresolved with foreign-repo, and the file is never read", async ({
+    // The working tree holds a matching copy, so a `match` here would prove
+    // the resolver read this tree for a file it was told lives elsewhere.
+    test("is read from its own remote, never from this tree", async ({
       repo,
     }) => {
       asGitRepo(repo, "git@github.com:org/this-one.git");
-      // Present and matching — proof the skip happens before any read.
       write(repo, "src/orders.ts", SOURCE);
       const anchor = {
         ...stamp("src/orders.ts", "totals", SOURCE),
@@ -812,6 +813,7 @@ describe("detectAnchorDrift", () => {
 
       const drift = await detectAnchorDrift([record("fact.other", [anchor])], {
         repoRoot: repo,
+        remote: { offline: true, cacheDir: join(repo, "cache") },
       });
 
       expect(drift.get("fact.other")).toEqual([
@@ -821,7 +823,8 @@ describe("detectAnchorDrift", () => {
           state: "unresolved",
           storedHash: anchor.hash,
           diffSize: null,
-          reason: "foreign-repo",
+          reason: "remote-unreachable",
+          repo: "https://github.com/org/somewhere-else",
         },
       ]);
     });
@@ -875,9 +878,12 @@ describe("detectAnchorDrift", () => {
 
       const drift = await detectAnchorDrift([record("fact.here", [anchor])], {
         repoRoot: repo,
+        remote: { offline: true, cacheDir: join(repo, "cache") },
       });
 
-      expect(drift.get("fact.here")?.[0]?.reason).toBe("foreign-repo");
+      // A short `repo` names a repository without saying where it lives, so
+      // there is no remote to fall back to either.
+      expect(drift.get("fact.here")?.[0]?.reason).toBe("remote-unreachable");
     });
 
     // An anchor that names no repo means this one, which is what nearly every
@@ -1108,8 +1114,8 @@ describe("looksLikeWrongRepoRoot", () => {
   // An anchor that named another repository was never going to resolve here.
   // As a miss it would make a correct root look wrong; as a hit it would keep
   // a genuinely wrong root from being spotted. It counts as neither.
-  test("ignores foreign-repo entries on both sides of the question", () => {
-    const foreign = entry({ reason: "foreign-repo" as const });
+  test("ignores another repository's anchors on both sides of the question", () => {
+    const foreign = entry({ repo: "https://github.com/org/other" });
 
     expect(
       looksLikeWrongRepoRoot(new Map([["fact.a", [foreign, entry()]]])),

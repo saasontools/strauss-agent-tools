@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { hashAnchorText, resolveAnchor } from "./anchor-resolver.js";
+import { hashAnchorText, resolveAnchor } from "./anchor-resolver/index.js";
 import { runKbCli } from "./cli.js";
 import { composeRecord } from "./compose.js";
 import { KbStore } from "./kb-store.js";
@@ -829,7 +829,7 @@ describe("runKbCli", () => {
         unverifiedDays: 90,
         agingDays: 90,
       });
-      expect(report.groups).toHaveLength(8);
+      expect(report.groups).toHaveLength(9);
       expect(report.counts.expired).toBe(1);
       expect(report.healthy).toBe(false);
       expect(
