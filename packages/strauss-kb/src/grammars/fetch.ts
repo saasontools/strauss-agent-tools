@@ -1,6 +1,14 @@
 import { fetchTimeoutMs } from "../remote-repo/index.js";
-import { DEFAULT_GRAMMARS_BASE_URL, type GrammarEntry } from "./model.js";
+import {
+  DEFAULT_GRAMMARS_BASE_URL,
+  type GrammarEntry,
+  type GrammarOptions,
+} from "./model.js";
 import { matches } from "./store.js";
+
+/** Attempts per grammar, and the pause after attempt `n`. */
+const ATTEMPTS = 3;
+const BACKOFF_MS = 250;
 
 /** `<base>/tree-sitter-wasms@<version>/out/tree-sitter-<language>.wasm`. */
 export function grammarUrl(
@@ -22,24 +30,79 @@ export function grammarsBaseUrl(override?: string): string {
   );
 }
 
+/** Bytes, or why the last attempt failed — for the log line and the hint. */
+export type Download = { bytes: Uint8Array } | { cause: string };
+
 /**
- * The grammar's bytes, or `null` for any failure — never a throw. Bytes that
- * do not hash as the manifest says are discarded: the manifest is what makes
- * an unsigned CDN safe to fetch from.
+ * The grammar's bytes, or a cause — never a throw.
+ *
+ * Bytes that do not hash as the manifest says are discarded and not retried:
+ * the manifest is what makes an unsigned CDN safe to fetch from, and a CDN
+ * that served the wrong file will serve it again. A timeout, a dropped
+ * connection, a 5xx or a 429 are transient, so those get `ATTEMPTS` tries.
  */
 export async function downloadGrammar(
   url: string,
+  language: string,
   entry: GrammarEntry,
-  timeoutMs?: number,
-): Promise<Uint8Array | null> {
+  options: GrammarOptions = {},
+): Promise<Download> {
+  const log =
+    options.log ?? ((line: string) => void process.stderr.write(line));
+  const name = `tree-sitter-${language}`;
+  log(
+    `strauss-kb: downloading ${name} (${size(entry.bytes)} from manifest) from ${url}\n`,
+  );
+
+  let cause = "";
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    const outcome = await attemptDownload(url, entry, options.fetchTimeoutMs);
+    if ("bytes" in outcome) return outcome;
+    cause = outcome.cause;
+    log(
+      `strauss-kb: ${name} attempt ${attempt}/${ATTEMPTS} failed: ${cause}\n`,
+    );
+    if (!outcome.retry) break;
+    if (attempt < ATTEMPTS) await pause(BACKOFF_MS * attempt);
+  }
+  log(`strauss-kb: ${name} not downloaded: ${cause}\n`);
+  return { cause };
+}
+
+async function attemptDownload(
+  url: string,
+  entry: GrammarEntry,
+  timeoutMs: number | undefined,
+): Promise<{ bytes: Uint8Array } | { cause: string; retry: boolean }> {
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(fetchTimeoutMs(timeoutMs)),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return {
+        cause: `HTTP ${response.status}`,
+        retry: response.status >= 500 || response.status === 429,
+      };
+    }
     const bytes = new Uint8Array(await response.arrayBuffer());
-    return matches(bytes, entry) ? bytes : null;
-  } catch {
-    return null;
+    if (!matches(bytes, entry))
+      return { cause: "sha256 mismatch", retry: false };
+    return { bytes };
+  } catch (error) {
+    const timedOut =
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError");
+    return { cause: timedOut ? "timeout" : "network error", retry: true };
   }
+}
+
+/** What the manifest says the file weighs, for the download line. */
+function size(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.round(bytes / 1024)} KB`;
+}
+
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

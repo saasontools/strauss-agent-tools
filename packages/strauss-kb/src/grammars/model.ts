@@ -27,6 +27,8 @@ export type GrammarOptions = {
   /** Cache only, never the network — what `--offline` passes down. */
   offline?: boolean;
   fetchTimeoutMs?: number;
+  /** Where the download lines go. Defaults to stderr, never stdout. */
+  log?: (line: string) => void;
 };
 
 export const DEFAULT_GRAMMARS_BASE_URL = "https://cdn.jsdelivr.net/npm";

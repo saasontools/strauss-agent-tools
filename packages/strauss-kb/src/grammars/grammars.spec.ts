@@ -9,7 +9,7 @@ import {
   startGrammarsServer,
   type GrammarsServer,
 } from "../../test/grammars-server.js";
-import { TreeSitterResolver } from "../tree-sitter-resolver.js";
+import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import {
   ensureGrammar,
   grammarCachePath,
@@ -140,6 +140,82 @@ describe("ensureGrammar", () => {
   test("a language the manifest does not carry is never fetched", async () => {
     expect(await ensureGrammar("ruby", options())).toBeNull();
     expect(server.requests).toHaveLength(0);
+  });
+});
+
+describe("retrying a download", () => {
+  /** The lines a run would have written to stderr. */
+  function collect() {
+    const lines: string[] = [];
+    return { lines, log: (line: string) => void lines.push(line) };
+  }
+
+  test("a 5xx is tried three times, then given up on with the cause", async () => {
+    await server.close();
+    server = await startGrammarsServer({ status: 500 });
+    const { lines, log } = collect();
+
+    expect(await ensureGrammar("rust", options({ log }))).toBeNull();
+    expect(server.requests).toHaveLength(3);
+    expect(lines[0]).toMatch(
+      /^strauss-kb: downloading tree-sitter-rust \(\d+ KB from manifest\) from http/,
+    );
+    expect(lines.slice(1)).toEqual([
+      "strauss-kb: tree-sitter-rust attempt 1/3 failed: HTTP 500\n",
+      "strauss-kb: tree-sitter-rust attempt 2/3 failed: HTTP 500\n",
+      "strauss-kb: tree-sitter-rust attempt 3/3 failed: HTTP 500\n",
+      "strauss-kb: tree-sitter-rust not downloaded: HTTP 500\n",
+    ]);
+    expect(grammarHints()).toEqual([
+      "grammar tree-sitter-rust not cached (HTTP 500); run online once, or set STRAUSS_KB_GRAMMARS_DIR",
+    ]);
+  });
+
+  test("a 404 is the CDN's answer, not a hiccup: one request", async () => {
+    await server.close();
+    server = await startGrammarsServer({ status: 404 });
+    const { lines, log } = collect();
+
+    expect(await ensureGrammar("go", options({ log }))).toBeNull();
+    expect(server.requests).toHaveLength(1);
+    expect(lines.at(-1)).toBe(
+      "strauss-kb: tree-sitter-go not downloaded: HTTP 404\n",
+    );
+  });
+
+  test("bytes that do not hash are never retried", async () => {
+    await server.close();
+    server = await startGrammarsServer({ corrupt: true });
+    const { lines, log } = collect();
+
+    expect(await ensureGrammar("python", options({ log }))).toBeNull();
+    expect(server.requests).toHaveLength(1);
+    expect(lines.at(-1)).toBe(
+      "strauss-kb: tree-sitter-python not downloaded: sha256 mismatch\n",
+    );
+  });
+
+  test("a timeout is retried, and named as one", async () => {
+    await server.close();
+    server = await startGrammarsServer({ hang: true });
+    const { lines, log } = collect();
+
+    expect(
+      await ensureGrammar("go", options({ fetchTimeoutMs: 50, log })),
+    ).toBeNull();
+    expect(server.requests).toHaveLength(3);
+    expect(lines.at(-1)).toBe(
+      "strauss-kb: tree-sitter-go not downloaded: timeout\n",
+    );
+  });
+
+  test("a server that fails once still yields the grammar", async () => {
+    await server.close();
+    server = await startGrammarsServer({ failFirst: 1 });
+
+    expect(await ensureGrammar("python", options())).toBe(cached("python"));
+    expect(server.requests).toHaveLength(2);
+    expect(grammarHints()).toEqual([]);
   });
 });
 

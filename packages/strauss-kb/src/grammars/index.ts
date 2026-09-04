@@ -9,7 +9,7 @@ import {
 } from "./store.js";
 
 export { grammarsBaseUrl, grammarUrl } from "./fetch.js";
-export { grammarManifest } from "./manifest.js";
+export { grammarManifest, grammarsDataPath } from "./manifest.js";
 export {
   DEFAULT_GRAMMARS_BASE_URL,
   grammarManifestSchema,
@@ -22,8 +22,19 @@ export { grammarCachePath, grammarsCacheRoot } from "./store.js";
 /** One download per language per process, however many callers ask at once. */
 const inFlight = new Map<string, Promise<string | null>>();
 
-/** Languages this process wanted and could not get, for the hint. */
-const missing = new Set<string>();
+/** Languages this process wanted and could not get, and why, for the hint. */
+const missing = new Map<string, string | undefined>();
+
+/** Languages whose grammar loaded but ship no definitions query. */
+const unqueryable = new Set<string>();
+
+/**
+ * Records a language the resolver loaded a grammar for and then had no tags
+ * query to run. Hints live in one place, so the resolver reports through here.
+ */
+export function noteMissingQuery(language: string): void {
+  unqueryable.add(language);
+}
 
 /** `STRAUSS_KB_GRAMMARS=off` keeps a run off the wire; the cache still counts. */
 export function grammarsDownloadDisabled(): boolean {
@@ -56,24 +67,25 @@ export async function ensureGrammar(
       return path;
     }
     if (options.offline === true || grammarsDownloadDisabled()) {
-      missing.add(language);
+      missing.set(language, undefined);
       return null;
     }
-    const bytes = await downloadGrammar(
+    const download = await downloadGrammar(
       grammarUrl(
         grammarsBaseUrl(options.baseUrl),
         manifest.package,
         manifest.version,
         language,
       ),
+      language,
       entry,
-      options.fetchTimeoutMs,
+      options,
     );
-    if (!bytes) {
-      missing.add(language);
+    if ("cause" in download) {
+      missing.set(language, download.cause);
       return null;
     }
-    await writeCached(path, bytes).catch(() => null);
+    await writeCached(path, download.bytes).catch(() => null);
     missing.delete(language);
     return path;
   })();
@@ -88,16 +100,25 @@ export async function ensureGrammar(
  * anchor-resolve reports. The only place the repair is spelled out.
  */
 export function grammarHints(): string[] {
-  return [...missing]
-    .sort()
-    .map(
-      (language) =>
-        `grammar tree-sitter-${language} not cached; run online once, or set STRAUSS_KB_GRAMMARS_DIR`,
-    );
+  return [
+    ...[...missing]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([language, cause]) =>
+          `grammar tree-sitter-${language} not cached${cause ? ` (${cause})` : ""}; run online once, or set STRAUSS_KB_GRAMMARS_DIR`,
+      ),
+    ...[...unqueryable]
+      .sort()
+      .map(
+        (language) =>
+          `no definitions query for ${language}; anchors in those files stay unresolved`,
+      ),
+  ];
 }
 
 /** Test seam: forgets this process's downloads and misses. */
 export function resetGrammarState(): void {
   inFlight.clear();
   missing.clear();
+  unqueryable.clear();
 }
