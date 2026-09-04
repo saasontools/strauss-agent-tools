@@ -343,7 +343,7 @@ function brokenSupersession(
   const findings: KbDoctorFinding[] = [];
   const seen = new Set<string>();
   const add = (record: KbRecord, note: string) => {
-    const key = `${record.conceptId} ${note}`;
+    const key = `${record.conceptId}\u0000${note}`;
     if (seen.has(key)) return;
     seen.add(key);
     findings.push(finding(record, note));
