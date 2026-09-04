@@ -82,15 +82,15 @@ export async function detectAnchorDrift(
     }
   }
 
-  const reads = await readAnchorFiles(
-    files,
-    options.reader ?? anchorFileReader(repoRoot),
-    options.concurrency ?? DEFAULT_IO_CONCURRENCY,
-  );
-  const remote = await (options.readRemote ?? readRemoteAnchors)(
-    wants,
-    options.remote ?? {},
-  );
+  // Disk and network are independent; neither waits for the other.
+  const [reads, remote] = await Promise.all([
+    readAnchorFiles(
+      files,
+      options.reader ?? anchorFileReader(repoRoot),
+      options.concurrency ?? DEFAULT_IO_CONCURRENCY,
+    ),
+    (options.readRemote ?? readRemoteAnchors)(wants, options.remote ?? {}),
+  ]);
 
   const drift = new Map<string, KbAnchorDriftEntry[]>();
   for (const record of records) {
