@@ -130,8 +130,26 @@ drift path writes `verified[]` or moves standing.
 Repository identity is normalised and compared, not parsed: an invented format
 would reject correct values from unseen hosts.
 
-Not one anchored file found under a default root is a wrong root, so its
-findings are dropped.
+## Remote over local checkout
+
+An anchor naming another repository resolves against that repository's remote,
+through a bare cache under `~/.strauss/repo-cache`. A checkout is one person's
+view — stale, dirty, or absent — so a hash from it is evidence about that
+machine, not the code.
+
+The rejected design was multi-root: `--repo-root name=path` per repository,
+root discovery, a `.strauss/kb-roots.json` map, a `repo-not-mapped` finding. It
+makes the answer depend on the reader's disk — one machine verifies, another
+reports drift — and needs configuring before a base can check itself. Git
+already knows how to reach a remote.
+
+A pinned `ref` is checked at that commit and the default branch compared on top
+of it: was the record ever true, and does it still hold.
+
+`repo` and `ref` come out of a `.md` file the reader did not write, so both are
+validated against a shape before any `git` runs: an argv array stops the shell
+but not git's own option parsing, where `--upload-pack=<cmd>` as a rev and
+`ext::sh -c <cmd>` as a URL are each an execution primitive.
 
 ## Cross-worktree log safety
 

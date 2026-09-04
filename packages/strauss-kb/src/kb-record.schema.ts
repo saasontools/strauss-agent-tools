@@ -55,7 +55,7 @@ export const kbVerifiedEventSchema = kbActorStampSchema.extend({
  * Symbolic on purpose. These are written while the code is still moving: a
  * `line: 379` recorded at minute five is wrong by minute forty, but
  * `OrderService.cancel` survives every edit that does not rename it. Once the
- * change settles, a resolution pass (`anchor-resolver.ts`) stamps `hash`,
+ * change settles, a resolution pass (`anchor-resolver/`) stamps `hash`,
  * `resolved_at`, and `lines`; drift detection later re-resolves and compares.
  *
  * `hash` is prefixed with the algorithm so a future one can coexist with
@@ -78,16 +78,17 @@ export const kbAnchorSchema = z
      * (`https://github.com/org/name`) or a short name. Absent means the base's
      * own repository, which is what nearly every anchor means.
      *
-     * Unvalidated beyond not-blank: one repository has many spellings.
-     * Matched after normalisation; see ARCHITECTURE.
+     * Unvalidated beyond not-blank: one repository has many spellings, matched
+     * after normalisation. Only a full URL can be fetched from, so `validate`
+     * warns on a short one; see ARCHITECTURE.
      */
     repo: z.string().trim().min(1).optional(),
     /**
      * The git rev the evidence was taken at. Prefer a commit SHA: a branch
      * name is a moving pointer, so an anchor pinned to one says the evidence
      * came from wherever that branch happens to be now, which is not a
-     * baseline. Recorded and preserved in v1; ref-pinned reads land with
-     * SAA-709.
+     * baseline. A foreign anchor is checked at this rev, and compared against
+     * the remote's default branch on top of it.
      */
     ref: z.string().trim().min(1).optional(),
     hash: z

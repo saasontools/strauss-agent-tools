@@ -174,7 +174,7 @@ strauss_anchors:
 | `resolved_at` | no       | ISO timestamp of the last resolution            |
 | `resolver`    | no       | `tree-sitter` or `regex`; absent reads as regex |
 | `repo`        | no       | which repository; absent means the base's own   |
-| `ref`         | no       | git rev the evidence was taken at; unused in v1 |
+| `ref`         | no       | git rev the evidence was taken at               |
 
 Anchors stay symbolic because they are written while the code is still moving;
 once it settles, a resolution pass stamps `hash`, `hash_kind`, `lines`,
@@ -199,8 +199,9 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 
 `unresolved` carries a reason: `file-missing`, `symbol-not-found`,
 `symbol-ambiguous`, `resolver-unavailable`, `outside-repo`, `file-too-large`,
-`file-unreadable`, or `foreign-repo`. `drifted` carries `resolver-changed` when
-the resolver changed and the code did not.
+`file-unreadable`, `remote-unreachable`, `ref-not-found`, `repo-unauthorized`,
+`default-branch-unknown`, `ref-invalid`, or `repo-invalid`. `drifted` carries
+`resolver-changed` when the resolver changed and the code did not.
 
 #### Drift classes
 
@@ -282,6 +283,39 @@ the working tree and attach a warning:
 hash are never read, and any failure degrades to no drift information rather
 than failing the read. When `--repo-root` is omitted and _every_ checked anchor
 comes back missing, the finding is discarded.
+
+#### Anchors in another repository
+
+An anchor whose `repo` is not this root's `origin` is read from that
+repository's remote, never from a local checkout — a checkout is one person's
+possibly stale view of it. Resolution fetches into a bare cache at
+`~/.strauss/repo-cache/<host>/<org>/<name>.git` (`STRAUSS_KB_REPO_CACHE`
+overrides), one `git fetch --depth 1` per (repo, rev) per run, and reads the
+blob with `git cat-file`. Authentication is git's own. A fetch that hangs is
+cut off after 30s (`STRAUSS_KB_FETCH_TIMEOUT_MS`).
+
+With a `ref`, the evidence is checked at that commit and "current" is the
+remote's default branch:
+
+| State                | Meaning                                                |
+| -------------------- | ------------------------------------------------------ |
+| `matches-ref`        | the hash holds at the ref, and on the default branch   |
+| `drifted-from-ref`   | the hash does not hold at the commit the record names  |
+| `drifted-on-default` | it holds at the ref, and the default branch moved past |
+
+Without a `ref` there is one state, against the default branch. Only a full URL
+can be fetched from, so `validate` warns on a short `repo`; records are never
+rewritten. `load` and `query` never fetch — they read the cache, and report
+anything they could not check as `unchecked`.
+
+`repo` and `ref` are record data, and both reach `git` argv, where an argv array
+stops the shell but not git's own option parsing. So both are checked before git
+sees them: a `ref` must be an option-free, range-free name git's own
+`check-ref-format` accepts (`ref-invalid` otherwise), and a `repo` must be an
+`https`, `ssh`, or `git` remote carrying no password (`repo-invalid` otherwise —
+`ext::`, `file://`, and plaintext `http://` are all refused).
+`STRAUSS_KB_REPO_PROTOCOLS` widens that list and exists for the test suite, not
+for production.
 
 ### Typed causal links
 
@@ -404,6 +438,7 @@ replacement is also in the results.
 | `stale`               | `stale_after` is in the past                                                         |
 | `unverified`          | `verified[]` is empty                                                                |
 | `drifted`             | anchored code moved; carries `anchors`, each with `diffSize` and any reason          |
+| `unchecked`           | a foreign anchor nothing could reach — neither drift nor a clean match               |
 
 ## Supersession
 

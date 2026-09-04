@@ -52,6 +52,7 @@ export {
   defaultAnchorResolvers,
   detectAnchorDrift,
   hashAnchorText,
+  isCanonicalRepoUrl,
   prepareResolvers,
   regexResolver,
   resolveAnchor,
@@ -60,9 +61,16 @@ export {
   type AnchorResolver,
   type AnchorResolverName,
   type KbAnchorDriftEntry,
+  type RemoteAnchorState,
   type ResolvedSymbol,
   type ResolverAttempt,
-} from "./anchor-resolver.js";
+} from "./anchor-resolver/index.js";
+export {
+  readRemoteAnchors,
+  repoCacheDir,
+  type RemoteOptions,
+  type RemoteRead,
+} from "./remote-repo/index.js";
 export {
   TreeSitterResolver,
   languageForFile,

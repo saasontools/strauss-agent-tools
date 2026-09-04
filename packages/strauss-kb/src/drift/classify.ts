@@ -7,8 +7,9 @@ import {
   type AnchorResolver,
   type KbAnchorDriftEntry,
   type KbDriftClass,
-} from "../anchor-resolver.js";
+} from "../anchor-resolver/index.js";
 import type { KbAnchor, KbRecord } from "../kb-record.schema.js";
+import { isUncheckedReason } from "../remote-repo/index.js";
 import { TreeSitterResolver } from "../tree-sitter-resolver.js";
 import { readOldSource, type OldSourceOrigin } from "./git.js";
 import { movedSearch, type MovedSearch } from "./moved.js";
@@ -78,7 +79,7 @@ export async function classifyDrift(
   entries.forEach((entry, at) => {
     const anchor = anchors[at];
     if (!anchor) return;
-    if (entry.state === "match" || entry.reason === "foreign-repo") return;
+    if (entry.state === "match" || isUncheckedReason(entry.reason)) return;
     wanted.push({ anchor, entry });
   });
   if (!wanted.length) return [];

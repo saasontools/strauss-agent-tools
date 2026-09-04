@@ -234,10 +234,7 @@ describe("neighbours", () => {
     store,
     bundle,
   }) => {
-    await store.write(
-      bundle,
-      fact("old", { anchors: [{ file: "src/a.ts" }] }),
-    );
+    await store.write(bundle, fact("old", { anchors: [{ file: "src/a.ts" }] }));
     await store.write(
       bundle,
       fact("new", {
@@ -254,10 +251,7 @@ describe("neighbours", () => {
   });
 
   test("honours a narrowed kind list", async ({ store, bundle }) => {
-    await store.write(
-      bundle,
-      fact("old", { anchors: [{ file: "src/a.ts" }] }),
-    );
+    await store.write(bundle, fact("old", { anchors: [{ file: "src/a.ts" }] }));
     await store.write(bundle, fact("new", { supersedes: ["fact.old"] }));
 
     const { records, get } = await byId(store, bundle);

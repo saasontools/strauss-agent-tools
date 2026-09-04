@@ -7,7 +7,7 @@ import {
   detectAnchorDrift,
   hashAnchorText,
   resolveAnchor,
-} from "./anchor-resolver.js";
+} from "./anchor-resolver/index.js";
 import { composeRecord } from "./compose.js";
 import {
   doctor,
@@ -229,9 +229,10 @@ describe("doctor", () => {
       orphaned: 3,
       "broken-supersession": 1,
       "superseded-but-cited": 1,
-      // No drift map handed in: the check runs and finds nothing, which is
+      // No drift map handed in: the checks run and find nothing, which is
       // exactly what a base whose anchors nobody stamped should report.
       drifted: 0,
+      unchecked: 0,
     });
     expect(report.findingCount).toBe(12);
     expect(report.healthy).toBe(false);
@@ -739,11 +740,10 @@ describe("doctor", () => {
       });
     });
 
-    // A base describing several repositories resolves against one tree at a
-    // time. An anchor for another repo is expected, so it is never decay —
-    // filtered at the single adjudication point the sweep and every read path
-    // share, so none of them can start reporting it.
-    test("says nothing about an anchor belonging to another repo", () => {
+    // An anchor nothing could reach is neither drift nor a clean base. It gets
+    // its own group, named by the repository that could not be read, so one
+    // unreachable remote reads as one cause rather than N findings.
+    test("groups an unreachable anchor under its repository, not drift", () => {
       const report = doctor([anchored("decision.totals-shape")], {
         now: NOW,
         anchorDrift: new Map([
@@ -756,7 +756,8 @@ describe("doctor", () => {
                 state: "unresolved" as const,
                 storedHash: hashAnchorText(SOURCE),
                 diffSize: null,
-                reason: "foreign-repo" as const,
+                reason: "remote-unreachable" as const,
+                repo: "https://github.com/org/other",
               },
             ],
           ],
@@ -764,6 +765,9 @@ describe("doctor", () => {
       });
 
       expect(ids(report, "drifted")).toEqual([]);
+      expect(note(report, "unchecked", "decision.totals-shape")).toBe(
+        "1 anchor was not checked: https://github.com/org/other: src/orders.ts:totals (remote-unreachable)",
+      );
     });
 
     // Code moving out from under a replaced record is the expected outcome of

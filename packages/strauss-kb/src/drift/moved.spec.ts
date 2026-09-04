@@ -7,7 +7,7 @@ import {
   anchorFileReader,
   hashAnchorText,
   type AnchorFileReader,
-} from "../anchor-resolver.js";
+} from "../anchor-resolver/index.js";
 import type { KbAnchor } from "../kb-record.schema.js";
 import { TreeSitterResolver } from "../tree-sitter-resolver.js";
 import { movedSearch } from "./moved.js";

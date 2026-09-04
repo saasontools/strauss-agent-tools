@@ -208,15 +208,15 @@ An anchor names where a record attaches in the code: a `file`, optionally a
 `symbol` — symbolic, because a line number written mid-change is wrong by the
 end of it. Six optional fields extend it:
 
-| Field         | Meaning                                                                                                          |
-| ------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `hash`        | `sha256:<hex>` over the anchored text, algorithm-prefixed.                                                       |
-| `hash_kind`   | What `hash` covered: `raw` text, or the `ast` token stream. Absent means `raw`.                                  |
-| `lines`       | Line count the hash covered.                                                                                     |
-| `resolved_at` | When the anchor last resolved.                                                                                   |
-| `resolver`    | Which resolver produced the hash: `tree-sitter` or `regex`.                                                      |
-| `repo`        | Which repository — remote URL or short name. Absent means this base's own repository.                            |
-| `ref`         | Git rev the evidence was taken at. Recorded but unused until [SAA-709](https://linear.app/saason/issue/SAA-709). |
+| Field         | Meaning                                                                               |
+| ------------- | ------------------------------------------------------------------------------------- |
+| `hash`        | `sha256:<hex>` over the anchored text, algorithm-prefixed.                            |
+| `hash_kind`   | What `hash` covered: `raw` text, or the `ast` token stream. Absent means `raw`.       |
+| `lines`       | Line count the hash covered.                                                          |
+| `resolved_at` | When the anchor last resolved.                                                        |
+| `resolver`    | Which resolver produced the hash: `tree-sitter` or `regex`.                           |
+| `repo`        | Which repository — remote URL or short name. Absent means this base's own repository. |
+| `ref`         | Git rev the evidence was taken at.                                                    |
 
 `hash`, `hash_kind`, `lines`, `resolved_at`, and `resolver` are **measured** — a resolution pass stamps
 them; `repo` and `ref` are **author-owned identity** and a resolution pass
@@ -231,15 +231,21 @@ counterpart: it checks the anchored code against the working tree
 - **drifted** — hash changed. Baseline kept unless `--rebaseline`.
 - **unresolved** — not comparable, with a reason. A finding, not an error.
 
-An anchor naming another `repo` is skipped: never read, stamped, or counted.
+An anchor naming another `repo` is read from that repository's **remote**,
+through a bare cache under `~/.strauss/repo-cache` — a local checkout is one
+person's possibly stale view of the same file. With a `ref` it has three
+states: `matches-ref`, `drifted-from-ref`, and `drifted-on-default`.
+`--offline` reads the cache and never fetches. Only `https`, `ssh`, and `git`
+remotes are fetched, and a `repo` or `ref` git could read as an option is a
+finding, not a command.
 
 An anchor must not read outside the repository it describes, checked lexically
 and again on the real path after symlinks.
 
 Exit code is non-zero on **drifted**, or on **unresolved** for an anchor that
-carries a hash; unstamped and foreign anchors never fail.
+carries a hash; unstamped anchors and unreachable remotes never fail.
 
-A fully clean run — every checkable anchor `match`, none stamped this run —
+A fully clean run — every anchor checked and `match`, none stamped this run —
 appends a `verified[]` event.
 
 Symbols resolve tree-sitter first (TypeScript, TSX, JavaScript, Python, Go,
@@ -273,10 +279,14 @@ set. Neither verb verifies, supersedes, or changes standing — see the skill's
 protocol.
 
 Drift also surfaces on read: `kb_load` and `kb_query` attach a
-`{ kind: "drifted" }` warning, and `kb_doctor` lists every drifted anchor
-base-wide — all three take `--repo-root`. With no `--repo-root` given, a run
-that finds not one anchored file drops the finding as a wrong root; an explicit
-`--repo-root` is taken at its word.
+`{ kind: "drifted" }` warning — or `{ kind: "unchecked" }` for a foreign anchor
+they could not read from the cache, because they never fetch — and `kb_doctor`
+lists both base-wide, per repository. All three take `--repo-root`. With no
+`--repo-root` given, a run that finds not one anchored file drops the finding as
+a wrong root; an explicit `--repo-root` is taken at its word.
+
+Remote resolution in full:
+[specification](https://saasontools.github.io/strauss-agent-tools/specification#anchors-in-another-repository).
 
 Details: [specification](https://saasontools.github.io/strauss-agent-tools/specification).
 
@@ -440,9 +450,9 @@ caveats: <https://saasontools.github.io/strauss-agent-tools/mcp-reference>.
 ## Health
 
 `doctor` sweeps a base read-only for `expired`, `expiring`, `unverified`,
-`aging`, `orphaned`, `broken-supersession`, `superseded-but-cited`, and
-`drifted`. All eight groups are reported even when empty; `--strict` gates on
-expiry alone, not on drift. Pass `--repo-root PATH` when the base does not sit
+`aging`, `orphaned`, `broken-supersession`, `superseded-but-cited`, `drifted`,
+and `unchecked`. All nine groups are reported even when empty; `--strict` gates
+on expiry alone, not on drift. Pass `--repo-root PATH` when the base does not sit
 inside the tree it describes.
 Windows and judgments:
 [cli-reference](https://saasontools.github.io/strauss-agent-tools/cli-reference).

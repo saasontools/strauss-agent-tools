@@ -3,7 +3,7 @@ import type {
   KbAnchorDriftEntry,
   KbDriftClass,
   KbDriftMovedTo,
-} from "../anchor-resolver.js";
+} from "../anchor-resolver/index.js";
 import type { KbRecord, KbRecordType } from "../kb-record.schema.js";
 import type { KbImpactResult } from "../kb-links/index.js";
 import { isKbRecordType, RECORD_TYPES } from "../record-types.js";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { adjudicate } from "./adjudicate.js";
-import type { KbAnchorDriftEntry } from "./anchor-resolver.js";
+import type { KbAnchorDriftEntry } from "./anchor-resolver/index.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 
 function record(

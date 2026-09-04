@@ -9,7 +9,7 @@ import {
   regexResolver,
   resolveAnchor,
   type KbAnchorDriftEntry,
-} from "../anchor-resolver.js";
+} from "../anchor-resolver/index.js";
 import { composeRecord } from "../compose.js";
 import { KbStore } from "../kb-store.js";
 import type { KbAnchor, KbRecord } from "../kb-record.schema.js";

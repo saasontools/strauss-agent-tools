@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { filePathIsSafe, refShapeIsSafe } from "../remote-repo/validate.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -14,41 +15,14 @@ const execFileAsync = promisify(execFile);
  * here fetches — a rev this checkout does not have is a finding, never a
  * network call.
  *
- * SAA-709 lands the same guards in `src/remote-repo/validate.ts` for the
- * cross-repo read path; when that merges, these two collapse into one module.
+ * The shape checks themselves are `remote-repo/validate.ts`'s: one definition
+ * of what a `ref` and a `file` may be, whichever read path asks.
  */
-
-/** Long enough for any real branch or sha, short enough to bound the argv. */
-const MAX_REF_LENGTH = 200;
 
 /** Output cap. A recovered file is source, and source this large is not. */
 export const MAX_GIT_OUTPUT_BYTES = 1_048_576;
 
 const GIT_TIMEOUT_MS = 5_000;
-
-/**
- * The shape a `ref` must have to reach git at all. The leading class excludes
- * `-`, so no ref can be read as an option; `@`, `{`, `\\`, `:`, spaces and
- * control characters are outside the class entirely.
- */
-const REF_SHAPE = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
-
-export function validRef(ref: string): boolean {
-  if (!ref || ref.length > MAX_REF_LENGTH) return false;
-  // `a..b` is a range, not a rev, and `git show` would resolve it as one.
-  if (ref.includes("..") || ref.includes("\0")) return false;
-  return REF_SHAPE.test(ref);
-}
-
-/**
- * A `file` that may become the path half of `<rev>:<path>`. A leading `-` would
- * be an option; `..` would climb out of the tree the anchor describes.
- */
-export function validPath(file: string): boolean {
-  const path = file.replace(/^\.\//, "");
-  if (!path || path.startsWith("-") || path.includes("\0")) return false;
-  return !path.split("/").includes("..");
-}
 
 type GitResult = { ok: true; stdout: string } | { ok: false };
 
@@ -110,9 +84,10 @@ export async function readOldSource(
   repoRoot: string,
   anchor: { file: string; ref?: string; resolved_at?: string },
 ): Promise<OldSource> {
-  if (!validPath(anchor.file)) return { ok: false, reason: "unrecoverable" };
+  if (!filePathIsSafe(anchor.file))
+    return { ok: false, reason: "unrecoverable" };
 
-  if (anchor.ref && validRef(anchor.ref)) {
+  if (anchor.ref && refShapeIsSafe(anchor.ref)) {
     const shown = await showFile(repoRoot, anchor.ref, anchor.file);
     if (shown !== null) {
       return {
@@ -140,7 +115,8 @@ export async function readOldSource(
     anchor.file,
   ]);
   const sha = found.ok ? found.stdout.trim() : "";
-  if (!sha || !validRef(sha)) return { ok: false, reason: "unrecoverable" };
+  if (!sha || !refShapeIsSafe(sha))
+    return { ok: false, reason: "unrecoverable" };
 
   const shown = await showFile(repoRoot, sha, anchor.file);
   if (shown === null) return { ok: false, reason: "unrecoverable" };

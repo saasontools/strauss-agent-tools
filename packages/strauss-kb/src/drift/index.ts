@@ -22,8 +22,6 @@ export {
 export {
   listRepoFiles,
   readOldSource,
-  validPath,
-  validRef,
   type OldSource,
   type OldSourceOrigin,
 } from "./git.js";

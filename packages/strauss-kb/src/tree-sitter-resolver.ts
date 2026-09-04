@@ -6,7 +6,7 @@ import type {
   AnchorResolver,
   ResolvedSymbol,
   ResolverAttempt,
-} from "./anchor-resolver.js";
+} from "./anchor-resolver/index.js";
 
 /**
  * AST-backed anchor resolution: a symbol resolves to the byte range of the

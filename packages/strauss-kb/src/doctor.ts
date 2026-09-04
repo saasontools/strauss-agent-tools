@@ -1,5 +1,10 @@
-import { adjudicate, type KbStanding } from "./adjudicate.js";
-import type { KbAnchorDriftEntry } from "./anchor-resolver.js";
+import {
+  adjudicate,
+  type KbStanding,
+  type KbWarning,
+  type KbWarningAnchor,
+} from "./adjudicate.js";
+import type { KbAnchorDriftEntry } from "./anchor-resolver/index.js";
 import { edgeNeighbours } from "./kb-edges.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 import { validateBundle } from "./validate.js";
@@ -37,6 +42,7 @@ export const KB_DOCTOR_CHECKS = [
   "broken-supersession",
   "superseded-but-cited",
   "drifted",
+  "unchecked",
 ] as const;
 
 export type KbDoctorCheck = (typeof KB_DOCTOR_CHECKS)[number];
@@ -52,6 +58,7 @@ const CHECK_HEADLINES: Record<KbDoctorCheck, string> = {
   "superseded-but-cited":
     "a live record's body links to one that no longer holds",
   drifted: "the code an anchor points at moved out from under its hash",
+  unchecked: "an anchor in another repository nothing could reach",
 };
 
 export type KbDoctorFinding = {
@@ -164,6 +171,7 @@ export function doctor(
     group("broken-supersession", brokenSupersession(bundle, adjudicated)),
     group("superseded-but-cited", supersededButCited(bundle, standings)),
     group("drifted", drifted(inForce)),
+    group("unchecked", unchecked(inForce)),
   ];
 
   const counts = Object.fromEntries(
@@ -372,7 +380,7 @@ function brokenSupersession(
   const findings: KbDoctorFinding[] = [];
   const seen = new Set<string>();
   const add = (record: KbRecord, note: string) => {
-    const key = `${record.conceptId} ${note}`;
+    const key = `${record.conceptId}\u0000${note}`;
     if (seen.has(key)) return;
     seen.add(key);
     findings.push(finding(record, note));
@@ -486,46 +494,75 @@ function supersededButCited(
  * In-force records only. A superseded record anchoring code that has since
  * moved is the expected outcome of it being replaced, not a repair.
  *
- * Unresolvable anchors ride in this group rather than a ninth check: the repair
- * is the same edit, and the note says which happened.
+ * Unresolvable anchors ride in this group rather than a check of their own:
+ * the repair is the same edit, and the note says which happened.
  */
 function drifted(hits: ReturnType<typeof adjudicate>): KbDoctorFinding[] {
+  return anchorFindings(hits, "drifted", (count) =>
+    count === 1 ? "anchor no longer matches" : "anchors no longer match",
+  );
+}
+
+/**
+ * Anchors in another repository that nothing could read — unreachable, refused,
+ * or offline. Its own group because the repair is not an edit to the record:
+ * a reader who cannot tell "unchecked" from "clean" trusts a base nobody
+ * checked.
+ */
+function unchecked(hits: ReturnType<typeof adjudicate>): KbDoctorFinding[] {
+  return anchorFindings(hits, "unchecked", (count) =>
+    count === 1 ? "anchor was not checked" : "anchors were not checked",
+  );
+}
+
+/** Anchor findings grouped by repository, so one unreachable remote reads as one cause. */
+function anchorFindings(
+  hits: ReturnType<typeof adjudicate>,
+  kind: "drifted" | "unchecked",
+  headline: (count: number) => string,
+): KbDoctorFinding[] {
   const findings: KbDoctorFinding[] = [];
   for (const hit of hits) {
-    const warning = hit.warnings.find((entry) => entry.kind === "drifted");
+    const warning = hit.warnings.find(
+      (entry): entry is Extract<KbWarning, { anchors: KbWarningAnchor[] }> =>
+        entry.kind === kind,
+    );
     if (!warning) continue;
+    const byRepo = new Map<string, string[]>();
+    for (const anchor of warning.anchors) {
+      const repo = anchor.repo ?? "";
+      byRepo.set(repo, [...(byRepo.get(repo) ?? []), describeAnchor(anchor)]);
+    }
+    const detail = [...byRepo.entries()].map(([repo, entries]) =>
+      repo ? `${repo}: ${entries.join(", ")}` : entries.join(", "),
+    );
     findings.push(
       finding(
         hit.record,
-        `${warning.anchors.length} ${
-          warning.anchors.length === 1
-            ? "anchor no longer matches"
-            : "anchors no longer match"
-        }: ${warning.anchors
-          .map((anchor) => {
-            const at = anchor.symbol
-              ? `${anchor.file}:${anchor.symbol}`
-              : anchor.file;
-            if (anchor.class === "gone") {
-              return `${at} gone${anchor.reason ? ` (${anchor.reason})` : ""}`;
-            }
-            if (anchor.reason) return `${at} (${anchor.reason})`;
-            if (anchor.diffSize === null) {
-              return `${at} (changed, size unrecorded)`;
-            }
-            // A same-size rewrite is the drift most worth naming plainly:
-            // "0 lines apart" reads as "nothing happened".
-            return anchor.diffSize === 0
-              ? `${at} (content changed, same line count)`
-              : `${at} (${anchor.diffSize} line${anchor.diffSize === 1 ? "" : "s"} apart)`;
-          })
-          .join(", ")}`,
+        `${warning.anchors.length} ${headline(warning.anchors.length)}: ${detail.join("; ")}`,
       ),
     );
   }
   return findings.sort((left, right) =>
     left.conceptId.localeCompare(right.conceptId),
   );
+}
+
+function describeAnchor(anchor: KbWarningAnchor): string {
+  const at = anchor.symbol ? `${anchor.file}:${anchor.symbol}` : anchor.file;
+  if (anchor.class === "gone") {
+    return `${at} gone${anchor.reason ? ` (${anchor.reason})` : ""}`;
+  }
+  if (anchor.reason) return `${at} (${anchor.reason})`;
+  if (anchor.remoteState === "drifted-on-default") {
+    return `${at} (matches ref, moved on the default branch)`;
+  }
+  if (anchor.diffSize === null) return `${at} (changed, size unrecorded)`;
+  // A same-size rewrite is the drift most worth naming plainly:
+  // "0 lines apart" reads as "nothing happened".
+  return anchor.diffSize === 0
+    ? `${at} (content changed, same line count)`
+    : `${at} (${anchor.diffSize} line${anchor.diffSize === 1 ? "" : "s"} apart)`;
 }
 
 /** Either pointer saying `later` is what stands in `earlier`'s place. */

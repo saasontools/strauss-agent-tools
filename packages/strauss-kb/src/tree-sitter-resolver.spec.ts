@@ -9,7 +9,7 @@ import {
   regexResolver,
   resolveAnchorSpan,
   type AnchorResolution,
-} from "./anchor-resolver.js";
+} from "./anchor-resolver/index.js";
 import { languageForFile, TreeSitterResolver } from "./tree-sitter-resolver.js";
 
 /**

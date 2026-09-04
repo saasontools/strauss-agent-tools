@@ -5,7 +5,7 @@ import {
   hashAnchorText,
   type AnchorFileReader,
   type KbDriftMovedTo,
-} from "../anchor-resolver.js";
+} from "../anchor-resolver/index.js";
 import { DEFAULT_IO_CONCURRENCY, mapLimit } from "../concurrency.js";
 import type { KbAnchor } from "../kb-record.schema.js";
 import {
