@@ -7,11 +7,6 @@
           {
             "type": "command",
             "command": "strauss-kb context --profile session-start 2>/dev/null || true"
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/kb-stamp-hook.mjs\"",
-            "timeout": 20
           }
         ]
       },
@@ -21,29 +16,6 @@
           {
             "type": "command",
             "command": "strauss-kb context --profile compact 2>/dev/null || true"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/kb-stamp-hook.mjs\"",
-            "timeout": 20
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/kb-stamp-hook.mjs\"",
-            "timeout": 20
           }
         ]
       }

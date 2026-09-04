@@ -932,23 +932,16 @@ describe("plugin config files parse", () => {
         { matcher?: string; hooks: { timeout?: number }[] }[]
       >;
     };
-    // Context injection, plus the read-only reload watch on `Bash` and
-    // `SubagentStop`. The three *write* hooks (block reads, deny edits to
-    // generated files, validate after a manual edit) ship as scripts but stay
-    // opt-in workspace policy: they run the CLI on every matching write in
-    // every repo the user opens, where these two exit on a regex or a git
-    // diff and read nothing.
-    expect(Object.keys(claudeHooks.hooks)).toEqual([
-      "SessionStart",
-      "PostToolUse",
-      "SubagentStop",
-    ]);
+    // SessionStart context injection, and nothing else. The four tool hooks
+    // (block reads, deny edits to generated files, validate after a manual
+    // edit, stamp a pinned base after a git sync) ship as scripts but stay
+    // opt-in workspace policy: a matcher can only match a tool name, and the
+    // plugin is installed per user, so an entry here would fire in every repo
+    // that user opens, including ones with no kb.
+    expect(Object.keys(claudeHooks.hooks)).toEqual(["SessionStart"]);
     expect(
       claudeHooks.hooks.SessionStart!.map((group) => group.matcher),
     ).toEqual(["startup|resume|clear", "compact"]);
-    expect(
-      claudeHooks.hooks.PostToolUse!.map((group) => group.matcher),
-    ).toEqual(["Bash"]);
 
     expect(parse(".claude-plugin/plugin.json")).toMatchObject({
       name: "strauss-kb",
@@ -967,14 +960,11 @@ describe("plugin config files parse", () => {
     });
 
     const codexHooks = parse("adapters/codex/hooks.json") as {
-      hooks: Record<string, { matcher?: string }[]>;
+      hooks: Record<string, unknown[]>;
     };
     expect(codexHooks.hooks.SessionStart).toHaveLength(2);
-    // Mirrored where the hook model allows: Codex's shell tool stands in for
-    // `Bash`; it documents no sub-agent event, so `SubagentStop` has no twin.
-    expect(codexHooks.hooks.PostToolUse!.map((group) => group.matcher)).toEqual(
-      ["shell"],
-    );
+    // The Codex twin of the same stance — no tool hook wired there either.
+    expect(Object.keys(codexHooks.hooks)).toEqual(["SessionStart"]);
 
     expect(parse("adapters/antigravity/plugin.json")).toMatchObject({
       name: "strauss-kb",
@@ -1000,6 +990,32 @@ describe("plugin config files parse", () => {
     expect(Object.keys(agHooks["strauss-kb-context"]!)).toEqual([
       "PreInvocation",
     ]);
+  });
+});
+
+describe("opt-in hook scripts ship unwired", () => {
+  // The plugin installs per user, so a wired entry fires in every repo,
+  // including ones with no kb. Each script must still be a script node can
+  // run once a workspace copies it to `.claude/hooks/`.
+  const optIn = [
+    "block-kb-reads.mjs",
+    "deny-kb-generated-edits.mjs",
+    "validate-kb-bundle.mjs",
+    "kb-stamp-hook.mjs",
+  ];
+
+  it.each(optIn)("%s exists, parses, and is named by no hooks.json", (name) => {
+    const script = join(pluginRoot, "hooks", "scripts", name);
+    expect(existsSync(script)).toBe(true);
+    expect(
+      spawnSync(process.execPath, ["--check", script], { encoding: "utf8" })
+        .status,
+    ).toBe(0);
+    for (const config of ["hooks/hooks.json", "adapters/codex/hooks.json"]) {
+      expect(readFileSync(join(pluginRoot, config), "utf8")).not.toContain(
+        name,
+      );
+    }
   });
 });
 
