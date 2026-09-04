@@ -9,7 +9,9 @@ export function grammarUrl(
   version: string,
   language: string,
 ): string {
-  return `${base.replace(/\/+$/, "")}/${pkg}@${version}/out/tree-sitter-${language}.wasm`;
+  let root = base;
+  while (root.endsWith("/")) root = root.slice(0, -1);
+  return `${root}/${pkg}@${version}/out/tree-sitter-${language}.wasm`;
 }
 
 export function grammarsBaseUrl(override?: string): string {
