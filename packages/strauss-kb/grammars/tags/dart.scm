@@ -1,4 +1,4 @@
-; UserNobody14/tree-sitter-dart queries/tags.scm @ be07cf7118d3dba06236a3f19541685a68209934
+; UserNobody14/tree-sitter-dart queries/tags.scm @ d4d8f3e337d8be23be27ffc35a0aef972343cd54
 
 (class_definition
   name: (identifier) @name) @definition.class

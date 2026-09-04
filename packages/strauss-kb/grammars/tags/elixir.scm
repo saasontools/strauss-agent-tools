@@ -1,11 +1,11 @@
-; elixir-lang/tree-sitter-elixir queries/tags.scm @ 4b0c7118760af58a2e7081bbc8396e136f820b37
+; tree-sitter-elixir@0.1.1 queries/tags.scm
 ; Definitions
 
 ; * modules and protocols
 (call
   target: (identifier) @ignore
   (arguments (alias) @name)
-  (#any-of? @ignore "defmodule" "defprotocol")) @definition.module
+  (#match? @ignore "^(defmodule|defprotocol)$")) @definition.module
 
 ; * functions/macros
 (call
@@ -21,14 +21,14 @@
         left: (call target: (identifier) @name)
         operator: "when")
     ])
-  (#any-of? @ignore "def" "defp" "defdelegate" "defguard" "defguardp" "defmacro" "defmacrop" "defn" "defnp")) @definition.function
+  (#match? @ignore "^(def|defp|defdelegate|defguard|defguardp|defmacro|defmacrop|defn|defnp)$")) @definition.function
 
 ; References
 
 ; ignore calls to kernel/special-forms keywords
 (call
   target: (identifier) @ignore
-  (#any-of? @ignore "def" "defp" "defdelegate" "defguard" "defguardp" "defmacro" "defmacrop" "defn" "defnp" "defmodule" "defprotocol" "defimpl" "defstruct" "defexception" "defoverridable" "alias" "case" "cond" "else" "for" "if" "import" "quote" "raise" "receive" "require" "reraise" "super" "throw" "try" "unless" "unquote" "unquote_splicing" "use" "with"))
+  (#match? @ignore "^(def|defp|defdelegate|defguard|defguardp|defmacro|defmacrop|defn|defnp|defmodule|defprotocol|defimpl|defstruct|defexception|defoverridable|alias|case|cond|else|for|if|import|quote|raise|receive|require|reraise|super|throw|try|unless|unquote|unquote_splicing|use|with)$"))
 
 ; ignore module attributes
 (unary_operator

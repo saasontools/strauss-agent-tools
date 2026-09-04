@@ -1,4 +1,4 @@
-; tree-sitter/tree-sitter-cpp queries/tags.scm @ 8b5b49eb196bec7040441bee33b2c9a4838d6967
+; tree-sitter-cpp@0.20.5 queries/tags.scm
 (struct_specifier name: (type_identifier) @name body:(_)) @definition.class
 
 (declaration type: (union_specifier name: (type_identifier) @name)) @definition.class

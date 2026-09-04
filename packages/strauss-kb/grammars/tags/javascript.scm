@@ -1,4 +1,4 @@
-; tree-sitter/tree-sitter-javascript queries/tags.scm @ 58404d8cf191d69f2674a8fd507bd5776f46cb11
+; tree-sitter-javascript@0.20.4 queries/tags.scm
 (
   (comment)* @doc
   .

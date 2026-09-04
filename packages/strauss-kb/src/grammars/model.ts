@@ -3,8 +3,11 @@ import { z } from "zod";
 /**
  * What the shipped manifest says about one grammar. `bytes` is checked before
  * the hash so a truncated response is rejected without hashing megabytes.
+ * `grammar` is the release the WASM was built from, which is also the release
+ * its `tags/<language>.scm` was taken from.
  */
 export const grammarEntrySchema = z.object({
+  grammar: z.string().min(1),
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
   bytes: z.number().int().positive(),
 });
@@ -12,6 +15,8 @@ export const grammarEntrySchema = z.object({
 export const grammarManifestSchema = z.object({
   package: z.string().min(1),
   version: z.string().min(1),
+  /** The runtime the grammars and their queries were pinned against. */
+  webTreeSitter: z.string().min(1),
   grammars: z.record(z.string().min(1), grammarEntrySchema),
 });
 

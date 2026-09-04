@@ -1,4 +1,4 @@
-; tree-sitter/tree-sitter-java queries/tags.scm @ e10607b45ff745f5f876bfa3e94fbcc6b44bdc11
+; tree-sitter-java@0.20.2 queries/tags.scm
 (class_declaration
   name: (identifier) @name) @definition.class
 
