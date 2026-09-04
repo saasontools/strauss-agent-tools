@@ -213,8 +213,8 @@ file answers for it:
 Which languages those are is data, not code: `grammars/manifest.json` pins the
 36 grammars `tree-sitter-wasms` ships, `grammars/tags/` holds the 23 that have
 an upstream `queries/tags.scm`, and `grammars/extensions.json` maps extension
-to language from GitHub Linguist. A grammar with no tags query parses but
-resolves nothing — `resolver-unavailable`, with the reason in the hint.
+to language from GitHub Linguist. An extension whose grammar has no tags
+query stays with the regex heuristic, as before the resolver existed.
 
 Definitions are whatever upstream's tags query captures as `@definition.*`,
 named by its `@name`. A dotted symbol (`KbStore.setStatus`) resolves to the

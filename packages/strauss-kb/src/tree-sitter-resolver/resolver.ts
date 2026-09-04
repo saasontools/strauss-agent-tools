@@ -6,11 +6,7 @@ import type {
   ResolverAttempt,
 } from "../anchor-resolver/index.js";
 import { DEFAULT_IO_CONCURRENCY, mapLimit } from "../concurrency.js";
-import {
-  ensureGrammar,
-  noteMissingQuery,
-  type GrammarOptions,
-} from "../grammars/index.js";
+import { ensureGrammar, type GrammarOptions } from "../grammars/index.js";
 import {
   index,
   select,
@@ -93,13 +89,7 @@ export class TreeSitterResolver implements AnchorResolver {
   private async load(language: string): Promise<Loaded | null> {
     try {
       const source = definitionsQuery(language);
-      if (!source) {
-        // The grammar exists and the file would parse; without upstream's
-        // tags query there is nothing to call a definition. Reported rather
-        // than handed to regex, whose span for the same symbol is another hash.
-        noteMissingQuery(language);
-        return null;
-      }
+      if (!source) return null;
       const wasm = await ensureGrammar(language, this.grammars);
       if (!wasm) return null;
       const grammar = await Language.load(wasm);

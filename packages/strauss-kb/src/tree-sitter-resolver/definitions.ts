@@ -2,14 +2,9 @@ import type { Node, Query, Tree } from "web-tree-sitter";
 import type { ResolvedSymbol } from "../anchor-resolver/index.js";
 
 /**
- * What a tags query says about a file: where each symbol is declared, and what
- * encloses it.
- *
- * The queries are upstream's `queries/tags.scm`, so the vocabulary is theirs:
- * `@name` is the symbol, `@definition.*` the node a reader would point at, and
- * `@reference.*` a use rather than a declaration. `@reference.implementation`
- * is the exception — a Rust `impl Foo` block scopes `Foo::cancel` without
- * being a definition of `Foo` itself — so it joins the chain, unresolvable.
+ * Upstream `tags.scm` vocabulary: `@name` is the symbol, `@definition.*` the
+ * node a reader points at, `@reference.*` a use. `@reference.implementation`
+ * (a Rust `impl Foo`) scopes the chain without being a target.
  */
 
 const SCOPE_ONLY = "reference.implementation";
@@ -66,10 +61,9 @@ export function index(tree: Tree, query: Query): ParsedFile {
 }
 
 /**
- * The definitions whose enclosing chain ends with `wanted`, narrowed to the
- * ones carrying a body when several match: a TypeScript overload *signature*
- * declares the same chain as the implementation, and the implementation is
- * what a reader means. More than one survivor is genuinely ambiguous.
+ * Definitions whose chain ends with `wanted`. When several match, the ones
+ * with a body win: an overload signature declares the same chain as the
+ * implementation, and the implementation is what a reader means.
  */
 export function select(
   parsed: ParsedFile,

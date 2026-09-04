@@ -34,12 +34,9 @@ export function grammarsBaseUrl(override?: string): string {
 export type Download = { bytes: Uint8Array } | { cause: string };
 
 /**
- * The grammar's bytes, or a cause — never a throw.
- *
- * Bytes that do not hash as the manifest says are discarded and not retried:
- * the manifest is what makes an unsigned CDN safe to fetch from, and a CDN
- * that served the wrong file will serve it again. A timeout, a dropped
- * connection, a 5xx or a 429 are transient, so those get `ATTEMPTS` tries.
+ * The grammar's bytes, or a cause — never a throw. A hash mismatch is not
+ * retried (the CDN will serve the same file again; the manifest is the
+ * safety); timeouts, dropped connections, 5xx and 429 get `ATTEMPTS` tries.
  */
 export async function downloadGrammar(
   url: string,

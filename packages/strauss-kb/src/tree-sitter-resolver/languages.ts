@@ -22,9 +22,14 @@ function queryPath(language: string): string {
   return grammarsDataPath("tags", `${language}.scm`);
 }
 
-/** Grammar for a path, or `undefined` when the extension has none. */
+/**
+ * Grammar for a path, or `undefined` when the extension has none — or when
+ * upstream ships no tags query for it, so the regex heuristic keeps those
+ * files, as before the resolver existed.
+ */
 export function languageForFile(file: string): string | undefined {
-  return extensionTable()[extname(file).toLowerCase()];
+  const language = extensionTable()[extname(file).toLowerCase()];
+  return language && definitionsQuery(language) ? language : undefined;
 }
 
 /** The tags query for a language, or `undefined` when upstream ships none. */
