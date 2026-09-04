@@ -63,7 +63,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "gray-matter": "^4.0.3",
     "web-tree-sitter": "~0.25.10",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "peerDependencies": {
     "@tobilu/qmd": "*"
