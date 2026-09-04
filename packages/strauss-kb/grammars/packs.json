@@ -23,26 +23,8 @@
       "package": "tree-sitter-css",
       "tags": null
     },
-    "dart": {
-      "package": "tree-sitter-wasms",
-      "version": "0.1.13",
-      "wasm": "out/tree-sitter-dart.wasm",
-      "tags": "gh:UserNobody14/tree-sitter-dart@d4d8f3e337d8be23be27ffc35a0aef972343cd54/queries/tags.scm"
-    },
-    "elisp": {
-      "package": "tree-sitter-elisp",
-      "version": "1.5.0",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-elisp.wasm",
-      "linguist": "Emacs Lisp"
-    },
     "elixir": {
       "package": "tree-sitter-elixir"
-    },
-    "elm": {
-      "package": "tree-sitter-elm",
-      "version": "4.5.0",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-elm.wasm",
-      "tags": null
     },
     "embedded_template": {
       "package": "tree-sitter-embedded-template",
@@ -68,16 +50,12 @@
       "tags": null
     },
     "kotlin": {
-      "package": "tree-sitter-kotlin",
-      "version": "0.3.8",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-kotlin.wasm",
+      "package": "gh:fwcd/tree-sitter-kotlin",
+      "wasm": "gh-release:fwcd/tree-sitter-kotlin@0.3.8/tree-sitter-kotlin.wasm",
       "tags": "gh:fwcd/tree-sitter-kotlin@main/queries/tags.scm"
     },
     "lua": {
-      "package": "tree-sitter-lua",
-      "version": "2.1.3",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-lua.wasm",
-      "tags": null
+      "package": "@tree-sitter-grammars/tree-sitter-lua"
     },
     "objc": {
       "package": "tree-sitter-objc",
@@ -85,9 +63,7 @@
       "extensions": [".m"]
     },
     "ocaml": {
-      "package": "tree-sitter-ocaml",
-      "version": "0.20.4",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-ocaml.wasm"
+      "package": "gh:tree-sitter/tree-sitter-ocaml"
     },
     "php": {
       "package": "tree-sitter-php",
@@ -97,17 +73,8 @@
       "package": "tree-sitter-python"
     },
     "ql": {
-      "package": "tree-sitter-ql",
-      "version": "1.0.0",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-ql.wasm",
-      "tags": null,
+      "package": "gh:tree-sitter/tree-sitter-ql",
       "linguist": "CodeQL"
-    },
-    "rescript": {
-      "package": "tree-sitter-wasms",
-      "version": "0.1.13",
-      "wasm": "out/tree-sitter-rescript.wasm",
-      "tags": null
     },
     "ruby": {
       "package": "tree-sitter-ruby"
@@ -122,16 +89,7 @@
       "package": "tree-sitter-solidity"
     },
     "swift": {
-      "package": "tree-sitter-swift",
-      "version": "0.4.3",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-swift.wasm"
-    },
-    "systemrdl": {
-      "package": "tree-sitter-systemrdl",
-      "version": "0.7.0",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-systemrdl.wasm",
-      "tags": null,
-      "extensions": [".rdl"]
+      "package": "gh:alex-pinkus/tree-sitter-swift"
     },
     "tlaplus": {
       "package": "@tlaplus/tree-sitter-tlaplus",
@@ -139,9 +97,7 @@
       "linguist": "TLA"
     },
     "toml": {
-      "package": "tree-sitter-toml",
-      "version": "0.5.1",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-toml.wasm",
+      "package": "@tree-sitter-grammars/tree-sitter-toml",
       "tags": null
     },
     "tsx": {
@@ -159,16 +115,8 @@
         "queries/tags.scm"
       ]
     },
-    "vue": {
-      "package": "tree-sitter-wasms",
-      "version": "0.1.13",
-      "wasm": "out/tree-sitter-vue.wasm",
-      "tags": null
-    },
     "yaml": {
-      "package": "tree-sitter-yaml",
-      "version": "0.5.0",
-      "wasm": "npm:tree-sitter-wasms@0.1.13/out/tree-sitter-yaml.wasm",
+      "package": "@tree-sitter-grammars/tree-sitter-yaml",
       "tags": null
     },
     "zig": {
