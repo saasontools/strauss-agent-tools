@@ -97,13 +97,9 @@ span that happens to be stable hashes as `match`. Regex still covers extensions
 with no grammar; a grammar that will not load is `resolver-unavailable`, never
 a throw.
 
-Grammars download on first use rather than shipping with the package: 6.6 MB of
-WASM in every install, for a feature most installs never reach, is a bad trade.
-`grammars/manifest.json` pins a sha256 per grammar, checked on download and on
-every load from `~/.strauss/grammars`, which is what makes an unsigned CDN safe
-to fetch from. A run that cannot get one reports `resolver-unavailable` — never
-a silent fall back to regex, whose span for the same symbol is a different
-hash.
+Grammars download on first use, sha256-pinned by `grammars/manifest.json` and
+cached under `~/.strauss/grammars`; the reasoning is in the
+[specification](https://saasontools.github.io/strauss-agent-tools/specification#symbol-resolution).
 
 Each anchor records the resolver that stamped it. A hash only the previous
 resolver reproduces is `drifted`, reason `resolver-changed`. Trees are cached
