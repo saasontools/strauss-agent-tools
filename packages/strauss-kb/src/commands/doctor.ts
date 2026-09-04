@@ -13,6 +13,7 @@ import {
   type KbDoctorReport,
 } from "../doctor.js";
 import { renderReassess } from "./reassess.js";
+import { grammarHints } from "../grammars/index.js";
 import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
 
 export type KbDoctorCommandResult = KbDoctorReport & {
@@ -30,6 +31,8 @@ export type KbDoctorCommandResult = KbDoctorReport & {
    * the verb that moves the anchor.
    */
   rebaselinable?: string[];
+  /** What to do about a grammar this run could not obtain. */
+  hints?: string[];
 };
 
 const days = (what: string, fallback: number) =>
@@ -138,7 +141,15 @@ export const doctorCommand = define({
       ...(anchorDrift !== undefined ? { anchorDrift } : {}),
       now: new Date(checkedAt),
     });
-    if (!drifted) return { bundlePath: path, checkedAt, ...report };
+    const hints = grammarHints();
+    if (!drifted) {
+      return {
+        bundlePath: path,
+        checkedAt,
+        ...report,
+        ...(hints.length ? { hints } : {}),
+      };
+    }
 
     // Read-only, like the rest of the sweep: packets are built, `moved`
     // anchors are named, and not one anchor is rewritten.
@@ -176,7 +187,14 @@ export const doctorCommand = define({
         rebaselinable.push(record.conceptId);
       }
     }
-    return { bundlePath: path, checkedAt, ...report, packets, rebaselinable };
+    return {
+      bundlePath: path,
+      checkedAt,
+      ...report,
+      packets,
+      rebaselinable,
+      ...(hints.length ? { hints } : {}),
+    };
   },
   render: (result) => render(result as KbDoctorCommandResult),
   // Only expiry, and only under --strict. The other seven checks report debt a
@@ -229,6 +247,8 @@ function render(result: KbDoctorCommandResult): string {
       );
     }
   }
+
+  for (const hint of result.hints ?? []) lines.push("", hint);
 
   lines.push(
     "",

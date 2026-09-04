@@ -1,9 +1,11 @@
 # Grammars
 
-Prebuilt tree-sitter grammars for the anchor resolver, vendored from
-[`tree-sitter-wasms`](https://www.npmjs.com/package/tree-sitter-wasms) 0.1.13
-so a cold install needs no build toolchain and no 51 MB grammar bundle.
+`manifest.json` pins the `tree-sitter-wasms` version the anchor resolver's six
+grammars come from, with a sha256 and a byte count for each. The WASM itself is
+not published: 6.6 MB in every install, for a feature most installs never reach,
+is a bad trade. A grammar is downloaded from jsDelivr on first use, verified
+against the manifest, and cached under `~/.strauss/grammars/<version>/`.
 
-Refresh with `node scripts/sync-grammars.mjs`. The grammar ABI is tied to the
-`web-tree-sitter` minor pinned in `package.json`; bump both together and run
-the suite.
+Re-pin with `pnpm grammars:pin [version]`, which also refreshes
+`test/fixtures/grammars/`. The grammar ABI is tied to the `web-tree-sitter`
+minor in `package.json`; bump both together and run the suite.

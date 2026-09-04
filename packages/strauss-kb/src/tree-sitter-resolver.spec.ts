@@ -247,10 +247,13 @@ describe("TreeSitterResolver: availability", () => {
     });
   });
 
-  test("a missing grammar file is unresolved, never a throw", async () => {
+  test("an unobtainable grammar is unresolved, never a throw", async () => {
     const empty = mkdtempSync(join(tmpdir(), "strauss-grammars-"));
     try {
-      const broken = new TreeSitterResolver({ grammarsDir: empty });
+      const broken = new TreeSitterResolver({
+        cacheRoot: empty,
+        offline: true,
+      });
       await broken.prepare(["a.ts"]);
       expect(broken.attempt("class A { b() {} }", "A.b", "a.ts")).toEqual({
         kind: "unresolved",

@@ -24,8 +24,9 @@ export default defineConfig({
   // The optional search backend is resolved at runtime or not at all — see
   // src/search-index.ts. Inlining it would make an optional peer mandatory.
   external: ["@tobilu/qmd", "web-tree-sitter"],
-  // `import.meta.url` locates `../grammars` (see tree-sitter-resolver.ts).
-  // Without the shim the CJS output has no spelling for it.
+  // `import.meta.url` locates `grammars/manifest.json` (see
+  // src/grammars/manifest.ts). Without the shim the CJS output has no
+  // spelling for it.
   shims: true,
   // `serverInfo.version` is the only thing a client can ask a running server
   // about itself, so it has to be the real one rather than a literal someone

@@ -1,0 +1,30 @@
+{
+  "package": "tree-sitter-wasms",
+  "version": "0.1.13",
+  "grammars": {
+    "typescript": {
+      "sha256": "8515404dceed38e1ed86aa34b09fcf3379fff1b4ff9dd3967bcd6d1eb5ac3d8f",
+      "bytes": 2342690
+    },
+    "tsx": {
+      "sha256": "6aa3b2c70e76f5d48eafef1093e9c4de383e13f2fdde2f4e9b98a378f6a8f1b6",
+      "bytes": 2411272
+    },
+    "javascript": {
+      "sha256": "63812b9e275d26851264734868d27a1656bd44a2ef6eb3e85e6b03728c595ab5",
+      "bytes": 647334
+    },
+    "python": {
+      "sha256": "9056d0fb0c337810d019fae350e8167786119da98f0f282aceae7ab89ee8253b",
+      "bytes": 476105
+    },
+    "go": {
+      "sha256": "9963ca89b616eaf04b08a43bc1fb0f07b85395bec313330851f1f1ead2f755b6",
+      "bytes": 235957
+    },
+    "rust": {
+      "sha256": "4409921a70d0aa5bec7d1d7ce809a557a8ee1cf6ace901e3ac6a76e62cfea903",
+      "bytes": 818756
+    }
+  }
+}

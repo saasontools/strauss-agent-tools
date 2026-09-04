@@ -19,6 +19,7 @@ import {
   type AnchorUnresolvedReason,
   type RemoteAnchorState,
 } from "../anchor-resolver/index.js";
+import { grammarHints } from "../grammars/index.js";
 import {
   KbRecordNotFoundError,
   KbSelfVerificationError,
@@ -126,7 +127,7 @@ export const anchorResolveCommand = define({
     let dirty = false;
 
     const sources = await readSources(anchors, root, offline === true);
-    const resolvers = defaultAnchorResolvers();
+    const resolvers = defaultAnchorResolvers({ offline: offline === true });
     await prepareResolvers(
       resolvers,
       anchors.map((anchor) => anchor.file),
@@ -277,6 +278,10 @@ export const anchorResolveCommand = define({
     const frozenNote = frozen
       ? { frozen: true, note: "base is frozen: nothing was stamped" }
       : {};
+    // What to do about a grammar this run could not obtain. Written once, in
+    // the grammars module, so doctor and this command say the same thing.
+    const hints = grammarHints();
+    const hintNote = hints.length ? { hints } : {};
 
     // Evidence only when every checkable anchor already matched: a freshly
     // stamped anchor is a baseline nobody has checked. An anchor nothing could
@@ -310,9 +315,16 @@ export const anchorResolveCommand = define({
           verified: false,
           verifyRefused: "self-verification",
           ...frozenNote,
+          ...hintNote,
         };
       }
-      return { conceptId: id, results, verified: true, ...frozenNote };
+      return {
+        conceptId: id,
+        results,
+        verified: true,
+        ...frozenNote,
+        ...hintNote,
+      };
     }
 
     return {
@@ -321,6 +333,7 @@ export const anchorResolveCommand = define({
       verified: false,
       ...(unreachable ? { note } : {}),
       ...frozenNote,
+      ...hintNote,
     };
   },
   // A stored hash that no longer resolves is a broken anchor, not an absence:

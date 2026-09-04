@@ -77,6 +77,14 @@ export {
   TREE_SITTER_LANGUAGES,
 } from "./tree-sitter-resolver.js";
 export {
+  ensureGrammar,
+  grammarHints,
+  grammarManifest,
+  grammarsCacheRoot,
+  type GrammarManifest,
+  type GrammarOptions,
+} from "./grammars/index.js";
+export {
   RECORD_TYPES,
   LINK_RELS,
   KB_CAUSAL_LINK_RELS,
