@@ -1,8 +1,4 @@
-import {
-  adjudicate,
-  type KbStanding,
-  type KbWarning,
-} from "./adjudicate.js";
+import { adjudicate, type KbStanding, type KbWarning } from "./adjudicate.js";
 import { neighbours } from "./kb-edges.js";
 import {
   KbPackBudgetExceededError,

@@ -154,7 +154,7 @@ As CLI [`anchor-resolve`](./cli-reference.md#anchor-resolve), with the
 flags as camelCase parameters. The non-zero exit on drift is CLI-only.
 
 Parameters: `bundlePath` and `conceptId` required; `repoRoot` (`string`,
-defaults to the working directory), `rebaseline` (`boolean`) and `restamp`
+defaults to the working directory), `offline`, `rebaseline` and `restamp`
 (`boolean`) optional.
 
 ```json
@@ -363,11 +363,11 @@ parameters. **Read-only** — every finding names a record for a person to repai
 
 Parameters: `bundlePath` required; `expiringDays` (default 30), `unverifiedDays`
 (default 90), `agingDays` (default 90), `repoRoot` (default cwd, for `drifted`),
-and `strict` (`boolean` — turns an expired record into a non-zero **CLI** exit,
+`offline` (`boolean`, read foreign anchors from the repo cache only), and `strict` (`boolean` — turns an expired record into a non-zero **CLI** exit,
 with no effect on the report) optional.
 
 The checks are `expired`, `expiring`, `unverified`, `aging`, `orphaned`,
-`broken-supersession`, `superseded-but-cited`, and `drifted` — see the
+`broken-supersession`, `superseded-but-cited`, `drifted`, and `unchecked` — see the
 [CLI reference](./cli-reference.md#doctor) for what each detects. **Every group
 is reported even when empty.**
 

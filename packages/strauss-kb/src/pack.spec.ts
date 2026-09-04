@@ -46,8 +46,7 @@ async function seed(store: KbStore, bundle: string): Promise<void> {
   const write = (
     type: Parameters<typeof composeRecord>[0],
     input: Parameters<typeof composeRecord>[1],
-  ) =>
-    store.write(bundle, composeRecord(type, input, WRITTEN_BY, WRITTEN_AT));
+  ) => store.write(bundle, composeRecord(type, input, WRITTEN_BY, WRITTEN_AT));
 
   await write("decision", {
     slug: "old-way",
@@ -123,7 +122,8 @@ async function seed(store: KbStore, bundle: string): Promise<void> {
     why: "The pack's seed.",
     sections: {
       Decision: "Charge asynchronously.",
-      Impact: "Bounded by [constraint.linked-limit](constraint.linked-limit.md).",
+      Impact:
+        "Bounded by [constraint.linked-limit](constraint.linked-limit.md).",
     },
     anchors: [{ file: "src/pay/charge.ts", symbol: "Charge.run" }],
     sources: [PR_SOURCE],
@@ -228,9 +228,7 @@ describe("pack", () => {
     await seed(store, bundle);
     const result = await store.pack(bundle, "decision.root");
 
-    const stale = result.records.find(
-      (r) => r.conceptId === "fact.stale-note",
-    );
+    const stale = result.records.find((r) => r.conceptId === "fact.stale-note");
     expect(stale?.warnings).toContainEqual({
       kind: "stale",
       staleAfter: "2020-01-01",

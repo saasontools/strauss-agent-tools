@@ -2,8 +2,9 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { hashAnchorText, resolveAnchor } from "../anchor-resolver.js";
+import { hashAnchorText, resolveAnchor } from "../anchor-resolver/index.js";
 import { composeRecord } from "../compose.js";
 import { pinBase } from "../kb-pins/index.js";
 import { KbStore } from "../kb-store.js";
@@ -12,8 +13,9 @@ import { anchorResolveCommand } from "./anchor-resolve.js";
 
 /** Counts the files the command actually opens, per run. */
 const readerCalls: string[] = [];
-vi.mock("../anchor-resolver.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../anchor-resolver.js")>();
+vi.mock("../anchor-resolver/index.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../anchor-resolver/index.js")>();
   return {
     ...actual,
     anchorFileReader: (repoRoot: string) => {
@@ -48,6 +50,8 @@ type Output = {
     diffSize?: number | null;
     reason?: string;
     rebaselined?: boolean;
+    repo?: string;
+    remoteState?: string;
   }[];
   verified: boolean;
   verifyRefused?: string;
@@ -326,9 +330,10 @@ describe("anchorResolveCommand", () => {
     expect(anchor?.hash).toBeDefined();
   });
 
-  // Another repository's anchor is expected, not broken: never read, never
-  // stamped, and never a reason to fail CI. SAA-709 resolves them properly.
-  test("an anchor for another repo is skipped and does not fail the gate", async () => {
+  // An anchor nothing could reach never fails CI — the run did not check it,
+  // so it cannot accuse it — and never verifies the record either: "could not
+  // look" is not "matches".
+  test("an unreachable foreign anchor neither fails the gate nor verifies", async () => {
     writeSource(SOURCE);
     const local = stamped("totals", SOURCE);
     await seed([
@@ -336,20 +341,21 @@ describe("anchorResolveCommand", () => {
       { ...local, file: "src/elsewhere.ts", repo: "org/somewhere-else" },
     ]);
 
-    const output = await run({});
+    const output = await run({ offline: true });
 
     expect(output.results[1]).toMatchObject({
       state: "unresolved",
-      reason: "foreign-repo",
+      reason: "remote-unreachable",
+      repo: "org/somewhere-else",
     });
     expect(fails(output)).toBe(false);
+    expect(output).toMatchObject({
+      verified: false,
+      note: "1/1 anchors match, 1 unreachable",
+    });
 
-    // Outside the denominator rather than against it, and the note says so —
-    // otherwise a cross-repo record could never be verified until SAA-709.
     const record = await new KbStore().read(bundle, ID);
-    expect(record?.frontmatter.verified?.[0]?.note).toBe(
-      "anchor-resolve: 1/1 anchors match, 1 in another repo (regex resolver)",
-    );
+    expect(record?.frontmatter.verified ?? []).toEqual([]);
     expect(record?.frontmatter.strauss_anchors?.[1]?.repo).toBe(
       "org/somewhere-else",
     );
@@ -482,6 +488,110 @@ describe("anchorResolveCommand", () => {
   test("an unknown record is a not-found error", async () => {
     await expect(run({})).rejects.toMatchObject({
       name: "KbRecordNotFoundError",
+    });
+  });
+
+  // The "remote" is a bare repository on disk: CI never touches the network.
+  describe("an anchor in another repository", () => {
+    const V2 = SOURCE.replace("orders.length", "orders.length + 1");
+    let remotes: string;
+
+    /** A two-commit bare mirror, reachable over file://. */
+    function publish(): { url: string; first: string; head: string } {
+      const source = join(remotes, "source");
+      mkdirSync(join(source, "src"), { recursive: true });
+      const git = (...args: string[]) =>
+        execFileSync("git", ["-C", source, ...args], { stdio: "pipe" })
+          .toString()
+          .trim();
+      execFileSync("git", ["init", "-q", "-b", "main", source], {
+        stdio: "pipe",
+      });
+      const shas: string[] = [];
+      for (const [at, version] of [SOURCE, V2].entries()) {
+        writeFileSync(join(source, FILE), version, "utf8");
+        git("add", "-A");
+        git(
+          "-c",
+          "user.email=t@t",
+          "-c",
+          "user.name=t",
+          "commit",
+          "-qm",
+          `${at}`,
+        );
+        shas.push(git("rev-parse", "HEAD"));
+      }
+      const bare = `${source}.git`;
+      execFileSync("git", ["clone", "-q", "--bare", source, bare], {
+        stdio: "pipe",
+      });
+      return {
+        url: pathToFileURL(bare).href,
+        first: shas[0] as string,
+        head: shas[1] as string,
+      };
+    }
+
+    beforeEach(() => {
+      remotes = mkdtempSync(join(tmpdir(), "strauss-kb-resolve-remote-"));
+      vi.stubEnv("STRAUSS_KB_REPO_CACHE", join(remotes, "cache"));
+      execFileSync("git", ["-C", repo, "init", "-q"]);
+      execFileSync("git", [
+        "-C",
+        repo,
+        "remote",
+        "add",
+        "origin",
+        "git@github.com:org/this-one.git",
+      ]);
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      rmSync(remotes, { recursive: true, force: true });
+    });
+
+    test("verifies from the remote, and reads no local file at all", async () => {
+      const remote = publish();
+      await seed([
+        { ...stamped("totals", V2), repo: remote.url, ref: remote.head },
+      ]);
+
+      const output = await run({});
+
+      expect(output.results[0]).toMatchObject({
+        state: "match",
+        remoteState: "matches-ref",
+        repo: remote.url,
+      });
+      expect(readerCalls).toEqual([]);
+      const record = await new KbStore().read(bundle, ID);
+      expect(record?.frontmatter.verified?.[0]?.note).toBe(
+        "anchor-resolve: 1/1 anchors match (regex resolver)",
+      );
+    });
+
+    // The record is honest at its own commit and the branch has moved past it.
+    // The repair is to move `ref`, which is the author's field, so the anchor
+    // is reported and left exactly as it was.
+    test("fails the gate when the default branch moved past the ref", async () => {
+      const remote = publish();
+      const anchor = {
+        ...stamped("totals", SOURCE),
+        repo: remote.url,
+        ref: remote.first,
+      };
+      await seed([anchor]);
+
+      const output = await run({ rebaseline: true });
+
+      expect(output.results[0]).toMatchObject({
+        state: "drifted",
+        remoteState: "drifted-on-default",
+      });
+      expect(fails(output)).toBe(true);
+      const record = await new KbStore().read(bundle, ID);
+      expect(record?.frontmatter.strauss_anchors?.[0]?.hash).toBe(anchor.hash);
     });
   });
 });

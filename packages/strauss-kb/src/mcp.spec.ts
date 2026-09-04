@@ -75,9 +75,9 @@ describe("createKbMcpServer", () => {
       bundlePath: bundle,
       conceptId: "fact.pack-root",
     });
-    expect(result.content[0]!.text.startsWith("# KB Pack — fact.pack-root")).toBe(
-      true,
-    );
+    expect(
+      result.content[0]!.text.startsWith("# KB Pack — fact.pack-root"),
+    ).toBe(true);
 
     await expect(
       tools().kb_pack!.handler({
