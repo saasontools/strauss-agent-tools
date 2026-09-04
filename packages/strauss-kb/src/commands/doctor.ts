@@ -25,9 +25,9 @@ export const doctorCommand = define({
   name: "doctor",
   tool: "kb_doctor",
   usage:
-    "doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--repo-root PATH] [--strict]",
+    "doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--repo-root PATH] [--offline] [--strict]",
   description:
-    "Read-only health sweep: expired, expiring, unverified, aging, orphaned, broken-supersession, superseded-but-cited, drifted anchors. Every group is reported even when empty; nothing is written or re-stamped. Use it when picking up a base you have not touched in a while; kb_validate only checks that pointers between records agree.",
+    "Read-only health sweep: expired, expiring, unverified, aging, orphaned, broken-supersession, superseded-but-cited, drifted and unchecked anchors. Every group is reported even when empty; nothing is written or re-stamped. Use it when picking up a base you have not touched in a while; kb_validate only checks that pointers between records agree.",
   input: z.object({
     bundlePath,
     repoRoot: REPO_ROOT,
@@ -43,6 +43,12 @@ export const doctorCommand = define({
       "How long a record may stay `open` or `proposed` before `aging` reports it, in days.",
       DEFAULT_AGING_DAYS,
     ),
+    offline: z
+      .boolean()
+      .optional()
+      .describe(
+        "Read foreign anchors from the local repo cache only, never fetching.",
+      ),
     strict: z
       .boolean()
       .optional()
@@ -67,19 +73,29 @@ export const doctorCommand = define({
         ? { unverifiedDays: Number(unverified) }
         : {}),
       ...(agingDays !== undefined ? { agingDays: Number(agingDays) } : {}),
+      ...(argv.includes("--offline") ? { offline: true } : {}),
       ...(argv.includes("--strict") ? { strict: true } : {}),
     };
   },
   run: async (
     { store, now },
-    { bundlePath: path, expiringDays, unverifiedDays, agingDays, repoRoot },
+    {
+      bundlePath: path,
+      expiringDays,
+      unverifiedDays,
+      agingDays,
+      repoRoot,
+      offline,
+    },
   ) => {
     const checkedAt = now();
     const records = await store.list(path);
     // Read-only, like every other check here: the sweep names the drifted
     // anchors and leaves the re-stamp to `anchor-resolve`, which is the verb
     // that writes.
-    const anchorDrift = await store.detectDrift(records, repoRoot);
+    const anchorDrift = await store.detectDrift(records, repoRoot, {
+      offline: offline === true,
+    });
     const report = doctor(records, {
       ...(expiringDays !== undefined ? { expiringDays } : {}),
       ...(unverifiedDays !== undefined ? { unverifiedDays } : {}),

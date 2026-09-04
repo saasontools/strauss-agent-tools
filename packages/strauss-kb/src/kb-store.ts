@@ -37,7 +37,7 @@ import {
   detectAnchorDrift,
   looksLikeWrongRepoRoot,
   type KbAnchorDriftEntry,
-} from "./anchor-resolver.js";
+} from "./anchor-resolver/index.js";
 import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
 import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
@@ -519,7 +519,8 @@ export class KbStore {
    * at the repo root, and the MCP server's cwd is the workspace.
    *
    * Public because `doctor` needs the same map with the same degradation: a
-   * sweep that failed to read the tree should report no drift, not fail.
+   * sweep that failed to read the tree should report no drift, not fail — and
+   * `offline: false` there, because a sweep is worth a fetch.
    *
    * When no root was given and not one anchored file was found, the finding is
    * discarded. A base read from somewhere other than the tree it describes
@@ -534,10 +535,14 @@ export class KbStore {
   async detectDrift(
     records: KbRecord[],
     repoRoot?: string,
+    options: { offline?: boolean } = {},
   ): Promise<Map<string, KbAnchorDriftEntry[]> | undefined> {
     try {
       const drift = await detectAnchorDrift(records, {
         repoRoot: repoRoot ?? process.cwd(),
+        // Offline by default: a read path must never spend a network fetch per
+        // call. `doctor` and `anchor-resolve` are the verbs that go get it.
+        remote: { offline: options.offline !== false },
       });
       if (repoRoot === undefined && looksLikeWrongRepoRoot(drift)) {
         this.logger.warn?.({
