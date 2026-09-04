@@ -34,7 +34,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@google/genai": "2.19.0",
+    "@google/genai": "2.20.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.5.4"
   }

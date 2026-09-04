@@ -38,11 +38,16 @@ export type KbCommand<Shape extends z.ZodRawShape = z.ZodRawShape> = {
   /** Shown to an agent choosing a tool, so it carries the judgment too. */
   description: string;
   input: z.ZodObject<Shape>;
-  /** Positional argv → the same object MCP receives. */
+  /**
+   * Positional argv → the same object MCP receives. `bundleExplicit` says
+   * whether `--bundle` was actually passed, for the one command whose meaning
+   * turns on it: `stamp` with no bundle stamps every pinned base.
+   */
   fromArgv(
     argv: string[],
     bundlePath: string,
     stdin: () => Promise<string>,
+    bundleExplicit?: boolean,
   ): Promise<unknown> | unknown;
   run(
     ctx: KbCommandContext,

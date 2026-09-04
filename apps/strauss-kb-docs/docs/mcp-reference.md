@@ -324,6 +324,21 @@ Malformed lines are reported rather than repaired. Parameter: `bundlePath`.
 { "bundlePath": "/repo/.strauss/kb" }
 ```
 
+### `kb_stamp`
+
+As CLI [`stamp`](./cli-reference.md#stamp): the base's
+[`digest`](./specification.md#the-load-digest), counts, and a digest per
+record — no bodies. Parameters: `bundlePath` optional (omit it to stamp every
+pinned base), `since` optional (a digest, or a path to a prior stamp, which
+also names the changed ids). Empty means nothing moved.
+
+Ask it when a [reload hook](./architecture.md#the-plugins-hooks) said a base
+changed, or before trusting a `kb_load` result from earlier in the session.
+
+```json
+{ "bundlePath": "/repo/.strauss/kb", "since": "9f2c…" }
+```
+
 ---
 
 ## Format tools

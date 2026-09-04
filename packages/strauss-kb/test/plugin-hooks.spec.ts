@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -12,6 +13,7 @@ import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { readMergedPins } from "../src/kb-pins/index.js";
 import { stringifyMarkdownWithFrontmatter } from "../src/markdown.js";
 
 const packageVersion = (
@@ -930,12 +932,8 @@ describe("plugin config files parse", () => {
         { matcher?: string; hooks: { timeout?: number }[] }[]
       >;
     };
-    // SessionStart context injection, and nothing else. The three tool hooks
-    // (block reads, deny edits to generated files, validate after a manual
-    // edit) ship as scripts but stay opt-in workspace policy: a matcher can
-    // only match a tool name, and the plugin is installed per user, so a
-    // PreToolUse/PostToolUse entry here would fire on every read or write in
-    // every repo that user opens.
+    // Context injection only. The four tool hooks ship as scripts, opt-in:
+    // the plugin installs per user, so a wired entry fires in every repo.
     expect(Object.keys(claudeHooks.hooks)).toEqual(["SessionStart"]);
     expect(
       claudeHooks.hooks.SessionStart!.map((group) => group.matcher),
@@ -961,6 +959,8 @@ describe("plugin config files parse", () => {
       hooks: Record<string, unknown[]>;
     };
     expect(codexHooks.hooks.SessionStart).toHaveLength(2);
+    // The Codex twin of the same stance — no tool hook wired there either.
+    expect(Object.keys(codexHooks.hooks)).toEqual(["SessionStart"]);
 
     expect(parse("adapters/antigravity/plugin.json")).toMatchObject({
       name: "strauss-kb",
@@ -986,5 +986,448 @@ describe("plugin config files parse", () => {
     expect(Object.keys(agHooks["strauss-kb-context"]!)).toEqual([
       "PreInvocation",
     ]);
+  });
+});
+
+describe("opt-in hook scripts ship unwired", () => {
+  // Unwired, but each must still run once copied to `.claude/hooks/`.
+  const optIn = [
+    "block-kb-reads.mjs",
+    "deny-kb-generated-edits.mjs",
+    "validate-kb-bundle.mjs",
+    "kb-stamp-hook.mjs",
+  ];
+
+  it.each(optIn)("%s exists, parses, and is named by no hooks.json", (name) => {
+    const script = join(pluginRoot, "hooks", "scripts", name);
+    expect(existsSync(script)).toBe(true);
+    expect(
+      spawnSync(process.execPath, ["--check", script], { encoding: "utf8" })
+        .status,
+    ).toBe(0);
+    for (const config of ["hooks/hooks.json", "adapters/codex/hooks.json"]) {
+      expect(readFileSync(join(pluginRoot, config), "utf8")).not.toContain(
+        name,
+      );
+    }
+  });
+});
+
+/**
+ * The reload hook is driven end to end against a real git repository and the
+ * real CLI: the git short-circuit and the digest compare are exactly the two
+ * things a unit test of its helpers would not catch. The `strauss-kb` shim on
+ * PATH records every invocation, so "reads no records" is an assertion rather
+ * than an inference.
+ */
+describe("Claude Code stamp reload hook script", () => {
+  const stampHook = join(pluginRoot, "hooks", "scripts", "kb-stamp-hook.mjs");
+  const SESSION = "session-abc";
+
+  let repo: string;
+  let temp: string;
+  let spy: string;
+  let shims: { path: string; cleanup: () => void };
+
+  const git = (...args: string[]) =>
+    spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+
+  const record = (body: string) =>
+    stringifyMarkdownWithFrontmatter(body, { type: "fact" });
+
+  const statePath = () => join(temp, "strauss-kb", `${SESSION}.json`);
+
+  const spyCalls = () =>
+    existsSync(spy)
+      ? readFileSync(spy, "utf8").split("\n").filter(Boolean)
+      : [];
+
+  /** Drives the hook with a runtime-shaped payload and an isolated TMPDIR. */
+  const hook = (payload: Record<string, unknown>) => {
+    const result = spawnSync(process.execPath, [stampHook], {
+      input: JSON.stringify({ session_id: SESSION, cwd: repo, ...payload }),
+      encoding: "utf8",
+      cwd: repo,
+      env: {
+        ...process.env,
+        PATH: `${shims.path}${delimiter}${process.env.PATH}`,
+        TMPDIR: temp,
+        TEMP: temp,
+        TMP: temp,
+        STRAUSS_KB_SPY: spy,
+        STRAUSS_KB_USER_ROOT: join(temp, "nohome"),
+      },
+    });
+    return { status: result.status, stdout: result.stdout };
+  };
+
+  const bash = (command: string) =>
+    hook({
+      hook_event_name: "PostToolUse",
+      tool_name: "Bash",
+      tool_input: { command },
+    });
+
+  const context = (result: { stdout: string }) =>
+    (
+      JSON.parse(result.stdout) as {
+        hookSpecificOutput: { additionalContext: string };
+      }
+    ).hookSpecificOutput.additionalContext;
+
+  beforeAll(() => {
+    repo = realpathSync(mkdtempSync(join(tmpdir(), "strauss-kb-reload-")));
+    temp = realpathSync(mkdtempSync(join(tmpdir(), "strauss-kb-reload-tmp-")));
+    spy = join(temp, "spy.log");
+    // The shim forwards to the real built CLI and logs the call, so a run
+    // that was supposed to short-circuit can be proven not to have read.
+    shims = makeBinShims({
+      "strauss-kb": `
+import { appendFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+appendFileSync(process.env.STRAUSS_KB_SPY, process.argv.slice(2).join(" ") + "\\n");
+const r = spawnSync(process.execPath, [${JSON.stringify(cliMain)}, ...process.argv.slice(2)], { stdio: "inherit" });
+process.exit(r.status ?? 1);
+`,
+    });
+
+    mkdirSync(join(repo, "docs", "kb"), { recursive: true });
+    mkdirSync(join(repo, ".strauss"), { recursive: true });
+    writeFileSync(
+      join(repo, ".strauss", "kb-pins.json"),
+      JSON.stringify({ pins: [{ path: "docs/kb" }] }),
+    );
+    writeFileSync(join(repo, "docs", "kb", "fact.a.md"), record("first"));
+    writeFileSync(join(repo, "README.md"), "readme\n");
+
+    git("init", "-q");
+    git("config", "user.email", "test@example.com");
+    git("config", "user.name", "Test");
+    git("add", "-A");
+    git("commit", "-qm", "seed");
+  });
+
+  afterAll(() => {
+    shims.cleanup();
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(temp, { recursive: true, force: true });
+  });
+
+  const commit = (message: string) => {
+    git("add", "-A");
+    git("commit", "-qm", message);
+  };
+
+  it("seeds the session state on SessionStart, silently", () => {
+    const result = hook({ hook_event_name: "SessionStart", source: "startup" });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+    const state = JSON.parse(readFileSync(statePath(), "utf8")) as {
+      head: string;
+      stamps: { path: string; digest: string }[];
+    };
+    expect(state.stamps).toHaveLength(1);
+    expect(state.stamps[0]!.path).toBe(join(repo, "docs", "kb"));
+    expect(state.head).toHaveLength(40);
+  });
+
+  it("says nothing about a Bash command that is not a git sync", () => {
+    const before = spyCalls().length;
+
+    expect(bash("pnpm test").stdout).toBe("");
+    expect(spyCalls()).toHaveLength(before);
+  });
+
+  it("a pull that touches no pinned path is silent and reads no records", () => {
+    writeFileSync(join(repo, "README.md"), "readme, edited\n");
+    commit("unrelated");
+    const before = spyCalls().length;
+
+    const result = bash("git pull --ff-only");
+
+    expect(result.stdout).toBe("");
+    expect(spyCalls()).toHaveLength(before);
+  });
+
+  it("a pull that changes a pinned record names it", () => {
+    writeFileSync(join(repo, "docs", "kb", "fact.a.md"), record("second"));
+    commit("kb change");
+
+    const message = context(bash("git pull"));
+
+    expect(message).toContain("changed since it was loaded");
+    expect(message).toContain("kb_load");
+    expect(message).toContain("fact.a");
+  });
+
+  it("SubagentStop reports a sub-agent's write, with no git involved", () => {
+    writeFileSync(join(repo, "docs", "kb", "fact.b.md"), record("from a sub"));
+
+    const message = context(hook({ hook_event_name: "SubagentStop" }));
+
+    expect(message).toContain("fact.b");
+    // Uncommitted, so the pull path would have seen nothing.
+    expect(hook({ hook_event_name: "SubagentStop" }).stdout).toBe("");
+  });
+
+  it("a missing state file emits once, then seeds", () => {
+    rmSync(statePath(), { force: true });
+
+    const first = hook({ hook_event_name: "SubagentStop" });
+    expect(context(first)).toContain("changed since it was loaded");
+    expect(hook({ hook_event_name: "SubagentStop" }).stdout).toBe("");
+  });
+
+  it("reports one line per pinned base", () => {
+    mkdirSync(join(repo, "docs", "adr"), { recursive: true });
+    writeFileSync(join(repo, "docs", "adr", "fact.c.md"), record("adr"));
+    writeFileSync(
+      join(repo, ".strauss", "kb-pins.json"),
+      JSON.stringify({ pins: [{ path: "docs/kb" }, { path: "docs/adr" }] }),
+    );
+    rmSync(statePath(), { force: true });
+
+    const lines = context(hook({ hook_event_name: "SubagentStop" })).split(
+      "\n",
+    );
+
+    expect(lines).toHaveLength(2);
+    expect(lines.join("\n")).toContain(join("docs", "adr"));
+  });
+
+  it("fails open on malformed stdin and on a missing session id", () => {
+    expect(
+      hook({ hook_event_name: "SubagentStop", session_id: "" }).stdout,
+    ).toBe("");
+    const broken = spawnSync(process.execPath, [stampHook], {
+      input: "not json",
+      encoding: "utf8",
+      cwd: repo,
+    });
+    expect(broken.status).toBe(0);
+    expect(broken.stdout).toBe("");
+  });
+});
+
+/**
+ * With no pins anywhere, every event has to exit before spawning anything —
+ * not just answer silently. The PATH shim below only ever appends to a log,
+ * so "zero invocations" is checked directly rather than inferred from stdout.
+ */
+describe("Claude Code stamp reload hook script — no pinned bases", () => {
+  const stampHook = join(pluginRoot, "hooks", "scripts", "kb-stamp-hook.mjs");
+  const SESSION = "session-no-pins";
+
+  let repo: string;
+  let temp: string;
+  let spy: string;
+  let shims: { path: string; cleanup: () => void };
+
+  const spyCalls = () =>
+    existsSync(spy)
+      ? readFileSync(spy, "utf8").split("\n").filter(Boolean)
+      : [];
+
+  const hook = (payload: Record<string, unknown>) =>
+    spawnSync(process.execPath, [stampHook], {
+      input: JSON.stringify({ session_id: SESSION, cwd: repo, ...payload }),
+      encoding: "utf8",
+      cwd: repo,
+      env: {
+        ...process.env,
+        PATH: `${shims.path}${delimiter}${process.env.PATH}`,
+        TMPDIR: temp,
+        TEMP: temp,
+        TMP: temp,
+        STRAUSS_KB_SPY: spy,
+        STRAUSS_KB_USER_ROOT: join(temp, "nohome"),
+      },
+    });
+
+  beforeAll(() => {
+    repo = realpathSync(mkdtempSync(join(tmpdir(), "strauss-kb-nopins-")));
+    temp = realpathSync(mkdtempSync(join(tmpdir(), "strauss-kb-nopins-tmp-")));
+    spy = join(temp, "spy.log");
+    // No `.strauss/kb-pins.json` anywhere — this repo pins nothing.
+    shims = makeBinShims({
+      "strauss-kb": `
+import { appendFileSync } from "node:fs";
+appendFileSync(process.env.STRAUSS_KB_SPY, process.argv.slice(2).join(" ") + "\\n");
+process.exit(0);
+`,
+    });
+
+    writeFileSync(join(repo, "README.md"), "readme\n");
+    spawnSync("git", ["init", "-q"], { cwd: repo });
+    spawnSync("git", ["config", "user.email", "test@example.com"], {
+      cwd: repo,
+    });
+    spawnSync("git", ["config", "user.name", "Test"], { cwd: repo });
+    spawnSync("git", ["add", "-A"], { cwd: repo });
+    spawnSync("git", ["commit", "-qm", "seed"], { cwd: repo });
+  });
+
+  afterAll(() => {
+    shims.cleanup();
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(temp, { recursive: true, force: true });
+  });
+
+  it("SessionStart spawns nothing", () => {
+    const result = hook({ hook_event_name: "SessionStart", source: "startup" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(spyCalls()).toHaveLength(0);
+  });
+
+  it("PostToolUse for a git sync spawns nothing", () => {
+    const result = hook({
+      hook_event_name: "PostToolUse",
+      tool_name: "Bash",
+      tool_input: { command: "git pull" },
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(spyCalls()).toHaveLength(0);
+  });
+
+  it("SubagentStop spawns nothing", () => {
+    const result = hook({ hook_event_name: "SubagentStop" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(spyCalls()).toHaveLength(0);
+  });
+});
+
+/**
+ * The hook resolves pinned bases itself (see `pinnedDirs`, in-file) so it can
+ * short-circuit without spawning the CLI. That resolution has to land on
+ * exactly the same absolute paths `readMergedPins` — the CLI's own reader —
+ * would produce for the same manifests, project and user layer alike, or the
+ * short-circuit and the CLI would disagree about what is pinned.
+ */
+describe("Claude Code stamp reload hook script — pinnedDirs matches the CLI", () => {
+  const stampHook = join(pluginRoot, "hooks", "scripts", "kb-stamp-hook.mjs");
+  const SESSION = "session-pindirs";
+
+  let repo: string;
+  let temp: string;
+  let userRoot: string;
+  let shims: { path: string; cleanup: () => void };
+
+  beforeAll(() => {
+    repo = realpathSync(mkdtempSync(join(tmpdir(), "strauss-kb-pindirs-")));
+    temp = realpathSync(mkdtempSync(join(tmpdir(), "strauss-kb-pindirs-tmp-")));
+    userRoot = join(temp, "home");
+    mkdirSync(join(userRoot, ".strauss"), { recursive: true });
+    mkdirSync(join(repo, ".strauss"), { recursive: true });
+    mkdirSync(join(repo, "docs", "kb"), { recursive: true });
+    mkdirSync(join(userRoot, "personal", "notes"), { recursive: true });
+
+    // Project layer: a relative path, resolved against the repo. User layer:
+    // a relative path too, resolved against STRAUSS_KB_USER_ROOT rather than
+    // the repo — the case the hook has to get right.
+    writeFileSync(
+      join(repo, ".strauss", "kb-pins.json"),
+      JSON.stringify({ pins: [{ path: "docs/kb" }] }),
+    );
+    writeFileSync(
+      join(userRoot, ".strauss", "kb-pins.json"),
+      JSON.stringify({ pins: [{ path: "personal/notes" }] }),
+    );
+
+    shims = makeBinShims({ "strauss-kb": forwardToRealCli });
+
+    spawnSync("git", ["init", "-q"], { cwd: repo });
+    spawnSync("git", ["config", "user.email", "test@example.com"], {
+      cwd: repo,
+    });
+    spawnSync("git", ["config", "user.name", "Test"], { cwd: repo });
+    spawnSync("git", ["add", "-A"], { cwd: repo });
+    spawnSync("git", ["commit", "-qm", "seed"], { cwd: repo });
+  });
+
+  afterAll(() => {
+    shims.cleanup();
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(temp, { recursive: true, force: true });
+  });
+
+  it("resolves exactly the absolutePaths readMergedPins resolves", async () => {
+    const result = spawnSync(process.execPath, [stampHook], {
+      input: JSON.stringify({
+        session_id: SESSION,
+        cwd: repo,
+        hook_event_name: "SessionStart",
+        source: "startup",
+      }),
+      encoding: "utf8",
+      cwd: repo,
+      env: {
+        ...process.env,
+        PATH: `${shims.path}${delimiter}${process.env.PATH}`,
+        TMPDIR: temp,
+        TEMP: temp,
+        TMP: temp,
+        STRAUSS_KB_USER_ROOT: userRoot,
+      },
+    });
+    expect(result.status).toBe(0);
+
+    const statePath = join(temp, "strauss-kb", `${SESSION}.json`);
+    const state = JSON.parse(readFileSync(statePath, "utf8")) as {
+      stamps: { path: string }[];
+    };
+    const hookDirs = state.stamps.map((stamp) => stamp.path).sort();
+
+    const previousUserRoot = process.env.STRAUSS_KB_USER_ROOT;
+    process.env.STRAUSS_KB_USER_ROOT = userRoot;
+    try {
+      const merged = await readMergedPins(repo);
+      const cliDirs = merged.pins.map((pin) => pin.absolutePath).sort();
+      expect(hookDirs).toEqual(cliDirs);
+      expect(hookDirs).toHaveLength(2);
+    } finally {
+      if (previousUserRoot === undefined) {
+        delete process.env.STRAUSS_KB_USER_ROOT;
+      } else {
+        process.env.STRAUSS_KB_USER_ROOT = previousUserRoot;
+      }
+    }
+  });
+});
+
+/**
+ * `runStamp`'s win32 path spawns with `shell: true`, which switches off
+ * Node's own argv escaping — `quoteWindowsArg` (copied from
+ * `validate-kb-bundle.mjs`, these scripts being self-contained) is what
+ * stands in for it. Exercised by extracting the function's own source from
+ * the file, since the script runs its hook `main()` on import and cannot be
+ * imported directly in-process.
+ */
+describe("kb-stamp-hook.mjs quoteWindowsArg", () => {
+  const stampHook = join(pluginRoot, "hooks", "scripts", "kb-stamp-hook.mjs");
+
+  function loadQuoteWindowsArg(): (arg: string) => string {
+    const src = readFileSync(stampHook, "utf8");
+    const match = src.match(/function quoteWindowsArg\(arg\) \{[\s\S]*?\n\}\n/);
+    if (!match) {
+      throw new Error("quoteWindowsArg not found in kb-stamp-hook.mjs");
+    }
+    return new Function(`${match[0]}\nreturn quoteWindowsArg;`)();
+  }
+
+  it("wraps a path with spaces in double quotes, unchanged inside", () => {
+    const quoteWindowsArg = loadQuoteWindowsArg();
+    const path = String.raw`C:\Program Files\strauss-kb\bin\strauss-kb.cmd`;
+
+    expect(quoteWindowsArg(path)).toBe(`"${path}"`);
+  });
+
+  it("leaves a plain argument untouched", () => {
+    const quoteWindowsArg = loadQuoteWindowsArg();
+
+    expect(quoteWindowsArg("stamp")).toBe("stamp");
   });
 });
