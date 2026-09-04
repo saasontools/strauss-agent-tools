@@ -25,6 +25,9 @@ const inFlight = new Map<string, Promise<string | null>>();
 /** Languages this process wanted and could not get, and why, for the hint. */
 const missing = new Map<string, string | undefined>();
 
+/** Languages whose pinned tags query would not compile, and why. */
+const uncompilable = new Map<string, string>();
+
 /** `STRAUSS_KB_GRAMMARS=off` keeps a run off the wire; the cache still counts. */
 export function grammarsDownloadDisabled(): boolean {
   return process.env["STRAUSS_KB_GRAMMARS"] === "off";
@@ -85,20 +88,38 @@ export async function ensureGrammar(
 }
 
 /**
- * One line per grammar this process could not obtain, for the doctor and
- * anchor-resolve reports. The only place the repair is spelled out.
+ * A tags query that will not compile against the grammar release it is pinned
+ * to. The resolver reports the language unavailable; the repair is a re-pin.
  */
-export function grammarHints(): string[] {
-  return [...missing]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(
-      ([language, cause]) =>
-        `grammar tree-sitter-${language} not cached${cause ? ` (${cause})` : ""}; run online once, or set STRAUSS_KB_GRAMMARS_DIR`,
-    );
+export function noteUncompilableQuery(language: string, cause: string): void {
+  uncompilable.set(language, cause);
 }
 
-/** Test seam: forgets this process's downloads and misses. */
+/**
+ * One line per grammar this process could not use, for the doctor and
+ * anchor-resolve reports. The only place a repair is spelled out.
+ */
+export function grammarHints(): string[] {
+  const grammars = grammarManifest().grammars;
+  const lines = new Map<string, string>();
+  for (const [language, cause] of missing)
+    lines.set(
+      language,
+      `grammar tree-sitter-${language} not cached${cause ? ` (${cause})` : ""}; run online once, or set STRAUSS_KB_GRAMMARS_DIR`,
+    );
+  for (const [language, cause] of uncompilable)
+    lines.set(
+      language,
+      `tags query for ${language} does not compile against ${grammars[language]?.grammar ?? `tree-sitter-${language}`}: ${cause}; re-pin with pnpm grammars:pin --tags`,
+    );
+  return [...lines]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, line]) => line);
+}
+
+/** Test seam: forgets this process's downloads, misses and query failures. */
 export function resetGrammarState(): void {
   inFlight.clear();
   missing.clear();
+  uncompilable.clear();
 }

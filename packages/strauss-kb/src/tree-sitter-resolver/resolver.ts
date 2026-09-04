@@ -6,7 +6,11 @@ import type {
   ResolverAttempt,
 } from "../anchor-resolver/index.js";
 import { DEFAULT_IO_CONCURRENCY, mapLimit } from "../concurrency.js";
-import { ensureGrammar, type GrammarOptions } from "../grammars/index.js";
+import {
+  ensureGrammar,
+  noteUncompilableQuery,
+  type GrammarOptions,
+} from "../grammars/index.js";
 import {
   index,
   select,
@@ -31,10 +35,17 @@ type Loaded = { language: Language; query: Query };
 
 export type TreeSitterStats = { parses: number; cacheHits: number };
 
+/** Grammar options plus a test seam for the vendored tags queries. */
+export type TreeSitterOptions = GrammarOptions & {
+  /** Where `<language>.scm` is read from. Defaults to the shipped `grammars/tags`. */
+  tagsDir?: string;
+};
+
 export class TreeSitterResolver implements AnchorResolver {
   readonly name = "tree-sitter";
 
   private readonly grammars: GrammarOptions;
+  private readonly tagsDir: string | undefined;
   private readonly loaded = new Map<string, Loaded | null>();
   private readonly trees = new Map<string, ParsedFile>();
   private parser: Parser | undefined;
@@ -43,8 +54,9 @@ export class TreeSitterResolver implements AnchorResolver {
   /** Cache effectiveness, for tests and for the latency numbers. */
   readonly stats: TreeSitterStats = { parses: 0, cacheHits: 0 };
 
-  constructor(options: GrammarOptions = {}) {
+  constructor(options: TreeSitterOptions = {}) {
     this.grammars = options;
+    this.tagsDir = options.tagsDir;
   }
 
   /**
@@ -57,7 +69,7 @@ export class TreeSitterResolver implements AnchorResolver {
   async prepare(files: readonly string[]): Promise<void> {
     const wanted = new Set<string>();
     for (const file of files) {
-      const language = languageForFile(file);
+      const language = languageForFile(file, this.tagsDir);
       if (language && !this.loaded.has(language)) wanted.add(language);
     }
     if (!wanted.size) return;
@@ -86,15 +98,30 @@ export class TreeSitterResolver implements AnchorResolver {
     );
   }
 
+  /**
+   * A grammar that cannot be obtained is already explained by the grammars
+   * module; a query that will not compile against the release it is pinned to
+   * is a different fault with a different repair, and is reported there too so
+   * every hint has one home.
+   */
   private async load(language: string): Promise<Loaded | null> {
+    const source = definitionsQuery(language, this.tagsDir);
+    if (!source) return null;
+    let grammar: Language;
     try {
-      const source = definitionsQuery(language);
-      if (!source) return null;
       const wasm = await ensureGrammar(language, this.grammars);
       if (!wasm) return null;
-      const grammar = await Language.load(wasm);
-      return { language: grammar, query: new Query(grammar, source) };
+      grammar = await Language.load(wasm);
     } catch {
+      return null;
+    }
+    try {
+      return { language: grammar, query: new Query(grammar, source) };
+    } catch (error) {
+      noteUncompilableQuery(
+        language,
+        error instanceof Error ? error.message : String(error),
+      );
       return null;
     }
   }
@@ -106,7 +133,7 @@ export class TreeSitterResolver implements AnchorResolver {
    * precise span for a guessed one.
    */
   attempt(source: string, symbol: string, file?: string): ResolverAttempt {
-    const language = file ? languageForFile(file) : undefined;
+    const language = file ? languageForFile(file, this.tagsDir) : undefined;
     if (!language) return { kind: "abstain" };
     if (!this.loaded.has(language)) return { kind: "abstain" };
     const loaded = this.loaded.get(language);
