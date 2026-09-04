@@ -212,10 +212,11 @@ file answers for it:
 
 Which languages those are is data, not code. A language pack is a WASM grammar
 and its definitions query pinned together at one `package@version`;
-`grammars/packs.json` lists the 36 packs and where each part comes from, and is
+`grammars/packs.json` lists the 30 packs and where each part comes from, and is
 the only file a human edits. `pnpm grammars pin` resolves both parts, proves
-them — the WASM must load under the installed `web-tree-sitter`, the query must
-compile against it — and writes `grammars/manifest.json`, which carries the URL,
+them — every pack's WASM must load under the installed `web-tree-sitter` with
+every other pack resident, and each query must compile against its own — and
+writes `grammars/manifest.json`, which carries the URL,
 hash and file extensions the runtime reads, and `grammars/tags/`, which carries
 the vendored queries. A part that is missing or will not load fails the pin
 rather than shipping a language that would report itself unavailable, and
