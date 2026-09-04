@@ -392,7 +392,7 @@ async function npmLicense(pin) {
   const key = `${pin.pkg}@${pin.version}`;
   if (!licenses.has(key)) {
     const document = await getJson(
-      `${REGISTRY}/${pin.pkg.replace("/", "%2f")}/${pin.version}`,
+      `${REGISTRY}/${encodeURIComponent(pin.pkg)}/${pin.version}`,
     );
     licenses.set(key, document.license ?? "see repository");
   }

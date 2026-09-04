@@ -154,7 +154,7 @@ function pin(value) {
 async function publishedBefore(name, range, at) {
   if (/^(?:github|git\+|https?):/.test(range) || range.includes("#"))
     return undefined;
-  const document = await tryGetJson(`${REGISTRY}/${name.replace("/", "%2f")}`);
+  const document = await tryGetJson(`${REGISTRY}/${encodeURIComponent(name)}`);
   if (!document) return undefined;
   const candidates = Object.keys(document.versions ?? {})
     .filter((version) => !version.includes("-") && satisfies(version, range))
