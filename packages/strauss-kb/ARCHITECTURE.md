@@ -84,9 +84,9 @@ from Zod, and `strauss-kb schema` is the contract.
 A fresh stamp is a baseline nobody has checked, so only a run where every
 checkable anchor already matched appends `verified[]`.
 
-Symbols resolve through tree-sitter first: a WASM parser per language,
-`tags.scm`-style queries over definition sites, and the definition node's range
-as the span. A dotted symbol matches the definition whose enclosing chain
+Symbols resolve through tree-sitter first: a WASM parser per language, each
+grammar's own upstream `queries/tags.scm` over definition sites, and the
+definition node's range as the span. A dotted symbol matches the definition whose enclosing chain
 matches; a bare name matching two is `symbol-ambiguous`. Only declarations are
 captured: a symbol appearing solely in a call is `symbol-not-found`.
 
