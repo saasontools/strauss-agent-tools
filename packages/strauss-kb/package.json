@@ -57,7 +57,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint .",
-    "grammars:pin": "node scripts/pin-grammars.mjs"
+    "grammars": "node scripts/grammars.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

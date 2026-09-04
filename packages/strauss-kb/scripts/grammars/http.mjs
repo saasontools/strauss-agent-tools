@@ -1,5 +1,5 @@
 // @ts-check
-/** HTTP for the pin scripts: bytes, JSON, and 404-tolerant variants. */
+/** HTTP for the grammars tool: bytes, JSON, and a 404-tolerant variant. */
 
 /** @param {string} url */
 export async function get(url) {
@@ -33,7 +33,7 @@ export async function tryGetJson(url) {
 
 function headers() {
   /** @type {Record<string, string>} */
-  const headers = { "user-agent": "strauss-kb-pin-grammars" };
+  const headers = { "user-agent": "strauss-kb-grammars" };
   const token = process.env["GITHUB_TOKEN"] ?? process.env["GH_TOKEN"];
   if (token) headers["authorization"] = `Bearer ${token}`;
   return headers;
