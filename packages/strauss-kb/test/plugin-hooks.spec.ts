@@ -932,12 +932,8 @@ describe("plugin config files parse", () => {
         { matcher?: string; hooks: { timeout?: number }[] }[]
       >;
     };
-    // SessionStart context injection, and nothing else. The four tool hooks
-    // (block reads, deny edits to generated files, validate after a manual
-    // edit, stamp a pinned base after a git sync) ship as scripts but stay
-    // opt-in workspace policy: a matcher can only match a tool name, and the
-    // plugin is installed per user, so an entry here would fire in every repo
-    // that user opens, including ones with no kb.
+    // Context injection only. The four tool hooks ship as scripts, opt-in:
+    // the plugin installs per user, so a wired entry fires in every repo.
     expect(Object.keys(claudeHooks.hooks)).toEqual(["SessionStart"]);
     expect(
       claudeHooks.hooks.SessionStart!.map((group) => group.matcher),
@@ -994,9 +990,7 @@ describe("plugin config files parse", () => {
 });
 
 describe("opt-in hook scripts ship unwired", () => {
-  // The plugin installs per user, so a wired entry fires in every repo,
-  // including ones with no kb. Each script must still be a script node can
-  // run once a workspace copies it to `.claude/hooks/`.
+  // Unwired, but each must still run once copied to `.claude/hooks/`.
   const optIn = [
     "block-kb-reads.mjs",
     "deny-kb-generated-edits.mjs",
