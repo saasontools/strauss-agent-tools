@@ -441,8 +441,8 @@ Worked flows:
 
 **Placement is cache economics.** `load`'s output belongs in the stable
 prefix — system prompt or first turn; `query` and `pack` results belong at
-the tail. `digest` is the base's content stamp: a change-notification hook
-and `kb_stamp` (SAA-719) compare it to detect change, not the model. A
+the tail. `digest` is the base's content stamp: `kb_stamp` and the opt-in
+reload hook compare it to detect change, not the model. A
 prompt cache matches a byte-for-byte prefix, so one volatile result ahead of
 a stable load prices the base at full rate thereafter. Mechanism and digest
 caveats: <https://saasontools.github.io/strauss-agent-tools/mcp-reference>.
@@ -485,8 +485,9 @@ carry no numbers:
 ```
 
 A pinned base can also change mid-session — a `git pull`, a sub-agent's write.
-`strauss-kb stamp` reports each pinned base's content digest, and the plugin's
-reload hooks compare it for you and name the base to load again.
+`strauss-kb stamp` reports each pinned base's content digest. Comparing it for
+you is opt-in, see the
+[plugin README](../../plugins/strauss-kb/README.md#opt-in-workspace-hooks).
 
 `sync-instructions <file>` keeps that block between
 `<!-- strauss-kb:begin/end -->` sentinels in AGENTS.md or CLAUDE.md; it is
@@ -495,16 +496,16 @@ idempotent, and covers runtimes without a reliable post-compaction hook.
 What each runtime gets (configs in the
 [plugin's adapters](../../plugins/strauss-kb/adapters/)):
 
-| Layer                     | Claude Code               | Codex CLI                                   | Antigravity CLI            |
-| ------------------------- | ------------------------- | ------------------------------------------- | -------------------------- |
-| MCP tool descriptions     | ✓                         | ✓                                           | ✓                          |
-| Session-start injection   | SessionStart hook         | SessionStart hook                           | PreInvocation, per turn    |
-| Post-compact re-injection | ✓ `compact` source        | ✓ client-side; instruction-only when hosted | moot — injected every turn |
-| Reload after a pull       | PostToolUse, SubagentStop | PostToolUse on `shell`                      | moot — injected every turn |
-| File-read blocking        | opt-in PreToolUse         | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
-| Manual-edit validation    | opt-in PostToolUse        | ✗                                           | ✗                          |
-| Generated-file edit guard | opt-in PreToolUse         | ✗                                           | ✗                          |
-| Instruction file          | CLAUDE.md                 | AGENTS.md                                   | AGENTS.md + rules/         |
+| Layer                     | Claude Code                      | Codex CLI                                   | Antigravity CLI            |
+| ------------------------- | -------------------------------- | ------------------------------------------- | -------------------------- |
+| MCP tool descriptions     | ✓                                | ✓                                           | ✓                          |
+| Session-start injection   | SessionStart hook                | SessionStart hook                           | PreInvocation, per turn    |
+| Post-compact re-injection | ✓ `compact` source               | ✓ client-side; instruction-only when hosted | moot — injected every turn |
+| Reload after a pull       | opt-in PostToolUse, SubagentStop | opt-in PostToolUse on `shell`               | moot — injected every turn |
+| File-read blocking        | opt-in PreToolUse                | ✗ (shell is the side door)                  | opt-in PreToolUse, JSON    |
+| Manual-edit validation    | opt-in PostToolUse               | ✗                                           | ✗                          |
+| Generated-file edit guard | opt-in PreToolUse                | ✗                                           | ✗                          |
+| Instruction file          | CLAUDE.md                        | AGENTS.md                                   | AGENTS.md + rules/         |
 
 Never read record files directly — read through the tools; a raw read bypasses
 standing, and a superseded record reads exactly like a current one. Enforce it

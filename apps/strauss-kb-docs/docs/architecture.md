@@ -113,24 +113,36 @@ can enforce that with deny rules or the plugin's opt-in `PreToolUse` script.
 
 A hand-edit is the case that does not go through the store, and a `git pull` or
 a sub-agent's write is the case an already-loaded base does not survive. The
-plugin ships hooks for both.
+plugin ships scripts for both.
 
 | Event                  | Wired by      | What it does                                                                |
 | ---------------------- | ------------- | --------------------------------------------------------------------------- |
-| `SessionStart`         | the plugin    | emits the pinned-base context block, and seeds the session's stamp state    |
-| `PostToolUse` (`Bash`) | the plugin    | after a git sync, says which pinned base changed since it was loaded        |
-| `SubagentStop`         | the plugin    | the same compare, for a sub-agent's own write                               |
+| `SessionStart`         | the plugin    | emits the pinned-base context block                                         |
+| `SessionStart`         | the workspace | seeds the session's stamp state                                             |
+| `PostToolUse` (`Bash`) | the workspace | after a git sync, says which pinned base changed since it was loaded        |
+| `SubagentStop`         | the workspace | the same compare, for a sub-agent's own write                               |
 | `PreToolUse` (write)   | the workspace | **denies** an edit to a generated file inside a bundle                      |
 | `PostToolUse` (write)  | the workspace | runs `validate` over the bundle a manual edit touched, and reports findings |
 
-The write hooks stay opt-in because they run the CLI on every matching write in
-every repo that user opens; the reload hooks are wired because they exit on a
-regex or a git diff and read nothing. Copy the write script to `.claude/hooks/`
-and add
+The context block is the only hook the plugin wires: it installs per user, so
+anything in its `hooks.json` fires in every repo that user opens, including
+ones with no kb. Copy the scripts a workspace wants to `.claude/hooks/` and add
 
 ```json
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/kb-stamp-hook.mjs\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
@@ -152,14 +164,35 @@ and add
             "timeout": 65
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/kb-stamp-hook.mjs\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/kb-stamp-hook.mjs\"",
+            "timeout": 20
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-Both decide whether the edited path is inside a base by a pure path-segment
-match: a segment named `.kb`, or a segment `kb` whose parent is `.strauss`. A
+Both write hooks decide whether the edited path is inside a base by a pure
+path-segment match: a segment named `.kb`, or a segment `kb` whose parent is `.strauss`. A
 base pinned somewhere else is invisible to them — a v1 scope cut.
 
 **The deny hook** blocks `INDEX.md`, `log.jsonl`, and `.index.sqlite`, and only
@@ -173,7 +206,8 @@ to the next. Findings come back as additional context, capped and sanitized,
 since validate notes can quote record frontmatter verbatim. It **fails open**
 everywhere, exiting 0 and saying nothing when its own plumbing breaks.
 
-**The reload hook** (`kb-stamp-hook.mjs`) keeps `$TMPDIR/strauss-kb/<session
+**The reload hook** (`kb-stamp-hook.mjs`), opt-in for the same per-user
+reason, keeps `$TMPDIR/strauss-kb/<session
 id>.json` — the digest each pinned base carried when it was last injected,
 beside the git head it was seen at. It never writes under the repo, and the
 state file is replaced through a temp file and a rename. On a `Bash` command
