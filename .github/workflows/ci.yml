@@ -61,7 +61,10 @@ jobs:
           claude plugin validate .
 
       - name: Audit dependencies
-        # The advisory endpoint times out often enough to fail a green PR.
+        # The advisory endpoint is slow more often than down: give each fetch
+        # three minutes (pnpm's default is one) and retry the whole audit.
+        env:
+          npm_config_fetch_timeout: "180000"
         run: |
           for attempt in 1 2 3; do
             pnpm audit --audit-level=high && exit 0
