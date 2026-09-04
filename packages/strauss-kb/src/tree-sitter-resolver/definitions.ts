@@ -25,9 +25,10 @@ export type ParsedFile = {
 };
 
 /**
- * One definition per name site, outermost node wins — a query that captures
+ * One definition per name site, innermost node wins — a query that captures
  * the same name twice (upstream Rust makes every `fn` both a function and,
- * inside a `declaration_list`, a method) yields the wider span.
+ * inside its `impl` block's `declaration_list`, a method) means the tightest
+ * node around the name, never the block that holds its siblings too.
  */
 export function index(tree: Tree, query: Query): ParsedFile {
   const byName = new Map<number, Definition>();
@@ -46,7 +47,7 @@ export function index(tree: Tree, query: Query): ParsedFile {
       target: defNode.name !== SCOPE_ONLY,
     };
     const existing = byName.get(nameNode.node.id);
-    if (existing && width(existing.node) >= width(candidate.node)) continue;
+    if (existing && width(existing.node) <= width(candidate.node)) continue;
     byName.set(nameNode.node.id, candidate);
   }
 
