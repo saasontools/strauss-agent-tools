@@ -1,6 +1,6 @@
 {
   "name": "strauss-kb",
-  "version": "0.3.6",
+  "version": "0.3.11",
   "description": "Keep durable project knowledge as markdown records with standing, supersession, and trace.",
   "author": {
     "name": "Assaf Kamil"
