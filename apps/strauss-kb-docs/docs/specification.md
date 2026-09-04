@@ -206,17 +206,22 @@ file answers for it:
 
 | Resolver      | Covers                                                       |
 | ------------- | ------------------------------------------------------------ |
-| `tree-sitter` | the 18 languages with both a grammar and a definitions query |
+| `tree-sitter` | the 20 languages with both a grammar and a definitions query |
 | `regex`       | every other extension                                        |
 | whole-file    | an anchor with no `symbol`                                   |
 
-Which languages those are is data, not code: `grammars/manifest.json` pins the
-36 grammars `tree-sitter-wasms` ships, `grammars/tags/` holds the 18 that have
-an upstream `queries/tags.scm`, and `grammars/extensions.json` maps extension
-to language from GitHub Linguist. Each query is vendored from the exact grammar
-release its WASM was built from — `manifest.json` names it — so a query cannot
-drift into one the grammar will not compile. An extension whose grammar has no
-tags query stays with the regex heuristic, as before the resolver existed.
+Which languages those are is data, not code. A language pack is a WASM grammar
+and its definitions query pinned together at one `package@version`;
+`grammars/packs.json` lists the 36 packs and where each part comes from, and is
+the only file a human edits. `pnpm grammars pin` resolves both parts, proves
+them — the WASM must load under the installed `web-tree-sitter`, the query must
+compile against it — and writes `grammars/manifest.json`, which carries the URL,
+hash and file extensions the runtime reads, and `grammars/tags/`, which carries
+the vendored queries. A part that is missing or will not load fails the pin
+rather than shipping a language that would report itself unavailable, and
+`pnpm grammars check` re-proves every pack weekly against the real CDN. An
+extension whose pack has no tags query stays with the regex heuristic, as
+before the resolver existed.
 
 Definitions are whatever upstream's tags query captures as `@definition.*`,
 named by its `@name`. A dotted symbol (`KbStore.setStatus`) resolves to the
@@ -228,7 +233,7 @@ that appears only in a call is `symbol-not-found` rather than the call site.
 
 Grammars are **not** shipped with the package. Each downloads from jsDelivr on
 first use, is verified against the sha256 pinned in `grammars/manifest.json`,
-and is cached under `~/.strauss/grammars/<version>/` — 49 MB of WASM in every
+and is cached under `~/.strauss/grammars/<language>/` — 49 MB of WASM in every
 install, for a feature most installs never reach, is a bad trade. A grammar
 that cannot be obtained or verified is `resolver-unavailable`, never a throw
 and never a silent fall back to regex, whose span for the same symbol is a
