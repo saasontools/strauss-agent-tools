@@ -240,6 +240,13 @@ describe("TreeSitterResolver: the spans regex gets wrong", () => {
 });
 
 describe("TreeSitterResolver: availability", () => {
+  test("a grammar with no tags query abstains, like an unknown extension", () => {
+    expect(languageForFile("a.json")).toBeUndefined();
+    expect(attempt("a.json", '{ "cancel": 1 }\n', "cancel")).toEqual({
+      kind: "abstain",
+    });
+  });
+
   test("an extension with no grammar abstains so regex gets a turn", () => {
     expect(languageForFile("a.hs")).toBeUndefined();
     expect(
