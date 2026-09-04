@@ -3,22 +3,27 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { Language, Parser, Query } from "web-tree-sitter";
 import {
   ensureGrammar,
   grammarManifest,
   resetGrammarState,
 } from "../src/grammars/index.js";
-import { TreeSitterResolver } from "../src/tree-sitter-resolver/index.js";
+import {
+  definitionsQuery,
+  TreeSitterResolver,
+} from "../src/tree-sitter-resolver/index.js";
 
 /**
  * The tests that reach the real CDN, so the pinned hashes are checked against
  * what the CDN actually serves rather than against the fixtures, and the
  * download path is exercised end to end.
  *
- * Loading every grammar is `pnpm grammars check`, which proves each pack in a
- * worker of its own — web-tree-sitter's WASM heap does not survive 36 loads in
- * one thread. Both run in the weekly `grammars-net.yml` workflow, which is
- * where a re-published or withdrawn release surfaces.
+ * Every pack is also loaded together here, the way `pnpm grammars check`
+ * does: a grammar built at an ABI the pinned web-tree-sitter does not accept,
+ * or by a toolchain that corrupts the shared WASM heap, only shows up with the
+ * others resident. Both run in the weekly `grammars-net.yml` workflow, which
+ * is where a re-published or withdrawn release surfaces.
  *
  * Off by default and out of CI's way: `pnpm test` must pass unplugged.
  */
@@ -83,6 +88,27 @@ describe.skipIf(!enabled)("the real CDN", () => {
       if (digest !== pack.wasm.sha256)
         failures.push(`${language}: sha256 ${digest}`);
     }
+    expect(failures).toEqual([]);
+  }, 900_000);
+
+  test("and every pinned grammar loads and parses in one process", async () => {
+    await Parser.init();
+    const parser = new Parser();
+    const failures: string[] = [];
+    for (const language of Object.keys(manifest.packs)) {
+      const path = await ensureGrammar(language, { cacheRoot });
+      try {
+        const grammar = await Language.load(path as string);
+        const source = definitionsQuery(language);
+        if (source) new Query(grammar, source);
+        parser.setLanguage(grammar);
+        if (!parser.parse("a b\n"))
+          failures.push(`${language}: parsed to nothing`);
+      } catch (error) {
+        failures.push(`${language}: ${(error as Error).message || "rejected"}`);
+      }
+    }
+    parser.delete();
     expect(failures).toEqual([]);
   }, 900_000);
 });

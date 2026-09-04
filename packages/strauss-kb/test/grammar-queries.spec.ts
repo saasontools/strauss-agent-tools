@@ -32,3 +32,30 @@ describe("the fixture grammars", () => {
     ).not.toThrow();
   });
 });
+
+/**
+ * The runtime meets the packs the way an MCP server does: every grammar a
+ * repository needs resident in one process at once. A WASM built at an ABI
+ * outside the pinned `web-tree-sitter`'s range is rejected at `Language.load`,
+ * and one built by a toolchain that corrupts the shared heap takes the loads
+ * after it down with it — neither shows up loading a grammar on its own.
+ * `pnpm grammars check` does this for all 30 packs weekly.
+ */
+describe("all the fixture grammars at once", () => {
+  test("load, compile and parse in one process", async () => {
+    await Parser.init();
+    const parser = new Parser();
+    const loaded: string[] = [];
+    for (const language of languages) {
+      const path = await ensureGrammar(language);
+      const grammar = await Language.load(path as string);
+      const source = definitionsQuery(language);
+      if (source) new Query(grammar, source);
+      parser.setLanguage(grammar);
+      expect(parser.parse("a b\n"), language).not.toBeNull();
+      loaded.push(language);
+    }
+    parser.delete();
+    expect(loaded).toEqual(languages);
+  });
+});
