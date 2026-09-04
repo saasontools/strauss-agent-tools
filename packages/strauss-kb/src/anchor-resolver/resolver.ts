@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { KbAnchor } from "../kb-record.schema.js";
 import type { GrammarOptions } from "../grammars/index.js";
-import { TreeSitterResolver } from "../tree-sitter-resolver.js";
+import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import type {
   AnchorHashKind,
   AnchorResolution,

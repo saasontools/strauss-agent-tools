@@ -9,8 +9,8 @@ import {
   regexResolver,
   resolveAnchorSpan,
   type AnchorResolution,
-} from "./anchor-resolver/index.js";
-import { languageForFile, TreeSitterResolver } from "./tree-sitter-resolver.js";
+} from "../anchor-resolver/index.js";
+import { languageForFile, TreeSitterResolver } from "./index.js";
 
 /**
  * One resolver for the whole suite: grammar loading is the slow part and it is
@@ -26,7 +26,7 @@ const FILES = [
   "a.py",
   "a.go",
   "a.rs",
-  "a.rb",
+  "a.hs",
 ] as const;
 
 beforeAll(async () => {
@@ -240,9 +240,18 @@ describe("TreeSitterResolver: the spans regex gets wrong", () => {
 });
 
 describe("TreeSitterResolver: availability", () => {
+  test("a grammar with no tags query abstains, like an unknown extension", () => {
+    expect(languageForFile("a.json")).toBeUndefined();
+    expect(attempt("a.json", '{ "cancel": 1 }\n', "cancel")).toEqual({
+      kind: "abstain",
+    });
+  });
+
   test("an extension with no grammar abstains so regex gets a turn", () => {
-    expect(languageForFile("a.rb")).toBeUndefined();
-    expect(attempt("a.rb", "def cancel\n  1\nend\n", "cancel")).toEqual({
+    expect(languageForFile("a.hs")).toBeUndefined();
+    expect(
+      attempt("a.hs", "cancel :: Int -> Int\ncancel x = x\n", "cancel"),
+    ).toEqual({
       kind: "abstain",
     });
   });
@@ -273,14 +282,14 @@ describe("TreeSitterResolver: availability", () => {
 });
 
 describe("the resolver chain", () => {
-  const JAVA = ["class Order {", "  void cancel() {", "  }", "}"].join("\n");
+  const HASKELL = ["data Order = Order", "  { cancelled :: Bool }"].join("\n");
 
   test("falls back to regex for an extension with no grammar", async () => {
     const chain = defaultAnchorResolvers();
-    await prepareResolvers(chain, ["a.java"]);
+    await prepareResolvers(chain, ["a.hs"]);
     const outcome = resolveAnchorSpan(
-      JAVA,
-      { file: "a.java", symbol: "Order" },
+      HASKELL,
+      { file: "a.hs", symbol: "Order" },
       chain,
     );
     expect(outcome.ok).toBe(true);

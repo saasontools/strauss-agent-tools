@@ -74,8 +74,8 @@ export {
 export {
   TreeSitterResolver,
   languageForFile,
-  TREE_SITTER_LANGUAGES,
-} from "./tree-sitter-resolver.js";
+  treeSitterLanguages,
+} from "./tree-sitter-resolver/index.js";
 export {
   ensureGrammar,
   grammarHints,

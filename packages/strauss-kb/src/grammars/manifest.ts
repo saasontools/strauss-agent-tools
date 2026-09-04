@@ -11,21 +11,24 @@ let cached: GrammarManifest | undefined;
  */
 export function grammarManifest(): GrammarManifest {
   cached ??= grammarManifestSchema.parse(
-    JSON.parse(readFileSync(manifestPath(), "utf8")),
+    JSON.parse(readFileSync(grammarsDataPath("manifest.json"), "utf8")),
   );
   return cached;
 }
 
 /**
+ * A path under the package's shipped `grammars/` directory.
+ *
  * Source and bundle sit at different depths under the package root — `src/
- * grammars/` and `dist/` — so the manifest is found by walking up rather than
+ * grammars/` and `dist/` — so the directory is found by walking up rather than
  * by a fixed `..`.
  */
-function manifestPath(): string {
+export function grammarsDataPath(...segments: string[]): string {
   let dir = dirname(fileURLToPath(import.meta.url));
-  for (let up = 0; up < 4; up++) {
-    const candidate = join(dir, "grammars", "manifest.json");
-    if (existsSync(candidate)) return candidate;
+  for (let up = 0; up < 5; up++) {
+    const candidate = join(dir, "grammars");
+    if (existsSync(join(candidate, "manifest.json")))
+      return join(candidate, ...segments);
     dir = dirname(dir);
   }
   throw new Error("grammars/manifest.json is missing from the package");

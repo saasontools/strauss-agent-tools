@@ -9,7 +9,7 @@ import {
   type AnchorFileReader,
 } from "../anchor-resolver/index.js";
 import type { KbAnchor } from "../kb-record.schema.js";
-import { TreeSitterResolver } from "../tree-sitter-resolver.js";
+import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import { movedSearch } from "./moved.js";
 
 /** Counts the repository listings, so "shared across anchors" is checkable. */

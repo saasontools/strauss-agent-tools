@@ -25,10 +25,16 @@ export type GrammarsServer = {
 
 /**
  * Serves the fixtures at the CDN's own path shape. `status` forces a response
- * code, and `corrupt` serves bytes that will not hash as the manifest says.
+ * code, `corrupt` serves bytes that will not hash as the manifest says, and
+ * `failFirst` fails that many requests before serving normally.
  */
 export async function startGrammarsServer(
-  options: { status?: number; corrupt?: boolean; hang?: boolean } = {},
+  options: {
+    status?: number;
+    corrupt?: boolean;
+    hang?: boolean;
+    failFirst?: number;
+  } = {},
 ): Promise<GrammarsServer> {
   const prefix = `/${grammarManifest().package}@${grammarManifest().version}/out/`;
   const requests: string[] = [];
@@ -36,6 +42,10 @@ export async function startGrammarsServer(
     const path = request.url ?? "";
     requests.push(path);
     if (options.hang) return;
+    if (requests.length <= (options.failFirst ?? 0)) {
+      response.writeHead(503).end("try again");
+      return;
+    }
     if (options.status) {
       response.writeHead(options.status).end("nope");
       return;

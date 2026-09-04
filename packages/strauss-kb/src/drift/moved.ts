@@ -11,7 +11,7 @@ import type { KbAnchor } from "../kb-record.schema.js";
 import {
   languageForFile,
   TreeSitterResolver,
-} from "../tree-sitter-resolver.js";
+} from "../tree-sitter-resolver/index.js";
 import { listRepoFiles } from "./git.js";
 
 /**

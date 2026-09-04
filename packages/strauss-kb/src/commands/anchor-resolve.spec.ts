@@ -9,7 +9,7 @@ import { composeRecord } from "../compose.js";
 import { pinBase } from "../kb-pins/index.js";
 import { KbStore } from "../kb-store.js";
 import type { KbAnchor } from "../kb-record.schema.js";
-import { TreeSitterResolver } from "../tree-sitter-resolver.js";
+import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import { anchorResolveCommand } from "./anchor-resolve.js";
 
 /** What a tree-sitter stamp now hashes: the span's normalised token stream. */

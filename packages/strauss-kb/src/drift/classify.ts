@@ -10,7 +10,7 @@ import {
 } from "../anchor-resolver/index.js";
 import type { KbAnchor, KbRecord } from "../kb-record.schema.js";
 import { isUncheckedReason } from "../remote-repo/index.js";
-import { TreeSitterResolver } from "../tree-sitter-resolver.js";
+import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import { readOldSource, type OldSourceOrigin } from "./git.js";
 import { movedSearch, type MovedSearch } from "./moved.js";
 

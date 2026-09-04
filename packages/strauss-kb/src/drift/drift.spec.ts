@@ -13,7 +13,7 @@ import {
 import { composeRecord } from "../compose.js";
 import { KbStore } from "../kb-store.js";
 import type { KbAnchor, KbRecord } from "../kb-record.schema.js";
-import { TreeSitterResolver } from "../tree-sitter-resolver.js";
+import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import {
   doctorCommand,
   type KbDoctorCommandResult,
