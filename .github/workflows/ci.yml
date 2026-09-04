@@ -66,6 +66,7 @@ jobs:
         env:
           npm_config_fetch_timeout: "180000"
         run: |
+          set -o pipefail
           for attempt in 1 2 3; do
             if pnpm audit --audit-level=high 2>&1 | tee audit.log; then exit 0; fi
             if ! grep -qE 'TimeoutError|ERR_PNPM_FETCH|error \((23|5[0-9][0-9])\)' audit.log; then
