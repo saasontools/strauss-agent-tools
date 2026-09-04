@@ -51,12 +51,20 @@ export {
   anchorFilePath,
   detectAnchorDrift,
   hashAnchorText,
+  isCanonicalRepoUrl,
   regexResolver,
   resolveAnchor,
   type AnchorResolver,
   type KbAnchorDriftEntry,
+  type RemoteAnchorState,
   type ResolvedSymbol,
-} from "./anchor-resolver.js";
+} from "./anchor-resolver/index.js";
+export {
+  readRemoteAnchors,
+  repoCacheDir,
+  type RemoteOptions,
+  type RemoteRead,
+} from "./remote-repo/index.js";
 export {
   RECORD_TYPES,
   LINK_RELS,
