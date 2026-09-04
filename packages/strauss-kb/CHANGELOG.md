@@ -1,3 +1,14 @@
+## 0.1.15 (2026-09-04)
+
+### 🩹 Fixes
+
+- An anchor naming another repository now resolves against that repository's remote through a bare cache under `~/.strauss/repo-cache`, instead of being skipped as `foreign-repo`. A pinned `ref` gets three states (`matches-ref`, `drifted-from-ref`, `drifted-on-default`); `--offline` reads the cache without fetching, and `kb_load`/`kb_query`/`kb_doctor` report what they could not reach as `unchecked`. ([cebf5ad](https://github.com/saasontools/strauss-agent-tools/commit/cebf5ad))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5.1
+
 ## 0.1.14 (2026-09-03)
 
 ### 🩹 Fixes
