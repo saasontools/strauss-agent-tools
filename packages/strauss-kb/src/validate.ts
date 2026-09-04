@@ -1,3 +1,4 @@
+import { isCanonicalRepoUrl } from "./anchor-resolver/index.js";
 import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 import { isKbLinkRel, isKbRecordType, KB_LINK_RELS } from "./record-types.js";
 
@@ -97,6 +98,21 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
           "link_target",
           conceptId,
           `target ${link.target} is not in the bundle`,
+          "warning",
+        );
+      }
+    }
+
+    // A short `repo` names a repository without saying where it lives, so a
+    // foreign anchor carrying one can never be fetched. A warning, not an
+    // error: it still matches this root's own origin, and records are never
+    // rewritten under an author.
+    for (const anchor of fm.strauss_anchors ?? []) {
+      if (anchor.repo && !isCanonicalRepoUrl(anchor.repo)) {
+        report(
+          "anchor_repo",
+          conceptId,
+          `anchor repo "${anchor.repo}" is not a full remote URL, so it cannot be resolved against a remote`,
           "warning",
         );
       }
