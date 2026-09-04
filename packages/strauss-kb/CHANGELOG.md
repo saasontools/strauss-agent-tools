@@ -1,3 +1,17 @@
+## 0.1.16 (2026-09-04)
+
+### 🩹 Fixes
+
+- Add `kb_stamp` / `strauss-kb stamp`: a base's content digest, counts, and a ([eb5eef3](https://github.com/saasontools/strauss-agent-tools/commit/eb5eef3))
+  digest per record, with no bodies. The plugin ships an opt-in
+  `kb-stamp-hook.mjs` that compares it and says which pinned base to load again
+  after a `git pull` or a sub-agent's write.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5.1
+
 ## 0.1.15 (2026-09-04)
 
 ### 🩹 Fixes
