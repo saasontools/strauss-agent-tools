@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -32,11 +31,9 @@ export function matches(bytes: Uint8Array, entry: GrammarEntry): boolean {
 }
 
 /**
- * `true` when the cached file is present and hashes as the manifest says.
- *
- * Verified on every load, not only on download: a cache under `$HOME` is
- * writable by anything the user runs, and a grammar is code the parser
- * executes. A file that fails is deleted, so the next run re-downloads it.
+ * `true` when the cached file hashes as the manifest says. Checked on every
+ * load, not only on download: `$HOME` is writable by anything the user runs
+ * and a grammar is code the parser executes. A failing file is deleted.
  */
 export async function verifyCached(
   path: string,

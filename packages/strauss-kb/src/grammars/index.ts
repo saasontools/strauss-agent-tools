@@ -31,12 +31,10 @@ export function grammarsDownloadDisabled(): boolean {
 }
 
 /**
- * The path to a verified grammar, downloading it once if it is not cached.
- *
- * `null` for a language the manifest does not carry, for a download that was
- * refused or disabled, and for bytes that do not match the pinned sha256 —
- * each of which the resolver reports as `resolver-unavailable`. Grammars are
- * not published with the package, so a first run needs the network once.
+ * The path to a verified grammar, downloaded once when not cached. `null`
+ * (unknown language, refused or disabled download, hash mismatch) is what the
+ * resolver reports as `resolver-unavailable`. A miss is not remembered, so a
+ * later call in the same process — the MCP server — tries the network again.
  */
 export async function ensureGrammar(
   language: string,
@@ -53,7 +51,10 @@ export async function ensureGrammar(
   if (existing) return existing;
 
   const pending = (async () => {
-    if (await verifyCached(path, entry)) return path;
+    if (await verifyCached(path, entry)) {
+      missing.delete(language);
+      return path;
+    }
     if (options.offline === true || grammarsDownloadDisabled()) {
       missing.add(language);
       return null;
@@ -72,11 +73,14 @@ export async function ensureGrammar(
       missing.add(language);
       return null;
     }
-    await writeCached(path, bytes);
+    await writeCached(path, bytes).catch(() => null);
+    missing.delete(language);
     return path;
   })();
   inFlight.set(key, pending);
-  return pending;
+  const result = await pending;
+  if (result === null) inFlight.delete(key);
+  return result;
 }
 
 /**

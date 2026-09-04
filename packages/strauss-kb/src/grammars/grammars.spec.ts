@@ -128,6 +128,15 @@ describe("ensureGrammar", () => {
     );
   });
 
+  test("a miss is not remembered: the next call in the process tries again", async () => {
+    expect(await ensureGrammar("go", options({ offline: true }))).toBeNull();
+    expect(grammarHints()).toHaveLength(1);
+
+    expect(await ensureGrammar("go", options())).toBe(cached("go"));
+    expect(server.requests).toHaveLength(1);
+    expect(grammarHints()).toEqual([]);
+  });
+
   test("a language the manifest does not carry is never fetched", async () => {
     expect(await ensureGrammar("ruby", options())).toBeNull();
     expect(server.requests).toHaveLength(0);

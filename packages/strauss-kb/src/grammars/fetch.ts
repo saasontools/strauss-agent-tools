@@ -21,11 +21,9 @@ export function grammarsBaseUrl(override?: string): string {
 }
 
 /**
- * The grammar's bytes, or `null` for any reason at all.
- *
- * A refused download is a finding (`resolver-unavailable`), never a throw, and
- * bytes that do not hash as the manifest says are discarded rather than
- * cached: the manifest is what makes an unsigned CDN safe to fetch from.
+ * The grammar's bytes, or `null` for any failure — never a throw. Bytes that
+ * do not hash as the manifest says are discarded: the manifest is what makes
+ * an unsigned CDN safe to fetch from.
  */
 export async function downloadGrammar(
   url: string,
