@@ -8,10 +8,10 @@ import { format } from "prettier";
 
 export const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const grammarsDir = join(root, "grammars");
-export const tagsDir = join(grammarsDir, "tags");
 export const packsPath = join(grammarsDir, "packs.json");
 export const manifestPath = join(grammarsDir, "manifest.json");
 export const fixturesDir = join(root, "test", "fixtures", "grammars");
+export const tagsFixturesDir = join(fixturesDir, "tags");
 
 /**
  * @typedef {{ linguist: string, packs: Record<string, import("./resolve.mjs").Pack> }} Packs
@@ -64,23 +64,6 @@ export async function writeManifest(lock) {
 }
 
 /**
- * The vendored queries, each headed by the URLs it came from. A language whose
- * pack declares no tags leaves no file: it parses but resolves nothing.
- * @param {Map<string, string>} queries
- */
-export function writeTags(queries, log) {
-  mkdirSync(tagsDir, { recursive: true });
-  for (const [language, body] of queries)
-    writeFileSync(join(tagsDir, `${language}.scm`), `${body.trimEnd()}\n`);
-  for (const file of readdirSync(tagsDir)) {
-    if (!file.endsWith(".scm")) continue;
-    if (queries.has(file.slice(0, -".scm".length))) continue;
-    rmSync(join(tagsDir, file));
-    log(`removed grammars/tags/${file}: the pack declares no tags query`);
-  }
-}
-
-/**
  * Fixtures exist only for the languages the suite parses; the rest would add
  * megabytes to the repository for nothing. They are replaced in place, so the
  * set of fixture languages is what is already committed.
@@ -91,6 +74,30 @@ export function refreshFixture(language, bytes) {
   if (!existsSync(path)) return false;
   writeFileSync(path, bytes);
   return true;
+}
+
+/** Does the suite carry a WASM fixture for this language? */
+export function hasFixture(language) {
+  return existsSync(join(fixturesDir, `tree-sitter-${language}.wasm`));
+}
+
+/**
+ * The tags parts of the fixture languages, named by their hash the way the
+ * runtime cache names them, so the suite's server can serve them at the URLs
+ * the lock pins. A part two packs share — every TypeScript pack starts from
+ * JavaScript's — is one file.
+ * @param {Map<string, Uint8Array>} parts @param {(line: string) => void} log
+ */
+export function syncTagsFixtures(parts, log) {
+  mkdirSync(tagsFixturesDir, { recursive: true });
+  const wanted = new Set([...parts].map(([sha]) => `${sha.slice(0, 12)}.scm`));
+  for (const [sha, body] of parts)
+    writeFileSync(join(tagsFixturesDir, `${sha.slice(0, 12)}.scm`), body);
+  for (const file of readdirSync(tagsFixturesDir)) {
+    if (!file.endsWith(".scm") || wanted.has(file)) continue;
+    rmSync(join(tagsFixturesDir, file));
+    log(`removed test/fixtures/grammars/tags/${file}: no fixture pack pins it`);
+  }
 }
 
 /**

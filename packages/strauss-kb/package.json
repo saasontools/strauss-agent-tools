@@ -28,7 +28,9 @@
   },
   "files": [
     "dist",
-    "grammars",
+    "grammars/packs.json",
+    "grammars/manifest.json",
+    "grammars/README.md",
     "README.md",
     "ARCHITECTURE.md",
     "LICENSE"
