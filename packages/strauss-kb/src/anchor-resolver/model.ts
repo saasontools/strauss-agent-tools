@@ -13,7 +13,7 @@ export type ResolvedSymbol = {
 };
 
 /** Which resolver produced a span. Stamped on the anchor. */
-export type AnchorResolverName = "tree-sitter" | "regex";
+export type AnchorResolverName = "tree-sitter" | "regex" | "span";
 
 /**
  * A resolver's verdict. `abstain` means "not my language" and passes the
@@ -63,6 +63,12 @@ export type AnchorUnresolvedReason =
   | "symbol-not-found"
   /** More than one definition carries the name, and guessing is not allowed. */
   | "symbol-ambiguous"
+  /** The anchor's `span` runs past the end of the file it names. */
+  | "span-out-of-range"
+  /** `side: "old"` with no usable `ref`, or no such path at the rev. */
+  | "ref-unreadable"
+  /** The `ref` is not in this clone — a shallow checkout, not deleted code. */
+  | "ref-unavailable"
   /** The extension has a grammar, but it would not load. Never a throw. */
   | "resolver-unavailable"
   | "outside-repo"
@@ -129,6 +135,8 @@ export type KbDriftMovedTo = {
 export type KbAnchorDriftEntry = {
   file: string;
   symbol?: string;
+  /** Set only for `side: "old"`: read at `ref`, never from the working tree. */
+  side?: "old";
   state: "match" | "drifted" | "unresolved";
   storedHash: string;
   currentHash?: string;

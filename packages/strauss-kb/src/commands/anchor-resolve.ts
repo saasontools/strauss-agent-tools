@@ -2,12 +2,14 @@ import { z } from "zod";
 import {
   anchorFileReader,
   anchorHashOf,
+  atRefKey,
   defaultAnchorResolvers,
   hashAnchorText,
   LazyOrigin,
   normalizeRepoUrl,
   prepareResolvers,
   readAnchorFiles,
+  readCommitted,
   remoteWants,
   resolveAnchorSpan,
   resolverChanged,
@@ -37,6 +39,8 @@ import { argvFlag, bundlePath, conceptId, define } from "./model.js";
 type AnchorResolveResult = {
   file: string;
   symbol?: string;
+  /** Set only for `side: "old"`: resolved at `ref`, never in the working tree. */
+  side?: "old";
   state: "stamped" | "match" | "drifted" | "unresolved";
   storedHash?: string;
   currentHash?: string;
@@ -141,10 +145,11 @@ export const anchorResolveCommand = define({
     for (const anchor of anchors) {
       const base: Pick<
         AnchorResolveResult,
-        "file" | "symbol" | "storedHash" | "repo"
+        "file" | "symbol" | "side" | "storedHash" | "repo"
       > = {
         file: anchor.file,
         ...(anchor.symbol ? { symbol: anchor.symbol } : {}),
+        ...(anchor.side === "old" ? { side: "old" as const } : {}),
         // Carried onto unresolved findings too: an anchor that once hashed
         // and now resolves to nothing is a broken anchor, and the exit code
         // has to be able to tell it from one nobody ever stamped.
@@ -392,9 +397,10 @@ function headHash(
 }
 
 /**
- * What each anchor is read from: the working tree for this repository's own
- * anchors, a bare remote cache for every other. Both sets are collected first,
- * so git is spawned once per (repo, rev) and never inside the loop.
+ * What each anchor is read from: the working tree for this repository's own,
+ * the committed tree at `ref` for an old-side one, a bare remote cache for
+ * every other. Each set is collected first, so git is spawned once per
+ * (repo, rev) and never inside the loop.
  */
 async function readSources(
   anchors: readonly KbAnchor[],
@@ -407,12 +413,20 @@ async function readSources(
     anchors.map((anchor) => [anchor, origin.isForeign(anchor)] as const),
   );
 
-  const local = anchors.filter((anchor) => !foreign.get(anchor));
+  const local = anchors.filter(
+    (anchor) => !foreign.get(anchor) && anchor.side !== "old",
+  );
+  // The committed side never comes from the working tree: `side: "old"` is
+  // about code that may not be there any more.
+  const committed = anchors.filter(
+    (anchor) => !foreign.get(anchor) && anchor.side === "old",
+  );
   const remote = anchors.filter((anchor) => foreign.get(anchor));
   const reads = await readAnchorFiles(
     local.map((anchor) => anchor.file),
     anchorFileReader(root),
   );
+  const atRef = await readCommitted(root, committed);
   const blobs = await readRemoteAnchors(remote.flatMap(remoteWants), {
     offline,
   });
@@ -420,6 +434,15 @@ async function readSources(
   const sources = new Map<KbAnchor, AnchorSource>();
   for (const anchor of local) {
     const read = reads.get(anchor.file) as AnchorRead;
+    sources.set(
+      anchor,
+      read.ok
+        ? { ok: true, source: read.source }
+        : { ok: false, reason: read.reason },
+    );
+  }
+  for (const anchor of committed) {
+    const read = atRef.get(atRefKey(anchor)) as AnchorRead;
     sources.set(
       anchor,
       read.ok
