@@ -71,6 +71,8 @@ describe("runKbCli", () => {
           why: "A region-less key serves the wrong region's data.",
           sections: { Claim: "Every key is prefixed with the region." },
           anchors: [{ file: "src/cache/order-cache.ts" }],
+          verify: ["pnpm vitest run src/cache/order-cache.spec.ts"],
+          sources: [{ id: "ticket", resource: "https://example.test/SAA-1" }],
         },
         "seed",
         "2026-08-01T00:00:00Z",
@@ -85,6 +87,7 @@ describe("runKbCli", () => {
           title: "Which failures should the client retry?",
           why: "Scope decides how much of the client needs a backoff.",
           anchors: [{ file: "src/cache/order-cache.ts" }],
+          owner: "human:reviewer",
         },
         "seed",
         "2026-08-01T01:00:00Z",
@@ -225,6 +228,28 @@ describe("runKbCli", () => {
     ).toMatchObject([
       { conceptId: "fact.cache-key-includes-region", standing: "current" },
     ]);
+  });
+
+  test("list, load and query hand over verify, sources and owner", async () => {
+    const fact = {
+      conceptId: "fact.cache-key-includes-region",
+      verify: ["pnpm vitest run src/cache/order-cache.spec.ts"],
+      sources: [{ id: "ticket", resource: "https://example.test/SAA-1" }],
+    };
+    const question = {
+      conceptId: "open-question.retry-scope",
+      verify: [],
+      sources: [],
+      owner: "human:reviewer",
+    };
+    const listed = parsed(await at(["list"])) as { owner?: string }[];
+    expect(listed).toMatchObject([fact, question]);
+    expect(listed[0]).not.toHaveProperty("owner");
+
+    expect(parsed(await at(["load"]))).toMatchObject({
+      records: [fact, question],
+    });
+    expect(parsed(await at(["query", "retry"]))).toMatchObject([question]);
   });
 
   test("loads the whole base, and refuses past the budget", async () => {

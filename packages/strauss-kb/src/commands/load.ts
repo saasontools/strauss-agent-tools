@@ -1,13 +1,19 @@
 import { z } from "zod";
 import { KB_RECORD_TYPES } from "../kb-record.schema.js";
-import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
+import {
+  argvFlag,
+  bundlePath,
+  define,
+  recordFields,
+  REPO_ROOT,
+} from "./model.js";
 
 export const loadCommand = define({
   name: "load",
   tool: "kb_load",
   usage: "load [type] [--budget N | --all] [--repo-root PATH]",
   description:
-    "Load the whole base, each record with its standing — call it first, at the point of use, since compaction drops it. Superseded records arrive as stubs; kb_trace has the history. Over budget it refuses: kb_catalog, then kb_pack, or narrow with `type`; `all` bypasses. Never read record files directly — only kb_* tools resolve supersession. `digest` stamps the base's content, so hooks know when to reload.",
+    "Load the whole base, each record with its standing, `verify`, `sources` and `owner` — call it first; compaction drops it. Superseded records arrive as stubs; kb_trace has the history. Over budget it refuses: kb_catalog, then kb_pack, or narrow with `type`; `all` bypasses. Never read record files directly. `digest` stamps the base's content, so hooks know when to reload.",
   input: z
     .object({
       bundlePath,
@@ -61,6 +67,7 @@ export const loadCommand = define({
         supersededBy: hit.heads.map((head) => head.conceptId),
         warnings: hit.warnings,
         anchors: hit.record.frontmatter.strauss_anchors ?? [],
+        ...recordFields(hit.record.frontmatter),
         body: hit.record.body,
       })),
     };
