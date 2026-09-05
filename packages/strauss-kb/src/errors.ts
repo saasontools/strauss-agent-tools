@@ -35,6 +35,7 @@ export enum ErrorTypes {
   KbSelfVerification = "KbSelfVerification",
   KbStampBaselineUnreadable = "KbStampBaselineUnreadable",
   KbStampDigestBaselineAmbiguous = "KbStampDigestBaselineAmbiguous",
+  KbTelemetryEvent = "KbTelemetryEvent",
   KbUnknownLinkRel = "KbUnknownLinkRel",
   KbWriteConflict = "KbWriteConflict",
 }

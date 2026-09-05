@@ -3,7 +3,14 @@ import { adjudicate, type KbAdjudicated } from "../adjudicate.js";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
 import { inboundIndex } from "../kb-links/index.js";
 import type { KbRecord, KbRecordStatus } from "../kb-record.schema.js";
-import { argvFlag, bundlePath, define } from "./model.js";
+import {
+  ACTOR,
+  actorOf,
+  argvActor,
+  argvFlag,
+  bundlePath,
+  define,
+} from "./model.js";
 
 /**
  * The statuses a record can be swept from: it is settled, so nothing later
@@ -42,11 +49,12 @@ export type KbSweepResult = {
 export const sweepCommand = define({
   name: "sweep",
   tool: "kb_sweep",
-  usage: "sweep --tag <tag> --terminal [--dry-run]",
+  usage: "sweep --tag <tag> --terminal [--dry-run] [--actor K:N]",
   description:
     "Delete tagged records that are resolved, rejected or superseded. Refuses without --tag, keeps any record a surviving record still points at, and logs each deletion.",
   input: z.object({
     bundlePath,
+    actor: ACTOR,
     tag: z
       .string({ error: "sweep needs --tag: it never sweeps a whole base" })
       .min(1)
@@ -68,11 +76,12 @@ export const sweepCommand = define({
     tag: argvFlag(argv, "--tag"),
     ...(argv.includes("--terminal") ? { terminal: true as const } : {}),
     ...(argv.includes("--dry-run") ? { dryRun: true } : {}),
+    ...argvActor(argv),
   }),
-  run: async (
-    { store, actor },
-    { bundlePath: path, tag, dryRun },
-  ): Promise<KbSweepResult> => {
+  run: async (ctx, parsed): Promise<KbSweepResult> => {
+    const { bundlePath: path, tag, dryRun } = parsed;
+    const { store } = ctx;
+    const actor = actorOf(ctx, parsed);
     const bundle = await store.list(path);
     const held = holderIndex(bundle);
     const candidates = adjudicate(bundle, bundle).filter((hit) =>

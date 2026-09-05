@@ -172,6 +172,70 @@ test("the CLI takes --scenarios and refuses anything else", () => {
   assert.throws(() => parseArgv(["--out"]), /--out needs a value/);
 });
 
+// `no-decision --help` used to write a record whose reason was `--help`, into
+// whatever base the caller was pointing at.
+test("--help after a verb prints usage and writes nothing", () => {
+  const bundle = join(repo, ".strauss/kb");
+  const before = readdirSync(bundle).sort();
+
+  const usage = kb(["--bundle", bundle, "no-decision", "--help"]);
+
+  assert.match(usage, /no-decision/);
+  assert.deepEqual(readdirSync(bundle).sort(), before);
+});
+
+// The changed symbol nothing covers is the whole coverage question, and every
+// consumer was re-deriving it from git's function context instead.
+test("match --include-uncovered names the changed symbols, new side only", () => {
+  git(["checkout", "--quiet", "--end-of-options", "blocking-risk"]);
+  const args = [
+    "--bundle",
+    join(repo, ".strauss/kb"),
+    "match",
+    "--git",
+    "main..blocking-risk",
+    "--repo-root",
+    repo,
+    "--offline",
+  ];
+
+  const all = JSON.parse(kb([...args, "--include-uncovered"]));
+  const covered = JSON.parse(kb(args));
+
+  assert.ok(
+    all.some(
+      (row) =>
+        row.filePath === "src/checkout/pay.ts" &&
+        row.symbol === "idempotencyKey" &&
+        row.records.length === 0,
+    ),
+    "no uncovered idempotencyKey row",
+  );
+
+  // One row per changed symbol on the new side, and no uncovered old-side
+  // row: those lines number the tree that went away. A matched old-side row
+  // still returns.
+  const fresh = all.filter((row) => row.hunk.side !== "old");
+  const keys = fresh.map((row) => `${row.filePath}#${row.symbol}`);
+  assert.deepEqual(keys, [...new Set(keys)]);
+  assert.equal(
+    all.some((row) => row.hunk.side === "old" && row.records.length === 0),
+    false,
+  );
+
+  // Nothing the default run reported on the new side goes missing.
+  const placed = (rows) =>
+    new Set(
+      rows.flatMap((row) =>
+        row.records.map((record) => `${row.filePath}#${record.conceptId}`),
+      ),
+    );
+  const kept = placed(all);
+  for (const id of placed(covered)) {
+    assert.ok(kept.has(id), `${id} dropped under --include-uncovered`);
+  }
+});
+
 for (const scenario of scenarioNames()) {
   test(`${scenario}: head carries its files and the base validates`, () => {
     git(["checkout", "--quiet", "--end-of-options", scenario]);

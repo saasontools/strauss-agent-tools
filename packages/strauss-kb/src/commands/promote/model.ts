@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { bundlePath, conceptId } from "../model.js";
+import { ACTOR, bundlePath, conceptId } from "../model.js";
 
 /**
  * Listing candidates and promoting share one input, and the two need different
@@ -9,6 +9,7 @@ import { bundlePath, conceptId } from "../model.js";
 export const promoteInputSchema = z
   .object({
     bundlePath,
+    actor: ACTOR,
     conceptIds: z
       .array(conceptId)
       .max(64)

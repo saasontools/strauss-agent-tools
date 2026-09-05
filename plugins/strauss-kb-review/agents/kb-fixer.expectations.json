@@ -1,0 +1,97 @@
+{
+  "agent": "kb-fixer",
+  "note": "Outcome expectations per companion-repo scenario, for SAA-746's codex-claude-agent runner to assert against. Trigger accuracy is the kb-fix skill's evals; this file is the other half and cannot run in CI here.",
+  "fixture": "fixtures/companion-repo",
+  "actor": "agent:fixer",
+  "range": "main..<scenario>",
+  "rangeNote": "Two-dot, the same form the agent takes. Every scenario branch has main as its merge base, which is what <base> must be.",
+  "authorActor": "agent:impl",
+  "authorActorNote": "The `by` of each record's `write` entry in `.strauss/kb/log.jsonl`, which is what the agent reads when the prompt names no author.",
+  "writtenNote": "`applied` and `questions` are the agent's own output keys: an `applied` entry is the one repair run through the CLI, a `questions` entry is one `open-question` written as agent:fixer and owned by the author. The agent reports a question as `{ id, finding, alsoNames? }`; the fields below are what the runner asserts about the record it wrote.",
+  "mustNotWrite": ["decision"],
+  "findingsNote": "Finding ids are SAA-729's; `fixable` is true for D5 alone. Every other finding, mechanical or semantic, is a question.",
+  "scenarios": {
+    "drift-after-commit": {
+      "findingsBefore": ["B2", "B5", "D5"],
+      "applied": [
+        {
+          "id": "decision.tenant-chunk-size",
+          "finding": "D5",
+          "op": "anchor-resolve --rebaseline",
+          "why": "TenantService.findMany still resolves under a new hash; the commit is the new baseline."
+        }
+      ],
+      "reran": {
+        "mustNotContain": ["D5"],
+        "why": "The rebaseline settles the drift. B5 and B2 survive it: chunkIds left tenant.service.ts, and no rebaseline can say where it went."
+      },
+      "questions": [
+        {
+          "finding": "B5",
+          "owner": "agent:impl",
+          "anchor": {
+            "file": "src/services/tenant.service.ts",
+            "symbol": "chunkIds"
+          },
+          "tags": ["review"],
+          "why": "The anchored symbol is gone. `reassess` could relocate it, but that op is not the fixer's, so it asks rather than moving another actor's anchor."
+        }
+      ],
+      "skipped": [{ "finding": "B2", "why": "warn" }]
+    },
+    "author-resolved-risk": {
+      "findingsBefore": ["B2", "D1"],
+      "findingsNote": "D2 is the check this scenario is named for and it does not fire on a first pass: the anchors carry no stored hash, so `anchor-resolve` stamps one instead of reporting `match`. Those stamps are what let it fire on the re-run, against the same record and with the same owner.",
+      "applied": [],
+      "questions": [
+        {
+          "finding": "D1",
+          "alsoNames": ["D2"],
+          "owner": "agent:impl",
+          "anchor": {
+            "file": "src/repositories/base.repository.ts",
+            "symbol": "BaseRepository.withRetry"
+          },
+          "tags": ["review"],
+          "defaultAssumption": "present",
+          "why": "risk.repository-retry-storm was written and resolved in one session with no commit touching its anchor between. One question, because D1 and D2 ask the same thing of the same record. Only the author knows what settled it; the fixer never re-opens another actor's risk."
+        }
+      ],
+      "reran": {
+        "mustContain": ["D1", "D2"],
+        "why": "An open-question is coverage for family A and F, not for D — the history those checks read does not change. Both stay after the second pass rather than earning a third."
+      },
+      "skipped": [{ "finding": "B2", "why": "warn" }]
+    },
+    "silent-code-change": {
+      "findingsBefore": ["A1"],
+      "applied": [],
+      "questions": [
+        {
+          "finding": "A1",
+          "owner": "agent:impl",
+          "anchor": {
+            "file": "src/services/tenant.service.ts",
+            "symbol": "TenantService.findMany"
+          },
+          "tags": ["review"],
+          "defaultAssumption": "present",
+          "why": "findMany now dedupes its ids and nothing says why. The why is the author's; a fixer that supplies one has written the record a reviewer will trust."
+        }
+      ],
+      "reran": {
+        "empty": true,
+        "why": "The gate counts an `open-question` anchored on the file as coverage — family A's `coveringRecords` filters on standing and anchor, not type — so A1 clears without a decision being written."
+      },
+      "skipped": []
+    },
+    "docs-only": {
+      "findingsBefore": [],
+      "applied": [],
+      "questions": [],
+      "skipped": [],
+      "reran": { "empty": true },
+      "why": "Base silence is correct here. A fixer that writes anything on this branch is manufacturing a record to look busy."
+    }
+  }
+}

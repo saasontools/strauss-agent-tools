@@ -85,17 +85,19 @@ a base that lies. In order:
 
 Who fixes depends on who is left:
 
-| Tier                | Fixer                         | May write                                                                                       |
-| ------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| Stop / SubagentStop | The author, still in context  | Anything                                                                                        |
-| Same parent session | The author, via SendMessage   | Anything                                                                                        |
-| Later: review, CI   | A fixer holding diff and base | Mechanical fixes only; a gap becomes an `open-question` owned by the author, never a `decision` |
+| Tier                | Fixer                         | May write                                                                                                              |
+| ------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Stop / SubagentStop | The author, still in context  | Anything                                                                                                               |
+| Same parent session | The author, via SendMessage   | Anything                                                                                                               |
+| Later: review, CI   | A fixer holding diff and base | Rebaseline, and a terminal status on request; a gap becomes an `open-question` owned by the author, never a `decision` |
 
-Mechanical: drift rebaselined, dangling link removed, file-only anchor on a
-code file narrowed to a symbol, terminal status set. Semantic — why a file
-changed, what a risk's mitigation is — belongs to whoever held the why. A
-fixer that invents it has written the one record a reviewer will trust and
-should not.
+Mechanical, in the tiers that may edit a record: drift rebaselined, dangling
+link removed, file-only anchor on a code file narrowed to a symbol, terminal
+status set. Semantic — why a file changed, what a risk's mitigation is —
+belongs to whoever held the why. A fixer that invents it has written the one
+record a reviewer will trust and should not.
+
+Which tier is left, and how to reach it: `kb-fix`.
 
 ## Slugs that survive the branch
 

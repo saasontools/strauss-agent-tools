@@ -493,3 +493,76 @@ describe("instrumented commands", () => {
     rmSync(base, { recursive: true, force: true });
   });
 });
+
+// The consumers of this package — a gate, a reviewer, a walkthrough — record
+// their own runs, and each was writing its own JSONL beside this one.
+describe("telemetry emit", () => {
+  const emitEvent = (input: Record<string, unknown>) =>
+    KB_COMMANDS_BY_NAME.get("telemetry")?.run(
+      {
+        store: new KbStore(),
+        actor: "human:ada",
+        now: () => new Date().toISOString(),
+      },
+      { action: "emit", ...input },
+    );
+
+  test("a consumer's event lands in the same local sink", async () => {
+    await emitEvent({
+      component: "kb-review-gate",
+      event: "gate.run",
+      data: JSON.stringify({ route: "human", families: ["A"] }),
+      pr: 59,
+      durationMs: 120,
+    });
+
+    expect(lines(await sinkDir())[0]).toMatchObject({
+      component: "kb-review-gate",
+      event: "gate.run",
+      pr: 59,
+      durationMs: 120,
+      data: { route: "human", families: ["A"] },
+    });
+  });
+
+  // The cap is what keeps a body out of the stream, and a caller told nothing
+  // would go on sending code.
+  test("data carrying code content is refused, not dropped", async () => {
+    await expect(
+      emitEvent({
+        component: "kb-review-gate",
+        event: "gate.run",
+        data: JSON.stringify({ diff: "x".repeat(513) }),
+      }),
+    ).rejects.toThrow(/no string over 512 characters/);
+
+    expect(existsSync(await sinkDir())).toBe(false);
+  });
+
+  test("--data that is not JSON is refused", async () => {
+    await expect(
+      emitEvent({
+        component: "kb-review-gate",
+        event: "gate.run",
+        data: "route=human",
+      }),
+    ).rejects.toThrow(/--data is not JSON/);
+  });
+
+  test("emit needs both a component and an event", async () => {
+    await expect(emitEvent({ component: "kb-review-gate" })).rejects.toThrow(
+      /needs --component and --event/,
+    );
+  });
+
+  // Off drops the event, and a caller handed `emitted: true` would go looking
+  // for a line nothing ever wrote.
+  test("with the sink off the caller is told the event went nowhere", async () => {
+    process.env.STRAUSS_TELEMETRY = "off";
+
+    await expect(
+      emitEvent({ component: "kb-review-gate", event: "gate.run" }),
+    ).resolves.toEqual({ emitted: false, mode: "off" });
+    expect(existsSync(await sinkDir())).toBe(false);
+  });
+});
