@@ -48,14 +48,15 @@ function materialize(scenario) {
 }
 
 /** @param {string} repo @param {string[]} args
+ * @param {Record<string, string>} [env]
  * @returns {{ status: number, model: any, stderr: string }} */
-function route(repo, args) {
+function route(repo, args, env = {}) {
   try {
     const stdout = execFileSync(process.execPath, [SCRIPT, ...args], {
       cwd: repo,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
-      env: { ...process.env, STRAUSS_KB_BIN: KB_CLI },
+      env: { ...process.env, STRAUSS_KB_BIN: KB_CLI, ...env },
     });
     return { status: 0, model: JSON.parse(stdout), stderr: "" };
   } catch (error) {
@@ -71,10 +72,11 @@ function route(repo, args) {
 /**
  * A repository the fixture does not cover: a base policy that names an owner,
  * and a branch whose one source file routes human. The enforce contract needs
- * both, and `owners` is not part of the companion base's placeholder policy.
+ * both, and `owners` is not part of the companion base's policy.
+ * @param {unknown} [policy] the base policy, when a test needs another one
  * @returns {{ repo: string, sha: string }}
  */
-function ownedRepo() {
+function ownedRepo(policy = { version: 1, owners: ["dana"] }) {
   const repo = mkdtempSync(join(tmpdir(), "merge-policy-owned-"));
   built.push(repo);
   /** @param {string[]} args */
@@ -93,7 +95,7 @@ function ownedRepo() {
   mkdirSync(join(repo, ".strauss"), { recursive: true });
   writeFileSync(
     join(repo, ".strauss", "merge-policy.json"),
-    `${JSON.stringify({ version: 1, owners: ["dana"] }, null, 2)}\n`,
+    `${JSON.stringify(policy, null, 2)}\n`,
   );
   writeFileSync(join(repo, "README.md"), "base\n");
   run(["add", "-A"]);
@@ -249,16 +251,53 @@ test("a policy weakened on the head branch does not apply to its own range", () 
     "--json",
   ]);
   // The branch adds `docs/**` to the exclusions. The route reads main's copy,
-  // whose hash is the one reported.
+  // whose merged hash is the one reported.
   const base = execFileSync(
     "git",
-    ["-C", repo, "show", "main:.strauss/merge-policy.yaml"],
+    ["-C", repo, "show", "main:.strauss/merge-policy.json"],
     { encoding: "utf8" },
   );
   assert.ok(!base.includes("docs/**"));
-  assert.equal(model.policy.path, ".strauss/merge-policy.yaml");
+  assert.equal(model.policy.path, ".strauss/merge-policy.json");
+  assert.deepEqual(model.policy.layers, ["repo"]);
   assert.equal(model.route, "human");
   assert.equal(model.rule, "policy-changed");
+});
+
+test("an unknown value routes human, with the error named", () => {
+  const { repo } = ownedRepo({
+    version: 1,
+    owners: ["dana"],
+    types: { decision: "sometimes" },
+  });
+  const { model } = route(repo, [
+    "--range",
+    "main..topic",
+    "--repo-root",
+    repo,
+    "--json",
+  ]);
+  assert.equal(model.route, "human");
+  assert.equal(model.rule, "policy-disabled");
+  assert.match(
+    model.reason,
+    /types\.decision: sometimes is not auto\|off\|human/,
+  );
+});
+
+test("the org defaults layer is read from the env, and only ever escalates", () => {
+  const { repo } = ownedRepo();
+  const defaults = join(repo, "org-defaults.json");
+  writeFileSync(defaults, JSON.stringify({ auto: { classes: ["docs"] } }));
+  const { model } = route(
+    repo,
+    ["--range", "main..topic", "--repo-root", repo, "--json"],
+    { STRAUSS_MERGE_POLICY_DEFAULTS: defaults },
+  );
+  assert.deepEqual(model.policy.layers, ["defaults", "repo"]);
+  // The repo policy names no `auto` block, so the defaults' allowlist stands
+  // and this range's one source file is still loud.
+  assert.equal(model.route, "human");
 });
 
 test("a bad flag exits 2, never 1 — a usage error is not a human route", () => {

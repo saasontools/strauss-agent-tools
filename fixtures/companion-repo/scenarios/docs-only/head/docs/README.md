@@ -7,7 +7,7 @@ and `BaseRepository` owns the store retry policy. The protocol types under
 `pnpm gen:protocol` after editing the input rather than editing the output.
 
 `packages/legacy-reporting` is a CSV export nobody maintains;
-`.strauss/merge-policy.yaml` excludes it from review.
+`.strauss/merge-policy.json` excludes it from review.
 
 ## Running the generator
 

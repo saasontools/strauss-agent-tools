@@ -18,14 +18,15 @@
  * | 10 | `gate-block` | human | any other gate block |
  * | 11 | `unreadable-record` | human | a record in the bundle that would not read |
  * | 12 | `gate-unavailable` | human | the gate crashed, timed out or printed nothing |
- * | 13 | `policy-human` | human | a record whose type or tag the policy sends to a human |
- * | 14 | `auto-mechanical` | auto | nothing but mechanical classes, base quiet on them |
+ * | 13 | `policy-human` | human | a record whose type or tag the policy dispositions `human` |
+ * | 14 | `auto-mechanical` | auto | only classes and paths the policy allows, base quiet |
  * | 15 | `reviewer-clean` | agent-review-then-auto | every record on the diff verified |
  * | 16 | `default-human` | human | everything else |
  *
  * Rows 4, 8, 9 and the approval read in `enforce.mjs` are the hardening: an
  * actor string is forgeable, so none of them takes the author's word.
  */
+import { matchesAny } from "./policy.mjs";
 
 /** @typedef {import("./inputs.mjs").Input} Input */
 
@@ -160,11 +161,8 @@ export const RULES = [
     id: "policy-human",
     route: "human",
     when: (input) => {
-      const types = new Set(input.policy.data.humanTypes);
-      const tags = new Set(input.policy.data.humanTags);
       const named = onDiff(input).filter(
-        (record) =>
-          types.has(record.type) || record.tags.some((tag) => tags.has(tag)),
+        (record) => disposition(input, record) === "human",
       );
       return named.length > 0
         ? `the policy sends to a human: ${named.map((record) => record.id).join(", ")}`
@@ -175,8 +173,12 @@ export const RULES = [
     id: "auto-mechanical",
     route: "auto",
     when: (input) => {
-      const classes = new Set(input.policy.data.autoClasses);
-      const loud = reviewed(input).filter((file) => !classes.has(file.class));
+      const { autoClasses, autoPaths } = input.policy.data;
+      const classes = new Set(autoClasses);
+      // An allowlist, default deny: a class or a path no layer named is loud.
+      const loud = reviewed(input).filter(
+        (file) => !classes.has(file.class) && !matchesAny(file.path, autoPaths),
+      );
       if (loud.length > 0) return null;
       return quiet(input)
         ? "only mechanical classes, and the base is quiet"
@@ -240,16 +242,32 @@ function terminal(status) {
 }
 
 /**
+ * The most human-ward thing the policy says about a record: `human` from
+ * either map routes, `auto` from either makes it eligible, and anything the
+ * policy did not name is `off`.
+ * @param {Input} input @param {Input["records"][number]} record
+ * @returns {import("./policy.mjs").Disposition}
+ */
+function disposition(input, record) {
+  const { types, tags } = input.policy.data;
+  const said = [types[record.type], ...record.tags.map((tag) => tags[tag])];
+  if (said.includes("human")) return "human";
+  return said.includes("auto") ? "auto" : "off";
+}
+
+/**
  * Is the base quiet on this range? Silent, or saying only `decision.none`, or
- * saying something a machine can re-run and that no floor raised. The third
- * arm is what lets a generated file's `review:generated` fact route auto
- * instead of blocking on its own existence.
+ * saying something a machine can re-run, or a type or tag the policy marked
+ * `auto` — and in every case nothing a floor raised. The third arm is what
+ * lets a generated file's `review:generated` fact route auto instead of
+ * blocking on its own existence.
  * @param {Input} input
  */
 function quiet(input) {
   return onDiff(input).every(
     (record) =>
       record.id === "decision.none" ||
-      (record.effective === "non-blocking" && record.verify.length > 0),
+      (record.effective === "non-blocking" &&
+        (record.verify.length > 0 || disposition(input, record) === "auto")),
   );
 }

@@ -45,6 +45,7 @@ export function result(input, decision, verdict, options) {
       path: input.policy.path,
       version: input.policy.version,
       hash: input.policy.hash,
+      layers: input.policy.layers,
     },
     enforce: options.enforcing
       ? { exit: verdict.exit, why: verdict.why, approvedBy: verdict.approvedBy }

@@ -96,9 +96,12 @@ range: `auto`, `agent-review-then-auto`, or `human`. Sixteen rows, first match
 wins, each reporting the rule id it matched; the table is the header of
 [`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
 
-`--enforce` turns the route into the exit code, and approval comes from the
-GitHub reviews API. The route each `fixtures/companion-repo` scenario produces
-is pinned by that scenario's `expected.json`.
+`--enforce` turns the route into the exit code, approval comes from the GitHub
+reviews API, and what `.strauss/merge-policy.json` may say — an allowlist over
+types, tags, floors, paths, classes and layers — is
+[`SKILL.md`](./skills/merge-policy/SKILL.md). The route each
+`fixtures/companion-repo` scenario produces is pinned by that scenario's
+`expected.json`.
 
 ## Install (unpublished)
 
