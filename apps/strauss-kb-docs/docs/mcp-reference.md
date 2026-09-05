@@ -342,8 +342,9 @@ Parameter: `bundlePath`.
 
 ### `kb_log`
 
-As CLI [`log`](./cli-reference.md#log): what touched what, and when.
-Malformed lines are reported rather than repaired. Parameter: `bundlePath`.
+As CLI [`log`](./cli-reference.md#log): what touched what, and when. Malformed
+lines are reported rather than repaired, and `conflicted` says the log still
+carries merge markers, which the read skips past. Parameter: `bundlePath`.
 
 ```json
 { "bundlePath": "/repo/.strauss/kb" }
@@ -409,6 +410,22 @@ findingCount, healthy }`, where each group is
 `{ check, headline, count, findings }` and each finding is
 `{ conceptId, title, status, note }`. Under `drifted` it also carries `packets`
 and `rebaselinable`.
+
+### `kb_sweep`
+
+As CLI [`sweep`](./cli-reference.md#sweep): deletes records carrying `tag` that
+are also `resolved`, `rejected` or `superseded` — see
+[the one deletion](./specification.md#the-one-deletion). Parameters:
+`bundlePath` and `tag` required, `terminal` (must be `true`, naming the only
+scope it deletes) required, `dryRun` (`boolean`) optional.
+
+```json
+{ "bundlePath": "/repo/.strauss/kb", "tag": "review", "terminal": true }
+```
+
+Returns `{ tag, dryRun, deleted, candidates, skipped, failed }`, where
+`skipped` is `{ conceptId, heldBy }` per record a surviving record still points
+at, and `failed` is `{ conceptId, reason }` per id the run could not remove.
 
 ### `kb_schema`
 

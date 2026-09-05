@@ -63,10 +63,10 @@ import {
   type KbLogEntry,
 } from "./kb-log.js";
 import {
-  appendUnionMergeLine,
+  appendGitattributesLines,
   GITATTRIBUTES_FILE,
-  hasMergeDeclaration,
 } from "./kb-gitattributes.js";
+import { STORE_OWNED_FILES } from "./kb-files.js";
 
 /**
  * Default bundle, relative to the working directory. A scratch base lives here
@@ -75,7 +75,7 @@ import {
  */
 export const KB_DIR = join(".strauss", "kb");
 
-const STORE_OWNED = new Set([INDEX_FILE, LOG_FILE, SEARCH_INDEX_FILE]);
+const STORE_OWNED = new Set(STORE_OWNED_FILES);
 
 export type KbLogger = {
   info?(entry: Record<string, unknown>): void;
@@ -161,6 +161,15 @@ export type KbWriteInput = {
   /** Replace an existing record rather than failing on the collision. */
   overwrite?: boolean;
 };
+
+/** What a record had to still be for `deleteRecord` to remove it. */
+export type KbDeleteExpectation = {
+  tag: string;
+  statuses: readonly KbRecordStatus[];
+};
+
+/** Whether the delete landed, or the record left that scope first. */
+export type KbDeleteOutcome = "deleted" | "changed-since-listing";
 
 export type KbWriteResult = KbRecord & {
   /** Whether this write also marked prior records superseded. */
@@ -483,6 +492,46 @@ export class KbStore {
       { operation: "answer", by: actor },
       (body) => `${body.trimEnd()}\n\n## Answer\n\n${answer}\n`,
     );
+  }
+
+  /**
+   * Removes one record, logged as `sweep`. The only path in this store that
+   * deletes — see the specification for the scope that makes it safe.
+   *
+   * `expected` is re-read and re-checked immediately before the unlink, the
+   * compare-and-swap `mutate` makes: a record retagged or moved out of a
+   * terminal status since the caller listed it is reported, not removed.
+   */
+  async deleteRecord(
+    bundlePath: string,
+    conceptId: string,
+    expected: KbDeleteExpectation,
+    actor = "unknown",
+  ): Promise<KbDeleteOutcome> {
+    const target = this.recordPath(bundlePath, conceptId);
+    const witness = await this.read(bundlePath, conceptId);
+    if (!witness) throw new KbRecordNotFoundError(conceptId);
+
+    const { tags, strauss_status } = witness.frontmatter;
+    if (
+      !(tags ?? []).includes(expected.tag) ||
+      !expected.statuses.includes(strauss_status)
+    ) {
+      return "changed-since-listing";
+    }
+
+    try {
+      await unlink(target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      throw new KbRecordNotFoundError(conceptId);
+    }
+    await this.record(this.root(bundlePath), {
+      operation: "sweep",
+      by: actor,
+      conceptId,
+    });
+    return "deleted";
   }
 
   /**
@@ -834,11 +883,25 @@ export class KbStore {
   }
 
   /**
+   * Drops the derived search index, so the next search rebuilds it.
+   *
+   * `searchBase` re-indexes when a record is newer than the index, which no
+   * deletion makes true — a swept record would stay findable until some other
+   * record was written.
+   */
+  async dropSearchIndex(bundlePath: string): Promise<void> {
+    await unlink(join(this.root(bundlePath), SEARCH_INDEX_FILE)).catch(
+      () => undefined,
+    );
+  }
+
+  /**
    * The log, with unparseable lines reported rather than repaired.
    *
    * The log is the bundle's only artifact that cannot be reconstructed — the
    * records rebuild the index, and the code outlives both, but nothing else
    * knows which agent touched what. So a bad line is surfaced and left alone.
+   * Conflict markers are read past rather than reported per line.
    */
   async readLog(bundlePath: string): Promise<ReturnType<typeof parseLog>> {
     const raw = await readFile(
@@ -846,6 +909,15 @@ export class KbStore {
       "utf8",
     ).catch(() => "");
     const result = parseLog(raw);
+    // One warning for the file, not one per marker: the fact to report is
+    // that the log is unresolved, and it is reported once.
+    if (result.conflicted) {
+      this.logger.warn?.({
+        operation: "kb.log.parse",
+        bundlePath: this.root(bundlePath),
+        outcome: "conflicted",
+      });
+    }
     for (const bad of result.malformed) {
       this.logger.warn?.({
         operation: "kb.log.parse",
@@ -983,7 +1055,8 @@ export class KbStore {
   /**
    * Declares union merge for the log, so two worktrees writing the same
    * bundle interleave their `log.jsonl` lines on merge rather than one
-   * side's appends silently losing to git's ordinary line-level merge.
+   * side's appends silently losing to git's ordinary line-level merge — and
+   * marks every store-owned file generated, so GitHub collapses it in a diff.
    *
    * Called from `record` — every path that appends a log line, not just
    * `write` — so a bundle only ever mutated through `setStatus`/`verify`/
@@ -996,10 +1069,9 @@ export class KbStore {
    * race and created the file between the `readFile` below and this call,
    * `wx` fails instead of truncating what that writer just wrote, and the
    * failure is swallowed by the catch below same as any other best-effort
-   * miss. A file that exists but declares no merge strategy for the log
-   * gets the line appended, never a wholesale rewrite; one that already
-   * declares any merge strategy — this one or a user's own — is left alone
-   * entirely (see `hasMergeDeclaration`).
+   * miss. A file that exists gets only the lines it lacks appended, never a
+   * wholesale rewrite; an attribute it already sets — this one's value or a
+   * user's own — is left alone (see `missingGitattributesLines`).
    *
    * `readFile` failing is `existing === null` only for `ENOENT` — genuinely
    * missing. Any other error (a permission problem, a transient `EMFILE`,
@@ -1010,12 +1082,12 @@ export class KbStore {
    * therefore left untouched and reported as a failure like any other.
    *
    * Two processes racing the append branch — both read a file without the
-   * line, both append it — is possible and left unguarded: `appendFile` is
-   * `O_APPEND`, so the result is two copies of the same line rather than a
-   * torn write, and `hasMergeDeclaration` sees a duplicate declaration as
-   * "already declared" on the next call. A cheap-to-detect, harmless-to-
-   * leave residue, not a reason to add a cross-process lock (see
-   * `ARCHITECTURE.md`'s rejection of one for the same trade on records).
+   * lines, both append them — is possible and left unguarded: `appendFile` is
+   * `O_APPEND`, so the result is two copies of the same lines rather than a
+   * torn write, and the next call sees a duplicate declaration as "already
+   * declared". A cheap-to-detect, harmless-to-leave residue, not a reason to
+   * add a cross-process lock (see `ARCHITECTURE.md`'s rejection of one for
+   * the same trade on records).
    *
    * Best-effort, like the log append it precedes: failing to write this
    * file must not fail the mutation it guards.
@@ -1033,7 +1105,7 @@ export class KbStore {
 
       if (existing === null) {
         try {
-          await writeFile(target, appendUnionMergeLine(""), {
+          await writeFile(target, appendGitattributesLines(""), {
             encoding: "utf8",
             flag: "wx",
           });
@@ -1056,8 +1128,9 @@ export class KbStore {
         });
         return;
       }
-      if (!hasMergeDeclaration(existing)) {
-        await appendFile(target, appendUnionMergeLine(existing), "utf8");
+      const addition = appendGitattributesLines(existing);
+      if (addition) {
+        await appendFile(target, addition, "utf8");
         this.logger.info?.({
           operation: "kb.gitattributes.ensure",
           bundlePath: root,
