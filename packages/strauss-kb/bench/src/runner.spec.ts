@@ -632,7 +632,7 @@ describe("cli", () => {
     const options = parseArgs(["--full"]);
     expect(options.arms).toEqual(["A", "B", "C", "D"]);
     expect(options.models).toEqual(["claude-sonnet-5", "claude-haiku-4-5"]);
-    expect(options.taskCount).toBe(30);
+    expect(options.taskCount).toBe(31);
   });
 
   it("takes explicit arms and models, and ignores a bare --", () => {
@@ -667,7 +667,7 @@ describe("cli", () => {
 
   it("prices the full matrix before anything is spent", () => {
     const projection = estimate(parseArgs(["--full"]), TASKS, 36_000, 800);
-    expect(projection.calls).toBe(30 * 4 * 2);
+    expect(projection.calls).toBe(31 * 4 * 2);
     expect(projection.prefixTokens).toBe(9000);
     expect(projection.tailTokens).toBe(200);
     for (const [, cost] of projection.byModel) {

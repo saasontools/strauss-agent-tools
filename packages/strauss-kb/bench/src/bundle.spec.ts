@@ -154,6 +154,9 @@ describe("aggregation ground truth", () => {
     expect(rubricFor("ag-open-question-count").numericValue).toBe(
       count((r) => r.type === "open-question"),
     );
+    expect(rubricFor("ag-unresolved-question-count").numericValue).toBe(
+      count((r) => r.type === "open-question" && r.status === "open"),
+    );
     expect(rubricFor("ag-standing-decision-count").numericValue).toBe(
       count((r) => r.type === "decision" && r.status !== "superseded"),
     );
@@ -173,8 +176,8 @@ describe("per-question ground truth", () => {
     }
   });
 
-  it("covers thirty questions across the four types", () => {
-    expect(TASKS).toHaveLength(30);
+  it("covers thirty-one questions across the four types", () => {
+    expect(TASKS).toHaveLength(31);
     const counts = new Map<string, number>();
     for (const task of TASKS) {
       counts.set(task.type, (counts.get(task.type) ?? 0) + 1);
@@ -198,7 +201,7 @@ describe("per-question ground truth", () => {
         expect(task.type).toBe("aggregation");
     }
     expect(CORE_TASKS).toHaveLength(26);
-    expect(TASKS.length - CORE_TASKS.length).toBe(4);
+    expect(TASKS.length - CORE_TASKS.length).toBe(5);
   });
 
   it("gives every task a unique id", () => {

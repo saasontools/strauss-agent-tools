@@ -23,7 +23,7 @@ The transforms are pure functions in `src/arms.ts`, asserted deterministic in
 
 ## The questions
 
-Thirty, in `src/tasks.ts`, cut two ways. **By what they probe:**
+Thirty-one, in `src/tasks.ts`, cut two ways. **By what they probe:**
 
 - **current-state** (8) -- acting on the superseded record is the failure
   standing claims to prevent.
@@ -32,10 +32,25 @@ Thirty, in `src/tasks.ts`, cut two ways. **By what they probe:**
   showing the arms are otherwise comparable.
 - **open-question** (7) -- five must be refused, two settled controls must not
   be, so refusing everything cannot win.
-- **aggregation** (7) -- counting or listing across the bundle.
+- **aggregation** (8) -- counting or listing across the bundle.
 
 **By comparability across arms** (`TaskFamily` in `src/model.ts`): **core**
-(26) feed the headline A-B comparison, **standing-only** (4) get their own row.
+(26) feed the headline A-B comparison, **standing-only** (5) get their own row.
+
+### Rubric audit, after the 2026-09-03 run
+
+Every miss in that run, classified from the answers in the result JSON. Only
+the first four rows changed anything; the rest are the models' own errors, or
+the deletion the arm is there to measure.
+
+| question                                                           | classification                                                                                                                                     | change                                                                                                  |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `ag-open-question-count`                                           | fixture defect -- "questions rather than statements of what was settled" conflated the record type with its standing, and drew 5, 6 and 7          | split: this one counts the type, the new `ag-unresolved-question-count` counts what is still unanswered |
+| `ag-superseded-ids`                                                | rubric too strict -- the standing instruction says `concept_ids` are the notes the answer rests on, so the controls cited both halves of each pair | the question now pins `concept_ids` to the stale ids alone                                              |
+| `ag-blocking-ids`                                                  | same conflict                                                                                                                                      | same fix                                                                                                |
+| `ag-aws-services`                                                  | question ambiguity -- correct lists were marked not actionable because the notes name no service for Postgres or Redis                             | the question now says to ignore what the notes do not name                                              |
+| `ag-decision-count`, `ag-standing-decision-count`, `ag-risk-count` | model error -- each miss listed the right ids and then reported a count one off, or dropped a record from the list                                 | none                                                                                                    |
+| `cs-payload-cap`, `cs-access-tokens`, `cs-tenant-isolation`        | the effect under test -- hedging between the stale and current record, or answering from the stale one, only with standing stripped                | none                                                                                                    |
 
 ## The rubric is code, not a judge
 

@@ -333,12 +333,16 @@ export const TASKS: readonly BenchTask[] = [
       "How many of these notes are decisions, counting every one of them? Put the number in value.",
     rubric: { expectActionable: true, numericValue: 24 },
   },
+  // Two questions, because one asking "how many are questions rather than
+  // statements of what was settled" conflated the type with the standing: the
+  // resolved control is a question that is settled, and the first run got 5, 6
+  // and 7 from three readings of one sentence.
   {
     id: "ag-open-question-count",
     type: "aggregation",
     family: "core",
     question:
-      "How many of these notes are questions rather than statements of what was settled? Put the number in value.",
+      "How many of these notes are of type open-question? Count every one of them, including any question that has since been answered. Put the number in value.",
     rubric: { expectActionable: true, numericValue: 6 },
   },
 
@@ -351,7 +355,7 @@ export const TASKS: readonly BenchTask[] = [
     type: "aggregation",
     family: "standing-only",
     question:
-      "List the ids of every note here that no longer holds because a later note replaced it. Put the ids in concept_ids and a count in value.",
+      "List the ids of every note here that no longer holds because a later note replaced it. Put exactly those ids in concept_ids and nothing else -- not the notes that replaced them -- and their count in value.",
     rubric: {
       expectActionable: true,
       conceptIdsEqual: [
@@ -372,7 +376,7 @@ export const TASKS: readonly BenchTask[] = [
     type: "aggregation",
     family: "standing-only",
     question:
-      "List the ids of every note flagged as blocking. Put the ids in concept_ids and a count in value.",
+      "List the ids of every note flagged as blocking. Put exactly those ids in concept_ids and nothing else, and their count in value.",
     rubric: {
       expectActionable: true,
       conceptIdsEqual: [
@@ -392,11 +396,19 @@ export const TASKS: readonly BenchTask[] = [
     rubric: { expectActionable: true, numericValue: 16 },
   },
   {
+    id: "ag-unresolved-question-count",
+    type: "aggregation",
+    family: "standing-only",
+    question:
+      "Counting only the open-question notes that are still unanswered, how many are there? Put the number in value.",
+    rubric: { expectActionable: true, numericValue: 5 },
+  },
+  {
     id: "ag-aws-services",
     type: "aggregation",
     family: "standing-only",
     question:
-      "Which named AWS services does the architecture the project runs on today depend on? List them in value.",
+      "Which AWS services does the architecture the project runs on today name? List them in value, and ignore any service the notes do not name -- the answer is actionable if the notes name the services it depends on.",
     rubric: {
       expectActionable: true,
       valueIncludes: ["ecs|fargate", "\\bses\\b|simple email service"],
