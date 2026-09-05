@@ -252,9 +252,9 @@ grammar and a definitions query, pinned together by `pnpm grammars pin` from
 `grammars/packs.json` and proved at pin time — then the regex heuristic for
 other extensions, then a
 whole-file hash when the anchor names no symbol; an ambiguous or undefined symbol returns
-`unresolved` rather than a guess. Grammars are not published with the package:
-each downloads on first use, sha256-pinned against `grammars/manifest.json`,
-and is cached under `~/.strauss/grammars`. A hash the old resolver still reproduces and
+`unresolved` rather than a guess. Neither half of a pack is published with the
+package: grammar and query both download on first use, sha256-pinned against
+`grammars/manifest.json`, and are cached under `~/.strauss/grammars`. A hash the old resolver still reproduces and
 the new one does not is `drifted` with reason `resolver-changed` — accept it
 with `--rebaseline`.
 

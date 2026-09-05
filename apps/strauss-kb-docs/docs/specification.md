@@ -217,8 +217,7 @@ the only file a human edits. `pnpm grammars pin` resolves both parts, proves
 them — every pack's WASM must load under the installed `web-tree-sitter` with
 every other pack resident, and each query must compile against its own — and
 writes `grammars/manifest.json`, which carries the URL,
-hash and file extensions the runtime reads, and `grammars/tags/`, which carries
-the vendored queries. A part that is missing or will not load fails the pin
+hash and file extensions the runtime reads. A part that is missing or will not load fails the pin
 rather than shipping a language that would report itself unavailable, and
 `pnpm grammars check` re-proves every pack weekly against the real CDN. An
 extension whose pack has no tags query stays with the regex heuristic, as
@@ -232,10 +231,11 @@ definition; two make it `symbol-ambiguous`, except that a signature loses to
 the implementation of the same symbol. Only declarations count, so a symbol
 that appears only in a call is `symbol-not-found` rather than the call site.
 
-Grammars are **not** shipped with the package. Each downloads from jsDelivr on
-first use, is verified against the sha256 pinned in `grammars/manifest.json`,
-and is cached under `~/.strauss/grammars/<language>/` — 49 MB of WASM in every
-install, for a feature most installs never reach, is a bad trade. A grammar
+Neither half of a pack is shipped with the package: the grammar and the tags
+query both download from jsDelivr on first use, are verified against the sha256
+pinned in `grammars/manifest.json`, and are cached under
+`~/.strauss/grammars/<language>/` — 49 MB of WASM in every install, for a
+feature most installs never reach, is a bad trade. A grammar
 that cannot be obtained or verified is `resolver-unavailable`, never a throw
 and never a silent fall back to regex, whose span for the same symbol is a
 different hash. `--offline` and `STRAUSS_KB_GRAMMARS=off` use the cache without
