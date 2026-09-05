@@ -66,22 +66,47 @@ export function builtinClass(path) {
  * @returns {{ classifier: "cli" | "builtin", classes: Map<string, string> }}
  */
 export function classify(kb, range, files) {
-  const fromCli = json(kb, ["classify", "--git", ...range, "--json"]);
+  const fromCli = json(kb, [
+    "classify",
+    "--git",
+    ...range,
+    "--offline",
+    "--json",
+  ]);
   const classes = new Map(
     files.map((file) => [file.path, builtinClass(file.path)]),
   );
   for (const file of files) {
     if (file.status === "R") classes.set(file.path, "rename");
   }
-  if (!fromCli || typeof fromCli !== "object") {
-    return { classifier: "builtin", classes };
-  }
-  const entries = Array.isArray(fromCli)
-    ? fromCli.map((row) => [row?.path, row?.class])
-    : Object.entries(fromCli);
-  for (const [path, name] of entries) {
-    if (typeof path === "string" && typeof name === "string")
-      classes.set(path, name);
-  }
+  const rows = cliRows(fromCli);
+  if (!rows) return { classifier: "builtin", classes };
+  for (const [path, name] of rows) classes.set(path, name);
   return { classifier: "cli", classes };
+}
+
+/**
+ * The verb answers `{ files: [{ filePath, class }] }`; a bare array of rows and
+ * a flat path-to-class map are read too, so a shape change cannot silently
+ * leave the built-in answer in place under `classifier: "cli"`.
+ * @param {unknown} answer @returns {[string, string][] | null}
+ */
+function cliRows(answer) {
+  if (!answer || typeof answer !== "object") return null;
+  const list = Array.isArray(answer)
+    ? answer
+    : Array.isArray(/** @type {any} */ (answer).files)
+      ? /** @type {any[]} */ (/** @type {any} */ (answer).files)
+      : null;
+  const pairs = list
+    ? list.map((row) => [
+        /** @type {any} */ (row)?.path ?? /** @type {any} */ (row)?.filePath,
+        /** @type {any} */ (row)?.class,
+      ])
+    : Object.entries(answer);
+  return /** @type {[string, string][]} */ (
+    pairs.filter(
+      ([path, name]) => typeof path === "string" && typeof name === "string",
+    )
+  );
 }

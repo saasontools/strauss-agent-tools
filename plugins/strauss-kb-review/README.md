@@ -37,6 +37,8 @@ verdicts.
 **`review-walkthrough`** — the base and the diff rendered as one HTML review
 guide for a human.
 
+**`merge-policy`** — who reviews a range, decided from the records alone.
+
 ## Reviewer agent
 
 `agents/kb-reviewer.md` (Claude Code only) reviews a pull request against the
@@ -74,6 +76,17 @@ whether the new deck is better, then `UPDATE_SNAPSHOTS=1` to accept it.
 
 How to run it, the order it renders and when it refuses:
 [`skills/review-walkthrough/SKILL.md`](skills/review-walkthrough/SKILL.md).
+
+## Merge policy
+
+`skills/merge-policy/scripts/merge-policy.mjs` answers one question about a
+range: `auto`, `agent-review-then-auto`, or `human`. Sixteen rows, first match
+wins, each reporting the rule id it matched; the table is the header of
+[`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
+
+`--enforce` turns the route into the exit code, and approval comes from the
+GitHub reviews API. The route each `fixtures/companion-repo` scenario produces
+is pinned by that scenario's `expected.json`.
 
 ## Install (unpublished)
 
