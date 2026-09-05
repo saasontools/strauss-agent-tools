@@ -384,7 +384,7 @@ Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_reassess`,
 `kb_load`, `kb_catalog`,
 `kb_pack`,
-`kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`, `kb_index`, `kb_log`, `kb_stamp`,
+`kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_match`, `kb_list`, `kb_index`, `kb_log`, `kb_stamp`,
 `kb_validate`,
 `kb_doctor`, `kb_sweep`, `kb_schema`, `kb_types`, `kb_pin`, `kb_unpin`, `kb_pins`,
 `kb_context`. Most take a `bundlePath`. The one CLI verb with no tool is
@@ -414,7 +414,8 @@ for (const hit of hits) {
 ```
 
 `matchToDiff` takes hunks and optional symbol ranges rather than a patch,
-answering which records are anchored to each hunk.
+answering which records are anchored to each hunk. `kb_match` is the same
+answer for a caller that cannot import this package.
 
 ## Retrieval
 

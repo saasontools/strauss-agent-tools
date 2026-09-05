@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-three tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-nine tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.
@@ -306,6 +306,34 @@ result.
 
 `via` holds each edge as `{ source, target, rel }` — the edge as **written**,
 not as walked. For one flat hop of every rel, use `kb_backlinks`.
+
+### `kb_match`
+
+As CLI [`match`](./cli-reference.md#match) minus its two CLI-side ways in: the
+diff arrives as `files`. Reach for it when the question is what is attached to
+code in hand rather than whether anything addresses a question.
+
+Parameters: `bundlePath` and `files`
+(`[{ filePath, hunks: [{ startLine, endLine, side? }] }]`, where a hunk's
+optional `side` is `"old"` or `"new"` and picks which half of the change its
+lines number — only an anchor on the same side lands on it) required;
+`symbolRanges`
+(`[{ file, symbol, startLine, endLine }]`, resolved from `repoRoot` when
+omitted), `repoRoot` (`string`), `offline` (`boolean`) and `includeNonCurrent`
+(`boolean`) optional.
+
+```json
+{
+  "bundlePath": "…/kb",
+  "files": [
+    {
+      "filePath": "src/order.service.ts",
+      "hunks": [{ "startLine": 118, "endLine": 131 }]
+    }
+  ],
+  "repoRoot": "/repo"
+}
+```
 
 ### `kb_backlinks`
 

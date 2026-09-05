@@ -160,13 +160,17 @@ export {
 export { matchesTags, type KbTagFilter } from "./kb-tags.js";
 export { kbJsonSchemas } from "./json-schema.js";
 export {
+  anchorOnHunk,
   matchToDiff,
+  symbolRangeIndex,
   type DiffFile,
   type DiffHunk,
   type DiffMatch,
   type MatchOptions,
   type SymbolRange,
+  type SymbolRangeIndex,
 } from "./match-diff.js";
+export type { KbMatch, KbMatchRecord } from "./commands/match/index.js";
 export {
   adjudicate,
   resolveHeads,

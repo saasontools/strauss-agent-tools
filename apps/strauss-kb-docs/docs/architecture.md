@@ -292,6 +292,11 @@ of it, so no consumer loads it that way:
 | "Has this been decided?"        | a fresh short-lived reader, given the base and the question, discarded after |
 | An implementor writing a record | a point query at the moment of writing, not a load an hour earlier           |
 
+`kb_match` is that first row as a tool, so a reviewer, a gate, or a desktop
+client gets the same answer without importing the package. It takes hunks
+rather than a patch; the unified-diff parser the CLI's `--git` needs lives on
+the command, not in the library.
+
 Where a base must stay resident it will drift; the mitigation is that reloading
 costs about three thousand tokens.
 
