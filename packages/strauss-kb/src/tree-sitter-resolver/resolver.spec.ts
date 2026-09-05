@@ -298,15 +298,77 @@ describe("the resolver chain", () => {
     );
   });
 
-  test("tree-sitter's miss ends the chain; regex never sees the call site", async () => {
+  // The price of the fall-through: a name that only ever appears in a call is
+  // indistinguishable, to the chain, from a constant no tags query defines.
+  test("tree-sitter's miss falls through, and regex may land on a call site", async () => {
     const chain = defaultAnchorResolvers();
     await prepareResolvers(chain, ["a.ts"]);
     const source = "export function run() {\n  return cancel(1);\n}\n";
+    const outcome = resolveAnchorSpan(
+      source,
+      { file: "a.ts", symbol: "cancel" },
+      chain,
+    );
+    expect(outcome.ok).toBe(true);
+    expect((outcome as Extract<AnchorResolution, { ok: true }>).resolver).toBe(
+      "regex",
+    );
+  });
+
+  test("a symbol neither resolver defines is symbol-not-found", async () => {
+    const chain = defaultAnchorResolvers();
+    await prepareResolvers(chain, ["a.ts"]);
+    expect(
+      resolveAnchorSpan(
+        "export function run() {\n  return 1;\n}\n",
+        { file: "a.ts", symbol: "cancel" },
+        chain,
+      ),
+    ).toEqual({ ok: false, reason: "symbol-not-found" });
+  });
+
+  // Two definitions the parser can see; regex would pick the `const` and call
+  // it settled. Guessing between real definitions is the thing not on offer.
+  test("symbol-ambiguous ends the chain rather than letting regex pick", async () => {
+    const chain = defaultAnchorResolvers();
+    await prepareResolvers(chain, ["a.ts"]);
+    const source = [
+      "class Jobs {",
+      "  cancel() {",
+      "    return 1;",
+      "  }",
+      "}",
+      "",
+      "class Trips {",
+      "  cancel() {",
+      "    return 2;",
+      "  }",
+      "}",
+      "",
+      "const cancel = 0;",
+    ].join("\n");
     expect(
       resolveAnchorSpan(source, { file: "a.ts", symbol: "cancel" }, chain),
-    ).toEqual({ ok: false, reason: "symbol-not-found" });
-    // The regex resolver alone would have landed on the call.
+    ).toEqual({ ok: false, reason: "symbol-ambiguous" });
     expect(regexResolver.resolve(source, "cancel")).not.toBeNull();
+  });
+
+  test("resolver-unavailable ends the chain rather than guessing a span", async () => {
+    const empty = mkdtempSync(join(tmpdir(), "strauss-grammars-"));
+    try {
+      const chain = [
+        new TreeSitterResolver({ cacheRoot: empty, offline: true }),
+        regexResolver,
+      ];
+      await prepareResolvers(chain, ["a.ts"]);
+      const source = "class A {\n  b() {}\n}\n";
+      expect(
+        resolveAnchorSpan(source, { file: "a.ts", symbol: "A.b" }, chain),
+      ).toEqual({ ok: false, reason: "resolver-unavailable" });
+      expect(regexResolver.resolve(source, "A.b")).not.toBeNull();
+    } finally {
+      rmSync(empty, { recursive: true, force: true });
+    }
   });
 
   test("a whole-file anchor names no resolver", async () => {
@@ -353,6 +415,116 @@ describe("the resolver chain", () => {
     expect(heuristic).toBeDefined();
     expect(hashAnchorText(precise)).not.toEqual(
       hashAnchorText(heuristic as string),
+    );
+  });
+});
+
+/**
+ * Upstream tags queries define functions, classes, methods, interfaces, traits
+ * and structs — not constants, type aliases, TypeScript `enum`s, namespaces or
+ * fields. One fixture per language and one row per construct, because the
+ * boundary is upstream's and moves when a pack is repinned.
+ */
+describe("symbols the tags query does not define", () => {
+  const SOURCES: Record<string, string> = {
+    "a.ts": [
+      "export const KB_EDGE_KINDS = [",
+      '  "supersedes",',
+      '  "refines",',
+      "] as const;",
+      "",
+      "export type EdgeKind = (typeof KB_EDGE_KINDS)[number];",
+      "",
+      "export enum Severity {",
+      "  Low = 1,",
+      "  High = 2,",
+      "}",
+      "",
+      "export class Store {",
+      "  readonly limit = 32;",
+      "",
+      "  put(key: string) {",
+      "    return key;",
+      "  }",
+      "}",
+      "",
+      "export function edgeNeighbours(id: string) {",
+      "  return id;",
+      "}",
+      "",
+      "declare const globalFlag: boolean;",
+      "",
+    ].join("\n"),
+    "a.go": [
+      "package main",
+      "",
+      "const MaxRetries = 3",
+      "",
+      "var Timeout = 30",
+      "",
+      "func Run(n int) int {",
+      "\treturn n",
+      "}",
+      "",
+    ].join("\n"),
+    "a.rs": [
+      "pub const LIMIT: usize = 4;",
+      "",
+      'pub static NAME: &str = "kb";',
+      "",
+      "pub fn run(n: usize) -> usize {",
+      "    n",
+      "}",
+      "",
+    ].join("\n"),
+    "a.py": [
+      "class Store:",
+      "    limit = 32",
+      "",
+      "    def put(self, key):",
+      "        return key",
+      "",
+    ].join("\n"),
+  };
+
+  /** file, symbol, and the resolver that answers — or the reason nobody does. */
+  const TABLE: [string, string, string][] = [
+    ["a.ts", "KB_EDGE_KINDS", "regex"],
+    ["a.ts", "EdgeKind", "regex"],
+    ["a.ts", "Severity", "regex"],
+    ["a.ts", "Store.limit", "regex"],
+    ["a.ts", "globalFlag", "regex"],
+    ["a.ts", "Store.put", "tree-sitter"],
+    ["a.ts", "edgeNeighbours", "tree-sitter"],
+    ["a.go", "MaxRetries", "regex"],
+    ["a.go", "Timeout", "regex"],
+    ["a.go", "Run", "tree-sitter"],
+    ["a.rs", "LIMIT", "regex"],
+    ["a.rs", "NAME", "regex"],
+    ["a.rs", "run", "tree-sitter"],
+    // Neither resolver has a shape for a Python class attribute.
+    ["a.py", "Store.limit", "symbol-not-found"],
+    ["a.py", "Store.put", "tree-sitter"],
+  ];
+
+  const chain = defaultAnchorResolvers();
+  beforeAll(() => prepareResolvers(chain, Object.keys(SOURCES)));
+
+  test.each(TABLE)("%s %s answers %s", (file, symbol, expected) => {
+    const outcome = resolveAnchorSpan(
+      SOURCES[file] as string,
+      { file, symbol },
+      chain,
+    );
+    expect(outcome.ok ? outcome.resolver : outcome.reason).toBe(expected);
+  });
+
+  test("the fall-through, not the parser, is what resolves a const", () => {
+    expect(attempt("a.ts", SOURCES["a.ts"] as string, "KB_EDGE_KINDS")).toEqual(
+      {
+        kind: "unresolved",
+        reason: "symbol-not-found",
+      },
     );
   });
 });

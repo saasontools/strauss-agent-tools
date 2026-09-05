@@ -629,6 +629,71 @@ describe("detectAnchorDrift", () => {
     expect(entry?.reason).toBeUndefined();
   });
 
+  // A constant is in no tags query, so the chain hands it back to regex every
+  // run. Nothing changed hands, and nothing may report as if it had.
+  test("a const stamped by regex re-resolves through regex and matches", async ({
+    repo,
+  }) => {
+    const source = [
+      "export const KB_EDGE_KINDS = [",
+      '  "supersedes",',
+      '  "refines",',
+      "] as const;",
+      "",
+    ].join("\n");
+    write(repo, "src/edges.ts", source);
+    const anchor = {
+      ...stamp("src/edges.ts", "KB_EDGE_KINDS", source),
+      resolver: "regex" as const,
+    };
+
+    const drift = await detectAnchorDrift(
+      [record("decision.edges", [anchor])],
+      { repoRoot: repo },
+    );
+
+    const entry = drift.get("decision.edges")?.[0];
+    expect(entry?.state).toBe("match");
+    expect(entry?.resolver).toBe("regex");
+    expect(entry?.reason).toBeUndefined();
+  });
+
+  // The definition is gone and regex lands on something else carrying the name.
+  // Drift is the right answer; `resolver-changed` would excuse a real deletion.
+  test("a deleted tree-sitter definition drifts, not resolver-changed", async ({
+    repo,
+  }) => {
+    write(repo, "src/orders.ts", SOURCE);
+    const anchor = {
+      ...stamp("src/orders.ts", "OrderService.cancel", SOURCE),
+      resolver: "tree-sitter" as const,
+    };
+    write(
+      repo,
+      "src/orders.ts",
+      [
+        "export class OrderService {",
+        "  close(id: string): void {",
+        "    this.repo.drop(id);",
+        "  }",
+        "}",
+        "",
+        "export const cancel = (id: string) => close(id);",
+        "",
+      ].join("\n"),
+    );
+
+    const drift = await detectAnchorDrift(
+      [record("decision.cancel", [anchor])],
+      { repoRoot: repo },
+    );
+
+    const entry = drift.get("decision.cancel")?.[0];
+    expect(entry?.state).toBe("drifted");
+    expect(entry?.resolver).toBe("regex");
+    expect(entry?.reason).toBeUndefined();
+  });
+
   test("an anchor path escaping the repo root reports unresolved, unread", async ({
     repo,
   }) => {

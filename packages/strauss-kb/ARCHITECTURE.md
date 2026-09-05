@@ -88,14 +88,16 @@ Symbols resolve through tree-sitter first: a WASM parser per language, each
 grammar's own upstream `queries/tags.scm` over definition sites, and the
 definition node's range as the span. A dotted symbol matches the definition whose enclosing chain
 matches; a bare name matching two is `symbol-ambiguous`. Only declarations are
-captured: a symbol appearing solely in a call is `symbol-not-found`.
+captured: a symbol appearing solely in a call is no match.
 
-The chain is tree-sitter, then regex, then a whole-file hash, and a resolver
-that parsed the file answers for it: falling through to a text search would
-trade "no such definition" for the first line mentioning the name, and a wrong
-span that happens to be stable hashes as `match`. Regex still covers extensions
-with no grammar; a grammar that will not load is `resolver-unavailable`, never
-a throw.
+The chain is tree-sitter, then regex, then a whole-file hash. A resolver that
+parsed the file answers for it unless it defines no such symbol at all — tags
+queries capture functions and types, not constants, aliases or fields — so
+`symbol-not-found` continues down the chain and the anchor records whichever
+resolver answered. `symbol-ambiguous` and `resolver-unavailable` stop it:
+picking one of two definitions by text search, or swapping a precise span for a
+heuristic one when a grammar will not load, is how a wrong span comes to hash
+as `match`. A grammar that will not load is a finding, never a throw.
 
 Grammars download on first use, sha256-pinned by `grammars/manifest.json` and
 cached under `~/.strauss/grammars`; the reasoning is in the

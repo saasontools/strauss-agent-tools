@@ -16,9 +16,10 @@ export type ResolvedSymbol = {
 export type AnchorResolverName = "tree-sitter" | "regex";
 
 /**
- * A resolver's verdict. `abstain` means "not my language" and passes the
- * symbol down the chain; an `unresolved` verdict ends it, because a resolver
- * that parsed the file and found no definition has answered the question.
+ * A resolver's verdict. `abstain` ("not my language") and `symbol-not-found`
+ * ("nothing I recognize declares this") both pass the symbol down the chain;
+ * `symbol-ambiguous` and `resolver-unavailable` end it, because neither may be
+ * answered by a looser resolver guessing.
  */
 export type ResolverAttempt =
   | { kind: "resolved"; span: ResolvedSymbol }
