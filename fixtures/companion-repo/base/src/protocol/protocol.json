@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "messages": [
+    { "name": "ping", "fields": { "at": "string" } },
+    {
+      "name": "charge",
+      "fields": { "orderId": "string", "amountMinor": "number" }
+    }
+  ]
+}
