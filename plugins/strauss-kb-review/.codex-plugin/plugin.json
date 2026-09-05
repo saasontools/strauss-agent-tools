@@ -1,0 +1,10 @@
+{
+  "name": "strauss-kb-review",
+  "version": "0.1.1",
+  "description": "Experimental: strauss-kb as a per-PR review companion — decisions, risks, invented requirements, review focus. Not yet published.",
+  "author": {
+    "name": "Assaf Kamil"
+  },
+  "homepage": "https://github.com/saasontools/strauss-agent-tools",
+  "license": "MIT"
+}
