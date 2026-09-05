@@ -159,23 +159,26 @@ strauss_anchors:
     hash: sha256:9f2c…
     lines: 24
     resolved_at: 2026-08-16T09:14:00Z
+    resolver: tree-sitter
 ```
 
 `strict()` — `file` is required and nothing outside this table is accepted:
 
-| Field         | Required | Meaning                                       |
-| ------------- | -------- | --------------------------------------------- |
-| `file`        | yes      | the repo-relative path the concept names      |
-| `symbol`      | no       | a symbol within it; absent means the file     |
-| `hash`        | no       | `sha256:<64 hex>` over the anchored text      |
-| `lines`       | no       | the **line count** that hash was taken over   |
-| `resolved_at` | no       | ISO timestamp of the last resolution          |
-| `repo`        | no       | which repository; absent means the base's own |
-| `ref`         | no       | git rev the evidence was taken at             |
+| Field         | Required | Meaning                                         |
+| ------------- | -------- | ----------------------------------------------- |
+| `file`        | yes      | the repo-relative path the concept names        |
+| `symbol`      | no       | a symbol within it; absent means the file       |
+| `hash`        | no       | `sha256:<64 hex>` over the anchored text        |
+| `lines`       | no       | the **line count** that hash was taken over     |
+| `resolved_at` | no       | ISO timestamp of the last resolution            |
+| `resolver`    | no       | `tree-sitter` or `regex`; absent reads as regex |
+| `repo`        | no       | which repository; absent means the base's own   |
+| `ref`         | no       | git rev the evidence was taken at               |
 
 Anchors stay symbolic because they are written while the code is still moving;
-once it settles, a resolution pass stamps `hash`, `lines`, and `resolved_at`.
-Those three are measured; `repo` and `ref` are author-owned and never stamped.
+once it settles, a resolution pass stamps `hash`, `lines`, `resolved_at`, and
+`resolver`. Those four are measured; `repo` and `ref` are author-owned and never
+stamped.
 CRLF is normalized to LF before hashing, and `lines` is what lets a drift report
 say how much changed.
 
@@ -191,9 +194,70 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 | `unresolved` | it no longer resolves at all               |
 
 `unresolved` carries a reason: `file-missing`, `symbol-not-found`,
-`outside-repo`, `file-too-large`, `file-unreadable`, `remote-unreachable`,
-`ref-not-found`, `repo-unauthorized`, `default-branch-unknown`, `ref-invalid`,
-or `repo-invalid`.
+`symbol-ambiguous`, `resolver-unavailable`, `outside-repo`, `file-too-large`,
+`file-unreadable`, `remote-unreachable`, `ref-not-found`, `repo-unauthorized`,
+`default-branch-unknown`, `ref-invalid`, or `repo-invalid`. `drifted` carries
+`resolver-changed` when the resolver changed and the code did not.
+
+#### Symbol resolution
+
+A symbol resolves through a chain, and tree-sitter answers when its tags query
+defines the symbol:
+
+| Resolver      | Covers                                                               |
+| ------------- | -------------------------------------------------------------------- |
+| `tree-sitter` | the 20 languages with both a grammar and a definitions query         |
+| `regex`       | every other extension, and any symbol the tags query does not define |
+| whole-file    | an anchor with no `symbol`                                           |
+
+Upstream tags queries define functions, classes, methods, interfaces, traits,
+structs and modules — but not constants, type aliases, TypeScript `enum`s or
+class fields. A symbol the query does not define falls through to regex, and
+the anchor records `resolver: regex`. An ambiguous AST match
+(`symbol-ambiguous`) and a grammar that will not load (`resolver-unavailable`)
+never fall through: one would be settled by guessing, the other would trade a
+precise span for a guessed one.
+
+Which languages those are is data, not code. A language pack is a WASM grammar
+and its definitions query pinned together at one `package@version`;
+`grammars/packs.json` lists the 30 packs and where each part comes from, and is
+the only file a human edits. `pnpm grammars pin` resolves both parts, proves
+them — every pack's WASM must load under the installed `web-tree-sitter` with
+every other pack resident, and each query must compile against its own — and
+writes `grammars/manifest.json`, which carries the URL,
+hash and file extensions the runtime reads. A part that is missing or will not load fails the pin
+rather than shipping a language that would report itself unavailable, and
+`pnpm grammars check` re-proves every pack weekly against the real CDN. An
+extension whose pack has no tags query stays with the regex heuristic, as
+before the resolver existed.
+
+Definitions are whatever upstream's tags query captures as `@definition.*`,
+named by its `@name`. A dotted symbol (`KbStore.setStatus`) resolves to the
+definition whose enclosing chain matches — a Go method through its receiver, a
+Rust function through its `impl` block. A bare symbol must match exactly one
+definition; two make it `symbol-ambiguous`, except that a signature loses to
+the implementation of the same symbol. Only declarations count: a symbol that
+appears only in a call is no tree-sitter match, and goes down the chain.
+
+Neither half of a pack is shipped with the package: the grammar and the tags
+query both download from jsDelivr on first use, are verified against the sha256
+pinned in `grammars/manifest.json`, and are cached under
+`~/.strauss/grammars/<language>/` — 49 MB of WASM in every install, for a
+feature most installs never reach, is a bad trade. A grammar
+that cannot be obtained or verified is `resolver-unavailable`, never a throw
+and never a silent fall back to regex, whose span for the same symbol is a
+different hash. `--offline` and `STRAUSS_KB_GRAMMARS=off` use the cache without
+fetching; the report names the grammar and the repair.
+
+The regex resolver ranks candidates by shape, scopes a dotted symbol to the
+nearest parent above it, and captures by brace depth or Python indentation. It
+runs where no grammar applies, and for symbols no grammar defines.
+
+Because the two resolvers span code differently, an anchor stamped by one and
+re-resolved by the other can hash differently over unchanged code. That is
+reported as `drifted` with reason `resolver-changed`, and
+[`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve) accepts it;
+nothing is ever restamped silently.
 
 **Drift is computed on read, never stored.** [`load`](./cli-reference.md#load)
 and [`query`](./cli-reference.md#query) re-resolve hash-carrying anchors against

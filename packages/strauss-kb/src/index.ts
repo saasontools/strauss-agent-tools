@@ -49,15 +49,21 @@ export {
 } from "./kb-record.schema.js";
 export {
   anchorFilePath,
+  defaultAnchorResolvers,
   detectAnchorDrift,
   hashAnchorText,
   isCanonicalRepoUrl,
+  prepareResolvers,
   regexResolver,
   resolveAnchor,
+  resolveAnchorSpan,
+  type AnchorResolution,
   type AnchorResolver,
+  type AnchorResolverName,
   type KbAnchorDriftEntry,
   type RemoteAnchorState,
   type ResolvedSymbol,
+  type ResolverAttempt,
 } from "./anchor-resolver/index.js";
 export {
   readRemoteAnchors,
@@ -65,6 +71,20 @@ export {
   type RemoteOptions,
   type RemoteRead,
 } from "./remote-repo/index.js";
+export {
+  TreeSitterResolver,
+  languageForFile,
+  treeSitterLanguages,
+} from "./tree-sitter-resolver/index.js";
+export {
+  ensureGrammar,
+  grammarHints,
+  grammarManifest,
+  grammarsCacheRoot,
+  type Grammar,
+  type GrammarManifest,
+  type GrammarOptions,
+} from "./grammars/index.js";
 export {
   RECORD_TYPES,
   LINK_RELS,

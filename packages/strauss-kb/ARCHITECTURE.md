@@ -84,11 +84,28 @@ from Zod, and `strauss-kb schema` is the contract.
 A fresh stamp is a baseline nobody has checked, so only a run where every
 checkable anchor already matched appends `verified[]`.
 
-The v1 resolver is regex-based, biased so a wrong answer loses to no answer: a
-span short of the code it claims hashes as stable while that code moves. It
-ranks by shape, scopes a dotted symbol to its parent, captures by brace depth or
-Python indentation, and returns `null` otherwise. A pure `AnchorResolver`
-interface admits a tree-sitter replacement.
+Symbols resolve through tree-sitter first: a WASM parser per language, each
+grammar's own upstream `queries/tags.scm` over definition sites, and the
+definition node's range as the span. A dotted symbol matches the definition whose enclosing chain
+matches; a bare name matching two is `symbol-ambiguous`. Only declarations are
+captured: a symbol appearing solely in a call is no match.
+
+The chain is tree-sitter, then regex, then a whole-file hash. A resolver that
+parsed the file answers for it unless it defines no such symbol at all — tags
+queries capture functions and types, not constants, aliases or fields — so
+`symbol-not-found` continues down the chain and the anchor records whichever
+resolver answered. `symbol-ambiguous` and `resolver-unavailable` stop it:
+picking one of two definitions by text search, or swapping a precise span for a
+heuristic one when a grammar will not load, is how a wrong span comes to hash
+as `match`. A grammar that will not load is a finding, never a throw.
+
+Grammars download on first use, sha256-pinned by `grammars/manifest.json` and
+cached under `~/.strauss/grammars`; the reasoning is in the
+[specification](https://saasontools.github.io/strauss-agent-tools/specification#symbol-resolution).
+
+Each anchor records the resolver that stamped it. A hash only the previous
+resolver reproduces is `drifted`, reason `resolver-changed`. Trees are cached
+per content hash, grammars load once per process.
 
 Repository identity is normalised and compared, not parsed: an invented format
 would reject correct values from unseen hosts.

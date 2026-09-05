@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import type { KbAnchor } from "../kb-record.schema.js";
-import type { AnchorResolver, ResolvedSymbol } from "./model.js";
+import type { GrammarOptions } from "../grammars/index.js";
+import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
+import type {
+  AnchorResolution,
+  AnchorResolverName,
+  AnchorResolver,
+  ResolvedSymbol,
+  ResolverAttempt,
+} from "./model.js";
 
 /**
  * Symbol → text, and text → hash.
@@ -318,15 +326,111 @@ export function resolveAnchor(
   anchor: KbAnchor,
   resolver: AnchorResolver = regexResolver,
 ): ResolvedSymbol | null {
+  const outcome = resolveAnchorSpan(source, anchor, [resolver]);
+  return outcome.ok ? outcome.span : null;
+}
+
+/**
+ * Walks the resolver chain: tree-sitter, then regex, then a whole-file span
+ * when the anchor names no symbol.
+ *
+ * `symbol-not-found` falls through (a tags query defines functions and types,
+ * not constants or fields) and the anchor records the resolver that answered.
+ * `symbol-ambiguous` and `resolver-unavailable` end the chain: one would be
+ * settled by guessing, the other would trade a precise span for a guessed one.
+ */
+export function resolveAnchorSpan(
+  source: string,
+  anchor: KbAnchor,
+  resolvers: readonly AnchorResolver[] = [regexResolver],
+): AnchorResolution {
   const normalized = source.replace(/\r\n/g, "\n");
   if (!anchor.symbol) {
     const lines = normalized.split("\n");
     if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
     return {
-      text: normalized,
-      startLine: 1,
-      endLine: Math.max(1, lines.length),
+      ok: true,
+      span: {
+        text: normalized,
+        startLine: 1,
+        endLine: Math.max(1, lines.length),
+      },
     };
   }
-  return resolver.resolve(normalized, anchor.symbol);
+
+  for (const resolver of resolvers) {
+    const attempt = resolver.attempt
+      ? resolver.attempt(normalized, anchor.symbol, anchor.file)
+      : fromResolve(resolver, normalized, anchor.symbol, anchor.file);
+    if (attempt.kind === "abstain") continue;
+    if (attempt.kind === "unresolved") {
+      if (attempt.reason === "symbol-not-found") continue;
+      return { ok: false, reason: attempt.reason };
+    }
+    return {
+      ok: true,
+      span: attempt.span,
+      ...(isResolverName(resolver.name) ? { resolver: resolver.name } : {}),
+    };
+  }
+  return { ok: false, reason: "symbol-not-found" };
+}
+
+/** A resolver with no `attempt`: a span or a plain miss, never an abstain. */
+function fromResolve(
+  resolver: AnchorResolver,
+  source: string,
+  symbol: string,
+  file: string,
+): ResolverAttempt {
+  const span = resolver.resolve(source, symbol, file);
+  return span
+    ? { kind: "resolved", span }
+    : { kind: "unresolved", reason: "symbol-not-found" };
+}
+
+function isResolverName(name: string): name is AnchorResolverName {
+  return name === "tree-sitter" || name === "regex";
+}
+
+/** Loads every chained resolver's per-language assets, once. */
+export async function prepareResolvers(
+  resolvers: readonly AnchorResolver[],
+  files: readonly string[],
+): Promise<void> {
+  for (const resolver of resolvers) await resolver.prepare?.(files);
+}
+
+/**
+ * The read-path chain. A fresh tree-sitter resolver per call, so its parse
+ * cache lives exactly as long as the run that owns it. `offline` rides down to
+ * grammar loading: a run that may not reach the network uses the cache or
+ * reports `resolver-unavailable`.
+ */
+export function defaultAnchorResolvers(
+  grammars: GrammarOptions = {},
+): AnchorResolver[] {
+  return [new TreeSitterResolver(grammars), regexResolver];
+}
+
+/**
+ * Was the swap the whole story?
+ *
+ * Only when the resolver that stamped the anchor still reproduces the stored
+ * hash against this very source. Otherwise the code moved too, and calling it
+ * a resolver change would hide the edit behind a bookkeeping note.
+ */
+export function resolverChanged(
+  source: string,
+  anchor: KbAnchor,
+  produced: AnchorResolverName | undefined,
+): boolean {
+  const previous = anchor.resolver ?? "regex";
+  if (!produced || !anchor.symbol || previous === produced) return false;
+  if (previous !== "regex") return false;
+  const before = regexResolver.resolve(
+    source.replace(/\r\n/g, "\n"),
+    anchor.symbol,
+  );
+  return before !== null && hashAnchorText(before.text) === anchor.hash;
 }

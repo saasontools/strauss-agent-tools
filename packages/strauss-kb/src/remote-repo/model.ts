@@ -1,4 +1,7 @@
-import type { AnchorUnresolvedReason } from "../anchor-resolver/model.js";
+import type {
+  AnchorDriftReason,
+  AnchorUnresolvedReason,
+} from "../anchor-resolver/model.js";
 
 /**
  * A foreign anchor's file at one rev. `ref` absent means the remote's default
@@ -26,9 +29,12 @@ export const UNCHECKED_REASONS: readonly AnchorUnresolvedReason[] = [
 ];
 
 export function isUncheckedReason(
-  reason: AnchorUnresolvedReason | undefined,
+  reason: AnchorUnresolvedReason | AnchorDriftReason | undefined,
 ): boolean {
-  return reason !== undefined && UNCHECKED_REASONS.includes(reason);
+  return (
+    reason !== undefined &&
+    UNCHECKED_REASONS.includes(reason as AnchorUnresolvedReason)
+  );
 }
 
 /** One key per (repo, rev, file); `ref` absent is the default branch. */
