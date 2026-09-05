@@ -388,7 +388,7 @@ Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_promote`,
 `kb_load`, `kb_catalog`,
 `kb_pack`, `kb_export`,
-`kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_match`, `kb_list`, `kb_index`, `kb_log`, `kb_stamp`,
+`kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_match`, `kb_classify`, `kb_list`, `kb_index`, `kb_log`, `kb_stamp`,
 `kb_validate`,
 `kb_doctor`, `kb_sweep`, `kb_schema`, `kb_types`, `kb_pin`, `kb_unpin`, `kb_pins`,
 `kb_context`. Most take a `bundlePath`. The one CLI verb with no tool is
