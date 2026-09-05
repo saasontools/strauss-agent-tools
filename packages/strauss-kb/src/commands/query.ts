@@ -6,6 +6,7 @@ import {
   argvWithout,
   bundlePath,
   define,
+  recordFields,
   REPO_ROOT,
   TAGS,
 } from "./model.js";
@@ -15,7 +16,7 @@ export const queryCommand = define({
   tool: "kb_query",
   usage: "query <text...> [--tag T]... [--repo-root PATH]",
   description:
-    "Search; every hit carries its standing. Flagged, never filtered: a superseded hit returns with its replacement, a rejected one is marked. Prefer kb_load when the base fits its budget — a full read beats search. Results are volatile: place them at the tail, not the cached prefix. Never read record files directly.",
+    "Search; every hit carries its standing. Flagged, never filtered: a superseded hit returns with its replacement, a rejected one is marked. Prefer kb_load when the base fits its budget — a full read beats search. Results are volatile: place them at the tail, not the cached prefix. Hits carry `verify`, `sources` and `owner`; never read record files directly.",
   input: z.object({
     bundlePath,
     text: z.string().optional(),
@@ -55,6 +56,7 @@ export const queryCommand = define({
       standing: hit.standing,
       supersededBy: hit.heads.map((head) => head.conceptId),
       warnings: hit.warnings,
+      ...recordFields(hit.record.frontmatter),
       body: hit.record.body,
     })),
 });
