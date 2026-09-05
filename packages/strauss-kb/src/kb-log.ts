@@ -16,7 +16,10 @@ export const kbLogEntrySchema = z
     by: z.string().min(1),
     operation: z.string().min(1),
     conceptId: z.string().min(1),
-    /** Second concept id, where the operation relates two — supersession. */
+    /**
+     * The operation's other end, where it has one: a second concept id for
+     * supersession, the other base's path for promotion.
+     */
     target: z.string().min(1).optional(),
   })
   .strict();

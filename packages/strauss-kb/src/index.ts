@@ -17,6 +17,10 @@ export {
   KbInvalidConceptIdError,
   KbMissingFlagValueError,
   KbPackBudgetExceededError,
+  KbPromoteCollisionError,
+  KbPromoteSelfError,
+  KbPromoteStandingError,
+  KbPromoteStoppedError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
   KbSelfVerificationError,
@@ -248,6 +252,22 @@ export {
   type KbCommand,
   type KbCommandContext,
 } from "./commands/index.js";
+export {
+  carry,
+  isReviewTag,
+  promoteCandidates,
+  promoteInputSchema,
+  PROMOTION_SOURCE_ID,
+  type KbDroppedLink,
+  type KbPromoteCandidate,
+  type KbPromoteResult,
+  type KbPromotedRecord,
+} from "./commands/promote/index.js";
+export type {
+  KbExportForeignFile,
+  KbExportResult,
+  KbExportedDecision,
+} from "./commands/export.js";
 export {
   classifyDrift,
   reassessPacket,

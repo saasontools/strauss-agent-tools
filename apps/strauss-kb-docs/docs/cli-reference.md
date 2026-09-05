@@ -508,6 +508,98 @@ strauss-kb stamp --bundle docs/kb --since 9f2c…
 
 ---
 
+## Promotion and export
+
+### `promote`
+
+```
+promote <concept-id...> --to <bundle> [--source <url>] [--force]
+promote --list
+```
+
+Copy records into another base at the same slug: what a review base settled,
+lifted into the base that outlives the pull request. The originals stay where
+they are.
+
+| Flag             | Effect                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `--to <bundle>`  | The base being promoted into. Required unless `--list`.                                      |
+| `--source <url>` | Where the promotion came from, usually the pull request. Recorded as a source on every copy. |
+| `--force`        | Overwrite records the target base already holds.                                             |
+| `--list`         | Name the source base's candidates instead of promoting.                                      |
+
+A copy that arrived `draft`, `proposed` or `accepted` is written `accepted` —
+settling is what promotion means — while `open` and `resolved` carry unchanged.
+The `review` tag and every `review:<id>` tag are dropped, and so is `verified[]`,
+which recorded a check nothing in the target ran. Typed links are kept when their
+target was promoted in the same run and dropped otherwise — a typed edge cannot
+point out of its base — and every dropped edge is named in the result.
+Supersession is not carried. Anchors are, so they keep pointing at the source
+repository's files: a target in another repository reports drift until the record
+is re-anchored there.
+
+The pre-flight refuses the whole run when the target base already holds any of
+the records, when an id is not `<type>.<slug>`, when a record is `superseded` or
+`rejected` where it was written, or when **either** base is pinned `--frozen`; an
+I/O failure once writing has begun stops at that record and names the ids that
+landed. Both bases are logged — the source takes `promote-out` naming the target
+base, the target takes `promote-in` naming the source.
+
+`--list` names what is usually worth promoting — decisions no longer tagged
+`review`, constraints still `proposed`, every `contract`, requirements something
+[`satisfies`](./specification.md#typed-causal-links), and `blocking` risks still
+open.
+
+```bash
+strauss-kb promote decision.cursor-v2 contract.page-token \
+  --to ../repo/.strauss/kb --source https://github.com/org/repo/pull/59
+```
+
+Returns `{ mode: "promote", to, promoted }`, each entry
+`{ conceptId, droppedLinks }`; `--list` returns `{ mode: "list", candidates }`,
+each `{ conceptId, type, title, why }`.
+
+---
+
+### `export`
+
+```
+export --format madr --to <dir>
+```
+
+Write the base's decisions out as [MADR](https://adr.github.io/madr/) files, one
+per decision, for a repository that keeps ADRs of its own.
+
+| Flag            | Effect                                                    |
+| --------------- | --------------------------------------------------------- |
+| `--format madr` | Output layout. `madr` is the only one so far.             |
+| `--to <dir>`    | Directory the files are written into. Created if missing. |
+
+Each file is `NNNN-<slug>.md`: the title, `## Status`, `## Context and Problem
+Statement` from the record's `why`, `## Considered Options` from `Rejected`,
+`## Decision Outcome` from `Decision`, and `## Consequences` from `Impact`. A
+heading whose field is empty is left out, as it is in the record. A superseded
+decision is exported with `superseded by <id>` as its status.
+
+Numbering is keyed by slug: a decision keeps the number it was first exported
+under and new ones append, because an ADR is cited by its number. That holds for
+as long as the exported file stays in `--to` — delete one and the next run
+renumbers that decision.
+
+Every file written carries `<!-- strauss-kb export: <conceptId> -->` as its last
+line. A `NNNN-<slug>.md` without that marker was written by something else, so
+the decision holding that slug is skipped and reported as `foreign` rather than
+overwritten.
+
+```bash
+strauss-kb export --format madr --to docs/adr
+```
+
+Returns `{ to, format, exported, foreign }`, each `exported` entry
+`{ conceptId, file, status }` and each `foreign` entry `{ conceptId, file }`.
+
+---
+
 ## Format and housekeeping
 
 ### `validate`

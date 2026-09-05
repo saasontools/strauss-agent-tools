@@ -934,6 +934,15 @@ export class KbStore {
   }
 
   /**
+   * Appends one log entry for a move the store cannot see from one base.
+   * Promotion writes into a target base and has to be legible from the source
+   * base too, where nothing was written.
+   */
+  async note(bundlePath: string, entry: Omit<KbLogEntry, "at">): Promise<void> {
+    await this.record(this.root(bundlePath), entry);
+  }
+
+  /**
    * `markSuperseded`, tolerant of the two ways it legitimately doesn't land:
    * a missing target (a broken link, legal per compose.ts) or a CAS conflict
    * from a concurrent writer touching the same target. A conflict is retried
