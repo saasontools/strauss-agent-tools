@@ -15,7 +15,10 @@
  * for a route no human signs off.
  *
  * Exit codes: without `--enforce`, always 0. With it, the route is the code —
- * see §Enforce in SKILL.md. Exit 2 is a usage error.
+ * see SKILL.md. Exit 2 is a usage error.
+ *
+ * `$STRAUSS_MERGE_POLICY_DEFAULTS` names an optional org defaults JSON file,
+ * the shallowest policy layer.
  *
  * Node builtins only; the strauss-kb CLI is spawned, never imported.
  */
@@ -89,6 +92,23 @@ export function readJson(value, flag) {
     throw new UsageError(
       `${flag} is not JSON: ${/** @type {Error} */ (error).message}`,
     );
+  }
+}
+
+/**
+ * The org defaults layer, named by env because it is the same file for every
+ * repository a runner checks out. Named and unreadable comes back as text
+ * `null`, which the policy reports as an error rather than as absence.
+ * @param {Record<string, string | undefined>} env
+ * @returns {{ path: string, text: string | null } | null}
+ */
+export function orgDefaults(env) {
+  const path = env.STRAUSS_MERGE_POLICY_DEFAULTS;
+  if (!path) return null;
+  try {
+    return { path, text: readFileSync(path, "utf8") };
+  } catch {
+    return { path, text: null };
   }
 }
 
@@ -214,6 +234,7 @@ export function main(argv) {
       repoRoot,
       bundleDir,
       policyPath: values.policy ?? null,
+      defaults: orgDefaults(process.env),
       reviewer: checkPayload(
         readJson(values.reviewer, "--reviewer"),
         "--reviewer",

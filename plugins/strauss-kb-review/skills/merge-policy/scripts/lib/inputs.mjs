@@ -15,6 +15,8 @@ import {
 } from "../../../../hooks/scripts/lib/util.mjs";
 import { builtinClass } from "../../../../hooks/scripts/lib/classify.mjs";
 import {
+  CODEOWNERS_PATHS,
+  codeownersCover,
   effectiveMateriality,
   matchesAny,
   POLICY_PATHS,
@@ -37,14 +39,20 @@ const IMPORT = /(?:from|import|require)\s*\(?\s*["']([^"']+)["']/g;
 /**
  * @param {{ base: string, head: string, headSha: string, repoRoot: string,
  *   bundleDir: string, policyPath: string | null, reviewer: any,
- *   approvals: any[], gateSupplied?: boolean }} options
+ *   approvals: any[], gateSupplied?: boolean,
+ *   defaults?: { path: string, text: string | null } | null }} options
  * @param {Run} run
  */
 export function gather(options, run) {
   const paths = options.policyPath ? [options.policyPath] : POLICY_PATHS;
-  const policy = readPolicy(run.show, options.base, paths);
   const rows = changedFiles(run, options.base, options.head);
   const changed = rows.map((row) => row.path);
+  // The changed paths decide which `overrides` entries apply, so the policy is
+  // read after the diff and not before it.
+  const policy = readPolicy(run.show, options.base, paths, {
+    defaults: options.defaults ?? null,
+    changed,
+  });
   const classes = classify(run, options.base, options.head, rows);
 
   const files = changed.map((path) => ({
@@ -53,20 +61,17 @@ export function gather(options, run) {
     excluded: matchesAny(path, policy.data.exclude),
     crosses: false,
   }));
-  for (const file of files) {
-    if (file.excluded)
-      file.crosses = crosses(run, options.head, file.path, policy.data);
-  }
-  if (policy.data.exclude.length > 0) {
-    policy.notChecked.push("excluded paths: inbound edges not checked");
-  }
+  crossings(run, options.head, files, policy);
+  codeowners(run, options.base, policy);
 
   const { records, unreadable } = readRecords(run, changed, policy.data.floors);
   const log = asArray(/** @type {any} */ (run.kb(["log"]))?.entries);
   const matched = matchIds(run, options.base, options.head);
   for (const record of records) {
     record.onDiff = record.touched || matched.has(record.id);
-    record.verifiedBy = verifiers(record, log);
+    record.verifiedBy = verifiers(record, log, {
+      allow: policy.data.verifiers,
+    });
   }
 
   return {
@@ -198,10 +203,67 @@ function readRecords(run, changed, floors) {
   return { records, unreadable };
 }
 
-/** Actors that verified a record and did not write it.
+/**
+ * Which exclusions hold. An excluded file that imports an included one is
+ * evaluated as included: the change there pins the shape of a reviewed file.
+ * `review.crossing: off` makes the exclusion final and reads no edges, and
+ * either way `notChecked` says what was not read.
+ * @param {Run} run @param {string} head
+ * @param {{ path: string, excluded: boolean, crosses: boolean }[]} files
+ * @param {import("./policy.mjs").Policy} policy
+ */
+function crossings(run, head, files, policy) {
+  const off = policy.data.crossing === "off";
+  /** @type {string[]} */
+  const unread = [];
+  for (const file of files) {
+    if (!file.excluded || off) continue;
+    const seen = crosses(run, head, file.path, policy.data);
+    file.crosses = seen.crosses;
+    if (!seen.read) unread.push(file.path);
+  }
+  if (policy.data.exclude.length === 0) return;
+  policy.notChecked.push(
+    off
+      ? "excluded paths: review.crossing is off, so no import edge was read"
+      : "excluded paths: inbound edges not checked",
+  );
+  if (unread.length > 0) {
+    policy.notChecked.push(
+      `excluded paths: import edges unreadable at head: ${unread.join(", ")}`,
+    );
+  }
+}
+
+/**
+ * A CODEOWNERS at the base that puts no owner on the policy file. A warning
+ * and never a route: who owns a path is GitHub's business, and this step
+ * already sends any touched policy to a human.
+ * @param {Run} run @param {string} base
+ * @param {import("./policy.mjs").Policy} policy
+ */
+function codeowners(run, base, policy) {
+  if (!policy.path) return;
+  for (const path of CODEOWNERS_PATHS) {
+    const text = run.show([`${base}:${path}`]);
+    if (text === null) continue;
+    if (!codeownersCover(text, policy.path)) {
+      policy.notChecked.push(
+        `${path}: no owner on ${policy.path}, so a change there needs no named reviewer`,
+      );
+    }
+    return;
+  }
+}
+
+/**
+ * Actors that verified a record and did not write it. `allow` is the effective
+ * `verifiers`: named, it is an allowlist and no other actor counts; empty, any
+ * non-author verify counts. A listed verifier is no exception either way — its
+ * verify on its own record is still the author's word.
  * @param {{ id: string, writtenBy: string | null, verifiedFrontmatter: unknown[] }} record
- * @param {any[]} log */
-function verifiers(record, log) {
+ * @param {any[]} log @param {{ allow: string[] }} options */
+function verifiers(record, log, options) {
   /** @type {Set<string>} */
   const actors = new Set();
   for (const event of record.verifiedFrontmatter) {
@@ -215,7 +277,9 @@ function verifiers(record, log) {
     }
   }
   const author = record.writtenBy ?? writerOf(record.id, log);
-  return [...actors].filter((actor) => actor !== author);
+  const allowed = (/** @type {string} */ actor) =>
+    options.allow.length === 0 || options.allow.includes(actor);
+  return [...actors].filter((actor) => actor !== author && allowed(actor));
 }
 
 /** @param {string} id @param {any[]} log */
@@ -227,9 +291,9 @@ function writerOf(id, log) {
 }
 
 /**
- * A `review` record the log moved to a terminal status with no non-author
- * `verify` behind it. The status is the author's own word, so it counts as
- * still open.
+ * A `review` record the log moved to a terminal status with no `verify` that
+ * counts behind it. The status is the author's own word, so it reads as still
+ * open.
  * @param {ReturnType<typeof readRecords>["records"]} records @param {any[]} log
  */
 function unearnedResolutions(records, log) {
@@ -378,13 +442,16 @@ function approvals(raw) {
 }
 
 /**
- * Does an excluded file import something that is not excluded? Then the
- * exclusion does not hold: a change here pins the shape of a reviewed file.
+ * Does an excluded file import something that is not excluded? `read` is
+ * false when the file itself could not be shown, so no edge was seen either
+ * way — the caller reports that rather than calling it clean.
  * @param {Run} run @param {string} head @param {string} path
  * @param {import("./policy.mjs").PolicyData} data
+ * @returns {{ read: boolean, crosses: boolean }}
  */
 function crosses(run, head, path, data) {
-  const text = run.show([`${head}:${path}`]) ?? "";
+  const text = run.show([`${head}:${path}`]);
+  if (text === null) return { read: false, crosses: false };
   const dir = posix.dirname(path);
   for (const match of text.matchAll(IMPORT)) {
     const specifier = match[1] ?? "";
@@ -393,9 +460,9 @@ function crosses(run, head, path, data) {
     if (target.startsWith("..")) continue;
     if (matchesAny(target, data.exclude)) continue;
     if (data.include.length === 0 || matchesAny(target, data.include))
-      return true;
+      return { read: true, crosses: true };
   }
-  return false;
+  return { read: true, crosses: false };
 }
 
 /** The real readers, for the CLI. Tests pass their own.

@@ -51,6 +51,7 @@ export function result(input, decision, verdict, options) {
       path: input.policy.path,
       version: input.policy.version,
       hash: input.policy.hash,
+      layers: input.policy.layers,
       enabled: input.policy.data.enabled,
     },
     enforce: options.enforcing

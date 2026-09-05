@@ -350,6 +350,38 @@ enforcing a vocabulary would make them a closed enum, which `type` already is.
 The labels that matter are already verifiable: `strauss_anchors` names a file
 and a symbol, which either match the repository or do not.
 
+## Cost
+
+Every consumer has a ceiling, and one rule when it is hit: **degrade toward
+human, never toward auto** — drop to a note a reviewer reads, never to a pass
+nobody asked for.
+
+| Consumer          | Budget                           |
+| ----------------- | -------------------------------- |
+| Gate `Stop`       | ≤ 2 s, and no LLM call           |
+| Gate `--report`   | ≤ 10 s                           |
+| Merge policy      | ≤ 60 s                           |
+| Walkthrough       | ≤ 30 s                           |
+| Anchor resolution | linear in the files a PR touches |
+
+`pnpm bench` runs the package's benches (`src/**/*.bench.ts`). Means on an
+M-series laptop, Node 24, 2026-09-05; the ceiling is what `src/perf.spec.ts`
+fails on, and a dash is a number the bench reports and nothing gates:
+
+| Call                                       | Mean            | Ceiling |
+| ------------------------------------------ | --------------- | ------- |
+| `matchToDiff`, 1k records × 100 hunks      | 7.4 ms          | 300 ms  |
+| `match` command, same shape                | 51 ms           | —       |
+| `classifyDiff`, 5k files, 200 overrides    | 138 ms          | 1500 ms |
+| `classify` command, 340 files, cold / warm | 13.7 / 5.2 ms   | —       |
+| regex resolver, 5k-line file               | 0.3 ms (2.9 ms) | —       |
+| tree-sitter resolver, 5k-line TypeScript   | 23 ms           | —       |
+| log reader, 100k entries                   | 153 ms          | 1500 ms |
+| `stamp`, companion fixture base            | 0.7 ms          | 250 ms  |
+
+Cold / warm is the banner cache; the resolver's second figure is the same file
+with no braces, where a candidate walks to the end of it.
+
 ## Rejected: a format that needs a parser
 
 This was broken twice: a hand-rolled frontmatter reader could not express nested

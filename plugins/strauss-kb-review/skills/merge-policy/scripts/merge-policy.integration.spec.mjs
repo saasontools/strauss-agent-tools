@@ -277,16 +277,51 @@ test("a policy weakened on the head branch does not apply to its own range", () 
     "--json",
   ]);
   // The branch adds `docs/**` to the exclusions. The route reads main's copy,
-  // whose hash is the one reported.
+  // whose merged hash is the one reported.
   const base = execFileSync(
     "git",
-    ["-C", repo, "show", "main:.strauss/merge-policy.yaml"],
+    ["-C", repo, "show", "main:.strauss/merge-policy.json"],
     { encoding: "utf8" },
   );
   assert.ok(!base.includes("docs/**"));
-  assert.equal(model.policy.path, ".strauss/merge-policy.yaml");
+  assert.equal(model.policy.path, ".strauss/merge-policy.json");
+  assert.deepEqual(model.policy.layers, ["repo"]);
   assert.equal(model.route, "human");
   assert.equal(model.rule, "policy-changed");
+});
+
+test("an unknown value routes human, with the error named", () => {
+  const { repo } = ownedRepo({
+    policy: { types: { decision: "sometimes" } },
+  });
+  const { model } = route(repo, [
+    "--range",
+    "main..topic",
+    "--repo-root",
+    repo,
+    "--json",
+  ]);
+  assert.equal(model.route, "human");
+  assert.equal(model.rule, "policy-disabled");
+  assert.match(
+    model.reason,
+    /types\.decision: sometimes is not auto\|off\|human/,
+  );
+});
+
+test("the org defaults layer is read from the env, and only ever escalates", () => {
+  const { repo } = ownedRepo();
+  const defaults = join(repo, "org-defaults.json");
+  writeFileSync(defaults, JSON.stringify({ auto: { classes: ["docs"] } }));
+  const { model } = route(
+    repo,
+    ["--range", "main..topic", "--repo-root", repo, "--json"],
+    { STRAUSS_MERGE_POLICY_DEFAULTS: defaults },
+  );
+  assert.deepEqual(model.policy.layers, ["defaults", "repo"]);
+  // The repo policy names no `auto` block, so the defaults' allowlist stands
+  // and this range's one source file is still loud.
+  assert.equal(model.route, "human");
 });
 
 test("a bad flag exits 2, never 1 — a usage error is not a human route", () => {
