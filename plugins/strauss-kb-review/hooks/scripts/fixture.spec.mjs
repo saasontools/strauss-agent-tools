@@ -22,16 +22,22 @@ const { materialize, readExpected, scenarioNames } = await import(
   pathToFileURL(FIXTURE).href
 );
 
-/** @param {string} repo @param {string[]} args */
+/**
+ * Every call carries autocrlf=false: the runner's own git config must not
+ * rewrite the fixture's line endings on checkout or reset.
+ * @param {string} repo @param {string[]} args
+ */
 const git = (repo, args) =>
-  execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  execFileSync("git", ["-C", repo, "-c", "core.autocrlf=false", ...args], {
+    encoding: "utf8",
+  });
 
 /** @param {string} repo @param {string} branch */
 function reportOn(repo, branch) {
   // Reading the base rebuilds its index; reset before every checkout.
   git(repo, ["checkout", "--", "."]);
   git(repo, ["clean", "-qfd"]);
-  git(repo, ["-c", "core.autocrlf=false", "checkout", "-q", branch]);
+  git(repo, ["checkout", "-q", branch]);
   const out = execFileSync(
     "node",
     [
