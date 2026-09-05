@@ -6,10 +6,13 @@
  *   merge-policy.mjs --range <base>..<head> [--repo-root DIR] [--bundle DIR]
  *                    [--policy FILE] [--reviewer FILE|JSON] [--gate FILE|JSON]
  *                    [--approvals FILE|JSON] [--pr N] [--json] [--enforce]
+ *                    [--pr-url URL] [--write-record] [--report-out FILE]
+ *                    [--summary]
  *
  * The route table, with the rule id each row reports, is the header of
- * [lib/rules.mjs](./lib/rules.mjs). Nothing is written: the
- * `decision.merge-<pr>` body comes back as `record` for SAA-744 to write.
+ * [lib/rules.mjs](./lib/rules.mjs). The `decision.merge-<pr>` body always comes
+ * back as `record`; `--write-record` is the only thing that lands it, and only
+ * for a route no human signs off.
  *
  * Exit codes: without `--enforce`, always 0. With it, the route is the code —
  * see SKILL.md. Exit 2 is a usage error.
@@ -20,7 +23,13 @@
  * Node builtins only; the strauss-kb CLI is spawned, never imported.
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  appendFileSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -30,7 +39,9 @@ import { childEnv } from "../../../hooks/scripts/lib/util.mjs";
 import { gather, makeRun } from "./lib/inputs.mjs";
 import { decide } from "./lib/rules.mjs";
 import { enforce } from "./lib/enforce.mjs";
+import { writeRecord } from "./lib/record.mjs";
 import { render, result } from "./lib/render.mjs";
+import { prRepo, report } from "./lib/report.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GATE = join(
@@ -48,7 +59,8 @@ const GATE_TIMEOUT_MS = 120_000;
 
 const USAGE = `merge-policy.mjs --range <base>..<head> [--repo-root DIR] [--bundle DIR]
                  [--policy FILE] [--reviewer FILE|JSON] [--gate FILE|JSON]
-                 [--approvals FILE|JSON] [--pr N] [--json] [--enforce]`;
+                 [--approvals FILE|JSON] [--pr N] [--json] [--enforce]
+                 [--pr-url URL] [--write-record] [--report-out FILE] [--summary]`;
 
 /** A bad invocation, which exits 2 rather than looking like a base problem. */
 export class UsageError extends Error {
@@ -108,6 +120,18 @@ export function checkPr(value) {
   if (value === undefined) return null;
   if (!PR.test(value)) {
     throw new UsageError(`--pr must match ${PR.source}`);
+  }
+  return value;
+}
+
+/** A `--pr-url` becomes an href in the report, so only one shape is taken.
+ * @param {string|undefined} value */
+export function checkPrUrl(value) {
+  if (value === undefined) return null;
+  if (!prRepo(value)) {
+    throw new UsageError(
+      "--pr-url must be https://github.com/<owner>/<repo>/pull/<n>",
+    );
   }
   return value;
 }
@@ -173,10 +197,21 @@ export function main(argv) {
       json: { type: "boolean", default: false },
       enforce: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
+      // The trail an unattended merge leaves behind.
+      "pr-url": { type: "string" },
+      "write-record": { type: "boolean", default: false },
+      "report-out": { type: "string" },
+      summary: { type: "boolean", default: false },
     },
   });
   if (values.help) return { help: true, model: null, exit: 0 };
   if (!values.range) throw new UsageError("--range <base>..<head> is required");
+  // Checked before any work: a summary with nowhere to go is a bad invocation,
+  // not a run whose output quietly went nowhere.
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY ?? "";
+  if (values.summary === true && !summaryPath) {
+    throw new UsageError("--summary needs $GITHUB_STEP_SUMMARY to be set");
+  }
 
   const { base, head } = splitRange(values.range);
   const repoRoot = resolve(values["repo-root"] ?? process.cwd());
@@ -184,6 +219,8 @@ export function main(argv) {
   const bundleDir = relative(repoRoot, bundle).split("\\").join("/");
   const kb = launcher(repoRoot, bundle);
   const pr = checkPr(values.pr);
+  const prUrl = checkPrUrl(values["pr-url"]);
+  const started = Date.now();
   const gatePayload = checkPayload(readJson(values.gate, "--gate"), "--gate");
   const gate = memo(
     () => gatePayload ?? runGate({ repoRoot, bundle, base, head }),
@@ -214,8 +251,27 @@ export function main(argv) {
       kb: (args) => json(kb, args),
       gate,
     }),
-    { enforcing: values.enforce === true, pr },
+    { enforcing: values.enforce === true, pr, prUrl },
   );
+
+  if (values["write-record"] === true) {
+    model.wrote = writeRecord({
+      kb,
+      body: model.record,
+      route: model.route,
+      enforcing: values.enforce === true,
+      enabled: model.policy.enabled,
+    });
+  }
+
+  const block = report(model);
+  if (values["report-out"]) writeReport(values["report-out"], block);
+  if (values.summary === true) {
+    appendFileSync(summaryPath, `${block}\n`, "utf8");
+  }
+  if (values.enforce === true) {
+    emitRoute(kb, model, Date.now() - started);
+  }
 
   return {
     help: false,
@@ -226,10 +282,58 @@ export function main(argv) {
 }
 
 /**
+ * Staged then renamed, so a CI step that reads the file concurrently sees the
+ * whole block or none of it. An unwritable path is a usage error, not a route.
+ * @param {string} path @param {string} block
+ */
+function writeReport(path, block) {
+  const staging = `${path}.${process.pid}.tmp`;
+  try {
+    writeFileSync(staging, block, "utf8");
+    renameSync(staging, path);
+  } catch (error) {
+    rmSync(staging, { force: true });
+    throw new UsageError(
+      `--report-out could not be written: ${/** @type {Error} */ (error).message}`,
+    );
+  }
+}
+
+/** One event per enforced run: facts and counts, never a record body.
+ * @param {ReturnType<typeof launcher>} kb @param {any} model @param {number} ms */
+function emitRoute(kb, model, ms) {
+  const data = {
+    route: model.route,
+    rule: model.rule,
+    policyHash: model.policy.hash,
+    records: model.records.length,
+    files: Object.keys(model.classifier).length,
+    blocks: model.gate.blocks.length,
+    warns: model.gate.warns.length,
+    wrote: model.wrote?.written === true,
+    ...(model.policy.enabled === "dry-run" ? { dryRun: true } : {}),
+  };
+  json(kb, [
+    "telemetry",
+    "emit",
+    "--component",
+    "merge-policy",
+    "--event",
+    "route",
+    "--data",
+    JSON.stringify(data),
+    "--sha",
+    model.headSha,
+    "--duration-ms",
+    String(ms),
+  ]);
+}
+
+/**
  * The whole step, with every read behind `run`. Unit tests call this.
  * @param {Parameters<typeof gather>[0]} options
  * @param {import("./lib/inputs.mjs").Run} run
- * @param {{ enforcing: boolean, pr: string | null }} how
+ * @param {{ enforcing: boolean, pr: string | null, prUrl?: string | null }} how
  */
 export function evaluate(options, run, how) {
   const input = gather(options, run);
@@ -238,6 +342,9 @@ export function evaluate(options, run, how) {
   return result(input, decision, verdict, {
     enforcing: how.enforcing,
     subject: how.pr ?? options.headSha.slice(0, 12),
+    pr: how.pr,
+    prUrl: how.prUrl ?? null,
+    bundleDir: options.bundleDir,
   });
 }
 

@@ -7,10 +7,14 @@ description: Decide deterministically who reviews a pull request — auto, agent
 
 **Who reviews this range, and what do they read first?** No model reads
 anything here, no input can remove `human`, and the rows that decide — first
-match wins — are the header of [`lib/rules.mjs`](./scripts/lib/rules.mjs).
+match wins — are the header of [`lib/rules.mjs`](./scripts/lib/rules.mjs). Four
+of them, and the approval read in
+[`lib/enforce.mjs`](./scripts/lib/enforce.mjs), exist because an actor string
+is forgeable.
 
 ```sh
-node "$CLAUDE_PLUGIN_ROOT/skills/merge-policy/scripts/merge-policy.mjs" --range main..HEAD --json
+node "$CLAUDE_PLUGIN_ROOT/skills/merge-policy/scripts/merge-policy.mjs" \
+  --range main..HEAD --json
 ```
 
 `--repo-root` defaults to the cwd, `--bundle` to `<repo-root>/.strauss/kb`, and
@@ -22,9 +26,28 @@ own `--report` runs. `strauss-kb` comes from `$STRAUSS_KB_BIN`, else `PATH`.
 `agent-review-then-auto` only when `--reviewer`'s `sha` is the head SHA, and
 `human` only on an `APPROVED` review of that SHA from an `owners` login;
 `enabled: dry-run` always passes, a bad flag exits 2. It never waives human
-review, writes into the base (SAA-744 writes the `decision.merge-<pr>` body it
-returns), reads the policy from the head branch, or reads approval from a
-`kb verify` under a `human:` actor.
+review, never records a route a human signs off, never reads the policy from
+the head branch, and never reads approval from a `kb verify` under a `human:`
+actor.
+
+`--write-record` lands `decision.merge-<pr>` as `agent:merge-policy`, only for
+a route no human signs off and only under `--enforce`; a rerun writes a
+numbered sibling that supersedes the last. `--report-out FILE` renders it
+behind `<!-- strauss-kb merge-policy -->`, `--summary` appends that to
+`$GITHUB_STEP_SUMMARY`, `--pr-url` links each record. No deck is built here;
+after the fact, [review-walkthrough](../review-walkthrough/SKILL.md)'s
+`render.mjs --range <base>..<sha> --pr <url> --out deck.html` renders one from
+the same records. One sticky comment per PR:
+
+```sh
+id=$(gh api "repos/$R/issues/$PR/comments" --jq \
+  'map(select(.body|startswith("<!-- strauss-kb merge-policy -->")))[0].id')
+if [ "$id" = null ]; then
+  gh api "repos/$R/issues/$PR/comments" -F body=@report.md
+else
+  gh api -X PATCH "repos/$R/issues/comments/$id" -F body=@report.md
+fi
+```
 
 ## Policy file
 
