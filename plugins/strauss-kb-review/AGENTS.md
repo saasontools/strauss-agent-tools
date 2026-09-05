@@ -8,9 +8,12 @@ directory. Repo-wide rules live in the root AGENTS.md.
 A multi-client agent plugin served as-is (no build step) to Claude Code,
 Codex, and Agent Plugins 1.0 clients:
 
-- `skills/recording-decisions/` and `skills/review-companion/` — the portable
-  core every client reads; put the real procedure here, never only in
-  client-specific files
+- `skills/recording-decisions/`, `skills/review-companion/`, `skills/kb-review/`
+  — the portable core every client reads; put the real procedure here, never
+  only in client-specific files
+- `agents/kb-reviewer.md` — Claude Code only, so `kb-review` stays a skill and
+  the agent stays the thing it spawns. A client with no subagents (Codex) runs
+  the passes inline from that file instead
 - `plugin.json` / `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json`
   — one manifest per format; keep name/version/description in sync
 
