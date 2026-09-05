@@ -225,7 +225,7 @@ export function buildModel({ kb, git }, options) {
 
   // Optional: SAA-728's verb. Absent, the base's own tags carry the skip list.
   const classified = /** @type {any} */ (
-    kb(["classify", "--git", range, "--repo-root", repoRoot], {
+    kb(["classify", "--git", range, "--repo-root", repoRoot, "--json"], {
       optional: true,
     })
   );
