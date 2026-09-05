@@ -30,7 +30,7 @@ function reportOn(repo, branch) {
   // Reading the base rebuilds its index; reset before every checkout.
   git(repo, ["checkout", "--", "."]);
   git(repo, ["clean", "-qfd"]);
-  git(repo, ["checkout", "-q", branch]);
+  git(repo, ["-c", "core.autocrlf=false", "checkout", "-q", branch]);
   const out = execFileSync(
     "node",
     [
