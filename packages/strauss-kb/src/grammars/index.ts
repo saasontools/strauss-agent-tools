@@ -42,11 +42,9 @@ export function grammarsDownloadDisabled(): boolean {
 }
 
 /**
- * Both halves of a verified pack — the cached WASM's path and the tags query's
- * text — each downloaded once when not cached. `null` (unknown language,
- * refused or disabled download, hash mismatch on either part) is what the
- * resolver reports as `resolver-unavailable`. A miss is not remembered, so a
- * later call in the same process — the MCP server — tries the network again.
+ * Both halves of a verified pack (cached WASM path, tags query text), each
+ * downloaded once. `null` on any refused, disabled or mismatched part is what
+ * the resolver reports as `resolver-unavailable`; a miss is not remembered.
  */
 export async function ensureGrammar(
   language: string,
