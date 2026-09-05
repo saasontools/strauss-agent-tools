@@ -677,9 +677,48 @@ sync-instructions <file> [--profile NAME] [--budget N] [--full-under N]
 
 Idempotently plant the `context` block between `<!-- strauss-kb:begin -->` and
 `<!-- strauss-kb:end -->` sentinels in an instruction file, leaving everything
-outside them alone. **CLI-only** — the one verb with no MCP tool; the capability
-it serves is `kb_context`.
+outside them alone. **CLI-only** — one of the two verbs with no MCP tool; the
+capability it serves is `kb_context`.
 
 ```bash
 strauss-kb sync-instructions CLAUDE.md --profile session-start
+```
+
+---
+
+## Telemetry
+
+Every operation writes one event to a stream that lives outside every base —
+see
+[Telemetry is a separate stream from the base log](./architecture.md#telemetry-is-a-separate-stream-from-the-base-log).
+
+| Variable                | Effect                                                                                                                                                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STRAUSS_TELEMETRY`     | `local` (default) appends JSONL to `~/.strauss/telemetry/<repo-slug>/events.jsonl`; `stdout` writes one line to **stderr**, since stdout is the MCP channel; `off` drops everything, the job summary included. |
+| `STRAUSS_TELEMETRY_DIR` | Where the `local` sink writes. Defaults to `~/.strauss/telemetry`.                                                                                                                                             |
+| `STRAUSS_TELEMETRY_URL` | Also POST each event as JSON, with a 2 s timeout. Failures are swallowed and warned about once per process.                                                                                                    |
+| `GITHUB_STEP_SUMMARY`   | Set by GitHub Actions: each event also appends one markdown line to the job summary.                                                                                                                           |
+
+`events.jsonl` rotates to `events.<n>.jsonl` at 10 MiB, keeping the newest 20;
+`telemetry summary` reads the newest 10. The repo slug comes from the `origin`
+remote, falling back to the working directory's basename. An event carries ids,
+counts, statuses and SHAs — a `data` string over 512 characters is rejected,
+which is what keeps record bodies and code out of the stream.
+
+### `telemetry summary`
+
+```
+telemetry summary [--repo SLUG] [--since ISO]
+```
+
+Aggregate the local files: `validate` errors and `doctor` findings by check,
+anchor drift (rebaselined against unexpected), verifies by actor class, writes
+by type and tag, and events by component. **CLI-only** — the operation stream is
+not a base an agent asks about. Coverage, gate block rate and route distribution
+are listed as pending: they are emitted by later components, not by this
+package.
+
+```bash
+strauss-kb telemetry summary --since 2026-09-01T00:00:00Z
+strauss-kb telemetry summary --repo saasontools-strauss-agent-tools --json
 ```

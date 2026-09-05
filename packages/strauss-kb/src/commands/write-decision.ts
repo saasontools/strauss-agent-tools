@@ -2,8 +2,10 @@ import { z } from "zod";
 import {
   composeDecisionRecord,
   decisionInputSchema,
+  DECISION_TYPE,
 } from "../decision-record.js";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
+import { actorClassOf, emitKb } from "../telemetry/index.js";
 import { bundlePath, define } from "./model.js";
 
 export const writeDecisionCommand = define({
@@ -24,6 +26,16 @@ export const writeDecisionCommand = define({
       composeDecisionRecord(input, actor, now()),
       actor,
     );
+    await emitKb("write-decision", {
+      bundle: path,
+      actorClass: actorClassOf(actor),
+      data: {
+        type: DECISION_TYPE,
+        tags: input.tags ?? [],
+        anchors: input.anchors?.length ?? 0,
+        action: record.action,
+      },
+    });
     return {
       conceptId: record.conceptId,
       action: record.action,

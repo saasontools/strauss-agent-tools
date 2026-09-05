@@ -25,21 +25,24 @@ describe("command table", () => {
     );
   });
 
-  // The one sanctioned gap in the projection: sync-instructions edits files
-  // for hooks and instruction blocks, and the capability it plumbs —
-  // "get the pinned context block" — is kb_context. Anything else CLI-only
-  // is a drift bug.
-  test("sync-instructions is the only CLI-only command", () => {
+  // The two sanctioned gaps in the projection, both plumbing rather than a
+  // capability: sync-instructions edits files for hooks and instruction blocks
+  // (the capability is kb_context), and telemetry reads the operation stream,
+  // which is not a base an agent asks about. Anything else CLI-only is a drift
+  // bug.
+  test("only the two plumbing verbs are CLI-only", () => {
     expect(
       KB_COMMANDS.filter((command) => !command.tool).map(
         (command) => command.name,
       ),
-    ).toEqual(["sync-instructions"]);
+    ).toEqual(["sync-instructions", "telemetry"]);
   });
 
   test("names and tools are unique", () => {
     const names = KB_COMMANDS.map((command) => command.name);
-    const tools = KB_COMMANDS.map((command) => command.tool);
+    const tools = KB_COMMANDS.flatMap((command) =>
+      command.tool ? [command.tool] : [],
+    );
 
     expect(new Set(names).size).toBe(names.length);
     expect(new Set(tools).size).toBe(tools.length);
@@ -101,13 +104,15 @@ describe("command table", () => {
   test("every command that touches a base takes a bundlePath", () => {
     // schema and types describe the format itself, not any one base; pins,
     // context, and sync-instructions read the workspace pin manifest, because
-    // which bases a session should see is workspace state, not base state.
+    // which bases a session should see is workspace state, not base state;
+    // telemetry reads the operation stream, which lives outside every base.
     const noBundle = [
       "schema",
       "types",
       "pins",
       "context",
       "sync-instructions",
+      "telemetry",
     ];
     for (const command of KB_COMMANDS) {
       const shape = Object.keys(command.input.shape);

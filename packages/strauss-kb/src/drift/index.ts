@@ -22,6 +22,7 @@ export {
 export {
   listRepoFiles,
   readOldSource,
+  remoteOriginUrl,
   type OldSource,
   type OldSourceOrigin,
 } from "./git.js";

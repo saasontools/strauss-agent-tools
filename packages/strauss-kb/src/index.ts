@@ -250,6 +250,27 @@ export {
   type KbReassessDiff,
   type KbReassessPacket,
 } from "./drift/index.js";
+export {
+  actorClassOf,
+  emit,
+  emitKb,
+  renderSummary,
+  telemetryEventSchema,
+  telemetryRoot,
+  telemetrySummary,
+  KB_COMPONENT,
+  MAX_DATA_STRING,
+  PENDING_METRICS,
+  ROTATE_AT_BYTES,
+  TELEMETRY_ACTOR_CLASSES,
+  TELEMETRY_MODES,
+  type TelemetryActorClass,
+  type TelemetryEvent,
+  type TelemetryEventInput,
+  type TelemetryJson,
+  type TelemetryMode,
+  type TelemetrySummary,
+} from "./telemetry/index.js";
 export { createKbMcpServer, runKbMcpServer } from "./mcp.js";
 export { runKbCli } from "./cli.js";
 export {

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { composeInputSchema, composeRecord } from "../compose.js";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
 import { KB_RECORD_TYPES, type KbRecordType } from "../kb-record.schema.js";
+import { actorClassOf, emitKb } from "../telemetry/index.js";
 import { bundlePath, define } from "./model.js";
 
 export const writeCommand = define({
@@ -27,6 +28,16 @@ export const writeCommand = define({
       composeRecord(type as KbRecordType, input, actor, now()),
       actor,
     );
+    await emitKb("write", {
+      bundle: path,
+      actorClass: actorClassOf(actor),
+      data: {
+        type,
+        tags: input.tags ?? [],
+        anchors: input.anchors?.length ?? 0,
+        action: record.action,
+      },
+    });
     return {
       conceptId: record.conceptId,
       action: record.action,
