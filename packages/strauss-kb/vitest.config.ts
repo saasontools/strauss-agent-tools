@@ -16,6 +16,9 @@ export default defineConfig({
       // production refuses that protocol, so the suite has to widen the list.
       STRAUSS_KB_REPO_PROTOCOLS: "https,ssh,git,file",
     },
+    // Grammars download on first use; the setup file serves the fixtures over
+    // localhost so no test reaches the CDN.
+    setupFiles: ["test/grammars.setup.ts"],
     // The bench dry-run suite runs here too: fast, no network, and the only
     // guard between an arm-transform regression and a paid run.
     include: ["src/**/*.spec.ts", "test/**/*.spec.ts", "bench/**/*.spec.ts"],

@@ -55,7 +55,7 @@ export const kbVerifiedEventSchema = kbActorStampSchema.extend({
  * Symbolic on purpose. These are written while the code is still moving: a
  * `line: 379` recorded at minute five is wrong by minute forty, but
  * `OrderService.cancel` survives every edit that does not rename it. Once the
- * change settles, a resolution pass (`anchor-resolver.ts`) stamps `hash`,
+ * change settles, a resolution pass (`anchor-resolver/`) stamps `hash`,
  * `resolved_at`, and `lines`; drift detection later re-resolves and compares.
  *
  * `hash` is prefixed with the algorithm so a future one can coexist with
@@ -101,6 +101,12 @@ export const kbAnchorSchema = z
     resolved_at: z.string().min(1).optional(),
     /** Line count of the text the hash was taken over. */
     lines: z.number().int().positive().optional(),
+    /**
+     * Which resolver produced the hashed span. Absent means an anchor stamped
+     * before resolvers were named, which is read as `regex` — the only one
+     * there was. A hash from a different resolver is drift, not a match.
+     */
+    resolver: z.enum(["tree-sitter", "regex"]).optional(),
   })
   .strict();
 

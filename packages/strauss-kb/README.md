@@ -206,17 +206,18 @@ Why a lock was rejected: [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 An anchor names where a record attaches in the code: a `file`, optionally a
 `symbol` — symbolic, because a line number written mid-change is wrong by the
-end of it. Five optional fields extend it:
+end of it. Six optional fields extend it:
 
 | Field         | Meaning                                                                               |
 | ------------- | ------------------------------------------------------------------------------------- |
 | `hash`        | `sha256:<hex>` over the anchored text, algorithm-prefixed.                            |
 | `lines`       | Line count the hash covered.                                                          |
 | `resolved_at` | When the anchor last resolved.                                                        |
+| `resolver`    | Which resolver produced the hash: `tree-sitter` or `regex`.                           |
 | `repo`        | Which repository — remote URL or short name. Absent means this base's own repository. |
 | `ref`         | Git rev the evidence was taken at.                                                    |
 
-`hash`, `lines`, and `resolved_at` are **measured** — a resolution pass stamps
+`hash`, `lines`, `resolved_at`, and `resolver` are **measured** — a resolution pass stamps
 them; `repo` and `ref` are **author-owned identity** and a resolution pass
 never writes them.
 
@@ -246,8 +247,17 @@ carries a hash; unstamped anchors and unreachable remotes never fail.
 A fully clean run — every anchor checked and `match`, none stamped this run —
 appends a `verified[]` event.
 
-Symbol resolution is a v1 heuristic; ties and unclosed blocks return
-`unresolved`.
+Symbols resolve tree-sitter first — the 20 language packs that have both a
+grammar and a definitions query, pinned together by `pnpm grammars pin` from
+`grammars/packs.json` and proved at pin time — then the regex heuristic for
+other extensions and for symbols the tags query does not define (constants,
+type aliases, class fields), then a
+whole-file hash when the anchor names no symbol; an ambiguous match or an
+unloadable grammar returns `unresolved` rather than falling through to a guess. Neither half of a pack is published with the
+package: grammar and query both download on first use, sha256-pinned against
+`grammars/manifest.json`, and are cached under `~/.strauss/grammars`. A hash the old resolver still reproduces and
+the new one does not is `drifted` with reason `resolver-changed` — accept it
+with `--rebaseline`.
 
 Drift also surfaces on read: `kb_load` and `kb_query` attach a
 `{ kind: "drifted" }` warning — or `{ kind: "unchecked" }` for a foreign anchor

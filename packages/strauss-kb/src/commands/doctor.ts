@@ -6,11 +6,14 @@ import {
   DEFAULT_UNVERIFIED_DAYS,
   type KbDoctorReport,
 } from "../doctor.js";
+import { grammarHints } from "../grammars/index.js";
 import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
 
 export type KbDoctorCommandResult = KbDoctorReport & {
   bundlePath: string;
   checkedAt: string;
+  /** What to do about a grammar this run could not obtain. */
+  hints?: string[];
 };
 
 const days = (what: string, fallback: number) =>
@@ -103,7 +106,13 @@ export const doctorCommand = define({
       ...(anchorDrift !== undefined ? { anchorDrift } : {}),
       now: new Date(checkedAt),
     });
-    return { bundlePath: path, checkedAt, ...report };
+    const hints = grammarHints();
+    return {
+      bundlePath: path,
+      checkedAt,
+      ...report,
+      ...(hints.length ? { hints } : {}),
+    };
   },
   render: (result) => render(result as KbDoctorCommandResult),
   // Only expiry, and only under --strict. The other seven checks report debt a
@@ -131,6 +140,11 @@ function render(result: KbDoctorCommandResult): string {
     `records: ${result.recordCount}`,
     `thresholds: expiring within ${thresholds.expiringDays}d, unverified over ${thresholds.unverifiedDays}d, aging over ${thresholds.agingDays}d`,
     `checked: ${result.checkedAt}`,
+    ...(result.anchorResolvers.total
+      ? [
+          `anchors: ${result.anchorResolvers.total} hashed — ${result.anchorResolvers.treeSitter} tree-sitter, ${result.anchorResolvers.regex} regex`,
+        ]
+      : []),
     "",
   ];
 
@@ -150,6 +164,8 @@ function render(result: KbDoctorCommandResult): string {
       );
     }
   }
+
+  for (const hint of result.hints ?? []) lines.push("", hint);
 
   lines.push(
     "",

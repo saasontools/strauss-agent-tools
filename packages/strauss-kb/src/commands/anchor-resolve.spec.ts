@@ -172,6 +172,7 @@ describe("anchorResolveCommand", () => {
           state: "match",
           storedHash: anchor.hash,
           currentHash: anchor.hash,
+          resolver: "tree-sitter",
         },
       ],
       verified: true,
@@ -183,7 +184,7 @@ describe("anchorResolveCommand", () => {
       {
         by: "agent:resolver",
         at: NOW,
-        note: "anchor-resolve: 1/1 anchors match (regex resolver)",
+        note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)",
       },
     ]);
     // Left exactly as it was: a matching anchor is unchanged, and re-dating it
@@ -419,6 +420,7 @@ describe("anchorResolveCommand", () => {
         symbol: "totals",
         state: "stamped",
         currentHash: expectedHash,
+        resolver: "tree-sitter",
       },
     ]);
     // A stamping run has no prior hash to confirm, so it verifies nothing.
@@ -431,7 +433,25 @@ describe("anchorResolveCommand", () => {
       hash: expectedHash,
       lines: 3,
       resolved_at: NOW,
+      resolver: "tree-sitter",
     });
+  });
+
+  // No tags query defines a constant, so the chain hands it to regex and the
+  // stamp says so — the anchor that used to come back `symbol-not-found`.
+  test("a const stamps through regex; a function beside it through tree-sitter", async () => {
+    writeSource([SOURCE, "export const LIMIT = { max: 25 };", ""].join("\n"));
+    await seed([
+      { file: FILE, symbol: "LIMIT" },
+      { file: FILE, symbol: "totals" },
+    ]);
+
+    const output = await run({});
+
+    expect(output.results).toMatchObject([
+      { symbol: "LIMIT", state: "stamped", resolver: "regex" },
+      { symbol: "totals", state: "stamped", resolver: "tree-sitter" },
+    ]);
   });
 
   test("the record's own generator gets the drift report but a refused verify", async () => {
@@ -567,7 +587,7 @@ describe("anchorResolveCommand", () => {
       expect(readerCalls).toEqual([]);
       const record = await new KbStore().read(bundle, ID);
       expect(record?.frontmatter.verified?.[0]?.note).toBe(
-        "anchor-resolve: 1/1 anchors match (regex resolver)",
+        "anchor-resolve: 1/1 anchors match (tree-sitter resolver)",
       );
     });
 

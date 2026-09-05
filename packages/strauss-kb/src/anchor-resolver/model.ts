@@ -12,15 +12,45 @@ export type ResolvedSymbol = {
   endLine: number;
 };
 
+/** Which resolver produced a span. Stamped on the anchor. */
+export type AnchorResolverName = "tree-sitter" | "regex";
+
+/**
+ * A resolver's verdict. `abstain` ("not my language") and `symbol-not-found`
+ * ("nothing I recognize declares this") both pass the symbol down the chain;
+ * `symbol-ambiguous` and `resolver-unavailable` end it, because neither may be
+ * answered by a looser resolver guessing.
+ */
+export type ResolverAttempt =
+  | { kind: "resolved"; span: ResolvedSymbol }
+  | {
+      kind: "unresolved";
+      reason: "symbol-not-found" | "symbol-ambiguous" | "resolver-unavailable";
+    }
+  | { kind: "abstain" };
+
 export interface AnchorResolver {
   name: string;
-  resolve(source: string, symbol: string): ResolvedSymbol | null;
+  /** Loads whatever these files need, before any `resolve` call. Optional. */
+  prepare?(files: readonly string[]): Promise<void>;
+  /** The richer verdict the chain uses; defaults to `resolve`. */
+  attempt?(source: string, symbol: string, file?: string): ResolverAttempt;
+  resolve(source: string, symbol: string, file?: string): ResolvedSymbol | null;
 }
+
+/** A resolved span, and which resolver produced it. */
+export type AnchorResolution =
+  | { ok: true; span: ResolvedSymbol; resolver?: AnchorResolverName }
+  | { ok: false; reason: AnchorUnresolvedReason };
 
 /** Why an anchor could not be compared. Never an error — always a finding. */
 export type AnchorUnresolvedReason =
   | "file-missing"
   | "symbol-not-found"
+  /** More than one definition carries the name, and guessing is not allowed. */
+  | "symbol-ambiguous"
+  /** The extension has a grammar, but it would not load. Never a throw. */
+  | "resolver-unavailable"
   | "outside-repo"
   | "file-too-large"
   | "file-unreadable"
@@ -35,6 +65,13 @@ export type AnchorUnresolvedReason =
   | "ref-invalid"
   /** The anchor's `repo` is not a remote we will fetch from. */
   | "repo-invalid";
+
+/**
+ * A hash that changed because a more precise resolver took over, not because
+ * the code did. Reported as drift so nothing is restamped silently, and
+ * accepted by `--rebaseline` like any other.
+ */
+export type AnchorDriftReason = "resolver-changed";
 
 /**
  * How a ref-pinned foreign anchor stands. `drifted-on-default` is the one a
@@ -55,7 +92,9 @@ export type KbAnchorDriftEntry = {
   currentHash?: string;
   /** `null` when the anchor recorded no `lines` — size unknown, not zero. */
   diffSize: number | null;
-  reason?: AnchorUnresolvedReason;
+  reason?: AnchorUnresolvedReason | AnchorDriftReason;
+  /** Which resolver produced `currentHash`. Absent for a whole-file anchor. */
+  resolver?: AnchorResolverName;
   /** Set only when the anchor was resolved against another repository. */
   repo?: string;
   remoteState?: RemoteAnchorState;

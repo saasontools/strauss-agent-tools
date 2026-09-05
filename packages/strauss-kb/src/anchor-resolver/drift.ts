@@ -11,15 +11,25 @@ import type {
   AnchorFileReader,
   AnchorRead,
   AnchorResolver,
+  AnchorResolverName,
   KbAnchorDriftEntry,
 } from "./model.js";
 import { anchorFileReader, readAnchorFiles } from "./read.js";
 import { LazyOrigin, normalizeRepoUrl } from "./repo-identity.js";
-import { hashAnchorText, regexResolver, resolveAnchor } from "./resolver.js";
+import {
+  defaultAnchorResolvers,
+  hashAnchorText,
+  prepareResolvers,
+  resolveAnchorSpan,
+  resolverChanged,
+} from "./resolver.js";
 
 export type AnchorDriftOptions = {
   repoRoot?: string;
+  /** Single resolver, no chain. Convenience for tests. */
   resolver?: AnchorResolver;
+  /** The chain, tried in order. Defaults to tree-sitter then regex. */
+  resolvers?: readonly AnchorResolver[];
   concurrency?: number;
   /** Test seam: replaces the disk reader. */
   reader?: AnchorFileReader;
@@ -49,7 +59,13 @@ export async function detectAnchorDrift(
   options: AnchorDriftOptions = {},
 ): Promise<Map<string, KbAnchorDriftEntry[]>> {
   const repoRoot = options.repoRoot ?? process.cwd();
-  const resolver = options.resolver ?? regexResolver;
+  const resolvers =
+    options.resolvers ??
+    (options.resolver
+      ? [options.resolver]
+      : defaultAnchorResolvers({
+          offline: options.remote?.offline === true,
+        }));
   const origin = new LazyOrigin(repoRoot);
 
   const planned = new Map<string, Planned[]>();
@@ -91,6 +107,10 @@ export async function detectAnchorDrift(
     ),
     (options.readRemote ?? readRemoteAnchors)(wants, options.remote ?? {}),
   ]);
+  await prepareResolvers(resolvers, [
+    ...files,
+    ...wants.map((want) => want.file),
+  ]);
 
   const drift = new Map<string, KbAnchorDriftEntry[]>();
   for (const record of records) {
@@ -98,8 +118,8 @@ export async function detectAnchorDrift(
     for (const { anchor, foreign } of planned.get(record.conceptId) ?? []) {
       entries.push(
         foreign
-          ? remoteEntry(anchor, remote, resolver)
-          : localEntry(anchor, reads.get(anchor.file) as AnchorRead, resolver),
+          ? remoteEntry(anchor, remote, resolvers)
+          : localEntry(anchor, reads.get(anchor.file) as AnchorRead, resolvers),
       );
     }
     if (entries.length) drift.set(record.conceptId, entries);
@@ -142,17 +162,46 @@ function unresolved(
   };
 }
 
-/** The hash of an anchor's text in one source, or `null` when it cannot resolve. */
+type Current = { hash: string; lines: number; resolver?: AnchorResolverName };
+
+/** The hash of an anchor's text in one source, or the reason it has none. */
 function hashIn(
   source: string,
   anchor: KbAnchor,
-  resolver: AnchorResolver,
-): { hash: string; lines: number } | null {
-  const resolved = resolveAnchor(source, anchor, resolver);
-  if (!resolved) return null;
+  resolvers: readonly AnchorResolver[],
+):
+  | { ok: true; current: Current }
+  | { ok: false; reason: KbAnchorDriftEntry["reason"] } {
+  const outcome = resolveAnchorSpan(source, anchor, resolvers);
+  if (!outcome.ok) return { ok: false, reason: outcome.reason };
   return {
-    hash: hashAnchorText(resolved.text),
-    lines: resolved.endLine - resolved.startLine + 1,
+    ok: true,
+    current: {
+      hash: hashAnchorText(outcome.span.text),
+      lines: outcome.span.endLine - outcome.span.startLine + 1,
+      ...(outcome.resolver ? { resolver: outcome.resolver } : {}),
+    },
+  };
+}
+
+/**
+ * Which resolver produced the hash, and — when it differs from the stored one
+ * — whether that swap is the whole difference. A regex-stamped anchor re-read
+ * by tree-sitter drifts because the resolver changed, not because the code
+ * did; named so a reader can tell the two apart before reaching for
+ * `--rebaseline`.
+ */
+function resolverExtras(
+  source: string,
+  anchor: KbAnchor,
+  current: Current,
+): Partial<KbAnchorDriftEntry> {
+  return {
+    ...(current.resolver ? { resolver: current.resolver } : {}),
+    ...(current.hash !== anchor.hash &&
+    resolverChanged(source, anchor, current.resolver)
+      ? { reason: "resolver-changed" as const }
+      : {}),
   };
 }
 
@@ -176,13 +225,16 @@ function compared(
 function localEntry(
   anchor: KbAnchor,
   read: AnchorRead,
-  resolver: AnchorResolver,
+  resolvers: readonly AnchorResolver[],
 ): KbAnchorDriftEntry {
   if (!read.ok) return unresolved(anchor, read.reason);
-  const current = hashIn(read.source, anchor, resolver);
-  return current
-    ? compared(anchor, current)
-    : unresolved(anchor, "symbol-not-found");
+  const found = hashIn(read.source, anchor, resolvers);
+  if (!found.ok) return unresolved(anchor, found.reason);
+  return compared(
+    anchor,
+    found.current,
+    resolverExtras(read.source, anchor, found.current),
+  );
 }
 
 /**
@@ -196,7 +248,7 @@ function localEntry(
 function remoteEntry(
   anchor: KbAnchor,
   remote: Map<string, RemoteRead>,
-  resolver: AnchorResolver,
+  resolvers: readonly AnchorResolver[],
 ): KbAnchorDriftEntry {
   const repo = anchor.repo as string;
   const key = normalizeRepoUrl(repo);
@@ -208,21 +260,34 @@ function remoteEntry(
   if (!primary) return unresolved(anchor, "remote-unreachable", repo);
   if (!primary.ok) return unresolved(anchor, primary.reason, repo);
 
-  const current = hashIn(primary.source, anchor, resolver);
-  if (!current) return unresolved(anchor, "symbol-not-found", repo);
-  if (!anchor.ref) return compared(anchor, current, { repo });
+  const found = hashIn(primary.source, anchor, resolvers);
+  if (!found.ok) return unresolved(anchor, found.reason, repo);
+  const current = found.current;
+  const extras = resolverExtras(primary.source, anchor, current);
+  if (!anchor.ref) return compared(anchor, current, { repo, ...extras });
   if (current.hash !== anchor.hash) {
-    return compared(anchor, current, { repo, remoteState: "drifted-from-ref" });
+    return compared(anchor, current, {
+      repo,
+      ...extras,
+      remoteState: "drifted-from-ref",
+    });
   }
 
   const head = atDefault?.ok
-    ? hashIn(atDefault.source, anchor, resolver)
+    ? hashIn(atDefault.source, anchor, resolvers)
     : null;
-  return head && head.hash !== anchor.hash
+  return head?.ok && head.current.hash !== anchor.hash
     ? {
-        ...compared(anchor, head, { repo }),
+        ...compared(anchor, head.current, {
+          repo,
+          ...(head.current.resolver ? { resolver: head.current.resolver } : {}),
+        }),
         state: "drifted",
         remoteState: "drifted-on-default",
       }
-    : compared(anchor, current, { repo, remoteState: "matches-ref" });
+    : compared(anchor, current, {
+        repo,
+        ...extras,
+        remoteState: "matches-ref",
+      });
 }

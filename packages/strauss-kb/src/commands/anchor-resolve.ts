@@ -1,16 +1,23 @@
 import { z } from "zod";
 import {
   anchorFileReader,
+  defaultAnchorResolvers,
   hashAnchorText,
   LazyOrigin,
   normalizeRepoUrl,
+  prepareResolvers,
   readAnchorFiles,
   remoteWants,
-  resolveAnchor,
+  resolveAnchorSpan,
+  resolverChanged,
+  type AnchorDriftReason,
   type AnchorRead,
+  type AnchorResolver,
+  type AnchorResolverName,
   type AnchorUnresolvedReason,
   type RemoteAnchorState,
 } from "../anchor-resolver/index.js";
+import { grammarHints } from "../grammars/index.js";
 import {
   KbRecordNotFoundError,
   KbSelfVerificationError,
@@ -32,7 +39,8 @@ type AnchorResolveResult = {
   currentHash?: string;
   /** `null` when the anchor recorded no `lines` — size unknown, not zero. */
   diffSize?: number | null;
-  reason?: AnchorUnresolvedReason;
+  reason?: AnchorUnresolvedReason | AnchorDriftReason;
+  resolver?: AnchorResolverName;
   rebaselined?: boolean;
   /** Set only when the anchor was resolved against another repository. */
   repo?: string;
@@ -43,6 +51,16 @@ type AnchorResolveResult = {
 type AnchorSource =
   | { ok: true; source: string; repo?: string; head?: string }
   | { ok: false; reason: AnchorUnresolvedReason; repo?: string };
+
+/** Which resolvers produced this run's spans, for the verify note. */
+function resolverSummary(results: AnchorResolveResult[]): string {
+  const names = [
+    ...new Set(
+      results.flatMap((entry) => (entry.resolver ? [entry.resolver] : [])),
+    ),
+  ].sort();
+  return names.length ? `${names.join(" + ")} resolver` : "whole-file";
+}
 
 export const anchorResolveCommand = define({
   name: "anchor-resolve",
@@ -105,6 +123,11 @@ export const anchorResolveCommand = define({
     let dirty = false;
 
     const sources = await readSources(anchors, root, offline === true);
+    const resolvers = defaultAnchorResolvers({ offline: offline === true });
+    await prepareResolvers(
+      resolvers,
+      anchors.map((anchor) => anchor.file),
+    );
 
     for (const anchor of anchors) {
       const base: Pick<
@@ -127,31 +150,41 @@ export const anchorResolveCommand = define({
         continue;
       }
 
-      const resolved = resolveAnchor(source.source, anchor);
-      if (!resolved) {
+      const outcome = resolveAnchorSpan(source.source, anchor, resolvers);
+      if (!outcome.ok) {
         results.push({
           ...base,
           state: "unresolved",
-          reason: "symbol-not-found",
+          reason: outcome.reason,
         });
         updated.push(anchor);
         continue;
       }
 
+      const resolved = outcome.span;
+      const producedBy = outcome.resolver;
       const currentHash = hashAnchorText(resolved.text);
       const currentLines = resolved.endLine - resolved.startLine + 1;
+      // `resolver` records which resolver the stored hash came from, so a
+      // later run can tell a precise span from a heuristic one.
       const stamped: KbAnchor = {
         ...anchor,
         hash: currentHash,
         lines: currentLines,
         resolved_at: now(),
+        ...(producedBy ? { resolver: producedBy } : {}),
       };
       const pinned = anchor.ref !== undefined && source.repo !== undefined;
 
       if (!anchor.hash) {
         // The write path for hashes: kb_write callers record symbols, not
         // digests, and this pass fills them in once the code settles.
-        results.push({ ...base, state: "stamped", currentHash });
+        results.push({
+          ...base,
+          state: "stamped",
+          currentHash,
+          ...(producedBy ? { resolver: producedBy } : {}),
+        });
         updated.push(stamped);
         dirty = true;
         continue;
@@ -163,6 +196,12 @@ export const anchorResolveCommand = define({
           state: "drifted",
           currentHash,
           diffSize: lineDelta(anchor, currentLines),
+          ...(producedBy ? { resolver: producedBy } : {}),
+          // A regex-stamped anchor re-read by tree-sitter drifts because the
+          // resolver changed, not because the code did.
+          ...(resolverChanged(source.source, anchor, producedBy)
+            ? { reason: "resolver-changed" as const }
+            : {}),
           ...(pinned ? { remoteState: "drifted-from-ref" as const } : {}),
           ...(rebaseline ? { rebaselined: true } : {}),
         });
@@ -174,7 +213,9 @@ export const anchorResolveCommand = define({
       // The evidence still holds at the pinned commit and the default branch
       // has moved past it. Never rebaselined: the repair is to move `ref`,
       // which is the author's field, not this command's.
-      const onDefault = pinned ? headHash(source, anchor) : undefined;
+      const onDefault = pinned
+        ? headHash(source, anchor, resolvers)
+        : undefined;
       if (onDefault && onDefault.hash !== anchor.hash) {
         results.push({
           ...base,
@@ -191,6 +232,7 @@ export const anchorResolveCommand = define({
         ...base,
         state: "match",
         currentHash,
+        ...(producedBy ? { resolver: producedBy } : {}),
         ...(pinned ? { remoteState: "matches-ref" as const } : {}),
       });
       // Nothing changed, so nothing is written: a re-dated record on every
@@ -219,6 +261,10 @@ export const anchorResolveCommand = define({
     const frozenNote = frozen
       ? { frozen: true, note: "base is frozen: nothing was stamped" }
       : {};
+    // What to do about a grammar this run could not obtain. Written once, in
+    // the grammars module, so doctor and this command say the same thing.
+    const hints = grammarHints();
+    const hintNote = hints.length ? { hints } : {};
 
     // Evidence only when every checkable anchor already matched: a freshly
     // stamped anchor is a baseline nobody has checked. An anchor nothing could
@@ -238,7 +284,7 @@ export const anchorResolveCommand = define({
         await store.verify(
           path,
           id,
-          `anchor-resolve: ${note} (regex resolver)`,
+          `anchor-resolve: ${note} (${resolverSummary(results)})`,
           actor,
           now(),
         );
@@ -252,9 +298,16 @@ export const anchorResolveCommand = define({
           verified: false,
           verifyRefused: "self-verification",
           ...frozenNote,
+          ...hintNote,
         };
       }
-      return { conceptId: id, results, verified: true, ...frozenNote };
+      return {
+        conceptId: id,
+        results,
+        verified: true,
+        ...frozenNote,
+        ...hintNote,
+      };
     }
 
     return {
@@ -263,6 +316,7 @@ export const anchorResolveCommand = define({
       verified: false,
       ...(unreachable ? { note } : {}),
       ...frozenNote,
+      ...hintNote,
     };
   },
   // A stored hash that no longer resolves is a broken anchor, not an absence:
@@ -289,13 +343,14 @@ function lineDelta(anchor: KbAnchor, current: number): number | null {
 function headHash(
   source: { head?: string },
   anchor: KbAnchor,
+  resolvers: readonly AnchorResolver[],
 ): { hash: string; lines: number } | undefined {
   if (source.head === undefined) return undefined;
-  const resolved = resolveAnchor(source.head, anchor);
-  if (!resolved) return undefined;
+  const outcome = resolveAnchorSpan(source.head, anchor, resolvers);
+  if (!outcome.ok) return undefined;
   return {
-    hash: hashAnchorText(resolved.text),
-    lines: resolved.endLine - resolved.startLine + 1,
+    hash: hashAnchorText(outcome.span.text),
+    lines: outcome.span.endLine - outcome.span.startLine + 1,
   };
 }
 

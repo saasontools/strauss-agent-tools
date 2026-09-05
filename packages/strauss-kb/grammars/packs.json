@@ -1,0 +1,127 @@
+{
+  "linguist": "v9.7.0",
+  "packs": {
+    "bash": {
+      "package": "tree-sitter-bash",
+      "tags": null,
+      "linguist": "Shell"
+    },
+    "c": {
+      "package": "tree-sitter-c",
+      "claims": [".h"]
+    },
+    "c_sharp": {
+      "package": "tree-sitter-c-sharp",
+      "wasm": "tree-sitter-c_sharp.wasm",
+      "linguist": "C#"
+    },
+    "cpp": {
+      "package": "tree-sitter-cpp",
+      "linguist": "C++"
+    },
+    "css": {
+      "package": "tree-sitter-css",
+      "tags": null
+    },
+    "elixir": {
+      "package": "tree-sitter-elixir"
+    },
+    "embedded_template": {
+      "package": "tree-sitter-embedded-template",
+      "wasm": "tree-sitter-embedded_template.wasm",
+      "tags": null,
+      "linguist": "HTML+ERB"
+    },
+    "go": {
+      "package": "tree-sitter-go"
+    },
+    "html": {
+      "package": "tree-sitter-html",
+      "tags": null
+    },
+    "java": {
+      "package": "tree-sitter-java"
+    },
+    "javascript": {
+      "package": "tree-sitter-javascript"
+    },
+    "json": {
+      "package": "tree-sitter-json",
+      "tags": null
+    },
+    "kotlin": {
+      "package": "gh:fwcd/tree-sitter-kotlin",
+      "wasm": "gh-release:fwcd/tree-sitter-kotlin@0.3.8/tree-sitter-kotlin.wasm",
+      "tags": "gh:fwcd/tree-sitter-kotlin@main/queries/tags.scm"
+    },
+    "lua": {
+      "package": "@tree-sitter-grammars/tree-sitter-lua"
+    },
+    "objc": {
+      "package": "tree-sitter-objc",
+      "tags": null,
+      "extensions": [".m"]
+    },
+    "ocaml": {
+      "package": "gh:tree-sitter/tree-sitter-ocaml"
+    },
+    "php": {
+      "package": "tree-sitter-php",
+      "claims": [".inc"]
+    },
+    "python": {
+      "package": "tree-sitter-python"
+    },
+    "ql": {
+      "package": "gh:tree-sitter/tree-sitter-ql",
+      "linguist": "CodeQL"
+    },
+    "ruby": {
+      "package": "tree-sitter-ruby"
+    },
+    "rust": {
+      "package": "tree-sitter-rust"
+    },
+    "scala": {
+      "package": "tree-sitter-scala"
+    },
+    "solidity": {
+      "package": "tree-sitter-solidity"
+    },
+    "swift": {
+      "package": "gh:alex-pinkus/tree-sitter-swift"
+    },
+    "tlaplus": {
+      "package": "@tlaplus/tree-sitter-tlaplus",
+      "tags": null,
+      "linguist": "TLA"
+    },
+    "toml": {
+      "package": "@tree-sitter-grammars/tree-sitter-toml",
+      "tags": null
+    },
+    "tsx": {
+      "package": "tree-sitter-typescript",
+      "wasm": "tree-sitter-tsx.wasm",
+      "tags": [
+        "npm:tree-sitter-javascript/queries/tags.scm",
+        "queries/tags.scm"
+      ]
+    },
+    "typescript": {
+      "package": "tree-sitter-typescript",
+      "tags": [
+        "npm:tree-sitter-javascript/queries/tags.scm",
+        "queries/tags.scm"
+      ]
+    },
+    "yaml": {
+      "package": "@tree-sitter-grammars/tree-sitter-yaml",
+      "tags": null
+    },
+    "zig": {
+      "package": "@tree-sitter-grammars/tree-sitter-zig",
+      "tags": null
+    }
+  }
+}
