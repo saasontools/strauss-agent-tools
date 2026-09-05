@@ -9,7 +9,12 @@ Each run writes two files here, named `<label>-<iso timestamp>`:
 
 Both are gitignored, so committing one takes `git add -f`.
 
-**Runs so far:** `full-claude-2026-09-03T21-51-51-137Z` — the full matrix over the Claude Code transport (240 calls, 0 errored, thinking off); reading in `full-claude-2026-09-03-analysis.md`. No run over the API transport yet.
+**Runs so far:**
+
+- `full-claude-2026-09-03T21-51-51-137Z` — 2026-09-03, Claude Code transport, 30 questions, 240 calls, ~$1.57 list; standing beats nothing on the stronger model, but the interval touches zero. Reading in `full-claude-2026-09-03-analysis.md`.
+- `full-claude-x3-2026-09-05T11-50-48-935Z` — 2026-09-05, Claude Code transport, 31 questions x 3 repeats, 744 calls, $3.63 list; A − C now excludes zero on both models. Reading in `full-claude-x3-2026-09-05-analysis.md`.
+
+No run over the API transport yet.
 
 ## Running the full matrix
 

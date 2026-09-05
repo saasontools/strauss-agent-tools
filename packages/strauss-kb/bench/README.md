@@ -52,6 +52,10 @@ the deletion the arm is there to measure.
 | `ag-decision-count`, `ag-standing-decision-count`, `ag-risk-count` | model error -- each miss listed the right ids and then reported a count one off, or dropped a record from the list                                 | none                                                                                                    |
 | `cs-payload-cap`, `cs-access-tokens`, `cs-tenant-isolation`        | the effect under test -- hedging between the stale and current record, or answering from the stale one, only with standing stripped                | none                                                                                                    |
 
+The 3-repeat run that followed these fixes is read in
+`results/full-claude-x3-2026-09-05-analysis.md`; `ag-aws-services` is the one
+row the rewording did not rescue.
+
 ## The rubric is code, not a judge
 
 Each call is forced to return `{answer, value, actionable, concept_ids}`,
