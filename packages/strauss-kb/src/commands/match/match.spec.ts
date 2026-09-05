@@ -27,6 +27,21 @@ const SOURCE = [
   "",
 ].join("\n");
 
+/** `Payments.charge` spans lines 2–5, `idempotencyKey` lines 8–10. */
+const NESTED = [
+  "export class Payments {",
+  "  async charge(request: ChargeRequest): Promise<string> {",
+  "    const key = idempotencyKey(request);",
+  "    return key;",
+  "  }",
+  "}",
+  "",
+  "function idempotencyKey(request: ChargeRequest): string {",
+  "  return `order:${request.orderId}`;",
+  "}",
+  "",
+].join("\n");
+
 const noStdin = () => Promise.resolve("");
 
 describe("matchCommand", () => {
@@ -436,6 +451,51 @@ describe("matchCommand", () => {
         matches.map((match) => [match.hunk.startLine, match.symbol]),
       ).toEqual([[5, "listOrders"]]);
       expect(matches[0]?.hunk).not.toHaveProperty("side");
+    });
+
+    // A cold runner has no cached grammar, and the rows still have to name the
+    // changed symbols: the definitions pass falls back down the same chain the
+    // anchor spans do, rather than coming back empty.
+    test("names the symbols through the regex resolver with no grammar", async () => {
+      const cold = mkdtempSync(join(tmpdir(), "strauss-kb-match-grammars-"));
+      const before = process.env["STRAUSS_KB_GRAMMARS_DIR"];
+      process.env["STRAUSS_KB_GRAMMARS_DIR"] = cold;
+      write(NESTED);
+      await seed("retry", [{ file: FILE, symbol: "Payments.charge" }]);
+
+      try {
+        const matches = await run({
+          files: [
+            {
+              filePath: FILE,
+              hunks: [
+                { startLine: 3, endLine: 3 },
+                { startLine: 9, endLine: 9 },
+              ],
+            },
+          ],
+          includeUncovered: true,
+          offline: true,
+        });
+
+        expect(
+          matches.map((match) => [
+            match.hunk.startLine,
+            match.symbol,
+            match.precision,
+            match.records.map((hit) => hit.conceptId),
+          ]),
+        ).toEqual([
+          [3, "Payments.charge", "symbol", ["decision.retry"]],
+          // The anchored record stays on its own definition: a symbol the
+          // chain could not span would put it on every hunk in the file.
+          [9, "idempotencyKey", "symbol", []],
+        ]);
+      } finally {
+        if (before === undefined) delete process.env["STRAUSS_KB_GRAMMARS_DIR"];
+        else process.env["STRAUSS_KB_GRAMMARS_DIR"] = before;
+        rmSync(cold, { recursive: true, force: true });
+      }
     });
 
     // A deletion is `-a,b +c,0`: the new-side point hunk is the survivor, and
