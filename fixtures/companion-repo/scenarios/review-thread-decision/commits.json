@@ -1,0 +1,11 @@
+[
+  {
+    "message": "fix(checkout): hold the retry budget per tenant",
+    "files": [
+      "src/checkout/pay.ts",
+      ".strauss/kb/decision.checkout-retry-budget-per-tenant.md",
+      ".strauss/kb/decision.checkout-retry-budget.md",
+      ".strauss/kb/log.jsonl"
+    ]
+  }
+]

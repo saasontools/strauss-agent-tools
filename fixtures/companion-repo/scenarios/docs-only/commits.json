@@ -1,0 +1,6 @@
+[
+  {
+    "message": "docs: explain the protocol generator",
+    "files": ["docs/README.md"]
+  }
+]

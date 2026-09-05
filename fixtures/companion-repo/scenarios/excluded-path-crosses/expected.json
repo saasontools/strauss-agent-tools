@@ -1,0 +1,9 @@
+{
+  "route": "human",
+  "classifier": {
+    "packages/legacy-reporting/src/report.ts": "code"
+  },
+  "gateFamilies": ["A"],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "`review.exclude` in the base policy holds `packages/legacy-reporting/**`, and the only hunk is there. It imports ChargeResult from src/checkout/pay.ts, so the exclusion must not apply: evaluated as included, A1 fires on ReportBuilder.fromCharge. Treating the path exclusion as final gives `auto` and is the failure this branch catches."
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "message": "fix(checkout): key the charge on the order id",
+    "files": [
+      "src/checkout/pay.ts",
+      "src/checkout/checkout.spec.ts",
+      ".strauss/kb/risk.checkout-retry-double-charge.md",
+      ".strauss/kb/test-obligation.checkout-single-charge.md",
+      ".strauss/kb/log.jsonl"
+    ]
+  }
+]

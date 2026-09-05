@@ -1,0 +1,6 @@
+[
+  {
+    "message": "fix(tenant): drop duplicate ids before the batch",
+    "files": ["src/services/tenant.service.ts"]
+  }
+]
