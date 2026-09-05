@@ -17,9 +17,10 @@ strauss-kb [--bundle PATH] <command> [args]
 | Flag / variable               | Effect                                                                                                                                                                                                                                                    |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--bundle PATH`               | The base to act on. Defaults to `./.strauss/kb`. Accepted before or after the verb.                                                                                                                                                                       |
-| `--json`                      | The machine shape, on commands that print a table. Refused, not ignored, on commands with only one form.                                                                                                                                                  |
-| `--`                          | Ends flag parsing; everything after it is text, for the verbs that end in free prose.                                                                                                                                                                     |
-| `-h`, `--help`                | The usage listing. Also printed when no verb is given.                                                                                                                                                                                                    |
+| `--json`                      | The machine shape, on commands that print a table. Accepted where the result is already JSON, so a caller need not know which verbs render; refused on `catalog`, `pack` and `index`, whose result is markdown.                                           |
+| `--actor <kind:name>`         | Who this call writes as, on the verbs that log an actor. Overrides `STRAUSS_KB_ACTOR` for that call only.                                                                                                                                                 |
+| `--`                          | Ends flag parsing; everything after it is text, for the verbs that end in free prose. It does not exempt a leading `--`.                                                                                                                                  |
+| `-h`, `--help`                | The usage listing, or one verb's own when it follows a verb. Also printed when no verb is given.                                                                                                                                                          |
 | `-v`, `--version`             | The installed package version — what makes plugin/CLI skew diagnosable, since neither updates the other.                                                                                                                                                  |
 | `STRAUSS_KB_ACTOR`            | Names the writer in the log and in `generated.by` / `verified[].by`. Defaults to `unknown`.                                                                                                                                                               |
 | `STRAUSS_KB_GRAMMARS_DIR`     | Where downloaded language packs — grammar and tags query alike — are cached. Defaults to `~/.strauss/grammars`. Usually unset. For CI or air-gapped hosts, set it in the MCP server's `env` block (`.mcp.json` / plugin `mcp.json`) or the shell profile. |
@@ -35,15 +36,41 @@ value it is an error rather than a fall back to the default.
 `--tag T` is repeatable on `list`, `query`, and `catalog` — see
 [tags](./specification.md#frontmatter).
 
-Errors go to stderr and exit 1. `validate` and `doctor --strict` exit **1** with
-their findings still on stdout: a check that reports a problem succeeded as a
-command and failed as a check. `context` prints nothing at all when nothing is
-pinned, since even a bare newline is noise in a fresh context.
+Errors go to stderr and exit 1. `validate`, `doctor --strict` and
+`anchor-resolve --strict` exit **1** with their findings still on stdout: a
+check that reports a problem succeeded as a command and failed as a check.
+`context` prints nothing at all when nothing is pinned, since even a bare
+newline is noise in a fresh context.
+
+A verb whose positional is free prose — `no-decision`, `answer`, `query`, and
+`verify --note` — refuses text that opens with `--`, after a `--` as well as
+before one: it is a mistyped flag far more often than a sentence, and
+`strauss-kb no-decision --help` used to record one. Reword the sentence.
 
 Every write verb refuses outright when the base is pinned `--frozen` in this
 workspace: `write`, `write-decision`, `no-decision`, `status`, `supersede`,
 `answer`, `verify`, and `sweep` (except under `--dry-run`). `anchor-resolve`
 stamps nothing on a frozen base and says so in its result rather than failing.
+
+---
+
+## The record shape {#record-shape}
+
+Every read that returns a record — `list`, `load`, `query`, `trace`, `match`,
+`backlinks`, `impact` — projects it through one helper, so no two can disagree
+about what a record is:
+
+```
+type, title, description, status, tags, sources, anchors, strauss_links,
+verified, verify, materiality?, confidence?, owner?, assumption?, stale_after?
+```
+
+`verify` is the frontmatter's `strauss_verify`. The list-valued fields come
+back empty rather than absent; the scalars are absent when the author made no
+such judgment. Each verb adds its own fields on top — the id field it names the
+record by (`conceptId` everywhere but `backlinks`, whose rows carry `from`),
+`standing` and `supersededBy` where supersession applies, `body` where the verb
+carries one, `depth` and `via` on a walk — and never removes one.
 
 ---
 
@@ -171,7 +198,7 @@ Returns `{ conceptId, verified }`, the new event count.
 ### `anchor-resolve`
 
 ```
-anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp]
+anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp] [--strict]
 ```
 
 Resolve a record's [anchors](./specification.md#anchors): stamp a hash onto
@@ -187,12 +214,14 @@ else from the working tree. An unreadable file or unreachable remote is a
 | `--offline`          | Read foreign anchors from the repo cache only, never fetching.      |
 | `--rebaseline`       | Accept the current code as the new baseline.                        |
 | `--restamp`          | Refresh `resolved_at` on anchors that already match.                |
+| `--strict`           | Exit non-zero on drift, for a CI gate. Off by default.              |
 
-**Exits 1** when an anchor drifted, or when one carrying a hash no longer
-resolves, so a CI gate can run it. An anchor nothing could reach neither fails
-the gate nor verifies the record: a clean run appends one `verified[]` event
-only when every anchor was checked and matched, subject to the same
-self-verification rule as [`verify`](#verify).
+**Exits 0 with its findings on stdout**, like every other report. Under
+`--strict` it exits **1** when an anchor drifted or when one carrying a hash no
+longer resolves, the same way [`doctor --strict`](#doctor) does. An anchor
+nothing could reach neither fails the gate nor verifies the record: a clean run
+appends one `verified[]` event only when every anchor was checked and matched,
+subject to the same self-verification rule as [`verify`](#verify).
 
 ```bash
 strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
@@ -262,7 +291,9 @@ narrows to one record type.
 Refuses with counts rather than truncating when the base trips the budget
 ceiling, pointing at the next rung down in `message`. Every result carries a
 `digest` for
-[cache-stable placement](./mcp-reference.md#kb_load).
+[cache-stable placement](./mcp-reference.md#kb_load), and each loaded record
+[the record shape](#record-shape) plus `standing`, `supersededBy`, `warnings`
+and `body`.
 
 ```bash
 strauss-kb load decision --budget 8000
@@ -382,8 +413,8 @@ strauss-kb impact fact.region-key --depth 2 --rels depends_on,satisfies
 ```
 
 Returns `{ root, impacted, stopped, truncated, unexpanded }`, each impacted
-record `{ conceptId, title, standing, warnings, depth, via }` with `via` naming
-every edge that reached it, nearest first.
+record in [the record shape](#record-shape) plus `standing`, `warnings`,
+`depth` and `via` — `via` naming every edge that reached it, nearest first.
 
 ### `backlinks`
 
@@ -400,13 +431,14 @@ rather than `impact`'s causal closure.
 strauss-kb backlinks fact.region-key
 ```
 
-Returns `{ target, backlinks }`, each `{ from, rel, title, standing, warnings }`,
-ordered by source id then rel.
+Returns `{ target, backlinks }`, each `{ from, rel, standing, warnings }` plus
+[the record shape](#record-shape) of the record that made the edge, ordered by
+source id then rel.
 
 ### `match`
 
 ```
-match --git <base>..<head> | --stdin [--repo-root <path>] [--offline] [--include-non-current]
+match --git <base>..<head> | --stdin [--repo-root <path>] [--offline] [--include-non-current] [--include-uncovered]
 ```
 
 Which records sit on each changed hunk. The diff arrives one of two ways: a
@@ -424,6 +456,7 @@ went away.
 | `--repo-root <path>`    | Where the changed source lives. Defaults to the working directory. |
 | `--offline`             | Resolve symbols from what is on disk, never fetching a grammar.    |
 | `--include-non-current` | Return superseded, rejected and unsettled records too.             |
+| `--include-uncovered`   | Return a row per changed symbol, not only the covered ones.        |
 
 Symbol [anchors](./specification.md#anchors) are resolved through the same
 [chain](./specification.md#symbol-resolution) `anchor-resolve` uses, over the
@@ -435,10 +468,18 @@ which is what `precision` reports.
 strauss-kb match --git origin/main...HEAD --repo-root /repo
 ```
 
-Returns `[{ filePath, hunk, precision, records }]`, each record
-`{ conceptId, type, title, standing, status, supersededBy, materiality?,
-confidence?, tags?, anchor? }` — current first, no bodies. A hunk with nothing
-on it is absent, as is a binary file or a rename that changed no line.
+Returns `[{ filePath, hunk, precision, records }]`, each record in
+[the record shape](#record-shape) plus `standing`, `supersededBy` and the
+`anchor` that placed it — current first, no bodies. `anchor` is the single one
+that put the record on this hunk; `anchors`, from the record shape, is every
+anchor it carries. A hunk with nothing on it is absent, as is a binary file or
+a rename that changed no line.
+
+`--include-uncovered` returns one row per changed **symbol** instead, in diff
+order, each with a `symbol` — the innermost definition covering its lines,
+`null` where none does — and `records: []` where nothing sits on it. That is
+how a consumer enumerates the changed symbols the base does not cover.
+Uncovered rows are new-side only; a deleted symbol has no survivor to name.
 
 ### `classify`
 
@@ -492,8 +533,8 @@ list [type] [--tag T]...
 ```
 
 Every record, optionally narrowed to one type or tag — for enumerating, where
-`query` is for a question. Returns concept id, title, description, status, and
-anchors per record.
+`query` is for a question. Each record comes back in
+[the record shape](#record-shape).
 
 ```bash
 strauss-kb list open-question
@@ -927,4 +968,25 @@ package.
 ```bash
 strauss-kb telemetry summary --since 2026-09-01T00:00:00Z
 strauss-kb telemetry summary --repo saasontools-strauss-agent-tools --json
+```
+
+### `telemetry emit`
+
+```
+telemetry emit --component C --event E [--data JSON] [--pr N] [--sha S] [--duration-ms N] [--tokens N]
+```
+
+Write one event of your own into the same sink, so a consumer built on this
+package records its runs beside the package's rather than starting a second
+stream. `--data` is a JSON object of the event's own fields. **CLI-only**.
+
+Refused with exit 1, never dropped: `--data` that is not JSON, and any string
+in it over 512 characters — the cap that keeps code and record bodies out of
+the stream. A caller told nothing would go on sending them. Under
+`STRAUSS_TELEMETRY=off` it exits 0 with `{ emitted: false, mode: "off" }`:
+nothing was written, and there is no line to go looking for.
+
+```bash
+strauss-kb telemetry emit --component kb-review-gate --event gate.run \
+  --data '{"route":"human","families":["A"]}' --pr 59 --duration-ms 120
 ```

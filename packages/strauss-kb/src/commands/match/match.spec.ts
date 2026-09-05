@@ -198,7 +198,7 @@ describe("matchCommand", () => {
     expect(matches).toEqual([]);
   });
 
-  test("carries materiality, confidence and tags, and no body", async () => {
+  test("carries the frontmatter a reader decides on, and no body", async () => {
     await seed("cursor", [{ file: FILE }], {
       materiality: "blocking",
       confidence: "medium",
@@ -210,11 +210,19 @@ describe("matchCommand", () => {
     });
 
     expect(matches[0]?.records[0]).toMatchObject({
+      type: "decision",
+      status: "accepted",
       materiality: "blocking",
       confidence: "medium",
       tags: ["paging"],
+      sources: [],
+      verified: [],
+      // Frontmatter, and the one line a reader decides on without opening it.
+      description: "Offsets skip rows under concurrent writes.",
     });
-    expect(JSON.stringify(matches)).not.toContain("Offsets skip rows");
+    expect(matches[0]?.records[0]).not.toHaveProperty("body");
+    // No section ever crosses over: bodies are what `kb_load` is for.
+    expect(JSON.stringify(matches)).not.toContain("## ");
   });
 
   test("superseded records are withheld until asked for, then flagged", async () => {
@@ -360,5 +368,100 @@ describe("matchCommand", () => {
     await expect(
       matchCommand.fromArgv(["match"], bundle, noStdin),
     ).rejects.toThrow(/--git .*--stdin/);
+  });
+
+  // Without this a consumer had to re-derive the changed symbols itself, from
+  // git's function context, and got a different answer to the one here.
+  describe("--include-uncovered", () => {
+    beforeEach(() => write(SOURCE));
+
+    const files = [
+      {
+        filePath: FILE,
+        hunks: [
+          { startLine: 4, endLine: 4 },
+          { startLine: 9, endLine: 9 },
+          { startLine: 1, endLine: 1 },
+        ],
+      },
+    ];
+
+    test("names every hunk's symbol, covered or not", async () => {
+      await seed("cursor", [{ file: FILE, symbol: "listOrders" }]);
+
+      const matches = await run({ files, includeUncovered: true });
+
+      expect(
+        matches.map((match) => [
+          match.hunk.startLine,
+          match.symbol,
+          match.records.length,
+        ]),
+      ).toEqual([
+        [4, "listOrders", 1],
+        // Changed, and nothing sits on it — the row a consumer enumerates.
+        [9, "cancel", 0],
+        // A top-level type declaration is no symbol at all, not a guess.
+        [1, null, 0],
+      ]);
+    });
+
+    test("off by default, and the covered rows are unchanged", async () => {
+      await seed("cursor", [{ file: FILE, symbol: "listOrders" }]);
+
+      const matches = await run({ files });
+
+      expect(matches).toHaveLength(1);
+      expect(matches[0]).not.toHaveProperty("symbol");
+      expect(matches[0]?.hunk.startLine).toBe(4);
+    });
+
+    // The old side numbers the tree that went away, so reading its lines out
+    // of the working file would name whatever now sits at those numbers.
+    test("an edit's two sides are one row", async () => {
+      const matches = await run({
+        files: [
+          {
+            filePath: FILE,
+            hunks: [
+              { startLine: 5, endLine: 5 },
+              { startLine: 5, endLine: 5, side: "old" },
+            ],
+          },
+        ],
+        includeUncovered: true,
+      });
+
+      expect(
+        matches.map((match) => [match.hunk.startLine, match.symbol]),
+      ).toEqual([[5, "listOrders"]]);
+      expect(matches[0]?.hunk).not.toHaveProperty("side");
+    });
+
+    // A deletion is `-a,b +c,0`: the new-side point hunk is the survivor, and
+    // the old-side hunk it comes with names nothing that still exists.
+    test("a deletion comes back as its new-side point row", async () => {
+      const matches = await run({
+        files: [
+          {
+            filePath: FILE,
+            hunks: [
+              { startLine: 9, endLine: 9 },
+              { startLine: 9, endLine: 12, side: "old" },
+            ],
+          },
+        ],
+        includeUncovered: true,
+      });
+
+      expect(
+        matches.map((match) => [
+          match.hunk.startLine,
+          match.symbol,
+          match.precision,
+          match.records.length,
+        ]),
+      ).toEqual([[9, "cancel", "symbol", 0]]);
+    });
   });
 });

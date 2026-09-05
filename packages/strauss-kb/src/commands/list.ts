@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { KB_RECORD_TYPES } from "../kb-record.schema.js";
+import { recordSummary } from "../record-summary.js";
 import {
   argvFlags,
   argvPositional,
@@ -32,12 +33,6 @@ export const listCommand = define({
   },
   run: async ({ store }, { bundlePath: path, type, tags }) =>
     (await store.list(path, type, { ...(tags ? { tags } : {}) })).map(
-      (record) => ({
-        conceptId: record.conceptId,
-        title: record.frontmatter.title ?? null,
-        description: record.frontmatter.description ?? null,
-        status: record.frontmatter.strauss_status,
-        anchors: record.frontmatter.strauss_anchors ?? [],
-      }),
+      (record) => ({ conceptId: record.conceptId, ...recordSummary(record) }),
     ),
 });

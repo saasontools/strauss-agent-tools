@@ -36,18 +36,24 @@ export async function runKbCli(argv: string[]): Promise<void> {
   const command = KB_COMMANDS_BY_NAME.get(name);
   if (!command) die(`unknown command ${name}`);
 
+  // Before argv is parsed as arguments: `no-decision --help` used to write a
+  // record titled `--help`. Prose still opening with `--` after a `--` is
+  // refused too — `looksLikeFlag` reads the value, not its position.
+  if (withFlags.includes("--help") || withFlags.includes("-h")) {
+    process.stdout.write(`${command.usage}\n\n${command.description}\n`);
+    return;
+  }
+
   // Output shape, not an argument: stripped before the command sees argv, so a
-  // positional adapter never has to know the flag exists. Refused rather than
-  // ignored where a command has only one form — a flag that silently does
-  // nothing teaches a caller that it worked.
+  // positional adapter never has to know the flag exists. Accepted wherever the
+  // result is a shape, so a caller need not know which verbs render a table;
+  // refused where the result is a document, since there is nothing to switch to.
   const json = withFlags.includes("--json");
-  if (json && !command.render) {
-    die(`${name} takes no --json: its result is already the machine shape`);
+  if (json && command.jsonRefused) {
+    die(`${name} takes no --json: its result is markdown, not a shape`);
   }
   const rest = [
-    ...(json
-      ? withFlags.filter((argument) => argument !== "--json")
-      : withFlags),
+    ...withFlags.filter((argument) => argument !== "--json"),
     ...literal,
   ];
 
@@ -167,7 +173,9 @@ function usage(): string {
     ),
     "",
     `  --bundle PATH  defaults to ./${KB_DIR}`,
-    "  --json         the machine shape, where a command prints a table",
+    "  --json         the machine shape; refused by catalog, pack and index",
+    "  --actor K:N    who is writing, on the verbs that log one",
+    "  --help         a verb's own usage, after the verb",
     "  --             everything after it is text, not flags",
     "  --version      the installed package version",
     "  STRAUSS_KB_ACTOR names the writer in the log",

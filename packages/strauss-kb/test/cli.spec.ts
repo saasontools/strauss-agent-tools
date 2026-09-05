@@ -67,7 +67,7 @@ describe("built CLI round trip", () => {
 
     expect(status).toBe(0);
     expect(stdout).toContain("strauss-kb — knowledge base commands");
-    expect(stdout).toContain("write <type> < record.json");
+    expect(stdout).toContain("write <type> [--actor K:N] < record.json");
   });
 
   it("creates the base on first write and reports the concept id", () => {

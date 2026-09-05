@@ -3,25 +3,39 @@ import { composeInputSchema, composeRecord } from "../compose.js";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
 import { KB_RECORD_TYPES, type KbRecordType } from "../kb-record.schema.js";
 import { actorClassOf, emitKb } from "../telemetry/index.js";
-import { bundlePath, define } from "./model.js";
+import {
+  ACTOR,
+  actorOf,
+  argvActor,
+  argvPositional,
+  bundlePath,
+  define,
+} from "./model.js";
 
 export const writeCommand = define({
   name: "write",
   tool: "kb_write",
-  usage: "write <type> < record.json",
+  usage: "write <type> [--actor K:N] < record.json",
   description:
     "Write one record. Search first — a duplicate concept id is rejected, not overwritten; kb_types lists each type's sections. An unsourced claim is an `assumption` with assumption: true, never a vague `fact`. Conflicting records get a `risk`, `open-question`, or superseding `decision`. Prefer a new short record over overloading one. Never delete; supersede.",
   input: z.object({
     bundlePath,
     type: z.enum(KB_RECORD_TYPES),
     input: composeInputSchema,
+    actor: ACTOR,
   }),
   fromArgv: async (argv, path, stdin) => ({
     bundlePath: path,
-    type: argv[1],
+    // The type is the first positional in either order, so `--actor` may
+    // precede it.
+    type: argvPositional(argv, "--actor"),
     input: JSON.parse(await stdin()) as unknown,
+    ...argvActor(argv),
   }),
-  run: async ({ store, actor, now }, { bundlePath: path, type, input }) => {
+  run: async (ctx, parsed) => {
+    const { bundlePath: path, type, input } = parsed;
+    const { store, now } = ctx;
+    const actor = actorOf(ctx, parsed);
     await assertBaseNotFrozen(process.cwd(), path);
     const record = await store.write(
       path,

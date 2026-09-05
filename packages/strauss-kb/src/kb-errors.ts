@@ -141,6 +141,24 @@ export class KbMissingFlagValueError extends BaseError {
   }
 }
 
+/**
+ * `telemetry emit` handed an event the schema refuses. Thrown rather than
+ * warned: a caller that asked to record something must hear that it was not.
+ */
+export class KbTelemetryEventError extends BaseError {
+  constructor(readonly reason: string) {
+    super({
+      message: `telemetry emit: ${reason}`,
+      errorType: ErrorTypes.KbTelemetryEvent,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { reason },
+    });
+  }
+}
+
 /** `classify` invoked with no diff it could read, or one it could not parse. */
 export class KbClassifyInputError extends BaseError {
   constructor(readonly reason: string) {
