@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { devNull, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
@@ -215,8 +215,14 @@ describe("classify --git over the companion fixture", () => {
   };
 
   beforeAll(async () => {
-    process.env["GIT_CONFIG_GLOBAL"] = devNull;
-    process.env["GIT_CONFIG_SYSTEM"] = devNull;
+    // An empty file, not the null device: git on Windows rejects the latter.
+    const emptyConfig = join(
+      mkdtempSync(join(tmpdir(), "strauss-kb-gitconfig-")),
+      "empty",
+    );
+    writeFileSync(emptyConfig, "");
+    process.env["GIT_CONFIG_GLOBAL"] = emptyConfig;
+    process.env["GIT_CONFIG_SYSTEM"] = emptyConfig;
     fixture = (await import(
       pathToFileURL(join(REPO_ROOT, "fixtures/companion-repo/materialize.mjs"))
         .href
