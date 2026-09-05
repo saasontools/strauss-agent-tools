@@ -168,14 +168,18 @@ describe("the resolver pass is paid once per blob", () => {
     expect(attempt).toHaveBeenCalled();
   });
 
-  test("a file that could not be read is not read again", async () => {
-    chmodSync(join(repo, FILE), 0o000);
-    await match();
-    const tried = reads.filter((path) => path.endsWith(FILE)).length;
-    expect(tried).toBeGreaterThan(0);
+  // chmod 000 does not make a file unreadable on Windows.
+  test.skipIf(process.platform === "win32")(
+    "a file that could not be read is not read again",
+    async () => {
+      chmodSync(join(repo, FILE), 0o000);
+      await match();
+      const tried = reads.filter((path) => path.endsWith(FILE)).length;
+      expect(tried).toBeGreaterThan(0);
 
-    await match();
-    expect(reads.filter((path) => path.endsWith(FILE))).toHaveLength(tried);
-    chmodSync(join(repo, FILE), 0o644);
-  });
+      await match();
+      expect(reads.filter((path) => path.endsWith(FILE))).toHaveLength(tried);
+      chmodSync(join(repo, FILE), 0o644);
+    },
+  );
 });
