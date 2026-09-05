@@ -1,0 +1,10 @@
+{
+  "name": "companion-repo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Synthetic service the review-companion scenarios change",
+  "scripts": {
+    "gen:protocol": "node scripts/gen-protocol.mjs"
+  }
+}
