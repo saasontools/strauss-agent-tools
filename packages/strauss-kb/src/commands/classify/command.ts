@@ -1,24 +1,21 @@
-import { Buffer } from "node:buffer";
-import { open, type FileHandle } from "node:fs/promises";
-import { join } from "node:path";
 import { z } from "zod";
 import {
   classifyDiff,
-  HEADER_LINES,
   type KbClassifiedFile,
-  type KbClassifyFile,
   type KbClassifyResult,
-} from "../classify/index.js";
-import { readRangeDiff, type RangeDiff } from "../drift/index.js";
-import { KbClassifyInputError } from "../kb-errors.js";
-import { filePathIsSafe } from "../remote-repo/validate.js";
+} from "../../classify/index.js";
+import { DEFAULT_IO_CONCURRENCY, mapLimit } from "../../concurrency.js";
+import { readRangeDiff, type RangeDiff } from "../../drift/index.js";
+import { KbClassifyInputError } from "../../kb-errors.js";
+import { actorClassOf, emitKb } from "../../telemetry/index.js";
 import {
   diffFileSchema,
   diffHunkSchema,
   parseUnifiedDiff,
   resolveSymbolRanges,
-} from "./match/index.js";
-import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
+} from "../match/index.js";
+import { argvFlag, bundlePath, define, REPO_ROOT } from "../model.js";
+import { readHeader } from "./header-cache.js";
 
 const classifyFileSchema = diffFileSchema.extend({
   hunks: z.array(
@@ -85,15 +82,20 @@ export const classifyCommand = define({
     return { ...base, files: fromStdin(await stdin()) };
   },
   run: async (
-    { store },
+    { store, actor },
     { bundlePath: path, files, repoRoot, offline },
   ): Promise<KbClassifyResult> => {
+    const started = Date.now();
     const records = await store.list(path);
     const root = repoRoot ?? process.cwd();
-    const withHeaders = await mapLimit(files, READERS, async (file) => ({
-      ...file,
-      header: await header(root, file),
-    }));
+    const withHeaders = await mapLimit(
+      files,
+      DEFAULT_IO_CONCURRENCY,
+      async (file) => ({
+        ...file,
+        header: await readHeader(root, file.filePath),
+      }),
+    );
     // Resolved as `match` resolves them, over the files the diff names and no
     // others: without them a symbol-scoped override would cover the file.
     const symbolRanges = await resolveSymbolRanges(
@@ -102,65 +104,23 @@ export const classifyCommand = define({
       records,
       offline === true,
     );
-    return { files: classifyDiff(withHeaders, { records, symbolRanges }) };
+    const classified = classifyDiff(withHeaders, { records, symbolRanges });
+    // Counts beside the duration, so cost per pull request can be split later
+    // between what the base carries and what the diff does.
+    await emitKb("classify", {
+      bundle: path,
+      actorClass: actorClassOf(actor),
+      durationMs: Date.now() - started,
+      data: {
+        records: records.length,
+        files: files.length,
+        hunks: files.reduce((total, file) => total + file.hunks.length, 0),
+      },
+    });
+    return { files: classified };
   },
   render: (result) => renderClassify(result as KbClassifyResult),
 });
-
-/** More than the banner window can need, and less than a lockfile costs. */
-const HEADER_BYTES = 65_536;
-
-/** How many files are open at once, whatever the diff's size. */
-const READERS = 16;
-
-/**
- * The file's banner from the working tree, which `--git <base>..<head>` reads
- * at head. Absent when it is not there — a deletion, or a tree parked
- * elsewhere — and the diff's own added lines answer instead.
- */
-async function header(
-  root: string,
-  file: KbClassifyFile,
-): Promise<string[] | undefined> {
-  // Lexical only: a committed symlink can still point outside the root, and
-  // what leaks is one bit — whether the target's head carries a banner.
-  if (!filePathIsSafe(file.filePath)) return undefined;
-  let handle: FileHandle | undefined;
-  try {
-    handle = await open(join(root, file.filePath), "r");
-    const buffer = Buffer.alloc(HEADER_BYTES);
-    const { bytesRead } = await handle.read(buffer, 0, HEADER_BYTES, 0);
-    return buffer
-      .toString("utf8", 0, bytesRead)
-      .split("\n")
-      .slice(0, HEADER_LINES);
-  } catch {
-    return undefined;
-  } finally {
-    await handle?.close();
-  }
-}
-
-/** Runs at most `limit` at a time, keeping each result in its input's place. */
-async function mapLimit<T, R>(
-  items: readonly T[],
-  limit: number,
-  run: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const out: R[] = Array.from({ length: items.length });
-  let next = 0;
-  const worker = async (): Promise<void> => {
-    while (next < items.length) {
-      const at = next;
-      next += 1;
-      out[at] = await run(items[at] as T);
-    }
-  };
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
-  );
-  return out;
-}
 
 /** What each refusal from `readRangeDiff` reads as, so the CLI names it. */
 const REFUSED: Record<Extract<RangeDiff, { ok: false }>["reason"], string> = {

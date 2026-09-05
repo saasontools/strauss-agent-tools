@@ -27,6 +27,7 @@ strauss-kb [--bundle PATH] <command> [args]
 | `STRAUSS_KB_GRAMMARS`         | `off` never downloads a grammar; the cache is still read. Same effect as `--offline`.                                                                                                                                                                     |
 | `STRAUSS_KB_GRAMMARS_URL`     | Replaces the scheme and host of every grammar URL `grammars/manifest.json` pins, for a mirror. Usually unset.                                                                                                                                             |
 | `STRAUSS_KB_FETCH_TIMEOUT_MS` | Per-request timeout for remote reads and grammar downloads. Defaults to `30000`.                                                                                                                                                                          |
+| `STRAUSS_KB_CACHE_DIR`        | Where `classify` caches each file's generated-banner read, keyed by blob. Defaults to `~/.strauss/cache`; `off` disables the on-disk half and keeps the per-process one. Must be absolute: a relative path is refused and the on-disk half stays off.     |
 
 Results go to stdout as JSON; `index`, `catalog`, and `pack` emit markdown,
 `context` emits the block itself, and `doctor` prints a table unless `--json`.
