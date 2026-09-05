@@ -1,4 +1,5 @@
-import { DEFAULT_IO_CONCURRENCY } from "../concurrency.js";
+import { DEFAULT_IO_CONCURRENCY, mapLimit } from "../concurrency.js";
+import { readFileAtRef } from "../drift/git.js";
 import type { KbAnchor, KbRecord } from "../kb-record.schema.js";
 import {
   readRemoteAnchors,
@@ -35,6 +36,8 @@ export type AnchorDriftOptions = {
   concurrency?: number;
   /** Test seam: replaces the disk reader. */
   reader?: AnchorFileReader;
+  /** Test seam: replaces the committed-side git read. */
+  readAtRef?: typeof readFileAtRef;
   /** Remote resolution of foreign anchors; `offline` keeps a run off the wire. */
   remote?: RemoteOptions;
   /** Test seam: replaces the remote blob reader. */
@@ -92,25 +95,29 @@ export async function detectAnchorDrift(
   }
 
   const files: string[] = [];
+  const committedWants: KbAnchor[] = [];
   const wants: RemoteWant[] = [];
   for (const entries of planned.values()) {
     for (const { anchor, foreign } of entries) {
-      if (!foreign) files.push(anchor.file);
-      else wants.push(...remoteWants(anchor));
+      if (foreign) wants.push(...remoteWants(anchor));
+      else if (anchor.side === "old") committedWants.push(anchor);
+      else files.push(anchor.file);
     }
   }
 
-  // Disk and network are independent; neither waits for the other.
-  const [reads, remote] = await Promise.all([
+  // Disk, git and network are independent; none waits for another.
+  const [reads, committed, remote] = await Promise.all([
     readAnchorFiles(
       files,
       options.reader ?? anchorFileReader(repoRoot),
       options.concurrency ?? DEFAULT_IO_CONCURRENCY,
     ),
+    readCommitted(repoRoot, committedWants, options),
     (options.readRemote ?? readRemoteAnchors)(wants, options.remote ?? {}),
   ]);
   await prepareResolvers(resolvers, [
     ...files,
+    ...committedWants.map((anchor) => anchor.file),
     ...wants.map((want) => want.file),
   ]);
 
@@ -118,15 +125,48 @@ export async function detectAnchorDrift(
   for (const record of records) {
     const entries: KbAnchorDriftEntry[] = [];
     for (const { anchor, foreign } of planned.get(record.conceptId) ?? []) {
-      entries.push(
-        foreign
-          ? remoteEntry(anchor, remote, resolvers)
-          : localEntry(anchor, reads.get(anchor.file) as AnchorRead, resolvers),
-      );
+      if (foreign) {
+        entries.push(remoteEntry(anchor, remote, resolvers));
+        continue;
+      }
+      const read = (
+        anchor.side === "old"
+          ? committed.get(atRefKey(anchor))
+          : reads.get(anchor.file)
+      ) as AnchorRead;
+      entries.push(localEntry(anchor, read, resolvers));
     }
     if (entries.length) drift.set(record.conceptId, entries);
   }
   return drift;
+}
+
+/** One key per (ref, file): an old-side anchor is read once per pair, not per anchor. */
+export function atRefKey(anchor: KbAnchor): string {
+  return `${anchor.ref ?? ""}\u0000${anchor.file}`;
+}
+
+/**
+ * The committed side, through the guarded git runner. `readAtRef` is a test
+ * seam only; nothing else may spawn git from here. Keyed by `atRefKey`, so
+ * every read path dedupes the same way and bounds its own concurrency.
+ */
+export async function readCommitted(
+  repoRoot: string,
+  anchors: readonly KbAnchor[],
+  options: { readAtRef?: typeof readFileAtRef; concurrency?: number } = {},
+): Promise<Map<string, AnchorRead>> {
+  if (!anchors.length) return new Map();
+  const read = options.readAtRef ?? readFileAtRef;
+  const byKey = new Map<string, KbAnchor>();
+  for (const anchor of anchors) byKey.set(atRefKey(anchor), anchor);
+  const keys = [...byKey.keys()];
+  const results = await mapLimit(
+    keys,
+    options.concurrency ?? DEFAULT_IO_CONCURRENCY,
+    (key) => read(repoRoot, byKey.get(key) as KbAnchor),
+  );
+  return new Map(keys.map((key, at) => [key, results[at] as AnchorRead]));
 }
 
 /**
@@ -142,10 +182,11 @@ export function remoteWants(anchor: KbAnchor): RemoteWant[] {
 
 function base(
   anchor: KbAnchor,
-): Pick<KbAnchorDriftEntry, "file" | "symbol" | "storedHash"> {
+): Pick<KbAnchorDriftEntry, "file" | "symbol" | "side" | "storedHash"> {
   return {
     file: anchor.file,
     ...(anchor.symbol ? { symbol: anchor.symbol } : {}),
+    ...(anchor.side === "old" ? { side: "old" as const } : {}),
     storedHash: anchor.hash as string,
   };
 }
@@ -165,11 +206,19 @@ function unresolved(
   };
 }
 
+/** Every way of saying "the described code is not there to be re-read". */
+const GONE_REASONS = new Set<KbAnchorDriftEntry["reason"]>([
+  "file-missing",
+  "symbol-not-found",
+  "span-out-of-range",
+  "ref-unreadable",
+]);
+
 /**
  * The class a hash comparison alone can settle.
  *
- * A vanished file or an undefined symbol is `gone` — the strongest signal
- * there is, because the described code does not exist to be re-read. Anything
+ * A vanished file, an undefined symbol, a span past the end of its file or a
+ * `ref` that will not read is `gone` — the strongest signal there is. Anything
  * that resolved and hashed differently is `changed` until a search proves it
  * only moved.
  */
@@ -177,10 +226,7 @@ export function provisionalDriftClass(
   entry: Pick<KbAnchorDriftEntry, "state" | "reason">,
 ): KbDriftClass | undefined {
   if (entry.state === "unresolved") {
-    return entry.reason === "file-missing" ||
-      entry.reason === "symbol-not-found"
-      ? "gone"
-      : undefined;
+    return GONE_REASONS.has(entry.reason) ? "gone" : undefined;
   }
   return entry.state === "drifted" ? "changed" : undefined;
 }
@@ -311,6 +357,15 @@ function remoteEntry(
       repo,
       ...extras,
       remoteState: "drifted-from-ref",
+    });
+  }
+  // `side: "old"` is a claim about the pinned commit alone, so the default
+  // branch has nothing to add: having moved on is what the anchor already says.
+  if (anchor.side === "old") {
+    return compared(anchor, current, {
+      repo,
+      ...extras,
+      remoteState: "matches-ref",
     });
   }
 

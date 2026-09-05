@@ -105,6 +105,14 @@ export type KbAnchorResolverCounts = {
   treeSitter: number;
   /** Includes anchors stamped before resolvers were named. */
   regex: number;
+  /** Author-given line ranges, hashed exactly as written. */
+  span: number;
+  /**
+   * Hashed anchors read at their `ref` rather than the working tree. Counted
+   * beside the resolver buckets and outside `total`: `side` is not a resolver,
+   * and one of these may name a whole file.
+   */
+  oldSide: number;
 };
 
 export type KbDoctorOptions = {
@@ -126,18 +134,28 @@ export type KbDoctorOptions = {
 
 const DAY_MS = 86_400_000;
 
-/** A whole-file anchor names no resolver, so only symbol anchors are counted. */
+/**
+ * A whole-file anchor names no resolver, so only symbol and span anchors are
+ * bucketed. `oldSide` is counted beside those buckets over every hashed anchor
+ * read at a `ref`, whole-file ones included — a deleted file is exactly what
+ * one of those anchors is for.
+ */
 function anchorResolverCounts(bundle: KbRecord[]): KbAnchorResolverCounts {
   let treeSitter = 0;
   let regex = 0;
+  let span = 0;
+  let oldSide = 0;
   for (const record of bundle) {
     for (const anchor of record.frontmatter.strauss_anchors ?? []) {
-      if (!anchor.hash || !anchor.symbol) continue;
-      if (anchor.resolver === "tree-sitter") treeSitter += 1;
+      if (!anchor.hash) continue;
+      if (anchor.side === "old") oldSide += 1;
+      if (anchor.span) span += 1;
+      else if (!anchor.symbol) continue;
+      else if (anchor.resolver === "tree-sitter") treeSitter += 1;
       else regex += 1;
     }
   }
-  return { total: treeSitter + regex, treeSitter, regex };
+  return { total: treeSitter + regex + span, treeSitter, regex, span, oldSide };
 }
 
 export function doctor(

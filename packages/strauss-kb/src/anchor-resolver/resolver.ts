@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { KbAnchor } from "../kb-record.schema.js";
+import type { KbAnchor, KbAnchorSpan } from "../kb-record.schema.js";
 import type { GrammarOptions } from "../grammars/index.js";
 import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import type {
@@ -346,6 +346,10 @@ export function resolveAnchorSpan(
   resolvers: readonly AnchorResolver[] = [regexResolver],
 ): AnchorResolution {
   const normalized = source.replace(/\r\n/g, "\n");
+  // An explicit range outranks a symbol: the two are alternatives, and only a
+  // hand-edit puts both on one anchor. `kb_validate` faults that; here the
+  // author's literal line numbers win over a search.
+  if (anchor.span) return sliceSpan(normalized, anchor.span);
   if (!anchor.symbol) {
     const lines = normalized.split("\n");
     if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
@@ -378,6 +382,30 @@ export function resolveAnchorSpan(
   return { ok: false, reason: "symbol-not-found" };
 }
 
+/**
+ * An author-given line range, taken exactly as written and hashed raw.
+ *
+ * No token stream is offered: a span is a slice, not a syntactic unit, so a
+ * parser handed half a statement would normalise an error tree. Lines past the
+ * end of the file are `span-out-of-range` — the described code is not there.
+ */
+function sliceSpan(source: string, range: KbAnchorSpan): AnchorResolution {
+  const lines = source.split("\n");
+  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+  if (range.end > lines.length) {
+    return { ok: false, reason: "span-out-of-range" };
+  }
+  return {
+    ok: true,
+    span: {
+      text: lines.slice(range.start - 1, range.end).join("\n"),
+      startLine: range.start,
+      endLine: range.end,
+    },
+    resolver: "span",
+  };
+}
+
 /** A resolver with no `attempt`: a span or a plain miss, never an abstain. */
 function fromResolve(
   resolver: AnchorResolver,
@@ -392,7 +420,7 @@ function fromResolve(
 }
 
 function isResolverName(name: string): name is AnchorResolverName {
-  return name === "tree-sitter" || name === "regex";
+  return name === "tree-sitter" || name === "regex" || name === "span";
 }
 
 /** Loads every chained resolver's per-language assets, once. */
@@ -448,8 +476,18 @@ export function resolverChanged(
  */
 export function anchorHashOf(
   anchor: KbAnchor,
-  outcome: { span: ResolvedSymbol; normalized?: string },
+  outcome: {
+    span: ResolvedSymbol;
+    normalized?: string;
+    resolver?: AnchorResolverName;
+  },
 ): { hash: string; kind: AnchorHashKind } {
+  // A span is raw whatever the anchor stored: honouring a hand-written
+  // `hash_kind: "ast"` would compare a raw hash against a token stream for
+  // ever. `kb_validate` reports the anchor; this keeps it comparable.
+  if (outcome.resolver === "span") {
+    return { hash: hashAnchorText(outcome.span.text), kind: "raw" };
+  }
   const stored = anchor.hash ? (anchor.hash_kind ?? "raw") : undefined;
   const wanted = stored ?? (outcome.normalized ? "ast" : "raw");
   return wanted === "ast" && outcome.normalized

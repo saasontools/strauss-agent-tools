@@ -10,6 +10,7 @@ import {
   DEFAULT_AGING_DAYS,
   DEFAULT_EXPIRING_DAYS,
   DEFAULT_UNVERIFIED_DAYS,
+  type KbAnchorResolverCounts,
   type KbDoctorReport,
 } from "../doctor.js";
 import { renderReassess } from "./reassess.js";
@@ -235,17 +236,16 @@ export const doctorCommand = define({
  */
 function render(result: KbDoctorCommandResult): string {
   if (result.packets) return renderPackets(result);
-  const { thresholds } = result;
+  const { thresholds, anchorResolvers: counts } = result;
   const lines = [
     `# KB Doctor — ${result.bundlePath}`,
     `records: ${result.recordCount}`,
     `thresholds: expiring within ${thresholds.expiringDays}d, unverified over ${thresholds.unverifiedDays}d, aging over ${thresholds.agingDays}d`,
     `checked: ${result.checkedAt}`,
-    ...(result.anchorResolvers.total
-      ? [
-          `anchors: ${result.anchorResolvers.total} hashed — ${result.anchorResolvers.treeSitter} tree-sitter, ${result.anchorResolvers.regex} regex`,
-        ]
-      : []),
+    ...(counts.total ? [anchorLine(counts)] : []),
+    // Its own line: an old-side anchor may name a whole file, which no
+    // resolver bucket and no `total` counts.
+    ...(counts.oldSide ? [`old-side anchors: ${counts.oldSide}`] : []),
     "",
   ];
 
@@ -278,6 +278,16 @@ function render(result: KbDoctorCommandResult): string {
   );
 
   return lines.join("\n");
+}
+
+/** Zero buckets are left off: the line is a summary, not a schema. */
+function anchorLine(counts: KbAnchorResolverCounts): string {
+  const parts = [
+    `${counts.treeSitter} tree-sitter`,
+    `${counts.regex} regex`,
+    ...(counts.span ? [`${counts.span} span`] : []),
+  ];
+  return `anchors: ${counts.total} hashed — ${parts.join(", ")}`;
 }
 
 /**
