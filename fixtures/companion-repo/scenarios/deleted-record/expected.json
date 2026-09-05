@@ -1,8 +1,8 @@
 {
   "route": "human",
   "classifier": {
-    "src/checkout/pay.ts": "code",
-    ".strauss/kb/log.jsonl": "kb"
+    "src/checkout/pay.ts": "source",
+    ".strauss/kb/log.jsonl": "config"
   },
   "gateFamilies": ["A"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

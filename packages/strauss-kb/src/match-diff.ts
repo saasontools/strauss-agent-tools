@@ -32,12 +32,20 @@ export type DiffHunk = {
    * diff's base rev — nothing compares the two.
    */
   side?: "old" | "new";
+  /**
+   * This hunk's own changed lines, markers stripped, where a parser kept them.
+   * Nothing here reads them; a caller classifying content does.
+   */
+  lines?: string[];
 };
 
 export type DiffFile = {
   /** Repo-relative, matching how anchors are written. */
   filePath: string;
   hunks: DiffHunk[];
+  /** Where `git diff -M` says this path came from, and how alike the two are. */
+  renamedFrom?: string;
+  similarity?: number;
 };
 
 /**
