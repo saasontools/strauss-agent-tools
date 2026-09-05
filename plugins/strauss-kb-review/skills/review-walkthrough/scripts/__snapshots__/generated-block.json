@@ -1,7 +1,7 @@
 {
   "range": "main..generated-block",
   "headSha": "2863bdd31d9cf58169b784c4ce0640b8deb5b927",
-  "digest": "85b80ad97d8e65b428ec2a3313e2b3a2bab1aa6e68c0676088aef15e6a572378",
+  "digest": "<digest>",
   "pr": "https://github.com/acme/app/pull/7",
   "classifier": "classify",
   "steps": 1,
@@ -14,7 +14,7 @@
       "detail": {
         "range": "main..generated-block",
         "headSha": "2863bdd31d9cf58169b784c4ce0640b8deb5b927",
-        "digest": "85b80ad97d8e65b428ec2a3313e2b3a2bab1aa6e68c0676088aef15e6a572378",
+        "digest": "<digest>",
         "recordCount": 5,
         "driftChecked": 1,
         "drift": [],
