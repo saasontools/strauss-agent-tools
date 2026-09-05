@@ -26,6 +26,7 @@ MCPB bundles for Claude Desktop.
 | [`gemini-infographics`](plugins/gemini-infographics)   | Generate infographic images with Gemini image models                                               |
 | [`strauss-kb`](plugins/strauss-kb)                     | Durable project knowledge with standing, supersession, and trace                                   |
 | [`codex-claude-agent`](plugins/codex-claude-agent)     | Delegate work from Codex to Claude Code, in a worktree, with tracked jobs (Codex marketplace only) |
+| [`strauss-kb-review`](plugins/strauss-kb-review)       | strauss-kb as a per-PR review companion (experimental; unlisted in both marketplaces)              |
 
 ## Install
 
