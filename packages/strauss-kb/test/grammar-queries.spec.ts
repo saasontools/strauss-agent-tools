@@ -2,7 +2,6 @@ import { readdirSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { Language, Parser, Query } from "web-tree-sitter";
 import { ensureGrammar, grammarManifest } from "../src/grammars/index.js";
-import { definitionsQuery } from "../src/tree-sitter-resolver/index.js";
 import { GRAMMAR_FIXTURES } from "./grammars-server.js";
 
 /**
@@ -20,14 +19,13 @@ const languages = readdirSync(GRAMMAR_FIXTURES)
 describe("the fixture grammars", () => {
   test.each(languages)("%s compiles its own tags query", async (language) => {
     await Parser.init();
-    const path = await ensureGrammar(language);
-    expect(path).not.toBeNull();
+    const pack = await ensureGrammar(language);
+    expect(pack).not.toBeNull();
+    expect(pack?.query, `${language} has no tags query`).toBeDefined();
 
-    const source = definitionsQuery(language);
-    expect(source, `${language} has no tags query`).toBeDefined();
-    const grammar = await Language.load(path as string);
+    const grammar = await Language.load(pack?.wasm as string);
     expect(
-      () => new Query(grammar, source as string),
+      () => new Query(grammar, pack?.query as string),
       grammarManifest().packs[language]?.package,
     ).not.toThrow();
   });
@@ -47,10 +45,9 @@ describe("all the fixture grammars at once", () => {
     const parser = new Parser();
     const loaded: string[] = [];
     for (const language of languages) {
-      const path = await ensureGrammar(language);
-      const grammar = await Language.load(path as string);
-      const source = definitionsQuery(language);
-      if (source) new Query(grammar, source);
+      const pack = await ensureGrammar(language);
+      const grammar = await Language.load(pack?.wasm as string);
+      if (pack?.query) new Query(grammar, pack.query);
       parser.setLanguage(grammar);
       expect(parser.parse("a b\n"), language).not.toBeNull();
       loaded.push(language);

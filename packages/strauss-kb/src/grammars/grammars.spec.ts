@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   GRAMMAR_FIXTURES,
@@ -22,6 +22,8 @@ import {
   grammarHints,
   grammarManifest,
   resetGrammarState,
+  setGrammarManifest,
+  type GrammarManifest,
 } from "./index.js";
 
 const manifest = grammarManifest();
@@ -55,11 +57,37 @@ function cached(language: string): string {
   );
 }
 
+/** The cache path of a pack's only tags part. */
+function cachedTags(language: string): string {
+  return grammarCachePath(
+    cacheRoot,
+    language,
+    manifest.packs[language]?.tags[0]?.sha256 as string,
+    "scm",
+  );
+}
+
+/** A lock of the test's own, in place for the body and restored after it. */
+async function withLock(
+  mutate: (lock: GrammarManifest) => void,
+  body: () => Promise<void>,
+): Promise<void> {
+  const lock = structuredClone(manifest);
+  mutate(lock);
+  setGrammarManifest(lock);
+  try {
+    await body();
+  } finally {
+    setGrammarManifest();
+    resetGrammarState();
+  }
+}
+
 describe("the shipped manifest", () => {
   test("pins a sha256 the fixtures still hash to", () => {
-    const fixtures = readdirSync(GRAMMAR_FIXTURES).map((name) =>
-      name.slice("tree-sitter-".length, -".wasm".length),
-    );
+    const fixtures = readdirSync(GRAMMAR_FIXTURES)
+      .filter((name) => name.endsWith(".wasm"))
+      .map((name) => name.slice("tree-sitter-".length, -".wasm".length));
     // Fixtures exist for the languages the suite parses; the lock carries
     // every pack, which is many more.
     expect(fixtures.length).toBeGreaterThan(0);
@@ -77,24 +105,37 @@ describe("the shipped manifest", () => {
 });
 
 describe("ensureGrammar", () => {
-  test("downloads once, then answers from the cache", async () => {
-    expect(await ensureGrammar("python", options())).toBe(cached("python"));
-    expect(server.requests).toHaveLength(1);
+  test("downloads both parts once, then answers from the cache", async () => {
+    expect(await ensureGrammar("python", options())).toEqual({
+      wasm: cached("python"),
+      query: expect.stringContaining("@definition.function") as string,
+    });
+    expect(server.requests).toHaveLength(2);
+    // The query is the parts as the pin compiled them: each headed by its URL.
+    expect(readFileSync(cachedTags("python"), "utf8")).not.toContain("; http");
 
     resetGrammarState();
-    expect(await ensureGrammar("python", options())).toBe(cached("python"));
-    expect(server.requests).toHaveLength(1);
+    expect((await ensureGrammar("python", options()))?.wasm).toBe(
+      cached("python"),
+    );
+    expect(server.requests).toHaveLength(2);
   });
 
-  test("concurrent callers share one request", async () => {
-    const paths = await Promise.all([
-      ensureGrammar("go", options()),
-      ensureGrammar("go", options()),
-      ensureGrammar("go", options()),
+  test("a pack downloads once however many parts it has", async () => {
+    // TypeScript's query is a delta over JavaScript's: two parts, one pack.
+    const packs = await Promise.all([
+      ensureGrammar("typescript", options()),
+      ensureGrammar("typescript", options()),
+      ensureGrammar("typescript", options()),
     ]);
 
-    expect(paths).toEqual([cached("go"), cached("go"), cached("go")]);
-    expect(server.requests).toHaveLength(1);
+    expect(packs.map((pack) => pack?.wasm)).toEqual(
+      Array(3).fill(cached("typescript")),
+    );
+    expect(server.requests).toHaveLength(3);
+    expect(packs[0]?.query).toContain(
+      "; https://cdn.jsdelivr.net/npm/tree-sitter-typescript@",
+    );
   });
 
   test("bytes that do not match the pinned hash are never written", async () => {
@@ -103,6 +144,34 @@ describe("ensureGrammar", () => {
 
     expect(await ensureGrammar("python", options())).toBeNull();
     await expect(readdir(join(cacheRoot, "python"))).rejects.toThrow();
+  });
+
+  test("a tags part that does not hash leaves the pack unusable", async () => {
+    const path = new URL(manifest.packs["python"]?.tags[0]?.url as string)
+      .pathname;
+    await server.close();
+    server = await startGrammarsServer({ serve: { [path]: "(not the query" } });
+
+    expect(await ensureGrammar("python", options())).toBeNull();
+    // The grammar is cached; only the query it needs is missing.
+    expect(await readdir(join(cacheRoot, "python"))).toEqual([
+      basename(cached("python")),
+    ]);
+  });
+
+  test("a tags part that cannot be fetched is named in the hint", async () => {
+    await withLock(
+      (lock) => {
+        const tags = lock.packs["python"]?.tags[0];
+        if (tags) tags.url = "https://cdn.jsdelivr.net/npm/gone/tags.scm";
+      },
+      async () => {
+        expect(await ensureGrammar("python", options())).toBeNull();
+        expect(grammarHints()).toEqual([
+          "python tags not cached (HTTP 404); run online once, or set STRAUSS_KB_GRAMMARS_DIR",
+        ]);
+      },
+    );
   });
 
   test("a server error leaves nothing behind", async () => {
@@ -122,24 +191,26 @@ describe("ensureGrammar", () => {
     ).toBeNull();
   });
 
-  test("a tampered cached file is deleted and downloaded again", async () => {
-    await ensureGrammar("go", options());
-    writeFileSync(cached("go"), "tampered");
-    resetGrammarState();
+  test.each(["wasm", "scm"])(
+    "a tampered cached %s is deleted and downloaded again",
+    async (part) => {
+      await ensureGrammar("go", options());
+      const path = part === "wasm" ? cached("go") : cachedTags("go");
+      writeFileSync(path, "tampered");
+      resetGrammarState();
 
-    expect(await ensureGrammar("go", options())).toBe(cached("go"));
-    expect(server.requests).toHaveLength(2);
-    expect(readFileSync(cached("go")).byteLength).toBe(
-      manifest.packs["go"]?.wasm.bytes,
-    );
-  });
+      expect((await ensureGrammar("go", options()))?.wasm).toBe(cached("go"));
+      expect(server.requests).toHaveLength(3);
+      expect(readFileSync(path).byteLength).not.toBe("tampered".length);
+    },
+  );
 
   test("a miss is not remembered: the next call in the process tries again", async () => {
     expect(await ensureGrammar("go", options({ offline: true }))).toBeNull();
     expect(grammarHints()).toHaveLength(1);
 
-    expect(await ensureGrammar("go", options())).toBe(cached("go"));
-    expect(server.requests).toHaveLength(1);
+    expect((await ensureGrammar("go", options()))?.wasm).toBe(cached("go"));
+    expect(server.requests).toHaveLength(2);
     expect(grammarHints()).toEqual([]);
   });
 
@@ -219,8 +290,10 @@ describe("retrying a download", () => {
     await server.close();
     server = await startGrammarsServer({ failFirst: 1 });
 
-    expect(await ensureGrammar("python", options())).toBe(cached("python"));
-    expect(server.requests).toHaveLength(2);
+    expect((await ensureGrammar("python", options()))?.wasm).toBe(
+      cached("python"),
+    );
+    expect(server.requests).toHaveLength(3);
     expect(grammarHints()).toEqual([]);
   });
 });
@@ -236,14 +309,19 @@ describe("staying off the wire", () => {
     }
   });
 
-  test("STRAUSS_KB_GRAMMARS=off with a warm cache still resolves", async () => {
+  test("STRAUSS_KB_GRAMMARS=off with a warm cache asks for nothing", async () => {
     await ensureGrammar("python", options());
     resetGrammarState();
+    // A fresh server, so "nothing" is the whole count rather than a delta.
+    await server.close();
+    server = await startGrammarsServer({ status: 500 });
 
     process.env["STRAUSS_KB_GRAMMARS"] = "off";
     try {
-      expect(await ensureGrammar("python", options())).toBe(cached("python"));
-      expect(server.requests).toHaveLength(1);
+      const pack = await ensureGrammar("python", options());
+      expect(pack?.wasm).toBe(cached("python"));
+      expect(pack?.query).toContain("@definition.function");
+      expect(server.requests).toEqual([]);
     } finally {
       delete process.env["STRAUSS_KB_GRAMMARS"];
     }
@@ -258,9 +336,9 @@ describe("staying off the wire", () => {
     resetGrammarState();
     await ensureGrammar("python", options());
     resetGrammarState();
-    expect(await ensureGrammar("python", options({ offline: true }))).toBe(
-      cached("python"),
-    );
+    expect(
+      (await ensureGrammar("python", options({ offline: true })))?.wasm,
+    ).toBe(cached("python"));
   });
 
   test("the hint names the grammar and the repair, once", async () => {
@@ -279,14 +357,48 @@ describe("the resolver over a downloaded grammar", () => {
     await resolver.prepare(["a.py"]);
 
     expect(resolver.attempt(SOURCE, "cancel", "a.py").kind).toBe("resolved");
-    expect(server.requests).toHaveLength(1);
+    expect(server.requests).toHaveLength(2);
   });
 
-  test("one request when two languages of the same file type prepare at once", async () => {
+  test("one download when two files of the same language prepare at once", async () => {
     const resolver = new TreeSitterResolver(options());
     await Promise.all([resolver.prepare(["a.py"]), resolver.prepare(["b.py"])]);
 
-    expect(server.requests).toHaveLength(1);
+    expect(server.requests).toHaveLength(2);
+  });
+
+  test("a tags query that will not compile names the language in a hint", async () => {
+    const body = "(no_such_node) @definition.class\n";
+    await server.close();
+    server = await startGrammarsServer({ serve: { "/broken.scm": body } });
+
+    await withLock(
+      (lock) => {
+        const pack = lock.packs["typescript"];
+        if (pack)
+          pack.tags = [
+            {
+              url: `https://cdn.jsdelivr.net/broken.scm`,
+              sha256: createHash("sha256").update(body).digest("hex"),
+            },
+          ];
+      },
+      async () => {
+        const resolver = new TreeSitterResolver(options());
+        await resolver.prepare(["a.ts"]);
+
+        expect(resolver.attempt("class A { b() {} }", "A.b", "a.ts")).toEqual({
+          kind: "unresolved",
+          reason: "resolver-unavailable",
+        });
+        expect(grammarHints()).toEqual([
+          expect.stringContaining(
+            "tags query for typescript does not compile against tree-sitter-typescript@",
+          ),
+        ]);
+        expect(grammarHints()[0]).toContain("pnpm grammars pin typescript");
+      },
+    );
   });
 
   test("offline with a cold cache is resolver-unavailable, not a regex guess", async () => {

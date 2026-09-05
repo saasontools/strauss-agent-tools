@@ -1,20 +1,18 @@
 // @ts-check
 /**
  * `pnpm grammars <pin|add|upgrade|check>` — the only way grammars/manifest.json
- * and grammars/tags/ are written.
+ * is written.
  */
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { tryGet } from "./http.mjs";
 import { extensionsFor, linguistLanguages } from "./linguist.mjs";
 import {
+  hasFixture,
   readManifest,
   readPacks,
   refreshFixture,
-  tagsDir,
+  syncTagsFixtures,
   writeManifest,
   writePacks,
-  writeTags,
 } from "./lock.mjs";
 import { repoOf } from "./locators.mjs";
 import { githubLicense, newestVersion, npmLicense } from "./registry.mjs";
@@ -93,8 +91,9 @@ async function pin(flags, { upgrade = false }) {
 
   /** @type {Record<string, unknown>} */
   const locked = {};
-  /** @type {Map<string, string>} */
-  const queries = new Map();
+  /** Tags parts of the fixture languages, by hash, for the suite's server. */
+  /** @type {Map<string, Uint8Array>} */
+  const fixtureTags = new Map();
   /** @type {import("./validate.mjs").Provable[]} */
   const provable = [];
   let withTags = 0;
@@ -108,17 +107,16 @@ async function pin(flags, { upgrade = false }) {
           `${language}: no locked entry to carry forward; run pnpm grammars pin --all`,
         );
       locked[language] = { ...carried, extensions };
-      const vendored = join(tagsDir, `${language}.scm`);
-      const query = existsSync(vendored)
-        ? readFileSync(vendored, "utf8")
-        : undefined;
-      if (query) queries.set(language, query);
-      if (carried.tags?.length) withTags++;
+      const parts = [];
+      for (const part of carried.tags ?? [])
+        parts.push({ url: part.url, body: await fetchLocked(language, part) });
+      if (parts.length) withTags++;
+      keepFixtureTags(fixtureTags, language, parts);
       provable.push({
         language,
         label: carried.package,
-        wasm: await fetchLocked(language, carried.wasm.url),
-        ...(query ? { query } : {}),
+        wasm: await fetchLocked(language, carried.wasm),
+        ...(parts.length ? { query: concatenate(parts) } : {}),
       });
       continue;
     }
@@ -130,10 +128,8 @@ async function pin(flags, { upgrade = false }) {
     });
     const fetched = await download(resolved);
     const compiled = fetched.tags.length > 0;
-    if (compiled) {
-      queries.set(language, fetched.query);
-      withTags++;
-    }
+    if (compiled) withTags++;
+    keepFixtureTags(fixtureTags, language, fetched.tags);
     provable.push({
       language,
       label: resolved.label,
@@ -165,7 +161,7 @@ async function pin(flags, { upgrade = false }) {
   }
 
   await proveAll(provable, log);
-  writeTags(queries, log);
+  syncTagsFixtures(fixtureTags, log);
   await writeManifest({
     linguist: { tag: linguist.tag, commit: linguist.commit },
     packs: locked,
@@ -277,12 +273,28 @@ async function check(flags) {
   await proveAll(provable, log);
 }
 
-/** The wasm a carried-forward pack was locked at, for the load pass. */
-async function fetchLocked(language, url) {
-  const bytes = await tryGet(url);
+/** A part a carried-forward pack was locked at, still hashing as the lock says. */
+async function fetchLocked(language, part) {
+  const bytes = await tryGet(part.url);
   if (!bytes?.byteLength)
-    throw new Error(`${language}: locked wasm is gone from ${url}`);
+    throw new Error(`${language}: locked part is gone from ${part.url}`);
+  if (sha256(bytes) !== part.sha256)
+    throw new Error(
+      `${language}: ${part.url} no longer hashes as the lock says; run pnpm grammars pin ${language}`,
+    );
   return bytes;
+}
+
+/**
+ * Only the languages the suite has a WASM fixture for; the rest would add the
+ * whole catalogue's queries to the repository for nothing.
+ * @param {Map<string, Uint8Array>} into @param {string} language
+ * @param {{ sha256?: string, url: string, body: Uint8Array }[]} parts
+ */
+function keepFixtureTags(into, language, parts) {
+  if (!hasFixture(language)) return;
+  for (const part of parts)
+    into.set(part.sha256 ?? sha256(part.body), part.body);
 }
 
 /** npm for a package part, the repository for a GitHub one. */

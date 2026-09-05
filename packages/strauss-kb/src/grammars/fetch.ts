@@ -1,5 +1,5 @@
 import { fetchTimeoutMs } from "../remote-repo/index.js";
-import type { GrammarOptions, GrammarWasm } from "./model.js";
+import type { GrammarOptions, Pinned } from "./model.js";
 import { matches } from "./store.js";
 
 /** Attempts per grammar, and the pause after attempt `n`. */
@@ -28,22 +28,22 @@ export function grammarsBaseUrl(override?: string): string | undefined {
 export type Download = { bytes: Uint8Array } | { cause: string };
 
 /**
- * The grammar's bytes, or a cause — never a throw. A hash mismatch is not
- * retried (the CDN will serve the same file again; the manifest is the
- * safety); timeouts, dropped connections, 5xx and 429 get `ATTEMPTS` tries.
+ * A pinned part's bytes, or a cause — never a throw. Grammar and tags query
+ * take the same path: a hash mismatch is not retried (the CDN will serve the
+ * same file again; the manifest is the safety), while timeouts, dropped
+ * connections, 5xx and 429 get `ATTEMPTS` tries.
  */
-export async function downloadGrammar(
+export async function downloadPart(
   url: string,
-  language: string,
-  entry: GrammarWasm,
+  name: string,
+  entry: Pinned,
   options: GrammarOptions = {},
 ): Promise<Download> {
   const log =
     options.log ?? ((line: string) => void process.stderr.write(line));
-  const name = `tree-sitter-${language}`;
-  log(
-    `strauss-kb: downloading ${name} (${size(entry.bytes)} from manifest) from ${url}\n`,
-  );
+  const weight =
+    entry.bytes === undefined ? "" : ` (${size(entry.bytes)} from manifest)`;
+  log(`strauss-kb: downloading ${name}${weight} from ${url}\n`);
 
   let cause = "";
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
@@ -62,7 +62,7 @@ export async function downloadGrammar(
 
 async function attemptDownload(
   url: string,
-  entry: GrammarWasm,
+  entry: Pinned,
   timeoutMs: number | undefined,
 ): Promise<{ bytes: Uint8Array } | { cause: string; retry: boolean }> {
   try {

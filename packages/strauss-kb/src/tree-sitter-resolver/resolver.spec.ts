@@ -1,8 +1,7 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
-import { grammarHints, resetGrammarState } from "../grammars/index.js";
 import {
   defaultAnchorResolvers,
   hashAnchorText,
@@ -271,32 +270,6 @@ describe("TreeSitterResolver: availability", () => {
       });
     } finally {
       rmSync(empty, { recursive: true, force: true });
-    }
-  });
-
-  test("a tags query that will not compile names the language in a hint", async () => {
-    const tags = mkdtempSync(join(tmpdir(), "strauss-tags-"));
-    resetGrammarState();
-    try {
-      writeFileSync(
-        join(tags, "typescript.scm"),
-        "(no_such_node) @definition.class\n",
-      );
-      const broken = new TreeSitterResolver({ tagsDir: tags });
-      await broken.prepare(["a.ts"]);
-      expect(broken.attempt("class A { b() {} }", "A.b", "a.ts")).toEqual({
-        kind: "unresolved",
-        reason: "resolver-unavailable",
-      });
-      expect(grammarHints()).toEqual([
-        expect.stringContaining(
-          "tags query for typescript does not compile against tree-sitter-typescript@",
-        ),
-      ]);
-      expect(grammarHints()[0]).toContain("pnpm grammars pin typescript");
-    } finally {
-      resetGrammarState();
-      rmSync(tags, { recursive: true, force: true });
     }
   });
 

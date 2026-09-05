@@ -1,16 +1,18 @@
 # Grammars
 
 A language pack is a WASM grammar and the definitions query that runs over it,
-pinned together per language. Three files:
+pinned together per language. Two files:
 
 - `packs.json` — where each pack's two parts come from. The only file a human
   edits.
-- `manifest.json` — the lock: resolved URL, sha256 and byte count per part,
-  plus the license and file extensions. Generated; never hand-edited. The
-  runtime reads this and nothing else.
-- `tags/<language>.scm` — the vendored query, written from the parts the lock
-  names, LF-normalised, headed by the URLs it came from. Absent where a pack
-  declares no query: that language parses but resolves nothing.
+- `manifest.json` — the lock: resolved URL and sha256 per part, plus the
+  license and file extensions. Generated; never hand-edited. The runtime reads
+  this and nothing else.
+
+Neither part ships. Both download on first use, are checked against the hash
+the lock pins on every load, and are cached side by side under
+`~/.strauss/grammars/<language>/<sha12>.wasm|.scm`. A pack with no tags part
+parses but resolves nothing.
 
 ## Commands
 
@@ -21,9 +23,12 @@ pinned together per language. Three files:
 | `pnpm grammars upgrade <lang>…` | Re-asks the registry what is newest, then pins. `--all`.                          |
 | `pnpm grammars check`           | Re-downloads and re-proves everything the lock names. `--outdated` also compares. |
 
-Pinning proves both parts: the WASM must load under the installed
-`web-tree-sitter`, and the query must compile against it. A missing or failing
-part fails the run and names the language, the part and the URL it tried.
+Pinning downloads every part into memory and proves it: the WASM must load
+under the installed `web-tree-sitter`, and the query must compile against it. A
+missing or failing part fails the run and names the language, the part and the
+URL it tried. Nothing but the lock is written — and the tags parts of the six
+languages the suite parses, under `test/fixtures/grammars/tags/`, so its server
+can serve them offline.
 
 Every pack is proved in one process, in manifest order, with the others
 resident — that is how the runtime meets them, and two faults show up no other

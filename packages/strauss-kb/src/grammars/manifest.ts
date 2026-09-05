@@ -17,6 +17,14 @@ export function grammarManifest(): GrammarManifest {
 }
 
 /**
+ * Test seam: stands a lock of the test's own in for the shipped one, so a
+ * suite can pin a part the shipped lock does not carry. `undefined` restores.
+ */
+export function setGrammarManifest(manifest?: GrammarManifest): void {
+  cached = manifest;
+}
+
+/**
  * A path under the package's shipped `grammars/` directory.
  *
  * Source and bundle sit at different depths under the package root — `src/
