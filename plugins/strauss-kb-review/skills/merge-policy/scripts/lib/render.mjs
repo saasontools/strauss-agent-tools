@@ -1,7 +1,7 @@
 // @ts-check
 /** The two shapes this step prints: the JSON a caller reads, and one table. */
 import { oneLine } from "../../../../hooks/scripts/lib/util.mjs";
-import { reviewed } from "./rules.mjs";
+import { buildRecord } from "./record.mjs";
 
 /** @typedef {import("./inputs.mjs").Input} Input */
 
@@ -9,13 +9,25 @@ import { reviewed } from "./rules.mjs";
  * @param {Input} input
  * @param {{ route: string, rule: string, reason: string }} decision
  * @param {{ exit: 0 | 1, why: string, approvedBy: string[] }} verdict
- * @param {{ enforcing: boolean, subject: string }} options
+ * @param {{ enforcing: boolean, subject: string, pr: string | null,
+ *   prUrl: string | null, bundleDir: string }} options
  */
 export function result(input, decision, verdict, options) {
+  // Read `pending` first: touching the findings is what spawns the gate.
+  const gate = input.gate.pending
+    ? { blocks: [], warns: [] }
+    : {
+        blocks: input.gate.blocks.map((block) => block.id),
+        warns: input.gate.warns.map((block) => block.id),
+      };
+  const notes = notChecked(input);
   return {
     route: decision.route,
     rule: decision.rule,
     reason: decision.reason,
+    headSha: input.headSha,
+    bundle: options.bundleDir,
+    prUrl: options.prUrl,
     records: input.records
       .filter((record) => record.onDiff)
       .map((record) => ({
@@ -29,13 +41,7 @@ export function result(input, decision, verdict, options) {
     classifier: Object.fromEntries(
       input.files.map((file) => [file.path, file.class]),
     ),
-    // Read `pending` first: touching the findings is what spawns the gate.
-    gate: input.gate.pending
-      ? { blocks: [], warns: [] }
-      : {
-          blocks: input.gate.blocks.map((block) => block.id),
-          warns: input.gate.warns.map((block) => block.id),
-        },
+    gate,
     reviewer: {
       present: input.reviewer.present,
       sha: input.reviewer.sha,
@@ -45,12 +51,25 @@ export function result(input, decision, verdict, options) {
       path: input.policy.path,
       version: input.policy.version,
       hash: input.policy.hash,
+      enabled: input.policy.data.enabled,
     },
     enforce: options.enforcing
       ? { exit: verdict.exit, why: verdict.why, approvedBy: verdict.approvedBy }
       : null,
-    notChecked: notChecked(input),
-    record: record(input, decision, options.subject),
+    notChecked: notes,
+    record: buildRecord(input, decision, verdict, {
+      subject: options.subject,
+      pr: options.pr,
+      prUrl: options.prUrl,
+      notChecked: notes,
+      enforcing: options.enforcing,
+      gate,
+    }),
+    // `--write-record` fills this in; a run that did not ask leaves it null.
+    wrote:
+      /** @type {ReturnType<typeof import("./record.mjs").writeRecord> | null} */ (
+        null
+      ),
   };
 }
 
@@ -82,29 +101,6 @@ function gateNotes(gate) {
   return notes;
 }
 
-/**
- * The `decision.merge-<subject>` body. This step never writes it — SAA-744
- * owns the write, so the route stays a read of the base.
- * @param {Input} input
- * @param {{ route: string, rule: string, reason: string }} decision
- * @param {string} subject
- */
-function record(input, decision, subject) {
-  return {
-    conceptId: `decision.merge-${subject}`,
-    type: "decision",
-    title: `Merge route for ${subject} is ${decision.route}`,
-    description: oneLine(decision.reason, 240),
-    decision: `${decision.route} — matched ${decision.rule}.`,
-    alternative:
-      "Route by hand. Rejected: the rules are deterministic over the base, so a hand route is unreproducible.",
-    impact:
-      `Head ${input.headSha}, policy ${input.policy.path ?? "absent"} ${input.policy.hash ?? ""}.`.trim(),
-    tags: ["review", "review:merge-policy"],
-    anchors: reviewed(input).map((file) => ({ file: file.path })),
-  };
-}
-
 /** One line, then the records the route turned on. @param {any} model */
 export function render(model) {
   const lines = [`route: ${model.route} (${model.rule})`, `  ${model.reason}`];
@@ -127,6 +123,12 @@ export function render(model) {
     lines.push(
       "",
       `  enforce: exit ${model.enforce.exit} — ${model.enforce.why}`,
+    );
+  if (model.wrote)
+    lines.push(
+      model.wrote.written
+        ? `  wrote ${model.wrote.conceptId}`
+        : `  wrote nothing — ${model.wrote.why}`,
     );
   return lines.join("\n");
 }
