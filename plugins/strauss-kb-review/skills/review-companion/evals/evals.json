@@ -1,0 +1,146 @@
+{
+  "skill_name": "review-companion",
+  "note": "Trigger-accuracy regression suite. Same shape and run command as ../../recording-decisions/evals/README.md.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "risk-on-a-hunk",
+      "prompt": "the retry path in src/checkout/pay.ts worries me — if the idempotency key rotates mid-retry we could charge twice. i want the reviewer to look at exactly that hunk. how do i put that in the kb so it shows up next to the code?",
+      "expected_trigger": true,
+      "why": "A risk to anchor for the reviewer."
+    },
+    {
+      "id": 2,
+      "name": "after-commit-maintenance",
+      "prompt": "just pushed commit 4 on this PR, moved TenantService.findMany into a new service. the kb records from commit 2 still point at the old symbol. what's the routine for keeping .strauss/kb honest after each commit?",
+      "expected_trigger": true,
+      "why": "The per-commit loop."
+    },
+    {
+      "id": 3,
+      "name": "no-standard-existed",
+      "prompt": "there's no repo convention for retrying DynamoDB throttles so i made one up in the base repository. i want to recommend it becomes the standard and record that i had to invent it. which record type is that",
+      "expected_trigger": true,
+      "why": "Missing standard plus recommendation."
+    },
+    {
+      "id": 4,
+      "name": "ac-to-code-mapping",
+      "prompt": "SAA-412 has 4 acceptance criteria. i want each AC linked to the functions that implement it in .strauss/kb so the review can walk AC by AC. what do i write and how do i link them?",
+      "expected_trigger": true,
+      "why": "Business flow hunks tied to requirements."
+    },
+    {
+      "id": 5,
+      "name": "extraction-git-cannot-see",
+      "prompt": "i extracted the chunking logic into a brand new file so git diff shows 80 added lines that are actually a move. how do i mark that for the reviewer so they don't re-review it?",
+      "expected_trigger": true,
+      "why": "A move the rename detector misses."
+    },
+    {
+      "id": 6,
+      "name": "generated-block-skip",
+      "prompt": "600 lines of this diff are zod schemas generated from protocol.yaml. i want the reviewer to verify the generator instead of reading them. can the knowledge base carry that?",
+      "expected_trigger": true,
+      "why": "Boilerplate or generated marking."
+    },
+    {
+      "id": 7,
+      "name": "invented-requirement",
+      "prompt": "the ticket never said what a partial batch result looks like, so i decided missing keys come back in a `missing` array. that's a requirement i invented. record it with its alternatives before i finalize",
+      "expected_trigger": true,
+      "why": "Requirement or design the agent introduced."
+    },
+    {
+      "id": 8,
+      "name": "reviewer-decision-needed",
+      "prompt": "i can't decide whether the retry budget is per tenant or global and it's the reviewer's call. how do i leave that question in the kb so they can answer it in place?",
+      "expected_trigger": true,
+      "why": "Open question owned by the reviewer."
+    },
+    {
+      "id": 9,
+      "name": "where-to-look-first",
+      "prompt": "before i push: which parts of this branch deserve the reviewer's attention vs which are noise, and how do i mark that in .strauss/kb?",
+      "expected_trigger": true,
+      "why": "Review-focus marking, casual phrasing."
+    },
+    {
+      "id": 10,
+      "name": "pre-push-kb-checks",
+      "prompt": "about to push the PR. what do i run against the knowledge base first — validate, doctor, anchor drift? and what's the pass bar?",
+      "expected_trigger": true,
+      "why": "Pre-push maintenance."
+    },
+    {
+      "id": 11,
+      "name": "pure-decision-record",
+      "prompt": "about to call kb_write_decision for the heap i picked in top-k. how specific does the alternative field need to be?",
+      "expected_trigger": false,
+      "why": "recording-decisions territory."
+    },
+    {
+      "id": 12,
+      "name": "kb-read-only",
+      "prompt": "kb_query for anything about pagination cursors before i change the page size",
+      "expected_trigger": false,
+      "why": "Reading the base; knowledge-base skill."
+    },
+    {
+      "id": 13,
+      "name": "review-paths-ingest",
+      "prompt": "build the acceptance-criteria review paths for compound c-12 and call strauss_ingest_review_paths",
+      "expected_trigger": false,
+      "why": "review-path-planner, the consumer."
+    },
+    {
+      "id": 14,
+      "name": "pr-description",
+      "prompt": "write the PR description — what changed, why, how to test. 12 commits around the protocol schemas",
+      "expected_trigger": false,
+      "why": "Prose for the PR body."
+    },
+    {
+      "id": 15,
+      "name": "do-the-review",
+      "prompt": "review this diff for bugs and tell me what's wrong with the retry logic",
+      "expected_trigger": false,
+      "why": "Performing a review, not recording for one."
+    },
+    {
+      "id": 16,
+      "name": "code-comment",
+      "prompt": "add a comment above the `?? 300` in pagination-config explaining why 300",
+      "expected_trigger": false,
+      "why": "A source comment, not a record."
+    },
+    {
+      "id": 17,
+      "name": "risk-register-in-notion",
+      "prompt": "put the three project risks from the kickoff into the Notion risk register page",
+      "expected_trigger": false,
+      "why": "The word risk, a different destination."
+    },
+    {
+      "id": 18,
+      "name": "git-rename-detection",
+      "prompt": "why doesn't git diff -M detect this file as a rename? show me the similarity threshold flag",
+      "expected_trigger": false,
+      "why": "Git plumbing."
+    },
+    {
+      "id": 19,
+      "name": "adr-file",
+      "prompt": "scaffold docs/adr/ with the MADR template and write the first ADR about ElectroDB",
+      "expected_trigger": false,
+      "why": "ADR markdown, not a knowledge-base record."
+    },
+    {
+      "id": 20,
+      "name": "test-plan-doc",
+      "prompt": "write a test plan section for the design doc covering the batch get edge cases",
+      "expected_trigger": false,
+      "why": "Design-doc prose; test-obligation records are not asked for."
+    }
+  ]
+}
