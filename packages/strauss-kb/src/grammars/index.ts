@@ -1,6 +1,7 @@
-import { downloadGrammar, grammarsBaseUrl, grammarUrl } from "./fetch.js";
+import { readFile } from "node:fs/promises";
+import { downloadPart, grammarsBaseUrl, grammarUrl } from "./fetch.js";
 import { grammarManifest } from "./manifest.js";
-import type { GrammarOptions } from "./model.js";
+import type { Grammar, GrammarOptions, Pinned } from "./model.js";
 import {
   grammarCachePath,
   grammarsCacheRoot,
@@ -9,20 +10,25 @@ import {
 } from "./store.js";
 
 export { grammarsBaseUrl, grammarUrl } from "./fetch.js";
-export { grammarManifest, grammarsDataPath } from "./manifest.js";
+export {
+  grammarManifest,
+  grammarsDataPath,
+  setGrammarManifest,
+} from "./manifest.js";
 export {
   grammarManifestSchema,
+  type Grammar,
   type GrammarManifest,
   type GrammarPack,
   type GrammarOptions,
 } from "./model.js";
 export { grammarCachePath, grammarsCacheRoot } from "./store.js";
 
-/** One download per language per process, however many callers ask at once. */
-const inFlight = new Map<string, Promise<string | null>>();
+/** One download per pack per process, however many callers ask at once. */
+const inFlight = new Map<string, Promise<Grammar | null>>();
 
-/** Languages this process wanted and could not get, and why, for the hint. */
-const missing = new Map<string, string | undefined>();
+/** Packs this process wanted and could not get, and why, for the hint. */
+const missing = new Map<string, { subject: string; cause?: string }>();
 
 /** Languages whose pinned tags query would not compile, and why. */
 const uncompilable = new Map<string, string>();
@@ -36,52 +42,89 @@ export function grammarsDownloadDisabled(): boolean {
 }
 
 /**
- * The path to a verified grammar, downloaded once when not cached. `null`
- * (unknown language, refused or disabled download, hash mismatch) is what the
+ * Both halves of a verified pack — the cached WASM's path and the tags query's
+ * text — each downloaded once when not cached. `null` (unknown language,
+ * refused or disabled download, hash mismatch on either part) is what the
  * resolver reports as `resolver-unavailable`. A miss is not remembered, so a
  * later call in the same process — the MCP server — tries the network again.
  */
 export async function ensureGrammar(
   language: string,
   options: GrammarOptions = {},
-): Promise<string | null> {
+): Promise<Grammar | null> {
   const pack = grammarManifest().packs[language];
   if (!pack) return null;
 
-  const entry = pack.wasm;
   const root = grammarsCacheRoot(options.cacheRoot);
-  const path = grammarCachePath(root, language, entry.sha256);
-  const key = `${path} ${grammarsBaseUrl(options.baseUrl) ?? ""}`;
+  const wasm = grammarCachePath(root, language, pack.wasm.sha256);
+  // Keyed on the pack rather than the part, so a pack downloads once however
+  // many parts it has.
+  const key = `${wasm} ${grammarsBaseUrl(options.baseUrl) ?? ""}`;
   const existing = inFlight.get(key);
   if (existing) return existing;
 
   const pending = (async () => {
-    if (await verifyCached(path, entry)) {
-      missing.delete(language);
-      return path;
-    }
-    if (options.offline === true || grammarsDownloadDisabled()) {
-      missing.set(language, undefined);
-      return null;
-    }
-    const download = await downloadGrammar(
-      grammarUrl(entry.url, options.baseUrl),
-      language,
-      entry,
+    const grammar = await ensurePart(
+      wasm,
+      `tree-sitter-${language}`,
+      pack.wasm,
       options,
     );
-    if ("cause" in download) {
-      missing.set(language, download.cause);
-      return null;
+    if (grammar !== true)
+      return miss(language, `grammar tree-sitter-${language}`, grammar);
+
+    const parts: string[] = [];
+    const total = pack.tags.length;
+    for (const [at, part] of pack.tags.entries()) {
+      const name = `${language} tags${total > 1 ? ` part ${at + 1}/${total}` : ""}`;
+      const path = grammarCachePath(root, language, part.sha256, "scm");
+      const held = await ensurePart(path, name, part, options);
+      if (held !== true) return miss(language, name, held);
+      parts.push(`; ${part.url}\n${lf(await readFile(path, "utf8"))}`);
     }
-    await writeCached(path, download.bytes).catch(() => null);
+
     missing.delete(language);
-    return path;
+    return { wasm, query: total ? parts.join("\n") : undefined };
   })();
   inFlight.set(key, pending);
   const result = await pending;
   if (result === null) inFlight.delete(key);
   return result;
+}
+
+/** `true` once the part is cached and hashes as the lock says, else why not. */
+async function ensurePart(
+  path: string,
+  name: string,
+  entry: Pinned & { url: string },
+  options: GrammarOptions,
+): Promise<true | { cause?: string }> {
+  if (await verifyCached(path, entry)) return true;
+  if (options.offline === true || grammarsDownloadDisabled()) return {};
+  const download = await downloadPart(
+    grammarUrl(entry.url, options.baseUrl),
+    name,
+    entry,
+    options,
+  );
+  if ("cause" in download) return { cause: download.cause };
+  await writeCached(path, download.bytes).catch(() => null);
+  return true;
+}
+
+/** Records which part of the pack this run could not get, for the hint. */
+function miss(
+  language: string,
+  subject: string,
+  failure: { cause?: string },
+): null {
+  missing.set(language, { subject, ...failure });
+  return null;
+}
+
+/** The pin concatenates parts LF-normalised; the runtime must compile the same. */
+function lf(body: string): string {
+  return body.replace(/\r\n/g, "\n");
 }
 
 /**
@@ -109,10 +152,10 @@ export function grammarHints(): string[] {
   const manifest = grammarManifest();
   const packs = manifest.packs;
   const lines = new Map<string, string>();
-  for (const [language, cause] of missing)
+  for (const [language, { subject, cause }] of missing)
     lines.set(
       language,
-      `grammar tree-sitter-${language} not cached${cause ? ` (${cause})` : ""}; run online once, or set STRAUSS_KB_GRAMMARS_DIR`,
+      `${subject} not cached${cause ? ` (${cause})` : ""}; run online once, or set STRAUSS_KB_GRAMMARS_DIR`,
     );
   for (const [language, cause] of rejected)
     lines.set(

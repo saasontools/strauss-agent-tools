@@ -10,6 +10,7 @@ import {
   ensureGrammar,
   noteRejectedGrammar,
   noteUncompilableQuery,
+  type Grammar,
   type GrammarOptions,
 } from "../grammars/index.js";
 import {
@@ -19,7 +20,7 @@ import {
   type Definition,
   type ParsedFile,
 } from "./definitions.js";
-import { definitionsQuery, languageForFile } from "./languages.js";
+import { languageForFile } from "./languages.js";
 
 /**
  * AST-backed anchor resolution: a symbol resolves to the byte range of the
@@ -36,17 +37,13 @@ type Loaded = { language: Language; query: Query };
 
 export type TreeSitterStats = { parses: number; cacheHits: number };
 
-/** Grammar options plus a test seam for the vendored tags queries. */
-export type TreeSitterOptions = GrammarOptions & {
-  /** Where `<language>.scm` is read from. Defaults to the shipped `grammars/tags`. */
-  tagsDir?: string;
-};
+/** Where both halves of a pack come from, and whether they may be fetched. */
+export type TreeSitterOptions = GrammarOptions;
 
 export class TreeSitterResolver implements AnchorResolver {
   readonly name = "tree-sitter";
 
   private readonly grammars: GrammarOptions;
-  private readonly tagsDir: string | undefined;
   private readonly loaded = new Map<string, Loaded | null>();
   private readonly trees = new Map<string, ParsedFile>();
   private parser: Parser | undefined;
@@ -57,7 +54,6 @@ export class TreeSitterResolver implements AnchorResolver {
 
   constructor(options: TreeSitterOptions = {}) {
     this.grammars = options;
-    this.tagsDir = options.tagsDir;
   }
 
   /**
@@ -70,7 +66,7 @@ export class TreeSitterResolver implements AnchorResolver {
   async prepare(files: readonly string[]): Promise<void> {
     const wanted = new Set<string>();
     for (const file of files) {
-      const language = languageForFile(file, this.tagsDir);
+      const language = languageForFile(file);
       if (language && !this.loaded.has(language)) wanted.add(language);
     }
     if (!wanted.size) return;
@@ -105,25 +101,23 @@ export class TreeSitterResolver implements AnchorResolver {
    * the grammars module so every hint has one home.
    */
   private async load(language: string): Promise<Loaded | null> {
-    const source = definitionsQuery(language, this.tagsDir);
-    if (!source) return null;
-    let wasm: string | null;
+    let pack: Grammar | null;
     try {
-      wasm = await ensureGrammar(language, this.grammars);
+      pack = await ensureGrammar(language, this.grammars);
     } catch {
       return null;
     }
-    if (!wasm) return null;
+    if (!pack?.query) return null;
 
     let grammar: Language;
     try {
-      grammar = await Language.load(wasm);
+      grammar = await Language.load(pack.wasm);
     } catch (error) {
       noteRejectedGrammar(language, why(error));
       return null;
     }
     try {
-      return { language: grammar, query: new Query(grammar, source) };
+      return { language: grammar, query: new Query(grammar, pack.query) };
     } catch (error) {
       noteUncompilableQuery(language, why(error));
       return null;
@@ -137,7 +131,7 @@ export class TreeSitterResolver implements AnchorResolver {
    * precise span for a guessed one.
    */
   attempt(source: string, symbol: string, file?: string): ResolverAttempt {
-    const language = file ? languageForFile(file, this.tagsDir) : undefined;
+    const language = file ? languageForFile(file) : undefined;
     if (!language) return { kind: "abstain" };
     if (!this.loaded.has(language)) return { kind: "abstain" };
     const loaded = this.loaded.get(language);

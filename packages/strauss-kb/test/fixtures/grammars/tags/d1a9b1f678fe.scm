@@ -1,4 +1,3 @@
-; https://cdn.jsdelivr.net/npm/tree-sitter-go@0.25.0/queries/tags.scm
 (
   (comment)* @doc
   .

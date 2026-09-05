@@ -1,4 +1,3 @@
-; https://cdn.jsdelivr.net/npm/tree-sitter-rust@0.24.0/queries/tags.scm
 ; ADT definitions
 
 (struct_item

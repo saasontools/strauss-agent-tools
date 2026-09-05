@@ -1,31 +1,34 @@
-import { existsSync, readFileSync } from "node:fs";
-import { extname, join } from "node:path";
-import { grammarManifest, grammarsDataPath } from "../grammars/index.js";
+import { extname } from "node:path";
+import { grammarManifest, type GrammarManifest } from "../grammars/index.js";
 
 /**
- * Which grammar a file extension is parsed with, and which definitions query
- * runs over it. Both are generated — `pnpm grammars pin` — from GitHub
+ * Which grammar a file extension is parsed with, and whether a definitions
+ * query runs over it. Both are generated — `pnpm grammars pin` — from GitHub
  * Linguist and from each pack's own tags query, so adding a language is a pin
  * run rather than a hand-written query.
- *
- * `tagsDir` overrides where the queries are read from, for tests.
  */
 
-let extensions: Record<string, string> | undefined;
+/** Inverted once per lock — the lock a test stands in is a different object. */
+let table:
+  { of: GrammarManifest; extensions: Record<string, string> } | undefined;
 
 function extensionTable(): Record<string, string> {
-  extensions ??= Object.fromEntries(
-    Object.entries(grammarManifest().packs).flatMap(([language, pack]) =>
-      pack.extensions.map((extension) => [extension, language]),
-    ),
-  );
-  return extensions;
+  const manifest = grammarManifest();
+  if (table?.of !== manifest)
+    table = {
+      of: manifest,
+      extensions: Object.fromEntries(
+        Object.entries(manifest.packs).flatMap(([language, pack]) =>
+          pack.extensions.map((extension) => [extension, language]),
+        ),
+      ),
+    };
+  return table.extensions;
 }
 
-function queryPath(language: string, tagsDir?: string): string {
-  return tagsDir
-    ? join(tagsDir, `${language}.scm`)
-    : grammarsDataPath("tags", `${language}.scm`);
+/** Does the lock pin a tags query for this language? The query itself downloads. */
+function hasQuery(language: string): boolean {
+  return (grammarManifest().packs[language]?.tags.length ?? 0) > 0;
 }
 
 /**
@@ -33,26 +36,12 @@ function queryPath(language: string, tagsDir?: string): string {
  * pinned grammar release ships no tags query for it, so the regex heuristic
  * keeps those files, as before the resolver existed.
  */
-export function languageForFile(
-  file: string,
-  tagsDir?: string,
-): string | undefined {
+export function languageForFile(file: string): string | undefined {
   const language = extensionTable()[extname(file).toLowerCase()];
-  return language && definitionsQuery(language, tagsDir) ? language : undefined;
-}
-
-/** The tags query for a language, or `undefined` when its release ships none. */
-export function definitionsQuery(
-  language: string,
-  tagsDir?: string,
-): string | undefined {
-  const path = queryPath(language, tagsDir);
-  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+  return language && hasQuery(language) ? language : undefined;
 }
 
 /** Every language the resolver can resolve in: a grammar and a tags query. */
 export function treeSitterLanguages(): string[] {
-  return [...new Set(Object.values(extensionTable()))]
-    .filter((language) => existsSync(queryPath(language)))
-    .sort();
+  return [...new Set(Object.values(extensionTable()))].filter(hasQuery).sort();
 }

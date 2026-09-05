@@ -81,6 +81,7 @@ export {
   grammarHints,
   grammarManifest,
   grammarsCacheRoot,
+  type Grammar,
   type GrammarManifest,
   type GrammarOptions,
 } from "./grammars/index.js";

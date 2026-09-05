@@ -6,7 +6,9 @@ import { grammarManifest } from "../src/grammars/index.js";
 
 /**
  * The six grammars, git-tracked but never published, so the suite exercises
- * the download path without reaching the CDN.
+ * the download path without reaching the CDN. `tags/` holds their query parts,
+ * named by hash the way the runtime cache names them — a part two packs share
+ * is one file.
  */
 export const GRAMMAR_FIXTURES = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -35,12 +37,20 @@ export async function startGrammarsServer(
     corrupt?: boolean;
     hang?: boolean;
     failFirst?: number;
+    /** Extra bodies to serve, by path — what a lock of a test's own points at. */
+    serve?: Record<string, string>;
   } = {},
 ): Promise<GrammarsServer> {
   const files = new Map<string, string>();
   for (const [language, pack] of Object.entries(grammarManifest().packs)) {
-    const file = join(GRAMMAR_FIXTURES, `tree-sitter-${language}.wasm`);
-    if (existsSync(file)) files.set(new URL(pack.wasm.url).pathname, file);
+    const wasm = join(GRAMMAR_FIXTURES, `tree-sitter-${language}.wasm`);
+    if (!existsSync(wasm)) continue;
+    files.set(new URL(pack.wasm.url).pathname, wasm);
+    for (const part of pack.tags)
+      files.set(
+        new URL(part.url).pathname,
+        join(GRAMMAR_FIXTURES, "tags", `${part.sha256.slice(0, 12)}.scm`),
+      );
   }
   const requests: string[] = [];
   const server: Server = createServer((request, response) => {
@@ -57,6 +67,11 @@ export async function startGrammarsServer(
     }
     if (options.corrupt) {
       response.writeHead(200).end("not a wasm module");
+      return;
+    }
+    const extra = options.serve?.[path];
+    if (extra !== undefined) {
+      response.writeHead(200).end(extra);
       return;
     }
     const file = files.get(path);
