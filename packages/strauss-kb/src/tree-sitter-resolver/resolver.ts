@@ -154,6 +154,12 @@ export class TreeSitterResolver implements AnchorResolver {
     return { kind: "resolved", span: spanOf(matches[0] as Definition, source) };
   }
 
+  /** Whether a loaded grammar backs this file, so an empty answer is a real one. */
+  parses(file: string): boolean {
+    const language = languageForFile(file);
+    return language ? this.loaded.get(language) != null : false;
+  }
+
   resolve(
     source: string,
     symbol: string,

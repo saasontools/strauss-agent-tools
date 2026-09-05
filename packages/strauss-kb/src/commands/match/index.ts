@@ -17,3 +17,4 @@ export {
   type ParseDiffOptions,
 } from "./parse-unified-diff.js";
 export { resolveSymbolRanges } from "./symbol-ranges.js";
+export { resetParsedCache } from "./parsed-cache.js";

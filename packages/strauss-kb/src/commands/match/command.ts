@@ -10,6 +10,7 @@ import {
   type SymbolRangeIndex,
 } from "../../match-diff.js";
 import { recordSummary } from "../../record-summary.js";
+import { emitKb } from "../../telemetry/index.js";
 import { argvFlag, bundlePath, define, REPO_ROOT } from "../model.js";
 import { KbMatchInputError } from "./errors.js";
 import {
@@ -101,6 +102,7 @@ export const matchCommand = define({
       includeUncovered,
     },
   ): Promise<KbMatch[]> => {
+    const started = Date.now();
     const records = await store.list(path);
     const uncovered = includeUncovered === true;
     // The pass is skipped only when the caller supplied ranges and wants no
@@ -122,10 +124,26 @@ export const matchCommand = define({
     // One index for the whole diff: `project` places every kept record again.
     const index = symbolRangeIndex(ranges);
 
+    // Counts beside the duration, so cost per pull request can be split later
+    // between what the base carries and what the diff does.
+    const done = async (rows: KbMatch[]): Promise<KbMatch[]> => {
+      await emitKb("match", {
+        bundle: path,
+        durationMs: Date.now() - started,
+        data: {
+          records: records.length,
+          files: files.length,
+          hunks: files.reduce((total, file) => total + file.hunks.length, 0),
+          matched: rows.length,
+        },
+      });
+      return rows;
+    };
+
     const matched = matchToDiff(files, records, {
       symbolRanges: ranges,
     }).flatMap((match) => project(match, index, includeNonCurrent === true));
-    if (!uncovered) return matched;
+    if (!uncovered) return done(matched);
 
     // One row per changed symbol, in diff order, so a caller can enumerate the
     // symbols nothing covers. A hunk whose only records were filtered out lands
@@ -168,7 +186,7 @@ export const matchCommand = define({
         }
       }
     }
-    return [...rows.values()];
+    return done([...rows.values()]);
   },
 });
 
