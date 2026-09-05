@@ -68,10 +68,10 @@ Families are SAA-729's A–F; each `expected.json` names the individual checks.
 so a path added and deleted across the branch is absent from it;
 `materialize.spec.mjs` asserts every key appears in that diff.
 
-Classifier classes follow SAA-728 (`test`, `config`, `generated`,
-`boilerplate`, `rename`) plus `code` and `docs`. `kb` marks the companion
-base's own files; SAA-728 may fold those into `config`, and the fixture names
-them separately so a consumer can choose.
+Classifier classes are SAA-728's closed set: `test`, `config`, `ci`, `docs`,
+`lockfile`, `generated`, `boilerplate`, `rename`, `source`. The companion
+base's own files fall out of the path table like any other — a record is
+`docs`, `log.jsonl` is `config` — and carry no class of their own.
 
 ## Health of each base
 
