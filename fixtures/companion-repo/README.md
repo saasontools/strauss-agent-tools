@@ -58,7 +58,7 @@ path needs two states across commits and each needs its own name in `head/`
 | `deleted-record`         | `human` | A             | The risk is in `log.jsonl` and gone from the tree    |
 | `policy-file-change`     | `human` | —             | Everything else says auto; the policy row wins       |
 | `excluded-path-crosses`  | `human` | A             | The excluded hunk imports an included symbol         |
-| `drift-after-commit`     | `human` | D             | One anchor wants `--rebaseline`, one must not get it |
+| `drift-after-commit`     | `human` | B, D          | One anchor wants `--rebaseline`, one must not get it |
 | `review-thread-decision` | `human` | —             | `kb_verify` is audit, not approval                   |
 | `fabricated-decision`    | `human` | C             | Anchored, typed, validates, and says nothing         |
 
