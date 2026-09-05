@@ -34,6 +34,9 @@ review-focus marks kept current across a pull request's commits.
 **`kb-review`** — collect the inputs, spawn the reviewer agent, print its
 verdicts.
 
+**`review-walkthrough`** — the base and the diff rendered as one HTML review
+guide for a human.
+
 ## Reviewer agent
 
 `agents/kb-reviewer.md` (Claude Code only) reviews a pull request against the
@@ -62,6 +65,15 @@ a block by id, or switches a check off:
 ```json
 { "gate": { "warn": ["F4", "C6"], "off": ["B2"], "factOnlyLines": 40 } }
 ```
+
+## Walkthrough
+
+`scripts/__snapshots__/*.json` pin the deck two `fixtures/companion-repo`
+scenarios produce. A snapshot diff is a review, not a failure — read it, decide
+whether the new deck is better, then `UPDATE_SNAPSHOTS=1` to accept it.
+
+How to run it, the order it renders and when it refuses:
+[`skills/review-walkthrough/SKILL.md`](skills/review-walkthrough/SKILL.md).
 
 ## Install (unpublished)
 
