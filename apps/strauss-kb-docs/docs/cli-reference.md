@@ -403,6 +403,43 @@ strauss-kb backlinks fact.region-key
 Returns `{ target, backlinks }`, each `{ from, rel, title, standing, warnings }`,
 ordered by source id then rel.
 
+### `match`
+
+```
+match --git <base>..<head> | --stdin [--repo-root <path>] [--offline] [--include-non-current]
+```
+
+Which records sit on each changed hunk. The diff arrives one of two ways: a
+commit range this reads itself, or the MCP object as JSON on **stdin** — where
+`files` is `[{ filePath, hunks: [{ startLine, endLine, side? }] }]`, 1-based and
+inclusive, in the line numbers of the hunk's `side` (`"old"` or `"new"`;
+absent means post-change). `--git` emits an old-side hunk for every hunk that
+removed lines, so a record anchored `side: "old"` surfaces on the code that
+went away.
+
+| Flag                    | Effect                                                             |
+| ----------------------- | ------------------------------------------------------------------ |
+| `--git <base>..<head>`  | Read the range with `git diff --unified=0`. `...` works too.       |
+| `--stdin`               | Take `{ files, symbolRanges? }` as JSON instead.                   |
+| `--repo-root <path>`    | Where the changed source lives. Defaults to the working directory. |
+| `--offline`             | Resolve symbols from what is on disk, never fetching a grammar.    |
+| `--include-non-current` | Return superseded, rejected and unsettled records too.             |
+
+Symbol [anchors](./specification.md#anchors) are resolved through the same
+[chain](./specification.md#symbol-resolution) `anchor-resolve` uses, over the
+files the diff names and no others; pass `symbolRanges` on stdin to skip that.
+A symbol nothing resolved degrades to its file rather than dropping the record,
+which is what `precision` reports.
+
+```bash
+strauss-kb match --git origin/main...HEAD --repo-root /repo
+```
+
+Returns `[{ filePath, hunk, precision, records }]`, each record
+`{ conceptId, type, title, standing, status, supersededBy, materiality?,
+confidence?, tags?, anchor? }` — current first, no bodies. A hunk with nothing
+on it is absent, as is a binary file or a rename that changed no line.
+
 ### `list`
 
 ```

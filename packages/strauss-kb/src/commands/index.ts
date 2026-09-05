@@ -15,6 +15,7 @@ import { impactCommand } from "./impact.js";
 import { listCommand } from "./list.js";
 import { loadCommand } from "./load.js";
 import { logCommand } from "./log.js";
+import { matchCommand } from "./match/index.js";
 import { noDecisionCommand } from "./no-decision.js";
 import { packCommand } from "./pack.js";
 import { pinCommand } from "./pin.js";
@@ -55,6 +56,7 @@ export const KB_COMMANDS: KbCommand[] = [
   traceCommand,
   impactCommand,
   backlinksCommand,
+  matchCommand,
   listCommand,
   readIndexCommand,
   logCommand,
