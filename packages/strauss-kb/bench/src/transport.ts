@@ -13,6 +13,12 @@ export type BenchRequest = {
    * after the breakpoint and is never cached. */
   question: string;
   maxTokens: number;
+  /**
+   * The repeat's seed. Neither the Messages API nor the Claude Code CLI takes
+   * one, so the real transports ignore it; it is here so a fake transport can
+   * vary its answer per repeat the way a model does.
+   */
+  seed?: number;
 };
 
 export type BenchResponse = {

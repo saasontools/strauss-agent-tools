@@ -1,3 +1,8 @@
+import {
+  meanStability,
+  questionScores,
+  unstableQuestions,
+} from "./aggregate.js";
 import { ARMS } from "./arms.js";
 import {
   CACHE_READ_MULTIPLIER,
@@ -12,6 +17,10 @@ const TYPE_ORDER: readonly TaskType[] = [
   "open-question",
   "aggregation",
 ];
+
+/** A count that is a sum of per-question means, so it can be fractional. */
+const count = (value: number): string =>
+  Number.isInteger(value) ? String(value) : value.toFixed(1);
 
 const percent = (value: number): string =>
   Number.isNaN(value) ? "--" : `${(value * 100).toFixed(1)}%`;
@@ -44,6 +53,8 @@ export function renderReport(run: BenchRun): string {
         ? `, ${run.totals.errored} errored and excluded.`
         : "."),
     "",
+    matrixLine(run),
+    "",
     "## Arm A minus each control, paired on the question",
     "",
     "The headline is the `core` row: questions whose ground truth lives in",
@@ -62,14 +73,21 @@ export function renderReport(run: BenchRun): string {
     );
   }
 
+  const repeated = run.repeats > 1;
   lines.push("", "## Accuracy by arm", "");
-  lines.push("| model | arm | condition | n | core | standing-only | all |");
-  lines.push("| --- | --- | --- | --- | --- | --- | --- |");
+  lines.push(
+    "| model | arm | condition | questions | core | standing-only | all |" +
+      (repeated ? " stability |" : ""),
+  );
+  lines.push(
+    `| --- | --- | --- | --- | --- | --- | --- |${repeated ? " --- |" : ""}`,
+  );
   for (const summary of run.summaries) {
     lines.push(
       `| ${summary.model} | ${summary.arm} | ${ARMS[summary.arm].description} | ` +
-        `${summary.n} | ${interval(summary.coreAccuracy)} | ` +
-        `${interval(summary.standingOnlyAccuracy)} | ${interval(summary.accuracy)} |`,
+        `${summary.questions} | ${interval(summary.coreAccuracy)} | ` +
+        `${interval(summary.standingOnlyAccuracy)} | ${interval(summary.accuracy)} |` +
+        (repeated ? ` ${percent(summary.stability)} |` : ""),
     );
   }
 
@@ -79,10 +97,12 @@ export function renderReport(run: BenchRun): string {
   for (const summary of run.summaries) {
     const cells = TYPE_ORDER.map((type) => {
       const bucket = summary.byType[type];
-      return bucket.n === 0 ? "--" : `${bucket.correct}/${bucket.n}`;
+      return bucket.n === 0 ? "--" : `${count(bucket.correct)}/${bucket.n}`;
     });
     lines.push(`| ${summary.model} | ${summary.arm} | ${cells.join(" | ")} |`);
   }
+
+  if (repeated) lines.push(...stabilitySection(run));
 
   const failures = run.cells.filter((cell) => cell.errored);
   if (failures.length) {
@@ -164,6 +184,51 @@ export function renderReport(run: BenchRun): string {
   );
 
   return `${lines.join("\n")}\n`;
+}
+
+/**
+ * The shape of the run, and what it costs per repeat -- so a reader can scale
+ * the bill and the wall clock to the number of repeats that produced it.
+ */
+function matrixLine(run: BenchRun): string {
+  const questions = new Set(run.cells.map((cell) => cell.taskId)).size;
+  const arms = new Set(run.cells.map((cell) => cell.arm)).size;
+  const models = new Set(run.cells.map((cell) => cell.model)).size;
+  const perRepeat = questions * arms * models;
+  const plural = (n: number, noun: string) =>
+    `${n} ${noun}${n === 1 ? "" : "s"}`;
+  return (
+    `${plural(questions, "question")} x ${plural(arms, "arm")} x ` +
+    `${plural(models, "model")} x ${plural(run.repeats, "repeat")} = ` +
+    `${perRepeat * run.repeats} calls (${perRepeat} per repeat). Seed ${run.seed}.`
+  );
+}
+
+/**
+ * How often the repeats of one question agreed. A question that flips between
+ * repeats is noise, and a table that does not say so reads it as a result.
+ */
+function stabilitySection(run: BenchRun): string[] {
+  const scores = questionScores(run.cells);
+  const unstable = unstableQuestions(scores);
+  const lines = [
+    "",
+    "## Repeat stability",
+    "",
+    `${unstable.length} of ${scores.length} (model, arm, question) cells did not ` +
+      `land the same way every repeat; mean agreement ${percent(meanStability(scores))}.`,
+  ];
+  if (unstable.length) {
+    lines.push("", "| model | arm | question | passes | agreement |");
+    lines.push("| --- | --- | --- | --- | --- |");
+    for (const score of unstable) {
+      lines.push(
+        `| ${score.model} | ${score.arm} | ${score.taskId} | ` +
+          `${score.passes}/${score.repeats} | ${percent(score.stability)} |`,
+      );
+    }
+  }
+  return lines;
 }
 
 /** The same run as data, for a later pass that wants the per-cell checks. */

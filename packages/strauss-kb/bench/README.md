@@ -66,6 +66,19 @@ cancels the between-question difficulty that dominates a thirty-item set, so it
 can exclude zero while per-arm intervals overlap. Both bootstraps are seeded.
 Calls the transport could not complete get their own count.
 
+## Repeats
+
+`--repeats=N` asks every (arm, model, question) cell N times, each repeat
+recorded with its own seed. A cell scores the **mean** of its repeats, and the
+bootstrap still resamples questions, so intervals tighten with N without three
+answers to one question counting as three questions. Neither the API nor the
+CLI takes a sampling seed, so the seed labels the repeat rather than pinning
+the model's draw.
+
+The report then carries a **stability** column -- the fraction of repeats that
+agreed, per arm -- and lists every cell whose repeats disagreed. A question at
+50% stability is noise; a question wrong three times out of three is a finding.
+
 ## The bundle is a fixture
 
 The issue named `blogs/okf-strauss-kb/.kb`, absent here, as is any other `.kb`
@@ -109,7 +122,8 @@ pnpm exec vitest run bench       # the bench suite alone
 pnpm bench -- --help             # every flag
 pnpm bench -- --full --estimate  # price it before spending
 pnpm bench                       # smoke: arms A+B, 4 questions, Sonnet 5
-pnpm bench -- --full             # 30 questions x 4 arms x 2 models
+pnpm bench -- --full             # 31 questions x 4 arms x 2 models
+pnpm bench -- --full --repeats=3 # the same matrix, three times per cell
 ```
 
 A real run needs `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`. Unknown arms,
@@ -129,4 +143,4 @@ API, a `--system-prompt-file` on the CLI -- so cells are comparable within a
 transport, never across the two. The CLI has no max-tokens flag either, so
 output is uncapped there and those cells record `maxTokens: null`. POSIX only:
 on Windows the binary is `claude.cmd`, which will not spawn without a shell, and
-preflight says so rather than erroring 240 cells.
+preflight says so rather than erroring 248 cells.

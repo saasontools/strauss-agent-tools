@@ -1,7 +1,13 @@
+import { questionScores, meanStability } from "./aggregate.js";
 import { applyArm } from "./arms.js";
 import { buildPrompt } from "./prompt.js";
 import { scoreAnswer } from "./rubric.js";
-import { bootstrapCi, bootstrapPairedDiff } from "./stats.js";
+import {
+  DEFAULT_SEED,
+  bootstrapCi,
+  bootstrapPairedDiff,
+  deriveSeed,
+} from "./stats.js";
 import { EMPTY_USAGE } from "./transport.js";
 import type {
   ArmDifference,
@@ -15,6 +21,7 @@ import type {
   TaskType,
   TransportId,
 } from "./model.js";
+import type { QuestionScore } from "./aggregate.js";
 import type { Transport } from "./transport.js";
 
 const TASK_TYPES: readonly TaskType[] = [
@@ -36,6 +43,15 @@ export type RunOptions = {
   transportVersion?: string | null;
   /** In-flight calls. Kept low by default: the arms are not a load test. */
   concurrency?: number;
+  /**
+   * How many times to ask each (arm, model, question) cell. The score for the
+   * cell is the mean over its repeats; the bootstrap still resamples
+   * questions, so intervals tighten with repeats without three answers to one
+   * question counting as three questions.
+   */
+  repeats?: number;
+  /** Base for the per-repeat seeds. Recorded on the run. */
+  seed?: number;
   maxTokens?: number;
   bootstrapIterations?: number;
   onCell?: (cell: BenchCell) => void;
@@ -58,6 +74,8 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
     transportId = "api",
     transportVersion = null,
     concurrency = 4,
+    repeats = 1,
+    seed = DEFAULT_SEED,
     maxTokens = 2000,
     bootstrapIterations = 10_000,
     onCell,
@@ -66,13 +84,16 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
   const startedAt = new Date().toISOString();
   const bundles = new Map(arms.map((arm) => [arm, applyArm(records, arm)]));
 
-  type Job = { arm: ArmId; model: string; task: BenchTask };
+  type Job = { arm: ArmId; model: string; task: BenchTask; repeat: number };
   const jobs: Job[] = [];
   for (const model of models) {
     // Arm-major within a model: an arm's questions run back to back, which is
-    // what keeps its cached prefix warm.
+    // what keeps its cached prefix warm. Repeats are a pass over the same
+    // question list, so the prefix stays warm across them too.
     for (const arm of arms) {
-      for (const task of tasks) jobs.push({ arm, model, task });
+      for (let repeat = 0; repeat < Math.max(1, repeats); repeat += 1) {
+        for (const task of tasks) jobs.push({ arm, model, task, repeat });
+      }
     }
   }
 
@@ -89,12 +110,21 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
       const bundle = bundles.get(job.arm);
       if (!bundle) throw new Error(`no bundle for arm ${job.arm}`);
       const prompt = buildPrompt(bundle, job.task);
+      const cellSeed = deriveSeed(
+        seed,
+        job.model,
+        job.arm,
+        job.task.id,
+        job.repeat,
+      );
       const base = {
         arm: job.arm,
         model: job.model,
         taskId: job.task.id,
         taskType: job.task.type,
         taskFamily: job.task.family,
+        repeat: job.repeat,
+        seed: cellSeed,
       };
 
       let cell: BenchCell;
@@ -105,6 +135,7 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
           bundle: prompt.bundlePrefix,
           question: prompt.question,
           maxTokens,
+          seed: cellSeed,
         });
         cell = {
           ...base,
@@ -147,6 +178,8 @@ export async function runBench(options: RunOptions): Promise<BenchRun> {
   return {
     startedAt,
     finishedAt: new Date().toISOString(),
+    repeats: Math.max(1, repeats),
+    seed,
     transport: transportId,
     transportVersion,
     bundleRecordCount: records.length,
@@ -170,10 +203,12 @@ const sum = (
   of: (cell: BenchCell) => number,
 ): number => cells.reduce((total, cell) => total + of(cell), 0);
 
-const outcomes = (cells: readonly BenchCell[]): number[] =>
-  cells.map((cell) => (cell.scored.correct ? 1 : 0));
-
-/** Per (arm, model) accuracy with a bootstrap interval, plus breakdowns. */
+/**
+ * Per (arm, model) accuracy with a bootstrap interval, plus breakdowns.
+ *
+ * Everything below runs on per-question means, not on calls: with repeats, a
+ * question answered three times is still one draw from the question set.
+ */
 export function summarize(
   cells: readonly BenchCell[],
   bootstrapIterations = 10_000,
@@ -190,17 +225,21 @@ export function summarize(
     .map(([key, bucket]): ArmSummary => {
       const [model = "", arm = "A"] = key.split("\u0000");
       const answered = bucket.filter((cell) => !cell.errored);
-      const ci = (subset: readonly BenchCell[]) =>
-        bootstrapCi(outcomes(subset), { iterations: bootstrapIterations });
+      const scores = questionScores(bucket);
+      const ci = (subset: readonly QuestionScore[]) =>
+        bootstrapCi(
+          subset.map((score) => score.mean),
+          { iterations: bootstrapIterations },
+        );
 
       const byType = Object.fromEntries(
         TASK_TYPES.map((type) => {
-          const forType = answered.filter((cell) => cell.taskType === type);
+          const forType = scores.filter((score) => score.taskType === type);
           return [
             type,
             {
               n: forType.length,
-              correct: forType.filter((cell) => cell.scored.correct).length,
+              correct: forType.reduce((total, score) => total + score.mean, 0),
             },
           ];
         }),
@@ -210,12 +249,14 @@ export function summarize(
         arm: arm as ArmId,
         model,
         n: answered.length,
+        questions: scores.length,
         errored: bucket.length - answered.length,
-        accuracy: ci(answered),
-        coreAccuracy: ci(answered.filter((cell) => cell.taskFamily === "core")),
+        accuracy: ci(scores),
+        coreAccuracy: ci(scores.filter((score) => score.taskFamily === "core")),
         standingOnlyAccuracy: ci(
-          answered.filter((cell) => cell.taskFamily === "standing-only"),
+          scores.filter((score) => score.taskFamily === "standing-only"),
         ),
+        stability: meanStability(scores),
         byType,
       };
     })
@@ -229,7 +270,8 @@ export function summarize(
  *
  * `core` is the headline; `all` is reported alongside it, because an `all` much
  * larger than `core` means most of the gap is the standing-only questions. A
- * question leaves the pairing entirely if either arm failed it.
+ * question leaves the pairing entirely if either arm lost every repeat of it to
+ * a transport error; with repeats, each side of a pair is that question's mean.
  */
 export function pairedDifferences(
   cells: readonly BenchCell[],
@@ -241,17 +283,16 @@ export function pairedDifferences(
   const families: Array<TaskFamily | "all"> = ["all", "core", "standing-only"];
   const differences: ArmDifference[] = [];
 
+  const scores = questionScores(cells);
   for (const model of models) {
-    const forModel = cells.filter(
-      (cell) => cell.model === model && !cell.errored,
-    );
+    const forModel = scores.filter((score) => score.model === model);
     const byArm = new Map(
       arms.map((arm) => [
         arm,
         new Map(
           forModel
-            .filter((cell) => cell.arm === arm)
-            .map((cell) => [cell.taskId, cell]),
+            .filter((score) => score.arm === arm)
+            .map((score) => [score.taskId, score]),
         ),
       ]),
     );
@@ -266,14 +307,14 @@ export function pairedDifferences(
       for (const family of families) {
         const left: number[] = [];
         const right: number[] = [];
-        for (const [taskId, baseCell] of [...base.entries()].sort(([a], [b]) =>
+        for (const [taskId, baseScore] of [...base.entries()].sort(([a], [b]) =>
           a.localeCompare(b),
         )) {
-          const otherCell = other.get(taskId);
-          if (!otherCell) continue;
-          if (family !== "all" && baseCell.taskFamily !== family) continue;
-          left.push(baseCell.scored.correct ? 1 : 0);
-          right.push(otherCell.scored.correct ? 1 : 0);
+          const otherScore = other.get(taskId);
+          if (!otherScore) continue;
+          if (family !== "all" && baseScore.taskFamily !== family) continue;
+          left.push(baseScore.mean);
+          right.push(otherScore.mean);
         }
         if (left.length === 0) continue;
         differences.push({

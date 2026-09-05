@@ -28,6 +28,19 @@ const ESTIMATED_OUTPUT_TOKENS = 220;
 /** Claude Code wraps every call in its own scaffolding, on top of the prompt. */
 const CLAUDE_SCAFFOLDING_TOKENS = 900;
 
+/**
+ * Seconds one call takes, per transport, for the wall-clock line. Measured:
+ * the 2026-09-03 full run put 240 Claude Code calls through concurrency 2 in
+ * 989 s, so ~8 s of latency each. The API is quicker; both are rough.
+ */
+const CALL_SECONDS: Readonly<Record<TransportId, number>> = {
+  api: 6,
+  claude: 8,
+};
+
+/** Repeats per cell. More than this is a different experiment, not a rerun. */
+const MAX_REPEATS = 10;
+
 const TRANSPORT_IDS: readonly TransportId[] = ["api", "claude"];
 
 /** Every flag, with the line `--help` prints for it. */
@@ -41,6 +54,7 @@ const FLAG_HELP: Record<string, string> = {
     "api: the SDK on ANTHROPIC_API_KEY (default). claude: the local Claude Code CLI on its own login",
   "concurrency=<n>":
     "calls in flight, 1-32 (default 4; 2 for --transport=claude)",
+  "repeats=<n>": `ask every cell n times and score it on the mean, 1-${MAX_REPEATS} (default 1)`,
   "out=<dir>": "where the .md and .json results are written",
   help: "this list",
 };
@@ -60,6 +74,7 @@ export type CliOptions = {
   taskCount: number;
   outDir: string;
   concurrency: number;
+  repeats: number;
   transport: TransportId;
 };
 
@@ -149,6 +164,11 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     { min: 1, max: 32 },
   );
 
+  const repeats = numeric(flags.get("repeats"), 1, "--repeats", {
+    min: 1,
+    max: MAX_REPEATS,
+  });
+
   return {
     help: flags.get("help") === "true",
     full,
@@ -158,6 +178,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     taskCount,
     outDir: flags.get("out") ?? RESULTS_DIR,
     concurrency,
+    repeats,
     transport,
   };
 }
@@ -180,6 +201,8 @@ function numeric(
 
 export type Projection = {
   calls: number;
+  /** Wall clock at the run's concurrency, in seconds. Rough by construction. */
+  seconds: number;
   prefixTokens: number;
   tailTokens: number;
   byModel: Array<[string, CostProjection]>;
@@ -197,16 +220,26 @@ export function estimate(
 ): Projection {
   const prefixTokens = Math.ceil(prefixChars / CHARS_PER_TOKEN);
   const tailTokens = Math.ceil(tailChars / CHARS_PER_TOKEN);
+  // Repeats are more calls against the same cached prefix, so they multiply
+  // the calls per prefix rather than the number of prefixes.
   const shape = {
     prefixTokens,
     tailTokens,
     outputTokens: ESTIMATED_OUTPUT_TOKENS,
-    callsPerPrefix: tasks.length,
+    callsPerPrefix: tasks.length * options.repeats,
     prefixes: options.arms.length,
   };
+  const calls =
+    options.arms.length *
+    tasks.length *
+    options.models.length *
+    options.repeats;
 
   return {
-    calls: options.arms.length * tasks.length * options.models.length,
+    calls,
+    seconds: Math.round(
+      (calls * CALL_SECONDS[options.transport]) / options.concurrency,
+    ),
     prefixTokens,
     tailTokens,
     byModel: options.models.map((model) => [model, projectCost(model, shape)]),
@@ -252,7 +285,12 @@ export async function main(argv: readonly string[]): Promise<number> {
   write(
     `transport ${options.transport} | arms ${options.arms.join(",")} | ` +
       `models ${options.models.join(",")} | ${tasks.length} questions | ` +
+      `${options.repeats} repeat${options.repeats === 1 ? "" : "s"} | ` +
       `${projection.calls} calls`,
+  );
+  write(
+    `~${Math.round(projection.seconds / 60)} min wall clock at concurrency ` +
+      `${options.concurrency}, on ~${CALL_SECONDS[options.transport]}s a call`,
   );
   write(
     `~${projection.prefixTokens.toLocaleString("en-US")} cached prefix tokens per arm, ` +
@@ -331,20 +369,25 @@ export async function main(argv: readonly string[]): Promise<number> {
     transportId: options.transport,
     transportVersion,
     concurrency: options.concurrency,
+    repeats: options.repeats,
     onCell: (cell) => {
       done += 1;
       write(
-        `[${done}/${projection.calls}] ${cell.model} ${cell.arm} ${cell.taskId} ` +
-          `${cell.errored ? `ERROR ${cell.error}` : cell.scored.correct ? "ok" : "miss"}`,
+        `[${done}/${projection.calls}] ${cell.model} ${cell.arm} ${cell.taskId}` +
+          (options.repeats > 1 ? ` #${cell.repeat + 1}` : "") +
+          ` ${cell.errored ? `ERROR ${cell.error}` : cell.scored.correct ? "ok" : "miss"}`,
       );
     },
   }).finally(() => dispose?.());
 
   await mkdir(options.outDir, { recursive: true });
   const stamp = run.startedAt.replace(/[:.]/g, "-");
+  // The repeat count rides in the name: two runs of the same matrix at
+  // different N are different runs, and the stamp alone does not say so.
   const label =
     (options.full ? "full" : "smoke") +
-    (options.transport === "claude" ? "-claude" : "");
+    (options.transport === "claude" ? "-claude" : "") +
+    (options.repeats > 1 ? `-x${options.repeats}` : "");
   await writeFile(
     join(options.outDir, `${label}-${stamp}.md`),
     renderReport(run),

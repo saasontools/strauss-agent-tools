@@ -1,3 +1,9 @@
+export {
+  meanStability,
+  questionScores,
+  unstableQuestions,
+  type QuestionScore,
+} from "./aggregate.js";
 export { ARMS, ARM_IDS, CAREFUL_INSTRUCTION, applyArm } from "./arms.js";
 export type { ArmBundle, ArmRecord, ArmSpec } from "./arms.js";
 export { DEFAULT_BUNDLE_DIR, loadBundle } from "./bundle.js";
@@ -40,8 +46,10 @@ export {
   type RunOptions,
 } from "./runner.js";
 export {
+  DEFAULT_SEED,
   bootstrapCi,
   bootstrapPairedDiff,
+  deriveSeed,
   mulberry32,
   type BootstrapOptions,
 } from "./stats.js";

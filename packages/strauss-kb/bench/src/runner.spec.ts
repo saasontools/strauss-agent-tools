@@ -5,6 +5,7 @@ import { CliUsageError, estimate, main, parseArgs } from "./cli.js";
 import { projectCost, usageCost } from "./models.js";
 import { renderReport } from "./report.js";
 import { pairedDifferences, runBench } from "./runner.js";
+import { questionScores, unstableQuestions } from "./aggregate.js";
 import { CORE_TASKS, TASKS, sampleTasks } from "./tasks.js";
 import {
   EMPTY_USAGE,
@@ -187,6 +188,155 @@ describe("runBench (dry run)", () => {
   });
 });
 
+describe("repeats", () => {
+  const correctQueueAnswer = {
+    value: "NATS JetStream",
+    actionable: true,
+    conceptIds: ["decision.jetstream-queue-backend"],
+  };
+
+  /** Right on the first repeat of every question, wrong on the rest. */
+  const flipOnRepeat = () => {
+    const seen = new Map<string, number>();
+    return mockTransport((request) => {
+      const key = request.question;
+      const nth = (seen.get(key) ?? 0) + 1;
+      seen.set(key, nth);
+      return nth === 1 ? correctQueueAnswer : { value: "Amazon SQS" };
+    });
+  };
+
+  it("asks every cell N times, with a distinct seed per repeat", async () => {
+    const run = await runBench({
+      records,
+      tasks: tasks.slice(0, 2),
+      arms: ["A", "B"],
+      models: ["mock"],
+      transport: mockTransport(standingAwareAnswers),
+      repeats: 3,
+      concurrency: 1,
+      bootstrapIterations: 200,
+    });
+
+    expect(run.repeats).toBe(3);
+    expect(run.cells).toHaveLength(2 * 2 * 3);
+    const seeds = run.cells.map((cell) => cell.seed);
+    expect(new Set(seeds).size).toBe(seeds.length);
+    expect(new Set(run.cells.map((cell) => cell.repeat))).toEqual(
+      new Set([0, 1, 2]),
+    );
+    // Three repeats of two questions are still two questions.
+    expect(run.summaries[0]?.questions).toBe(2);
+    expect(run.summaries[0]?.n).toBe(6);
+  });
+
+  it("scores a cell on the mean of its repeats, not on its calls", async () => {
+    const run = await runBench({
+      records,
+      tasks: [CORE_TASKS[0]!],
+      arms: ["A"],
+      models: ["mock"],
+      transport: flipOnRepeat(),
+      repeats: 4,
+      concurrency: 1,
+      bootstrapIterations: 200,
+    });
+
+    const [score] = questionScores(run.cells);
+    expect(score?.repeats).toBe(4);
+    expect(score?.passes).toBe(1);
+    expect(score?.mean).toBeCloseTo(0.25, 9);
+    // One question, so the interval collapses on its mean rather than
+    // pretending four calls are four draws from the question set.
+    const summary = run.summaries[0]!;
+    expect(summary.questions).toBe(1);
+    expect(summary.accuracy.mean).toBeCloseTo(0.25, 9);
+    expect(summary.accuracy.lower).toBeCloseTo(0.25, 9);
+    expect(summary.stability).toBeCloseTo(0.75, 9);
+  });
+
+  it("pairs arms on the question mean and drops an all-errored question", () => {
+    const cell = (
+      arm: "A" | "B",
+      taskId: string,
+      repeat: number,
+      correct: boolean,
+      errored = false,
+    ) => ({
+      arm,
+      model: "mock",
+      taskId,
+      taskType: "current-state" as const,
+      taskFamily: "core" as const,
+      repeat,
+      seed: repeat,
+      answer: null,
+      scored: { correct, checks: {} },
+      usage: EMPTY_USAGE,
+      maxTokens: 2000,
+      errored,
+      error: errored ? "boom" : null,
+    });
+
+    const differences = pairedDifferences(
+      [
+        // q1: A passes both repeats, B passes one of two -- a half-point gap.
+        cell("A", "q1", 0, true),
+        cell("A", "q1", 1, true),
+        cell("B", "q1", 0, true),
+        cell("B", "q1", 1, false),
+        // q2: B lost every repeat to the transport, so the question is out.
+        cell("A", "q2", 0, true),
+        cell("A", "q2", 1, true),
+        cell("B", "q2", 0, false, true),
+        cell("B", "q2", 1, false, true),
+      ],
+      200,
+    );
+    const all = differences.find((diff) => diff.family === "all");
+    expect(all?.pairs).toBe(1);
+    expect(all?.difference.mean).toBeCloseTo(0.5, 9);
+  });
+
+  it("reports the questions whose repeats disagreed", async () => {
+    const run = await runBench({
+      records,
+      tasks: tasks.slice(0, 2),
+      arms: ["A"],
+      models: ["mock"],
+      transport: flipOnRepeat(),
+      repeats: 3,
+      concurrency: 1,
+      bootstrapIterations: 200,
+    });
+
+    const report = renderReport(run);
+    expect(report).toContain("## Repeat stability");
+    expect(report).toContain("x 3 repeats");
+    expect(report).toContain("stability");
+    // The queue question passes once in three; the other never passes, so it
+    // is stable and wrong -- which is the distinction the column exists for.
+    const unstable = unstableQuestions(questionScores(run.cells));
+    expect(unstable.map((score) => score.taskId)).toEqual([CORE_TASKS[0]!.id]);
+    expect(report).toContain(`| ${CORE_TASKS[0]!.id} | 1/3 |`);
+  });
+
+  it("leaves a single-repeat run reporting exactly as before", async () => {
+    const run = await runBench({
+      records,
+      tasks,
+      arms: ["A", "C"],
+      models: ["mock"],
+      transport: mockTransport(standingAwareAnswers),
+      bootstrapIterations: 200,
+    });
+    expect(run.repeats).toBe(1);
+    const report = renderReport(run);
+    expect(report).not.toContain("## Repeat stability");
+    expect(report).toContain("x 1 repeat =");
+  });
+});
+
 describe("paired differences", () => {
   it("pairs on the question and reports core separately from all", async () => {
     const run = await runBench({
@@ -223,6 +373,8 @@ describe("paired differences", () => {
       taskId,
       taskType: "current-state" as const,
       taskFamily: "core" as const,
+      repeat: 0,
+      seed: 1,
       answer: null,
       scored: { correct, checks: {} },
       usage: EMPTY_USAGE,
@@ -661,8 +813,23 @@ describe("cli", () => {
       /--tasks must be an integer/,
     );
     expect(() => parseArgs(["--concurrency=nope"])).toThrow(/--concurrency/);
+    expect(() => parseArgs(["--repeats=0"])).toThrow(/--repeats/);
+    expect(() => parseArgs(["--repeats=11"])).toThrow(/--repeats/);
     expect(() => parseArgs(["full"])).toThrow(/unexpected argument/);
     expect(() => parseArgs(["--arms=A,E"])).toThrow(CliUsageError);
+  });
+
+  it("repeats every cell and scales the projection with them", () => {
+    const options = parseArgs(["--full", "--repeats=3"]);
+    expect(options.repeats).toBe(3);
+    const single = estimate(parseArgs(["--full"]), TASKS, 36_000, 800);
+    const tripled = estimate(options, TASKS, 36_000, 800);
+    expect(tripled.calls).toBe(single.calls * 3);
+    expect(tripled.seconds).toBe(single.seconds * 3);
+    // Repeats reuse the arm's cached prefix, so the cost grows by less than 3x.
+    const one = single.byModel[0]![1];
+    const three = tripled.byModel[0]![1];
+    expect(three.cached).toBeLessThan(one.cached * 3);
   });
 
   it("prices the full matrix before anything is spent", () => {
@@ -699,6 +866,7 @@ describe("cli", () => {
       "--models",
       "--tasks",
       "--concurrency",
+      "--repeats",
       "--out",
       "--help",
     ]) {

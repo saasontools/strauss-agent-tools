@@ -21,12 +21,18 @@ pnpm bench -- --full
 
 pnpm bench -- --full --transport=claude --estimate   # no key: the local CLI
 pnpm bench -- --full --transport=claude
+
+# Three repeats per cell, so a flipping question shows up as one:
+MAX_THINKING_TOKENS=0 pnpm bench -- --full --transport=claude --repeats=3
 ```
+
+`--repeats=N` files as `full-claude-xN-<timestamp>`, and the estimate line
+scales with N: 744 calls at concurrency 2 is roughly 50 minutes.
 
 The `claude` transport spends the login's quota, not dollars, and files its
 results as `full-claude-<timestamp>`.
 
-30 questions x 4 arms x 2 models = **240 calls**.
+31 questions x 4 arms x 2 models = **248 calls**, times `--repeats`.
 
 ## What the full matrix costs
 
@@ -44,5 +50,5 @@ clearing a model's minimum cacheable size.
 
 A 95% bootstrap interval on the 26 core questions is roughly +/- 19 points at
 50% accuracy, so a five-point gap between two arms is not a result. Read the
-paired difference instead; to sharpen it, repeat at a different seed or widen
-the question set.
+paired difference instead; to sharpen it, run `--repeats=3` and check the
+stability column before believing any single cell, or widen the question set.

@@ -113,6 +113,15 @@ export type BenchCell = {
   taskId: string;
   taskType: TaskType;
   taskFamily: TaskFamily;
+  /** Which repeat of this cell, from 0. One cell per repeat. */
+  repeat: number;
+  /**
+   * The seed for this repeat, derived from the run seed and the cell's
+   * coordinates. Neither the API nor the CLI takes a sampling seed, so it
+   * labels the repeat and drives the bench's own draws rather than the model's
+   * -- repeats differ by the model's sampling, which nothing here controls.
+   */
+  seed: number;
   answer: ModelAnswer | null;
   scored: ScoredAnswer;
   usage: CellUsage;
@@ -139,13 +148,21 @@ export type ConfidenceInterval = {
 export type ArmSummary = {
   arm: ArmId;
   model: string;
-  /** Cells that produced an answer -- the accuracy denominator. */
+  /** Cells that produced an answer. `questions x repeats` when none errored. */
   n: number;
+  /** Questions with at least one answered repeat -- the accuracy denominator. */
+  questions: number;
   errored: number;
   accuracy: ConfidenceInterval;
   /** Headline: `core` questions only. */
   coreAccuracy: ConfidenceInterval;
   standingOnlyAccuracy: ConfidenceInterval;
+  /**
+   * Mean repeat agreement over this arm's questions; 1 when every question
+   * landed the same way every time. `NaN` when nothing was answered.
+   */
+  stability: number;
+  /** `correct` is a sum of per-question means, so it can be fractional. */
   byType: Record<TaskType, { n: number; correct: number }>;
 };
 
@@ -170,6 +187,10 @@ export type TransportId = "api" | "claude";
 export type BenchRun = {
   startedAt: string;
   finishedAt: string;
+  /** How many times each (arm, model, question) cell was asked. */
+  repeats: number;
+  /** The run seed every cell seed is derived from. */
+  seed: number;
   transport: TransportId;
   /** The Claude Code version that answered, when `transport` is `claude`. */
   transportVersion: string | null;

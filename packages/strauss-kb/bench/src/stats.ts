@@ -16,6 +16,28 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
+/** The seed every run derives its cell seeds from, unless one is passed. */
+export const DEFAULT_SEED = 20260901;
+
+/**
+ * A cell's seed: the run seed mixed with the cell's coordinates, so two runs
+ * of the same matrix label the same repeat the same way and no two repeats of
+ * one question share a label.
+ */
+export function deriveSeed(
+  base: number,
+  ...parts: readonly (string | number)[]
+): number {
+  let hash = base >>> 0;
+  for (const part of parts) {
+    for (const char of String(part)) {
+      hash = Math.imul(hash ^ char.charCodeAt(0), 0x01000193) >>> 0;
+    }
+    hash = Math.imul(hash ^ 0x2f, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
 export type BootstrapOptions = {
   iterations?: number;
   /** Two-sided; 0.05 gives a 95% interval. */
@@ -32,7 +54,7 @@ export function bootstrapCi(
   outcomes: readonly number[],
   options: BootstrapOptions = {},
 ): ConfidenceInterval {
-  const { iterations = 10_000, alpha = 0.05, seed = 20260901 } = options;
+  const { iterations = 10_000, alpha = 0.05, seed = DEFAULT_SEED } = options;
   const n = outcomes.length;
   if (n === 0)
     return { mean: Number.NaN, lower: Number.NaN, upper: Number.NaN };
@@ -68,7 +90,7 @@ export function bootstrapPairedDiff(
   b: readonly number[],
   options: BootstrapOptions = {},
 ): ConfidenceInterval {
-  const { iterations = 10_000, alpha = 0.05, seed = 20260901 } = options;
+  const { iterations = 10_000, alpha = 0.05, seed = DEFAULT_SEED } = options;
   if (a.length !== b.length) {
     throw new Error(
       `paired bootstrap needs aligned samples: got ${a.length} and ${b.length}`,
