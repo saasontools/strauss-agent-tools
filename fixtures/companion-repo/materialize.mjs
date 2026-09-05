@@ -14,7 +14,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { devNull, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,10 +27,16 @@ export const DELETED_SUFFIX = ".deleted";
 
 // The builder never reads the machine's git config: a global hooksPath,
 // excludesFile or autocrlf would change the tree or fail the commit, and the
-// hashes are the fixture's contract.
+// hashes are the fixture's contract. An empty file stands in for every config
+// git would read; the null device is not a path git accepts on Windows.
+const EMPTY_CONFIG = join(
+  mkdtempSync(join(tmpdir(), "companion-repo-config-")),
+  "empty",
+);
+writeFileSync(EMPTY_CONFIG, "");
 const ENV = {
-  GIT_CONFIG_GLOBAL: devNull,
-  GIT_CONFIG_SYSTEM: devNull,
+  GIT_CONFIG_GLOBAL: EMPTY_CONFIG,
+  GIT_CONFIG_SYSTEM: EMPTY_CONFIG,
   GIT_AUTHOR_NAME: "Companion Fixture",
   GIT_AUTHOR_EMAIL: "fixture@example.invalid",
   GIT_COMMITTER_NAME: "Companion Fixture",
@@ -40,7 +46,7 @@ const CONFIG = [
   "-c",
   "core.hooksPath=",
   "-c",
-  `core.excludesFile=${devNull}`,
+  `core.excludesFile=${EMPTY_CONFIG}`,
   "-c",
   "core.autocrlf=false",
   "-c",
