@@ -1,11 +1,11 @@
 {
   "route": "human",
   "classifier": {
-    "src/services/chunker.ts": "code",
-    "src/services/tenant.service.ts": "code",
-    ".strauss/kb/decision.tenant-chunk-size.md": "kb",
-    ".strauss/kb/log.jsonl": "kb",
-    ".strauss/kb/fact.chunking-extracted-from-tenant-service.md": "kb"
+    "src/services/chunker.ts": "source",
+    "src/services/tenant.service.ts": "source",
+    ".strauss/kb/decision.tenant-chunk-size.md": "docs",
+    ".strauss/kb/log.jsonl": "config",
+    ".strauss/kb/fact.chunking-extracted-from-tenant-service.md": "docs"
   },
   "gateFamilies": ["B", "D"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

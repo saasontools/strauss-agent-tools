@@ -1,9 +1,9 @@
 {
   "route": "human",
   "classifier": {
-    "src/services/tenant.service.ts": "code",
-    ".strauss/kb/decision.tenant-cache-ttl.md": "kb",
-    ".strauss/kb/log.jsonl": "kb"
+    "src/services/tenant.service.ts": "source",
+    ".strauss/kb/decision.tenant-cache-ttl.md": "docs",
+    ".strauss/kb/log.jsonl": "config"
   },
   "gateFamilies": ["C"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

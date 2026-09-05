@@ -1,9 +1,9 @@
 {
   "route": "human",
   "classifier": {
-    "src/repositories/base.repository.ts": "code",
-    ".strauss/kb/risk.repository-retry-storm.md": "kb",
-    ".strauss/kb/log.jsonl": "kb"
+    "src/repositories/base.repository.ts": "source",
+    ".strauss/kb/risk.repository-retry-storm.md": "docs",
+    ".strauss/kb/log.jsonl": "config"
   },
   "gateFamilies": ["D"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
