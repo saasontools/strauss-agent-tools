@@ -477,13 +477,17 @@ function decider(raw, headSha) {
 
 /** @param {any[]} raw */
 function approvals(raw) {
-  return asArray(raw).map((row) => ({
-    user:
-      asString(/** @type {any} */ (row)?.user) ||
-      asString(/** @type {any} */ (row)?.user?.login),
-    state: asString(/** @type {any} */ (row)?.state).toUpperCase(),
-    commit_id: asString(/** @type {any} */ (row)?.commit_id),
-  }));
+  return asArray(raw).map((row) => {
+    const user = /** @type {any} */ (row)?.user;
+    return {
+      user: asString(user) || asString(user?.login),
+      // `Bot` on the reviews API, carried so a dry run can tell an app's read
+      // from a person's.
+      type: asString(user?.type) || asString(/** @type {any} */ (row)?.type),
+      state: asString(/** @type {any} */ (row)?.state).toUpperCase(),
+      commit_id: asString(/** @type {any} */ (row)?.commit_id),
+    };
+  });
 }
 
 /**

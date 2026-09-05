@@ -63,13 +63,17 @@ export function bundleHref(dir) {
 export function report(model) {
   const bundle = bundleHref(model.bundle);
   const link = bundle ? prRepo(model.prUrl) : null;
+  const dry = model.mode === "dry-run";
+  const route = dry ? model.would : model.route;
   const lines = [
     MARKER,
-    `### Merge policy: ${model.route}`,
+    dry
+      ? `### Merge policy (dry run): would ${route}`
+      : `### Merge policy: ${route}`,
     "",
     "| | |",
     "| --- | --- |",
-    `| route | \`${model.route}\` via \`${model.rule}\` |`,
+    `| ${dry ? "would" : "route"} | \`${route}\` via \`${model.rule}\` |`,
     `| why | ${cell(model.reason)} |`,
     `| policy | ${policy(model)} |`,
     `| head | \`${cell(model.headSha)}\` |`,
@@ -83,6 +87,9 @@ export function report(model) {
           `| record | ${model.wrote.written ? `\`${cell(model.wrote.conceptId)}\`` : `not written — ${cell(model.wrote.why)}`} |`,
         ]
       : []),
+    ...(model.signals?.disagreement
+      ? [`| disagreement | ${cell(model.signals.signals.join(", "))} |`]
+      : []),
     "",
     ...records(model, link, bundle),
     "",
@@ -90,6 +97,25 @@ export function report(model) {
     ...notChecked(model),
   ];
   return `${trim(lines).join("\n")}\n`;
+}
+
+/**
+ * The block a blind dry run posts instead of its answer: the same marker, so
+ * the sticky comment this run owns is the one the verdict later replaces.
+ * @param {any} model @returns {string}
+ */
+export function placeholder(model) {
+  return `${[
+    MARKER,
+    "### Merge policy (dry run): verdict withheld",
+    "",
+    `The check ran. Its verdict is withheld until the first human review on \`${cell(model.headSha)}\`, so it cannot anchor the review it is being measured against.`,
+    "",
+    `| | |`,
+    "| --- | --- |",
+    `| policy | ${policy(model)} |`,
+    `| head | \`${cell(model.headSha)}\` |`,
+  ].join("\n")}\n`;
 }
 
 /** Which file decided this, at which version and digest. @param {any} model */
