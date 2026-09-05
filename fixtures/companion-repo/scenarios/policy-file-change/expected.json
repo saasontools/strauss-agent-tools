@@ -1,0 +1,9 @@
+{
+  "route": "human",
+  "classifier": {
+    ".strauss/merge-policy.yaml": "config"
+  },
+  "gateFamilies": [],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "No code changed and the base is silent, so every other input points at `auto`. The policy-file row is first in SAA-741's table and must win. Policy is read from the base branch, so this branch's own edit does not take effect for its own evaluation."
+}

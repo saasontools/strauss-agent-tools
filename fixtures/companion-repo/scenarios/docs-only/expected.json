@@ -1,0 +1,9 @@
+{
+  "route": "auto",
+  "classifier": {
+    "docs/README.md": "docs"
+  },
+  "gateFamilies": [],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "No code file changed, so base silence is correct rather than a hole. The control for silent-code-change: same empty base, opposite route."
+}

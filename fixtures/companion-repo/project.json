@@ -1,0 +1,23 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "companion-repo-fixture",
+  "projectType": "library",
+  "implicitDependencies": ["@saasontools/strauss-kb"],
+  "targets": {
+    "test": {
+      // The scenarios' records are markdown the spec reads, so this target
+      // opts back out of `noMarkdown`. See AGENTS.md.
+      "inputs": ["default", "^noMarkdown"],
+      "dependsOn": [
+        { "projects": ["@saasontools/strauss-kb"], "target": "build" }
+      ],
+      "command": "node --test fixtures/companion-repo/materialize.spec.mjs"
+    },
+    "lint": {
+      "command": "eslint materialize.mjs materialize.spec.mjs",
+      "options": {
+        "cwd": "fixtures/companion-repo"
+      }
+    }
+  }
+}

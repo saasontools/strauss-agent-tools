@@ -133,4 +133,6 @@ jobs:
       # unlike the packages, its markdown IS source, so without this exclude
       # every prose edit to the docs would drag two extra `docusaurus build`
       # runs along with it. The site is still built and deployed by docs.yml.
-      - run: pnpm nx affected -t build test --exclude strauss-kb-docs
+      # companion-repo-fixture builds a git repo with a null-device global
+      # config; it proves the package's tests, not its path handling.
+      - run: pnpm nx affected -t build test --exclude strauss-kb-docs,companion-repo-fixture

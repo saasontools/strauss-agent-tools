@@ -1,0 +1,9 @@
+{
+  "route": "human",
+  "classifier": {
+    "src/services/tenant.service.ts": "code"
+  },
+  "gateFamilies": ["A"],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "A1: TenantService.findMany changed, no record covers it, no decision.none. The base is byte-identical to main, so a consumer that only diffs record content sees nothing."
+}

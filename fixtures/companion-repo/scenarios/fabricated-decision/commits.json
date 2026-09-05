@@ -1,0 +1,10 @@
+[
+  {
+    "message": "perf(tenant): cache tenant lookups for a minute",
+    "files": [
+      "src/services/tenant.service.ts",
+      ".strauss/kb/decision.tenant-cache-ttl.md",
+      ".strauss/kb/log.jsonl"
+    ]
+  }
+]

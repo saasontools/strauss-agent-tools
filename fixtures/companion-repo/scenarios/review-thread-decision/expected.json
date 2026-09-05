@@ -1,0 +1,12 @@
+{
+  "route": "human",
+  "classifier": {
+    "src/checkout/pay.ts": "code",
+    ".strauss/kb/decision.checkout-retry-budget-per-tenant.md": "kb",
+    ".strauss/kb/decision.checkout-retry-budget.md": "kb",
+    ".strauss/kb/log.jsonl": "kb"
+  },
+  "gateFamilies": [],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "The clean supersession: the new decision cites the PR comment URL as its source, supersedes the base decision, and both ends of the chain are in the bundle. `log.jsonl` carries write, supersede, and a `verify` by human:dana. The verify is an audit record, not approval \u2014 SAA-741 reads approval from the GitHub reviews API, so a changed production symbol still routes human."
+}
