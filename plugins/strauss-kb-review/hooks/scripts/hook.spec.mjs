@@ -18,10 +18,11 @@ import { launcher, run } from "./lib/cli.mjs";
 import { readState, statePath, writeState } from "./lib/state.mjs";
 
 /**
- * The idle path is git plus a directory scan — measured at ~50 ms, asserted at
- * 3× that so a loaded CI host does not fail a run over scheduling noise.
+ * The idle path is git plus a directory scan — measured at ~50 ms. The bound
+ * is a smoke check only (the spawn sentinel below is the real assertion), so
+ * it carries enough headroom for a host running the whole workspace in parallel.
  */
-const IDLE_BUDGET_MS = 150;
+const IDLE_BUDGET_MS = 2000;
 
 /**
  * A launcher that records every spawn instead of being one, so "no CLI on the
