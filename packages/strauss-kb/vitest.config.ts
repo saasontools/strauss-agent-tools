@@ -19,7 +19,9 @@ export default defineConfig({
     // Grammars download on first use; the setup file serves the fixtures over
     // localhost so no test reaches the CDN.
     setupFiles: ["test/grammars.setup.ts"],
-    include: ["src/**/*.spec.ts", "test/**/*.spec.ts"],
+    // The bench dry-run suite runs here too: fast, no network, and the only
+    // guard between an arm-transform regression and a paid run.
+    include: ["src/**/*.spec.ts", "test/**/*.spec.ts", "bench/**/*.spec.ts"],
     testTimeout: 20_000,
     hookTimeout: 30_000,
     coverage: {

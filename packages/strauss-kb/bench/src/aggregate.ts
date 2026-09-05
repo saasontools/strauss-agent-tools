@@ -1,0 +1,84 @@
+import type { BenchCell, TaskFamily, TaskType } from "./model.js";
+
+/**
+ * One question in one cell of the matrix, collapsed over its repeats.
+ *
+ * The unit the statistics run on. Repeats are not independent questions -- the
+ * same question asked three times measures one question three times -- so they
+ * average into a score here and the bootstrap resamples these, never the
+ * individual calls.
+ */
+export type QuestionScore = {
+  model: string;
+  arm: string;
+  taskId: string;
+  taskType: TaskType;
+  taskFamily: TaskFamily;
+  /** Repeats that came back. An errored repeat is not counted. */
+  repeats: number;
+  passes: number;
+  /** `passes / repeats`, in [0, 1]. */
+  mean: number;
+  /**
+   * The fraction of repeats that agree with the majority: 1 when every repeat
+   * landed the same way, 0.5 at a dead split. A question near 0.5 is noise
+   * being reported as a result.
+   */
+  stability: number;
+};
+
+const key = (cell: BenchCell): string =>
+  `${cell.model}\u0000${cell.arm}\u0000${cell.taskId}`;
+
+/**
+ * Collapses cells to one score per (model, arm, question). Errored repeats drop
+ * out; a question whose every repeat errored leaves the set entirely, the same
+ * way an errored call left the denominator before repeats existed.
+ */
+export function questionScores(cells: readonly BenchCell[]): QuestionScore[] {
+  const groups = new Map<string, QuestionScore>();
+  for (const cell of cells) {
+    if (cell.errored) continue;
+    const existing = groups.get(key(cell)) ?? {
+      model: cell.model,
+      arm: cell.arm,
+      taskId: cell.taskId,
+      taskType: cell.taskType,
+      taskFamily: cell.taskFamily,
+      repeats: 0,
+      passes: 0,
+      mean: 0,
+      stability: 1,
+    };
+    existing.repeats += 1;
+    if (cell.scored.correct) existing.passes += 1;
+    existing.mean = existing.passes / existing.repeats;
+    existing.stability =
+      Math.max(existing.passes, existing.repeats - existing.passes) /
+      existing.repeats;
+    groups.set(key(cell), existing);
+  }
+  return [...groups.values()];
+}
+
+/** Questions whose repeats did not all land the same way. */
+export function unstableQuestions(
+  scores: readonly QuestionScore[],
+): QuestionScore[] {
+  return scores
+    .filter((score) => score.stability < 1)
+    .sort(
+      (a, b) =>
+        a.model.localeCompare(b.model) ||
+        a.arm.localeCompare(b.arm) ||
+        a.taskId.localeCompare(b.taskId),
+    );
+}
+
+/** Mean agreement over a set of questions. `NaN` on an empty set. */
+export function meanStability(scores: readonly QuestionScore[]): number {
+  if (scores.length === 0) return Number.NaN;
+  return (
+    scores.reduce((total, score) => total + score.stability, 0) / scores.length
+  );
+}

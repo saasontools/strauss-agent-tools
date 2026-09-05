@@ -52,6 +52,76 @@ function packageFor(pluginDir, packages) {
   return null;
 }
 
+/**
+ * The parts of a `package.json` a consumer can be wrong about.
+ *
+ * A package.json edit is not automatically a shipped change. Adding a dev
+ * script or a devDependency for tooling that never leaves the repo moves no
+ * byte a consumer installs, and failing the check on it would teach the only
+ * lesson a false positive ever teaches: bump the plugin to make CI quiet.
+ * What a consumer resolves, installs, and executes is this list — plus the
+ * install-time lifecycle hooks, which run on their machine.
+ */
+const SHIPPED_MANIFEST_FIELDS = [
+  "name",
+  // `version` moves on every release commit; a bump alone ships no new byte.
+  "type",
+  "main",
+  "module",
+  "browser",
+  "types",
+  "typesVersions",
+  "exports",
+  "imports",
+  "bin",
+  "files",
+  "sideEffects",
+  "dependencies",
+  "peerDependencies",
+  "peerDependenciesMeta",
+  "optionalDependencies",
+  "bundleDependencies",
+  "engines",
+  "os",
+  "cpu",
+  "publishConfig",
+  // Install-time hooks run on the consumer's machine.
+  "scripts.preinstall",
+  "scripts.install",
+  "scripts.postinstall",
+  "scripts.prepare",
+  // Publish-time hooks decide what ends up *in* the tarball. `prepack` is the
+  // one that builds `dist` here, so a change to it changes what ships even
+  // though no source file moved.
+  "scripts.prepack",
+  "scripts.prepublish",
+  "scripts.prepublishOnly",
+];
+
+const at = (object, path) =>
+  path.split(".").reduce((node, key) => node?.[key], object);
+
+const shippedSurface = (manifest) =>
+  JSON.stringify(
+    Object.fromEntries(
+      SHIPPED_MANIFEST_FIELDS.map((field) => [
+        field,
+        at(manifest, field) ?? null,
+      ]),
+    ),
+  );
+
+/** Did this package.json change anything a consumer receives? */
+function manifestShipped(path, base) {
+  let before;
+  try {
+    before = JSON.parse(git("show", `${base}:${path}`));
+  } catch {
+    return true; // new package: everything about it is new
+  }
+  return shippedSurface(before) !== shippedSurface(readJson(path));
+}
+
 const base = process.env.NX_BASE || "origin/main";
 const changed = git("diff", "--name-only", `${base}...HEAD`)
   .split("\n")
@@ -87,9 +157,12 @@ for (const entry of readdirSync("plugins", { withFileTypes: true })) {
   const pkg = packages.find((p) => p.name === pkgName);
 
   // Only shipped source counts. A README or changelog edit changes nothing a
-  // plugin in front of it could be wrong about.
+  // plugin in front of it could be wrong about, and neither does a package.json
+  // edit that leaves every consumer-visible field alone.
   const shipped = changed.filter(
-    (f) => f.startsWith(`${pkg.dir}/src/`) || f === `${pkg.dir}/package.json`,
+    (f) =>
+      f.startsWith(`${pkg.dir}/src/`) ||
+      (f === `${pkg.dir}/package.json` && manifestShipped(f, base)),
   );
   if (shipped.length === 0) continue;
 
