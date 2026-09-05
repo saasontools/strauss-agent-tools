@@ -7,9 +7,9 @@
  * Layers are org defaults, the repo file, then its path-scoped `overrides`,
  * and a deeper layer may only escalate — see `merge`.
  *
- * JSON is canonical. Tag keys hold a colon, which the gate's YAML subset
- * cannot read, so a `.yaml` policy's `tags` and `floors` fall back and the run
- * says so in `notChecked`.
+ * JSON is canonical. The gate's YAML subset cannot read a key holding a colon:
+ * a `.yaml` policy's `floors` fall back to the built-ins and `notChecked` says
+ * so, and a `tags` or `types` key with a colon is a policy error.
  */
 import { createHash } from "node:crypto";
 import { parseFrontmatter } from "../../../../hooks/scripts/lib/util.mjs";
@@ -44,6 +44,17 @@ export const POLICY_KEYS = [
   "verifiers",
   "overrides",
 ];
+
+/** The keys one `overrides` entry may carry. */
+export const OVERRIDE_KEYS = ["paths", "types", "tags", "floors", "auto"];
+
+/** `enabled`, least to most human-ward: `dry-run` always exits 0, `false`
+ * routes every range to a human. A deeper layer may only raise it. */
+export const ENABLED = ["dry-run", "true", "false"];
+
+/** The keys an override may narrow or raise but never introduce: seeded before
+ * the override fold, so silence above is not a licence to widen. */
+const SEEDED = ["enabled", "crossing", "autoClasses", "autoPaths", "verifiers"];
 
 /** Least to most material. A floor raises; an author value never lowers one. */
 export const MATERIALITY = ["non-blocking", "important", "blocking"];
@@ -132,6 +143,8 @@ export function readPolicy(show, base, paths, options = {}) {
   };
   /** @type {Layer[]} */
   const layers = [];
+  /** @type {Layer[]} */
+  let overrides = [];
 
   const org = orgLayer(policy, options.defaults ?? null);
   if (org) layers.push(org);
@@ -158,13 +171,14 @@ export function readPolicy(show, base, paths, options = {}) {
       break;
     }
     policy.version = /** @type {any} */ (parsed.data).version ?? null;
-    layers.push(layerOf(policy, parsed.data, "repo"));
+    layers.push(layerOf(policy, parsed.data, "repo", POLICY_KEYS));
     policy.layers.push("repo");
-    layers.push(...overrideLayers(policy, parsed.data, options.changed ?? []));
+    overrides = overrideLayers(policy, parsed.data, options.changed ?? []);
     break;
   }
 
   merge(policy.data, layers);
+  merge(policy.data, overrides, new Set(SEEDED));
   // The hash covers the merged effective policy, not the file: two spellings
   // of the same rules hash alike, and an override changes it.
   if (policy.present || policy.layers.length > 0) {
@@ -194,7 +208,7 @@ function orgLayer(policy, supplied) {
     return null;
   }
   policy.layers.push("defaults");
-  return layerOf(policy, parsed.data, "defaults");
+  return layerOf(policy, parsed.data, "defaults", POLICY_KEYS);
 }
 
 /**
@@ -208,25 +222,25 @@ function overrideLayers(policy, raw, changed) {
   const list = raw.overrides;
   if (list === undefined) return [];
   if (!Array.isArray(list)) {
-    policy.errors.push("overrides must be a list");
+    policy.errors.push("repo.overrides must be a list");
     return [];
   }
   /** @type {Layer[]} */
   const layers = [];
   list.forEach((entry, at) => {
-    const where = `overrides[${at}]`;
+    const where = `override[${at}]`;
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       policy.errors.push(`${where} must be an object`);
       return;
     }
     const record = /** @type {Record<string, unknown>} */ (entry);
-    const globs = strings(record.paths, `${where}.paths`, policy);
-    if (globs.length === 0) {
+    const paths = globs(record.paths, `${where}.paths`, policy);
+    if (paths.length === 0) {
       policy.errors.push(`${where}.paths must name at least one glob`);
       return;
     }
-    if (!changed.some((path) => matchesAny(path, globs))) return;
-    layers.push(layerOf(policy, record, where));
+    if (!changed.some((path) => matchesAny(path, paths))) return;
+    layers.push(layerOf(policy, record, where, OVERRIDE_KEYS));
     policy.layers.push(`override:${at}`);
   });
   return layers;
@@ -254,13 +268,18 @@ function parseYaml(text) {
  * unreadable value is an error, never a silent default — a policy nobody can
  * parse must not look like a permissive one.
  * @param {Policy} policy @param {Record<string, unknown>} raw
- * @param {string} where the layer's name, for the error text
+ * @param {string} where the layer's name, which prefixes every error it raises
+ * @param {string[]} allowed the keys this layer may carry
  * @returns {Layer}
  */
-function layerOf(policy, raw, where) {
-  const at = where === "repo" || where === "defaults" ? "" : `${where}.`;
+function layerOf(policy, raw, where, allowed) {
+  const at = `${where}.`;
   /** @type {Layer} */
   const layer = {};
+
+  for (const key of Object.keys(raw))
+    if (!allowed.includes(key))
+      policy.errors.push(`${at}${key} is not one of ${allowed.join(", ")}`);
 
   const enabled = raw.enabled;
   if (enabled !== undefined) {
@@ -279,10 +298,10 @@ function layerOf(policy, raw, where) {
 
   const include = pick(raw, ["review", "include"]);
   if (include !== undefined)
-    layer.include = strings(include, `${at}review.include`, policy);
+    layer.include = globs(include, `${at}review.include`, policy);
   const exclude = pick(raw, ["review", "exclude"]);
   if (exclude !== undefined)
-    layer.exclude = strings(exclude, `${at}review.exclude`, policy);
+    layer.exclude = globs(exclude, `${at}review.exclude`, policy);
   const crossing = pick(raw, ["review", "crossing"]);
   if (crossing !== undefined) {
     if (typeof crossing === "string" && CROSSINGS.includes(crossing))
@@ -307,7 +326,7 @@ function layerOf(policy, raw, where) {
   }
   const autoPaths = pick(raw, ["auto", "paths"]);
   if (autoPaths !== undefined)
-    layer.autoPaths = strings(autoPaths, `${at}auto.paths`, policy);
+    layer.autoPaths = globs(autoPaths, `${at}auto.paths`, policy);
 
   const types = dispositions(policy, raw.types, `${at}types`);
   const tags = dispositions(policy, raw.tags, `${at}tags`);
@@ -378,24 +397,38 @@ function dispositions(policy, raw, name) {
 }
 
 /**
- * Fold the layers, shallowest first. `types`, `tags`, `floors` and the `auto`
- * allowlist only ever escalate: a disposition and a floor rise, and the
- * allowlist narrows to the intersection. Everything else takes the deepest
- * layer that named it.
+ * Fold the layers, shallowest first. Nothing a deeper layer says weakens a
+ * shallower one: `enabled`, `crossing`, dispositions and floors rise on their
+ * scales, the `auto` allowlist and `verifiers` narrow to the intersection of
+ * the shallowest layer that named them, and `review.exclude` unions. Everything
+ * else takes the deepest layer that named it.
  * @param {PolicyData} data @param {Layer[]} layers
+ * @param {Set<string>} [named] keys a shallower fold already settled
  */
-function merge(data, layers) {
-  /** @type {Set<string>} */
-  const named = new Set();
+function merge(data, layers, named = new Set()) {
   for (const layer of layers) {
-    if (layer.enabled !== undefined) data.enabled = layer.enabled;
+    if (layer.enabled !== undefined) {
+      data.enabled = named.has("enabled")
+        ? raise(ENABLED, data.enabled, layer.enabled)
+        : layer.enabled;
+      named.add("enabled");
+    }
+    if (layer.crossing !== undefined) {
+      data.crossing = named.has("crossing")
+        ? raise(CROSSINGS, data.crossing, layer.crossing)
+        : layer.crossing;
+      named.add("crossing");
+    }
     if (layer.owners !== undefined) data.owners = layer.owners;
-    if (layer.verifiers !== undefined) data.verifiers = layer.verifiers;
     if (layer.include !== undefined) data.include = layer.include;
-    if (layer.exclude !== undefined) data.exclude = layer.exclude;
-    if (layer.crossing !== undefined) data.crossing = layer.crossing;
+    if (layer.exclude !== undefined)
+      data.exclude = [...new Set([...data.exclude, ...layer.exclude])];
 
-    for (const key of /** @type {const} */ (["autoClasses", "autoPaths"])) {
+    for (const key of /** @type {const} */ ([
+      "autoClasses",
+      "autoPaths",
+      "verifiers",
+    ])) {
       const next = layer[key];
       if (next === undefined) continue;
       data[key] = named.has(key)
@@ -448,14 +481,31 @@ function pick(raw, path) {
   return value;
 }
 
-/** @param {unknown} value @param {string} name @param {Policy} policy */
+/** A list of strings. An element that is not one is an error, never a drop.
+ * @param {unknown} value @param {string} name @param {Policy} policy */
 function strings(value, name, policy) {
   if (value === undefined || value === null || value === "") return [];
   if (!Array.isArray(value)) {
     policy.errors.push(`${name} must be a list`);
     return [];
   }
-  return value.filter((item) => typeof item === "string").map(String);
+  /** @type {string[]} */
+  const read = [];
+  for (const item of value) {
+    if (typeof item === "string") read.push(item);
+    else policy.errors.push(`${name}: ${String(item)} is not a string`);
+  }
+  return read;
+}
+
+/** A list of globs: repo-relative, so a `..` segment is an error.
+ * @param {unknown} value @param {string} name @param {Policy} policy */
+function globs(value, name, policy) {
+  return strings(value, name, policy).filter((glob) => {
+    if (!glob.split("/").includes("..")) return true;
+    policy.errors.push(`${name}: ${glob} leaves the repo root`);
+    return false;
+  });
 }
 
 /** @param {string | undefined} value */
@@ -475,21 +525,33 @@ export function effectiveMateriality(authored, tags, floors) {
   return MATERIALITY[best] ?? "non-blocking";
 }
 
-/** A glob over `/`-separated paths: `**` any depth, `*` one segment.
- * @param {string} glob */
+/** Compiled globs, keyed by the glob as written.
+ * @type {Map<string, RegExp>} */
+const COMPILED = new Map();
+
+/** A glob over `/`-separated paths: `**` any depth, `*` one segment. A leading
+ * `./`, and a doubled any-depth segment, mean nothing: both go before it
+ * compiles.
+ * @param {string} glob @returns {RegExp} */
 export function globToRegExp(glob) {
+  const held = COMPILED.get(glob);
+  if (held) return held;
+  const normal = glob.replace(/^\.\//, "").replace(/(?:\*\*\/)+/g, "**/");
   let source = "";
-  for (let at = 0; at < glob.length; at += 1) {
-    const char = glob[at];
-    if (char === "*" && glob[at + 1] === "*") {
-      // `a/**` covers `a` itself as well as everything under it.
-      source += glob[at + 2] === "/" ? "(?:.*\\/)?" : ".*";
-      at += glob[at + 2] === "/" ? 2 : 1;
+  for (let at = 0; at < normal.length; at += 1) {
+    const char = normal[at];
+    if (char === "*" && normal[at + 1] === "*") {
+      // An any-depth segment matches no segment too, so `**` then `/x` covers a
+      // root `x`; a trailing `**` is any suffix under the segment before it.
+      source += normal[at + 2] === "/" ? "(?:.*\\/)?" : ".*";
+      at += normal[at + 2] === "/" ? 2 : 1;
     } else if (char === "*") source += "[^/]*";
     else if (char === "?") source += "[^/]";
     else source += (char ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  return new RegExp(`^${source}$`);
+  const compiled = new RegExp(`^${source}$`);
+  COMPILED.set(glob, compiled);
+  return compiled;
 }
 
 /** @param {string} path @param {string[]} globs */

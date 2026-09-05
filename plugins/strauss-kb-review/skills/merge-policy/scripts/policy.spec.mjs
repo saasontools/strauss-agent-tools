@@ -218,6 +218,44 @@ test("every value is checked against its closed set", () => {
   }
 });
 
+test("a key outside the closed set is an error, named with its layer", () => {
+  const top = read({ version: 1, autoClasses: ["docs"] });
+  assert.match(top.errors[0] ?? "", /^repo\.autoClasses is not one of/);
+
+  const org = read({ version: 1 }, { defaults: { verifier: ["a"] } });
+  assert.match(org.errors[0] ?? "", /^defaults\.verifier is not one of/);
+
+  const over = read(
+    { overrides: [{ paths: ["docs/**"], review: { exclude: ["docs/**"] } }] },
+    { changed: ["docs/README.md"] },
+  );
+  assert.match(over.errors[0] ?? "", /^override\[0\]\.review is not one of/);
+});
+
+test("a non-string in a list is an error, not a dropped row", () => {
+  assert.match(
+    read({ auto: { classes: ["docs", 7] } }).errors[0] ?? "",
+    /repo\.auto\.classes: 7 is not a string/,
+  );
+  assert.match(
+    read({ review: { exclude: ["docs/**", null] } }).errors[0] ?? "",
+    /repo\.review\.exclude: null is not a string/,
+  );
+  assert.match(
+    read({ owners: [{ login: "dana" }] }).errors[0] ?? "",
+    /repo\.owners: .* is not a string/,
+  );
+});
+
+test("a glob leaving the repo root is an error; ./ and a repeated ** are not", () => {
+  assert.match(
+    read({ review: { include: ["../other/**"] } }).errors[0] ?? "",
+    /repo\.review\.include: \.\.\/other\/\*\* leaves the repo root/,
+  );
+  assert.ok(matchesAny("src/a/b.ts", ["./src/**"]));
+  assert.ok(matchesAny("src/a/b.ts", ["**/**/b.ts"]));
+});
+
 test("the SAA-741 human.types and human.tags shape still reads, as human", () => {
   const policy = read({
     human: { types: ["open-question"], tags: ["review:security"] },
@@ -229,14 +267,47 @@ test("the SAA-741 human.types and human.tags shape still reads, as human", () =>
 
 test("layering — the deepest layer that names a plain key wins", () => {
   const policy = read(
-    { owners: ["dana"], enabled: "dry-run" },
-    { defaults: { owners: ["org-lead"], enabled: true, verifiers: ["a"] } },
+    { owners: ["dana"] },
+    { defaults: { owners: ["org-lead"], verifiers: ["a"] } },
   );
   assert.deepEqual(policy.layers, ["defaults", "repo"]);
   assert.deepEqual(policy.data.owners, ["dana"]);
-  assert.equal(policy.data.enabled, "dry-run");
   // The repo named no verifiers, so the defaults' list stands.
   assert.deepEqual(policy.data.verifiers, ["a"]);
+});
+
+test("layering — enabled rises on dry-run, true, false", () => {
+  const alone = read({ enabled: "dry-run" });
+  assert.equal(alone.data.enabled, "dry-run");
+
+  // A repo file may not talk an org layer down, in either direction.
+  const up = read({ enabled: "dry-run" }, { defaults: { enabled: true } });
+  assert.equal(up.data.enabled, "true");
+  const off = read({ enabled: true }, { defaults: { enabled: false } });
+  assert.equal(off.data.enabled, "false");
+
+  const raised = read({ enabled: false }, { defaults: { enabled: "dry-run" } });
+  assert.equal(raised.data.enabled, "false");
+});
+
+test("layering — verifiers narrow to the intersection, never widen", () => {
+  const policy = read(
+    { verifiers: ["a", "c"] },
+    { defaults: { verifiers: ["a", "b"] } },
+  );
+  assert.deepEqual(policy.data.verifiers, ["a"]);
+});
+
+test("layering — review.exclude unions, and crossing rises to human", () => {
+  const policy = read(
+    { review: { exclude: ["src/**"], crossing: "off" } },
+    { defaults: { review: { exclude: ["legacy/**"], crossing: "human" } } },
+  );
+  assert.deepEqual(policy.data.exclude, ["legacy/**", "src/**"]);
+  assert.equal(policy.data.crossing, "human");
+
+  const off = read({ review: { crossing: "off" } });
+  assert.equal(off.data.crossing, "off");
 });
 
 test("layering — a deeper layer escalates a disposition and never lowers one", () => {
@@ -339,12 +410,27 @@ test("overrides — an override never turns a repo human into auto, nor lowers a
   assert.deepEqual(policy.data.autoClasses, ["docs"]);
 });
 
+test("overrides — an override cannot introduce an auto allowlist from silence", () => {
+  const policy = read(
+    {
+      version: 1,
+      overrides: [{ paths: ["docs/**"], auto: { classes: ["docs"] } }],
+    },
+    { changed: ["docs/README.md"] },
+  );
+  assert.deepEqual(policy.layers, ["repo", "override:0"]);
+  assert.deepEqual(policy.data.autoClasses, []);
+});
+
 test("overrides — a malformed entry is an error, not a skipped one", () => {
   assert.match(
     read({ overrides: [{ types: { fact: "human" } }] }).errors[0] ?? "",
-    /overrides\[0\]\.paths/,
+    /override\[0\]\.paths/,
   );
-  assert.match(read({ overrides: {} }).errors[0] ?? "", /overrides must be/);
+  assert.match(
+    read({ overrides: {} }).errors[0] ?? "",
+    /repo\.overrides must be/,
+  );
 });
 
 test("the hash covers the merged policy, and the layers are named", () => {

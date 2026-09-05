@@ -67,10 +67,9 @@ export function gather(options, run) {
   const { records, unreadable } = readRecords(run, changed, policy.data.floors);
   const log = asArray(/** @type {any} */ (run.kb(["log"]))?.entries);
   const matched = matchIds(run, options.base, options.head);
-  const trusted = new Set(policy.data.verifiers);
   for (const record of records) {
     record.onDiff = record.touched || matched.has(record.id);
-    record.verifiedBy = verifiers(record, log, trusted);
+    record.verifiedBy = verifiers(record, log);
   }
 
   return {
@@ -256,11 +255,11 @@ function codeowners(run, base, policy) {
 }
 
 /**
- * Actors that verified a record and did not write it. An actor the policy
- * trusts counts whether or not it wrote the record.
+ * Actors that verified a record and did not write it. A policy-listed verifier
+ * is no exception: its verify on its own record is still the author's word.
  * @param {{ id: string, writtenBy: string | null, verifiedFrontmatter: unknown[] }} record
- * @param {any[]} log @param {Set<string>} trusted */
-function verifiers(record, log, trusted) {
+ * @param {any[]} log */
+function verifiers(record, log) {
   /** @type {Set<string>} */
   const actors = new Set();
   for (const event of record.verifiedFrontmatter) {
@@ -274,7 +273,7 @@ function verifiers(record, log, trusted) {
     }
   }
   const author = record.writtenBy ?? writerOf(record.id, log);
-  return [...actors].filter((actor) => actor !== author || trusted.has(actor));
+  return [...actors].filter((actor) => actor !== author);
 }
 
 /** @param {string} id @param {any[]} log */

@@ -833,9 +833,9 @@ function showing(tree) {
   return (/** @type {string[]} */ args) => tree[args[0] ?? ""] ?? null;
 }
 
-test("verifiers — a trusted actor's verify counts even on its own record", () => {
-  /** @param {string[]} trusted */
-  const answer = (trusted) =>
+test("verifiers — a listed verifier still may not verify its own record", () => {
+  /** @param {{ trusted: string[], by: string }} over */
+  const answer = ({ trusted, by }) =>
     gatherWith({
       run: {
         show: showing({
@@ -855,18 +855,21 @@ test("verifiers — a trusted actor's verify counts even on its own record", () 
       changed: "M\t.strauss/kb/fact.x.md\n",
       log: [
         { operation: "write", by: "agent:reviewer", conceptId: "fact.x" },
-        { operation: "verify", by: "agent:reviewer", conceptId: "fact.x" },
+        { operation: "verify", by, conceptId: "fact.x" },
       ],
     });
 
-  // The reviewer wrote it and verified it, so without the allowlist the verify
-  // is the author's own word and the floor leaves the record unverified.
-  assert.deepEqual(answer([]).records[0]?.verifiedBy, []);
-  assert.equal(decide(answer([])).rule, "unverified-important");
+  // The reviewer wrote it, so its own verify is the author's word — listed or
+  // not — and the floor leaves the record unverified.
+  for (const trusted of [[], ["agent:reviewer"]]) {
+    const own = answer({ trusted, by: "agent:reviewer" });
+    assert.deepEqual(own.records[0]?.verifiedBy, []);
+    assert.equal(decide(own).rule, "unverified-important");
+  }
 
-  const trusted = answer(["agent:reviewer"]);
-  assert.deepEqual(trusted.records[0]?.verifiedBy, ["agent:reviewer"]);
-  assert.notEqual(decide(trusted).rule, "unverified-important");
+  const other = answer({ trusted: ["agent:reviewer"], by: "agent:second" });
+  assert.deepEqual(other.records[0]?.verifiedBy, ["agent:second"]);
+  assert.notEqual(decide(other).rule, "unverified-important");
 });
 
 test("crossing — off makes an exclusion final and says so, human reads the edges", () => {
