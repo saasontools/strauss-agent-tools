@@ -1,0 +1,146 @@
+{
+  "skill_name": "recording-decisions",
+  "note": "Trigger-accuracy regression suite. `prompt` doubles as the `query` field of skill-creator's description-optimizer eval set; see README.md for the conversion and the run command.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "why-gate-hook-block",
+      "prompt": "why gate: 7 files changed since this work started and the knowledge base holds no decision covering it \u2014 tools/strauss/src/hooks/kb-stop-gate.ts, packages/strauss/kb/src/commands.ts, and 5 more. Load the `recording-decisions` skill, then record with kb_write_decision: what you chose, what you rejected, and why the simpler route was not taken.",
+      "expected_trigger": true,
+      "why": "The stop-gate hook's own block text, which names the skill."
+    },
+    {
+      "id": 2,
+      "name": "finishing-implementation-subtask",
+      "prompt": "i'm done with subtask 3 on SAA-412 \u2014 swapped the tenant lookup over to a batch get and the suite is green. about to call strauss_finalize_subtask. is there anything i'm supposed to be writing into .strauss/kb first, and if so what actually goes in it?",
+      "expected_trigger": true,
+      "why": "About to call strauss_finalize_subtask."
+    },
+    {
+      "id": 3,
+      "name": "before-kb-write-decision-fields",
+      "prompt": "about to call kb_write_decision for the retry backoff i picked in apps/server/src/services/email/email.service.ts. which fields actually matter here \u2014 do i need to fill anchors, and how specific does the alternative have to be?",
+      "expected_trigger": true,
+      "why": "Already reaching for the tool, unsure what the fields want."
+    },
+    {
+      "id": 4,
+      "name": "ci-fix-worth-recording",
+      "prompt": "CI was red on the vitest job. turned out our esbuild-CJS build can't resolve the dynamic import without a .js suffix so i pinned the extension. pushed the fix. do i need to leave a record of that anywhere or is the commit message enough?",
+      "expected_trigger": true,
+      "why": "A CI fix never passes through a subtask."
+    },
+    {
+      "id": 5,
+      "name": "pr-review-comment-reasoning",
+      "prompt": "reviewer on PR #281 pushed back on MultiEntityBatchGetService and i explained on the thread why we didn't just loop batchGet with chunking. should that reasoning end up in the kb too, and how do i write it so it's still useful in six months?",
+      "expected_trigger": true,
+      "why": "Reasoning given on a review thread, nowhere durable."
+    },
+    {
+      "id": 6,
+      "name": "nothing-to-decide-stop-gate",
+      "prompt": "the only thing i did this turn was rename a type and move it into packages/strauss/kb/src/types.ts. the stop gate is now asking me for a decision record and there genuinely wasn't a decision. what am i supposed to do here",
+      "expected_trigger": true,
+      "why": "The kb_no_decision path."
+    },
+    {
+      "id": 7,
+      "name": "draft-record-quality-check",
+      "prompt": "here's the decision record i drafted: \"Used a heap for the top-k query.\" does that clear the bar for something a reviewer would actually get value from, or am i just restating the diff back at them?",
+      "expected_trigger": true,
+      "why": "Judging a drafted record against the diff-already-answers bar."
+    },
+    {
+      "id": 8,
+      "name": "workaround-that-looks-arbitrary",
+      "prompt": "had to work around tmux mangling \\x1f into underscores under a non-UTF8 locale by forcing LANG in the pty env. it looks completely arbitrary in the diff and someone will delete it. how do i capture that so it survives?",
+      "expected_trigger": true,
+      "why": "Load-bearing code that reads as accidental."
+    },
+    {
+      "id": 9,
+      "name": "signal-vs-noise-in-the-base",
+      "prompt": "what's actually worth putting in the strauss kb as a decision vs what's just noise? i keep writing records and nobody reads them",
+      "expected_trigger": true,
+      "why": "Casual phrasing, no tool named."
+    },
+    {
+      "id": 10,
+      "name": "sources-anchors-related-placement",
+      "prompt": "when i write a decision into .strauss/kb do i point sources at the linear issue, the design doc section, or the CLAUDE.md rule it came from? and what's supposed to go in relatedConceptIds vs anchors",
+      "expected_trigger": true,
+      "why": "Which reference goes in which field."
+    },
+    {
+      "id": 11,
+      "name": "adr-files-in-docs-tree",
+      "prompt": "we should start keeping architecture decision records for the server app. scaffold docs/adr/ with the MADR template and write the first one about picking ElectroDB over the raw DynamoDB document client",
+      "expected_trigger": false,
+      "why": "ADR markdown in the repo, not a knowledge-base record."
+    },
+    {
+      "id": 12,
+      "name": "kb-query-read-only",
+      "prompt": "kb_query the .strauss/kb for anything about pagination cursors \u2014 i want to see what constraints we already recorded before i change the default page size",
+      "expected_trigger": false,
+      "why": "Reading the base, not writing to it \u2014 strauss-kb territory."
+    },
+    {
+      "id": 13,
+      "name": "requirement-records-not-decisions",
+      "prompt": "add the three acceptance criteria from SAA-355 into the knowledge base as requirement records, verbatim from the linear description. don't paraphrase them",
+      "expected_trigger": false,
+      "why": "A different record type; strauss-kb owns the format."
+    },
+    {
+      "id": 14,
+      "name": "code-comment-explaining-why",
+      "prompt": "this `?? 300` in apps/server/src/config/configurations/pagination-config-env.config.ts has zero explanation. add a short comment saying why 300 and not something else",
+      "expected_trigger": false,
+      "why": "A source comment, not a record."
+    },
+    {
+      "id": 15,
+      "name": "pr-description-authoring",
+      "prompt": "write the PR description for this branch \u2014 what changed, why, how to test it. 12 commits, mostly around the desktop protocol zod schemas",
+      "expected_trigger": false,
+      "why": "Prose for the PR body."
+    },
+    {
+      "id": 16,
+      "name": "design-doc-ledger-write-back",
+      "prompt": "the design doc at .strauss/documents/SAA-390/design.md has a delegated-with-bounds row that's resolved now. flip the row and push the mirror up to linear",
+      "expected_trigger": false,
+      "why": "linear-doc-mirror territory."
+    },
+    {
+      "id": 17,
+      "name": "choosing-an-approach-not-recording-it",
+      "prompt": "should the retry logic live in the repository or in the service? give me a recommendation for apps/server/src/repositories/tenant.repository.ts and tell me why",
+      "expected_trigger": false,
+      "why": "Making the decision, not recording one."
+    },
+    {
+      "id": 18,
+      "name": "plain-ci-lint-fix",
+      "prompt": "the lint job is failing on eslint import/order under tools/strauss/src/hooks/. just fix it and push",
+      "expected_trigger": false,
+      "why": "Near-miss of the CI case, with no why worth keeping."
+    },
+    {
+      "id": 19,
+      "name": "commit-message-and-squash",
+      "prompt": "write me a conventional commit message for the staged changes and then squash the last 3 commits on this branch",
+      "expected_trigger": false,
+      "why": "Git plumbing."
+    },
+    {
+      "id": 20,
+      "name": "conversation-decisions-to-linear-comment",
+      "prompt": "summarize the decisions we made in this conversation into a bullet list i can paste into the linear issue as a comment",
+      "expected_trigger": false,
+      "why": "The word 'decisions', but the destination is a Linear comment."
+    }
+  ]
+}

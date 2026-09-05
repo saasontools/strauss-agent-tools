@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "plugin-strauss-kb-review",
+  "projectType": "library",
+  "targets": {
+    "validate": {
+      "command": "claude plugin validate .",
+      "options": {
+        "cwd": "plugins/strauss-kb-review"
+      }
+    }
+  }
+}
