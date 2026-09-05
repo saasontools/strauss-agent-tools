@@ -11,7 +11,7 @@ SC=~/.claude/plugins/cache/claude-plugins-official/skill-creator/*/skills/skill-
 jq '[.evals[] | {query: .prompt, should_trigger: .expected_trigger}]' evals.json > /tmp/trigger-eval.json
 cd "$SC" && python3 -m scripts.run_eval \
   --eval-set /tmp/trigger-eval.json \
-  --skill-path plugins/strauss-kb/skills/recording-decisions \
+  --skill-path plugins/strauss-kb-review/skills/recording-decisions \
   --runs-per-query 3 --verbose
 ```
 

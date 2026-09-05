@@ -51,11 +51,8 @@ open — an outdated CLI produces no output, not an error.
 `kb_catalog`, `kb_pack`, `kb_query`, `kb_impact`, `kb_backlinks`, `kb_write`, …
 see the package README).
 
-**Skills** — `knowledge-base`: how to read standing, load before search, when
-to write. `recording-decisions`: which choices earn a `kb_write_decision`, what
-to attach, and when `kb_no_decision` is the honest answer. `review-companion`:
-risks, invented requirements, flows, and review marks kept current across a
-pull request's commits.
+**Skill** — `knowledge-base`: how to read standing, load before search, when
+to write.
 
 **SessionStart hook** — runs `strauss-kb context` at every context birth.
 `startup|resume|clear` use `session-start` (small bases arrive whole);
