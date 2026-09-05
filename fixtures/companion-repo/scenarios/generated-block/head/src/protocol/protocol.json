@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "messages": [
+    { "name": "ping", "fields": { "at": "string" } },
+    {
+      "name": "charge",
+      "fields": {
+        "orderId": "string",
+        "amountMinor": "number",
+        "tenantId": "string"
+      }
+    },
+    {
+      "name": "refund",
+      "fields": { "providerId": "string", "amountMinor": "number" }
+    }
+  ]
+}
