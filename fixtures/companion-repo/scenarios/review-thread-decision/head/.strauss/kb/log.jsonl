@@ -1,0 +1,7 @@
+{"at":"2026-09-01T09:01:00.000Z","by":"agent:impl","operation":"write","conceptId":"decision.checkout-retry-budget"}
+{"at":"2026-09-01T09:03:00.000Z","by":"agent:impl","operation":"write","conceptId":"constraint.repository-retry-policy"}
+{"at":"2026-09-01T09:05:00.000Z","by":"agent:impl","operation":"write","conceptId":"fact.payment-provider-dedupes-on-key"}
+{"at":"2026-09-01T09:07:00.000Z","by":"agent:impl","operation":"write","conceptId":"flow.tenant-batch-get"}
+{"at":"2026-09-01T09:20:00.000Z","by":"agent:impl","operation":"write","conceptId":"decision.checkout-retry-budget-per-tenant"}
+{"at":"2026-09-01T09:21:00.000Z","by":"agent:impl","operation":"supersede","conceptId":"decision.checkout-retry-budget","target":"decision.checkout-retry-budget-per-tenant"}
+{"at":"2026-09-01T09:23:00.000Z","by":"human:dana","operation":"verify","conceptId":"decision.checkout-retry-budget-per-tenant"}

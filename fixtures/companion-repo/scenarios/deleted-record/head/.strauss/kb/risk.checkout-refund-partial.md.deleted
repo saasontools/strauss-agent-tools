@@ -1,0 +1,4 @@
+Marks a deletion: materialize.mjs removes
+`.strauss/kb/risk.checkout-refund-partial.md` in the commit that lists this
+file. The risk was written in commit 1 and is gone by commit 2 with no
+supersede and no status entry in `log.jsonl`.

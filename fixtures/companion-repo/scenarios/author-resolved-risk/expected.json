@@ -1,0 +1,11 @@
+{
+  "route": "human",
+  "classifier": {
+    "src/repositories/base.repository.ts": "code",
+    ".strauss/kb/risk.repository-retry-storm.md": "kb",
+    ".strauss/kb/log.jsonl": "kb"
+  },
+  "gateFamilies": ["D"],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "The record reads `resolved`; `log.jsonl` shows only `write` and `status`, both under agent:impl, and `verified` is empty. Policy treats it as open, so the `blocking` materiality stands and the route is human. D1: commit 2 sets the terminal status and touches no anchored file. Reading the record alone gives `auto` \u2014 that is the trap."
+}
