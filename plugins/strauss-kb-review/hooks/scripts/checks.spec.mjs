@@ -11,6 +11,7 @@ import * as familyF from "./lib/family-f.mjs";
 import { builtinClass } from "./lib/classify.mjs";
 import { isProbeable } from "./lib/urls.mjs";
 import { DEFAULTS, applyPolicy } from "./lib/thresholds.mjs";
+import { label } from "./lib/report.mjs";
 import { parseFrontmatter, section } from "./lib/util.mjs";
 
 /** @param {Partial<any>} overrides @returns {any} */
@@ -906,6 +907,28 @@ test("a block demotes to a warning by id", () => {
     applyPolicy(findings, { ...DEFAULTS, warn: [], off: ["A1"] }),
     [],
   );
+});
+
+test("--report flags only the one repair the fixer may apply", () => {
+  /** @param {string} id */
+  const one = (id) =>
+    label({
+      id,
+      family: id[0] ?? "",
+      severity: /** @type {const} */ ("block"),
+      kind: /** @type {const} */ ("mechanical"),
+      message: "x",
+    });
+  assert.equal(one("D5").fixable, true);
+  // B1, E2 and E3 are mechanical in the tiers that may edit a record, and
+  // still not the fixer's: no op it is granted performs them.
+  assert.deepEqual(
+    ["A1", "B1", "B5", "C1", "D1", "E1", "E2", "E3", "F1"].map(
+      (id) => one(id).fixable,
+    ),
+    [false, false, false, false, false, false, false, false, false],
+  );
+  assert.equal(one("D5").label, "mechanical");
 });
 
 test("the builtin classifier names the classes family A skips", () => {

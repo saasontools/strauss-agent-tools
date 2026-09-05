@@ -1,0 +1,146 @@
+{
+  "skill_name": "kb-fix",
+  "note": "Trigger-accuracy regression suite. Same shape and run command as ../../recording-decisions/evals/README.md.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "gate-blocked-the-turn",
+      "prompt": "the strauss kb review gate just blocked my stop hook with a D5 and an A1. who's supposed to fix these — me right now, or does something else pick them up later?",
+      "expected_trigger": true,
+      "why": "The tier-1 route, asked as the question this skill answers."
+    },
+    {
+      "id": 2,
+      "name": "stale-base-before-review",
+      "prompt": "i'm about to review PR 412 against its .strauss/kb but the author's session ended yesterday. how do i get the base into a state i can trust before i read it?",
+      "expected_trigger": true,
+      "why": "A consumer's pre-flight with no author left: tier 3."
+    },
+    {
+      "id": 3,
+      "name": "spawn-a-fixer",
+      "prompt": "can something rebaseline the drifted anchors on this companion base in CI and file the rest as questions, without inventing decisions the author never made?",
+      "expected_trigger": true,
+      "why": "The late fixer's one repair, and the mandate that stops it inventing a why."
+    },
+    {
+      "id": 4,
+      "name": "which-findings-are-mine",
+      "prompt": "kb-review-gate --report gives me eleven findings, some labelled mechanical and some semantic. which of these can a fixer actually apply and which have to go back to whoever wrote the code?",
+      "expected_trigger": true,
+      "why": "Routing on `fixable`, which is what this skill reads."
+    },
+    {
+      "id": 5,
+      "name": "subagent-still-alive",
+      "prompt": "my implementation subagent wrote the kb records and it's still running in this session. the gate found problems with them — should i message it or fix them myself?",
+      "expected_trigger": true,
+      "why": "Tier 2, and the condition that makes it available."
+    },
+    {
+      "id": 6,
+      "name": "walkthrough-refused",
+      "prompt": "the review walkthrough renderer exited 3 saying two records drifted. what's the right way to get past that — who repairs the base?",
+      "expected_trigger": true,
+      "why": "A consumer refusing on an unfixed base routes here."
+    },
+    {
+      "id": 7,
+      "name": "semantic-gap-owner",
+      "prompt": "there's a hunk in this diff with no record covering it and the author is long gone. i don't want to guess why they changed it. what do i write instead?",
+      "expected_trigger": true,
+      "why": "The semantic gap becoming an open question owned by the author."
+    },
+    {
+      "id": 8,
+      "name": "ci-preflight",
+      "prompt": "our merge job reads the companion kb before it decides whether a human has to look. what should it run first so it isn't reading records that no longer match the code?",
+      "expected_trigger": true,
+      "why": "The pre-flight rule and the routing that follows it."
+    },
+    {
+      "id": 9,
+      "name": "may-a-fixer-write-a-decision",
+      "prompt": "is it ok for an automated fixer to write a kb decision on the author's behalf if it can tell from the diff what they chose?",
+      "expected_trigger": true,
+      "why": "The prohibition that defines the late tier."
+    },
+    {
+      "id": 10,
+      "name": "reviewer-agent-findings",
+      "prompt": "the kb-reviewer agent came back with a pile of gate findings on a branch nobody's working on any more. what happens to them now?",
+      "expected_trigger": true,
+      "why": "Handing a consumer's findings to a tier that can act on them."
+    },
+    {
+      "id": 11,
+      "name": "write-a-risk",
+      "prompt": "i just realised a retried checkout can charge twice. how do i record that as a risk in the kb so it shows up next to the hunk?",
+      "expected_trigger": false,
+      "why": "Writing the base is review-companion."
+    },
+    {
+      "id": 12,
+      "name": "record-a-decision",
+      "prompt": "i picked exponential backoff over a fixed delay for the payment retry. should that be a kb_write_decision, and what goes in the alternative field?",
+      "expected_trigger": false,
+      "why": "recording-decisions."
+    },
+    {
+      "id": 13,
+      "name": "do-the-review",
+      "prompt": "review this PR against its companion base and tell me which records actually survive reading the code.",
+      "expected_trigger": false,
+      "why": "kb-review: judging the claims, not repairing the base."
+    },
+    {
+      "id": 14,
+      "name": "reading-order",
+      "prompt": "give me an html walkthrough of this pull request with the blocking risks first and deep links into the diff.",
+      "expected_trigger": false,
+      "why": "review-walkthrough."
+    },
+    {
+      "id": 15,
+      "name": "fix-the-code",
+      "prompt": "the retry loop in base.repository.ts is wrong — five attempts with no jitter. fix the code.",
+      "expected_trigger": false,
+      "why": "A code change; nothing to do with the base."
+    },
+    {
+      "id": 16,
+      "name": "arm-the-gate",
+      "prompt": "how do i turn the kb review gate on for this workspace, and how do i demote F4 to a warning?",
+      "expected_trigger": false,
+      "why": "Arming and thresholds are the plugin README's."
+    },
+    {
+      "id": 17,
+      "name": "run-the-gate",
+      "prompt": "run the kb review gate on this branch and show me what it reports.",
+      "expected_trigger": false,
+      "why": "Running the gate is the README's; this skill starts at the findings it hands back."
+    },
+    {
+      "id": 18,
+      "name": "kb-lookup",
+      "prompt": "does the knowledge base already say anything about how repositories retry transient store errors? i don't want to decide it twice.",
+      "expected_trigger": false,
+      "why": "A base lookup, answered by knowledge-base."
+    },
+    {
+      "id": 19,
+      "name": "merge-conflict",
+      "prompt": "i rebased and now .strauss/kb/log.jsonl has conflict markers in it. how do i resolve that file?",
+      "expected_trigger": false,
+      "why": "A git conflict in a bundle file, not a gate finding."
+    },
+    {
+      "id": 20,
+      "name": "prune-old-records",
+      "prompt": "the base has forty review-tagged records from merged PRs. how do i clear the resolved ones out?",
+      "expected_trigger": false,
+      "why": "`sweep --tag review --terminal`; housekeeping, not routing a finding."
+    }
+  ]
+}

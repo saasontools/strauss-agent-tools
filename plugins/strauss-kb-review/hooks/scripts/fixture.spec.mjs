@@ -71,8 +71,12 @@ test(
           assert.ok(
             typeof result.stamp === "string" && result.stamp.length > 0,
           );
+          // `fixable` is asserted against the scenario's own ids, so the check
+          // does not read the set the gate computes it from.
+          const fixable = new Set(readExpected(scenario).fixable ?? []);
           for (const item of result.findings) {
             assert.ok(["mechanical", "semantic"].includes(item.label));
+            assert.equal(item.fixable, fixable.has(item.id));
           }
 
           const expected = readExpected(scenario).gateFamilies;

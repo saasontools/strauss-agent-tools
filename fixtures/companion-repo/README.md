@@ -34,13 +34,13 @@ dates are fixed, so a given tree always produces the same commit hashes.
 
 ## Layout
 
-| Path                             | What it is                                                                    |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `base/`                          | The main-branch tree, including a committed `.strauss/kb`                     |
-| `scenarios/<name>/head/`         | Files overlaid on base; `<path>.deleted` marks a deletion                     |
-| `scenarios/<name>/commits.json`  | Ordered `{ message, files }`, replayed as real commits                        |
-| `scenarios/<name>/expected.json` | `{ route, classifier, gateFamilies, doctorArgs, notes }` — the golden answers |
-| `recorded/`                      | Recorded agent output, per [recorded/README.md](recorded/README.md)           |
+| Path                             | What it is                                                                              |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `base/`                          | The main-branch tree, including a committed `.strauss/kb`                               |
+| `scenarios/<name>/head/`         | Files overlaid on base; `<path>.deleted` marks a deletion                               |
+| `scenarios/<name>/commits.json`  | Ordered `{ message, files }`, replayed as real commits                                  |
+| `scenarios/<name>/expected.json` | `{ route, classifier, gateFamilies, fixable?, doctorArgs, notes }` — the golden answers |
+| `recorded/`                      | Recorded agent output, per [recorded/README.md](recorded/README.md)                     |
 
 A `files` entry is a path under `head/`, or `{ "from", "to" }` when one repo
 path needs two states across commits and each needs its own name in `head/`
@@ -63,6 +63,8 @@ path needs two states across commits and each needs its own name in `head/`
 | `fabricated-decision`    | `human` | C             | Anchored, typed, validates, and says nothing         |
 
 Families are SAA-729's A–F; each `expected.json` names the individual checks.
+`fixable` names the findings a late fixer (`agents/kb-fixer.md`) may apply;
+absent means none.
 
 `classifier` maps the three-dot diff `git diff --name-only main...<branch>`,
 so a path added and deleted across the branch is absent from it;

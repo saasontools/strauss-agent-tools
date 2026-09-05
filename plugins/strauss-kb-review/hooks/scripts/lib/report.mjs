@@ -52,6 +52,20 @@ export function report(options) {
   };
 }
 
+/**
+ * The one repair a late fixer may apply to another actor's record:
+ * `anchor-resolve --rebaseline` on drift (D5). No op it is granted narrows an
+ * anchor, clears an expiry or drops a link, so B1, E2 and E3 are not fixable.
+ */
+export const FIXABLE = new Set(["D5"]);
+
+/** One finding as `--report` prints it: its kind as a label, and whether the
+ * late fixer may apply it.
+ * @param {import("./util.mjs").Finding} item */
+export function label(item) {
+  return { ...item, label: item.kind, fixable: FIXABLE.has(item.id) };
+}
+
 /** A finding's message carries record text, so what a hook writes is bounded. */
 const MAX_MESSAGE_CHARS = 160;
 const MAX_PER_FAMILY = 5;
