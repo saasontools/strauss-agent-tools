@@ -6,6 +6,7 @@ import {
 } from "../kb-errors.js";
 import { readMergedPins } from "../kb-pins/index.js";
 import type { KbStampResult } from "../kb-store.js";
+import { emitKb } from "../telemetry/index.js";
 import { argvFlag, define } from "./model.js";
 
 /** One base's stamp, plus which records moved when a baseline was given. */
@@ -62,24 +63,29 @@ export const stampCommand = define({
     const stamps = await Promise.all(
       targets.map((target) => store.stamp(target)),
     );
-    if (since === undefined) {
-      return stamps.map((stamp) => ({ ...stamp, changed: null }));
-    }
+    const reports: KbStampReport[] =
+      since === undefined
+        ? stamps.map((stamp) => ({ ...stamp, changed: null }))
+        : await movedSince(stamps, since);
 
-    const baseline = await readBaseline(since);
-    const reports: KbStampReport[] = [];
-    for (const stamp of stamps) {
-      const before = baseline.byPath.get(stamp.path);
-      if (baseline.digest !== null) {
-        if (baseline.digest === stamp.digest) continue;
-        reports.push({ ...stamp, changed: null });
-        continue;
-      }
-      // A base absent from the baseline was never injected — reported whole,
-      // the same as a base whose every record is new.
-      if (before && before.digest === stamp.digest) continue;
-      reports.push({ ...stamp, changed: changedIds(before?.records, stamp) });
-    }
+    // `drifted` is null when the drift pass could not run: an unknown count,
+    // reported as such rather than folded into a zero.
+    const unknown = reports.some((report) => report.drifted === null);
+    await emitKb("stamp", {
+      data: {
+        bases: targets.length,
+        moved: since === undefined ? 0 : reports.length,
+        ...(unknown
+          ? { driftUnknown: true }
+          : {
+              drifted: reports.reduce(
+                (total, report) => total + (report.drifted ?? 0),
+                0,
+              ),
+            }),
+        since: since !== undefined,
+      },
+    });
     return reports;
   },
   render: (result) =>
@@ -97,6 +103,28 @@ export const stampCommand = define({
       })
       .join("\n"),
 });
+
+/** Only the bases whose digest differs from the baseline's, with changed ids. */
+async function movedSince(
+  stamps: KbStampResult[],
+  since: string,
+): Promise<KbStampReport[]> {
+  const baseline = await readBaseline(since);
+  const reports: KbStampReport[] = [];
+  for (const stamp of stamps) {
+    const before = baseline.byPath.get(stamp.path);
+    if (baseline.digest !== null) {
+      if (baseline.digest === stamp.digest) continue;
+      reports.push({ ...stamp, changed: null });
+      continue;
+    }
+    // A base absent from the baseline was never injected — reported whole,
+    // the same as a base whose every record is new.
+    if (before && before.digest === stamp.digest) continue;
+    reports.push({ ...stamp, changed: changedIds(before?.records, stamp) });
+  }
+  return reports;
+}
 
 function changedIds(
   before: Map<string, string> | undefined,

@@ -8,6 +8,7 @@
 import { join } from "node:path";
 import { KB_COMMANDS, KB_COMMANDS_BY_NAME } from "./commands/index.js";
 import { KB_DIR, KbStore } from "./kb-store.js";
+import { CLI_DEFAULT_ACTOR } from "./telemetry/index.js";
 import { VERSION } from "./version.js";
 
 export async function runKbCli(argv: string[]): Promise<void> {
@@ -66,7 +67,7 @@ export async function runKbCli(argv: string[]): Promise<void> {
   const result = await command.run(
     {
       store,
-      actor: process.env.STRAUSS_KB_ACTOR ?? "unknown",
+      actor: process.env.STRAUSS_KB_ACTOR ?? CLI_DEFAULT_ACTOR,
       now: () => new Date().toISOString(),
     },
     parsed.data,

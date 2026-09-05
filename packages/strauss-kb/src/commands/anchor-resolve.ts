@@ -31,6 +31,7 @@ import {
   readRemoteAnchors,
   wantKey,
 } from "../remote-repo/index.js";
+import { countBy, emitKb } from "../telemetry/index.js";
 import { argvFlag, bundlePath, conceptId, define } from "./model.js";
 
 type AnchorResolveResult = {
@@ -114,6 +115,10 @@ export const anchorResolveCommand = define({
 
     const anchors = record.frontmatter.strauss_anchors ?? [];
     if (!anchors.length) {
+      await emitKb("anchor-resolve", {
+        bundle: path,
+        data: { conceptId: id, anchors: 0 },
+      });
       return {
         conceptId: id,
         results: [] as AnchorResolveResult[],
@@ -278,6 +283,21 @@ export const anchorResolveCommand = define({
     const frozenNote = frozen
       ? { frozen: true, note: "base is frozen: nothing was stamped" }
       : {};
+    // After the freeze branch: a frozen base rebaselined nothing.
+    await emitKb("anchor-resolve", {
+      bundle: path,
+      data: {
+        conceptId: id,
+        anchors: results.length,
+        states: countBy(results, (entry) => entry.state),
+        reasons: countBy(results, (entry) => entry.reason),
+        rebaseline: rebaseline === true,
+        rebaselined: frozen
+          ? 0
+          : results.filter((entry) => entry.rebaselined).length,
+        frozen,
+      },
+    });
     // What to do about a grammar this run could not obtain. Written once, in
     // the grammars module, so doctor and this command say the same thing.
     const hints = grammarHints();

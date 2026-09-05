@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
 import { KB_RECORD_STATUSES } from "../kb-record.schema.js";
+import { actorClassOf, emitKb } from "../telemetry/index.js";
 import { bundlePath, conceptId, define } from "./model.js";
 
 export const statusCommand = define({
@@ -25,6 +26,11 @@ export const statusCommand = define({
   ) => {
     await assertBaseNotFrozen(process.cwd(), path);
     const record = await store.setStatus(path, id, status, actor);
+    await emitKb("status", {
+      bundle: path,
+      actorClass: actorClassOf(actor),
+      data: { conceptId: record.conceptId, status },
+    });
     return { conceptId: record.conceptId, status };
   },
 });

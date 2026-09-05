@@ -14,6 +14,7 @@ import {
 } from "../doctor.js";
 import { renderReassess } from "./reassess.js";
 import { grammarHints } from "../grammars/index.js";
+import { emitKb } from "../telemetry/index.js";
 import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
 
 export type KbDoctorCommandResult = KbDoctorReport & {
@@ -122,10 +123,12 @@ export const doctorCommand = define({
       agingDays,
       repoRoot,
       offline,
+      strict,
       drifted,
       withDiff,
     },
   ) => {
+    const started = Date.now();
     const checkedAt = now();
     const records = await store.list(path);
     // Read-only, like every other check here: the sweep names the drifted
@@ -142,7 +145,21 @@ export const doctorCommand = define({
       now: new Date(checkedAt),
     });
     const hints = grammarHints();
+    // Called on each return so `--drifted` times the packet build it paid for.
+    const emitDoctor = (): Promise<void> =>
+      emitKb("doctor", {
+        bundle: path,
+        durationMs: Date.now() - started,
+        // Only the checks that found something: a clean sweep is nine zeroes.
+        data: {
+          findings: Object.fromEntries(
+            Object.entries(report.counts).filter(([, count]) => count > 0),
+          ),
+          strict: strict === true,
+        },
+      });
     if (!drifted) {
+      await emitDoctor();
       return {
         bundlePath: path,
         checkedAt,
@@ -187,6 +204,7 @@ export const doctorCommand = define({
         rebaselinable.push(record.conceptId);
       }
     }
+    await emitDoctor();
     return {
       bundlePath: path,
       checkedAt,

@@ -55,6 +55,12 @@ export async function listRepoFiles(repoRoot: string): Promise<string[]> {
   return result.stdout.split("\0").filter(Boolean);
 }
 
+/** The `origin` remote of the tree at `cwd`, or `null` when there is none. */
+export async function remoteOriginUrl(cwd: string): Promise<string | null> {
+  const result = await git(cwd, ["config", "--get", "remote.origin.url"]);
+  return result.ok ? result.stdout.trim() || null : null;
+}
+
 /** Where a recovered file came from, so a packet can say how far back it looked. */
 export type OldSourceOrigin =
   /** `git show <anchor.ref>:<file>` — the rev the record itself named. */
