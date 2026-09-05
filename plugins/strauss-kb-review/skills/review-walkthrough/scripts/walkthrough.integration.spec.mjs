@@ -46,9 +46,12 @@ function materialize(scenario) {
     [FIXTURE, "--out", out, "--scenarios", scenario, "--force"],
     { encoding: "utf8" },
   );
-  execFileSync("git", ["-C", out, "checkout", "--quiet", scenario], {
-    encoding: "utf8",
-  });
+  // The runner's own git config must not rewrite the fixture's line endings.
+  execFileSync(
+    "git",
+    ["-C", out, "-c", "core.autocrlf=false", "checkout", "--quiet", scenario],
+    { encoding: "utf8" },
+  );
   return out;
 }
 
@@ -75,9 +78,29 @@ function render(scenario) {
   return JSON.parse(stdout);
 }
 
+// The base digest comes from `strauss-kb stamp` and differs across platforms;
+// the deck does not. Pin its shape, not its value.
+/** @param {unknown} model */
+function withoutDigest(model) {
+  /** @type {(value: unknown) => unknown} */
+  const seen = (value) =>
+    Array.isArray(value)
+      ? value.map(seen)
+      : value && typeof value === "object"
+        ? Object.fromEntries(
+            Object.entries(value).map(([key, inner]) => {
+              if (key !== "digest") return [key, seen(inner)];
+              assert.match(String(inner), /^[0-9a-f]{64}$/);
+              return [key, "<digest>"];
+            }),
+          )
+        : value;
+  return seen(model);
+}
+
 for (const scenario of ["blocking-risk", "generated-block"]) {
   test(`renders ${scenario} the way the snapshot says`, () => {
-    const model = render(scenario);
+    const model = withoutDigest(render(scenario));
     const file = join(SNAPSHOTS, `${scenario}.json`);
     const text = `${JSON.stringify(model, null, 2)}\n`;
     if (process.env.UPDATE_SNAPSHOTS || !existsSync(file)) {
