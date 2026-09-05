@@ -605,7 +605,7 @@ test("a report with nowhere to go is a usage error, never a silent no-op", () =>
   assert.ok(!existsSync(out));
 });
 
-test("a dry-run policy routes, writes nothing, and says dryRun in its event", () => {
+test("a dry-run policy reports `would`, writes nothing, and emits one event", () => {
   const { repo } = ownedRepo({
     // Default deny: the docs class is auto only because this policy names it.
     policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
@@ -631,7 +631,12 @@ test("a dry-run policy routes, writes nothing, and says dryRun in its event", ()
     { STRAUSS_TELEMETRY_DIR: sink },
   );
 
-  assert.equal(model.route, "auto", model.reason);
+  assert.equal(model.mode, "dry-run");
+  // Blind by default, so the caller's JSON is withheld too — the event below
+  // is where the real route lives.
+  assert.equal(model.would, "<withheld>");
+  assert.equal(model.withheld, true);
+  assert.equal(model.route, undefined);
   assert.equal(status, 0);
   // The config branch keeps strings: a boolean here is a regression.
   assert.strictEqual(model.policy.enabled, "dry-run");
@@ -641,8 +646,256 @@ test("a dry-run policy routes, writes nothing, and says dryRun in its event", ()
 
   const events = routeEvents(sink);
   assert.equal(events.length, 1);
-  assert.equal(events[0].data.dryRun, true);
+  assert.equal(events[0].event, "dry-run");
+  assert.equal(events[0].data.would, "auto");
+  assert.equal(events[0].data.route, undefined);
+  assert.equal(events[0].data.rule, "auto-mechanical");
+  assert.deepEqual(events[0].data.classes, { docs: 1 });
+  assert.equal(events[0].data.disagreement, false);
+  assert.equal(events[0].data.blind, true);
+  assert.equal(events[0].data.withheld, true);
+  assert.equal(events[0].pr, 9);
   assert.equal(events[0].data.wrote, false);
+});
+
+test("--dry-run overrides an enabled policy, and never fails the build", () => {
+  const repo = materialize("blocking-risk");
+  const sink = mkdtempSync(join(tmpdir(), "merge-policy-forced-"));
+  built.push(sink);
+  const { status, model } = route(
+    repo,
+    [
+      "--range",
+      "main..blocking-risk",
+      "--repo-root",
+      repo,
+      "--json",
+      "--enforce",
+      "--write-record",
+      "--dry-run",
+    ],
+    { STRAUSS_TELEMETRY_DIR: sink },
+  );
+
+  assert.equal(status, 0);
+  assert.equal(model.mode, "dry-run");
+  assert.equal(model.would, "<withheld>");
+  assert.equal(model.enforce.exit, 0);
+  assert.match(model.enforce.why, /dry run/);
+  assert.equal(model.wrote.written, false);
+  assert.match(model.wrote.why, /--dry-run/);
+  assert.equal(routeEvents(sink)[0]?.event, "dry-run");
+});
+
+test("docs-only under a dry run would auto, and writes the would block", () => {
+  const repo = materialize("docs-only");
+  const out = join(repo, "report.md");
+  const { model } = route(repo, [
+    "--range",
+    "main..docs-only",
+    "--repo-root",
+    repo,
+    "--json",
+    "--dry-run",
+    "--visible",
+    "--report-out",
+    out,
+  ]);
+
+  assert.equal(model.mode, "dry-run");
+  assert.equal(model.would, "auto", model.reason);
+  assert.equal(model.rule, "auto-mechanical");
+
+  const block = readFileSync(out, "utf8");
+  assert.ok(block.startsWith("<!-- strauss-kb merge-policy -->\n"), block);
+  assert.match(block, /### Merge policy \(dry run\): would auto/);
+  assert.match(block, /\| would \| `auto` via `auto-mechanical` \|/);
+});
+
+test("blind holds the block back until the head has been reviewed", () => {
+  const { repo, sha } = ownedRepo({
+    policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
+    change: ["docs/guide.md", "# guide\n"],
+  });
+  const out = join(repo, "report.md");
+  const sink = mkdtempSync(join(tmpdir(), "merge-policy-blind-"));
+  built.push(sink);
+  /** @param {string[]} extra */
+  const run = (extra) =>
+    route(
+      repo,
+      [
+        "--range",
+        "main..topic",
+        "--repo-root",
+        repo,
+        "--json",
+        "--gate",
+        '{"findings":[]}',
+        "--report-out",
+        out,
+        ...extra,
+      ],
+      { STRAUSS_TELEMETRY_DIR: sink },
+    );
+
+  const held = run([]);
+  assert.equal(held.model.signals.withheld, true);
+  const placeholder = readFileSync(out, "utf8");
+  assert.ok(placeholder.startsWith("<!-- strauss-kb merge-policy -->\n"));
+  assert.match(
+    placeholder,
+    new RegExp(
+      `verdict is withheld until the first human review on \`${sha}\``,
+    ),
+  );
+  assert.ok(!placeholder.includes("auto-mechanical"), placeholder);
+
+  // A comment on the head commit is a read, and the verdict lands.
+  const approvals = join(repo, "approvals.json");
+  writeFileSync(
+    approvals,
+    JSON.stringify([{ user: "eve", state: "COMMENTED", commit_id: sha }]),
+  );
+  const released = run(["--approvals", approvals]);
+  assert.equal(released.model.signals.withheld, false);
+  assert.match(
+    readFileSync(out, "utf8"),
+    /### Merge policy \(dry run\): would auto/,
+  );
+
+  // Every event so far says whether the answer was on show at the time.
+  assert.deepEqual(
+    routeEvents(sink).map((event) => event.data.withheld),
+    [true, false],
+  );
+});
+
+test("a label and a 👎 are each a disagreement in the event", () => {
+  const { repo } = ownedRepo({
+    policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
+    change: ["docs/guide.md", "# guide\n"],
+  });
+  const sink = mkdtempSync(join(tmpdir(), "merge-policy-signal-"));
+  built.push(sink);
+  /** @param {string[]} extra */
+  const run = (extra) =>
+    route(
+      repo,
+      [
+        "--range",
+        "main..topic",
+        "--repo-root",
+        repo,
+        "--json",
+        "--visible",
+        "--gate",
+        '{"findings":[]}',
+        ...extra,
+      ],
+      { STRAUSS_TELEMETRY_DIR: sink },
+    );
+
+  const quiet = run(["--labels", '[{"name":"chore"}]']);
+  assert.equal(quiet.model.signals.disagreement, false);
+
+  const labelled = run(["--labels", '[{"name":"policy:would-not-auto"}]']);
+  assert.equal(labelled.model.signals.disagreement, true);
+
+  const reacted = run(["--reactions", '[{"content":"-1","user":"dana"}]']);
+  assert.equal(reacted.model.signals.disagreement, true);
+  assert.deepEqual(reacted.model.signals.signals, ["reaction:-1 by dana"]);
+
+  assert.deepEqual(
+    routeEvents(sink).map((event) => event.data.disagreement),
+    [false, true, true],
+  );
+});
+
+test("--calibrate reports the false-auto rate over the stream it wrote", () => {
+  const { repo } = ownedRepo({
+    policy: {
+      enabled: "dry-run",
+      auto: { classes: ["docs"] },
+      calibration: { window: 2, maxFalseAuto: 0 },
+    },
+    change: ["docs/guide.md", "# guide\n"],
+  });
+  const sink = mkdtempSync(join(tmpdir(), "merge-policy-calibrate-"));
+  built.push(sink);
+  /** @param {string[]} extra */
+  const run = (extra) =>
+    route(
+      repo,
+      [
+        "--range",
+        "main..topic",
+        "--repo-root",
+        repo,
+        "--json",
+        "--visible",
+        "--gate",
+        '{"findings":[]}',
+        ...extra,
+      ],
+      { STRAUSS_TELEMETRY_DIR: sink },
+    );
+  run(["--pr", "1"]);
+  run(["--pr", "2", "--labels", '[{"name":"policy:would-not-auto"}]']);
+
+  // The stream is one slug deep, and the run does not know its own name.
+  const slug = readdirSync(sink)[0] ?? "";
+  const { model } = route(
+    repo,
+    ["--calibrate", "--repo", slug, "--repo-root", repo, "--json"],
+    { STRAUSS_TELEMETRY_DIR: sink },
+  );
+
+  assert.equal(model.repo, slug);
+  assert.equal(model.sink, "local");
+  assert.deepEqual(model.thresholds, { window: 2, maxFalseAuto: 0 });
+  assert.equal(model.groups.length, 1);
+  const [auto] = model.groups[0].routes;
+  assert.equal(auto.would, "auto");
+  assert.equal(auto.n, 2);
+  assert.equal(auto.disagreed, 1);
+  assert.deepEqual(
+    auto.byClass.map((/** @type {any} */ row) => [row.name, row.n, row.rate]),
+    [["docs", 2, 0.5]],
+  );
+  assert.deepEqual(
+    auto.byRule.map((/** @type {any} */ row) => [row.name, row.n]),
+    [["auto-mechanical", 2]],
+  );
+  // Half the window disagreed, so the class is not ready to be flipped.
+  assert.equal(auto.byClass[0].ready, false);
+
+  // A sink that recorded nothing is a usage error, never an empty table.
+  const off = route(
+    repo,
+    ["--calibrate", "--repo", slug, "--repo-root", repo, "--json"],
+    { STRAUSS_TELEMETRY_DIR: sink, STRAUSS_TELEMETRY: "off" },
+  );
+  assert.equal(off.status, 2, off.stderr);
+  assert.match(off.stderr, /STRAUSS_TELEMETRY=off/);
+});
+
+test("the dry run's own flags are checked before anything is read", () => {
+  const { repo } = ownedRepo();
+  const base = ["--range", "main..topic", "--repo-root", repo, "--json"];
+  /** @param {string[]} extra */
+  const bad = (extra) => route(repo, [...base, ...extra]);
+
+  assert.match(bad(["--blind", "--visible"]).stderr, /--blind and --visible/);
+  for (const [why, extra] of /** @type {[string, string[]][]} */ ([
+    ["opposite instructions", ["--blind", "--visible"]],
+    // A dump read as empty would say nobody disagreed, which flatters the route.
+    ["a labels dump that is an object", ["--labels", "{}"]],
+    ["a reactions dump that is an object", ["--reactions", '{"content":"-1"}']],
+    ["a since that is not a date", ["--calibrate", "--since", "yesterday"]],
+  ])) {
+    assert.equal(bad(extra).status, 2, why);
+  }
 });
 
 test("a --pr-url that is not a github pull request is a usage error", () => {
