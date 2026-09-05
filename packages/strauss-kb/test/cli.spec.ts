@@ -1,4 +1,5 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createServer, type Server } from "node:net";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -311,5 +312,52 @@ describe("built CLI round trip", () => {
       "logEntry",
       "recordFrontmatter",
     ]);
+  });
+});
+
+// A collector that accepts the connection and never answers. Anything that
+// refuses or resets would settle the POST for the wrong reason.
+describe("a telemetry collector that never answers", () => {
+  let blackHole: Server;
+  let home: string;
+  let empty: string;
+
+  beforeAll(async () => {
+    home = mkdtempSync(join(tmpdir(), "strauss-kb-telemetry-"));
+    empty = mkdtempSync(join(tmpdir(), "strauss-kb-empty-"));
+    blackHole = createServer(() => {});
+    await new Promise<void>((done) => blackHole.listen(0, "127.0.0.1", done));
+  });
+
+  afterAll(() => {
+    blackHole.close();
+    rmSync(home, { recursive: true, force: true });
+    rmSync(empty, { recursive: true, force: true });
+  });
+
+  it("does not hold the process open", async () => {
+    const port = (blackHole.address() as { port: number }).port;
+    const started = Date.now();
+    const status = await new Promise<number | null>((done, fail) => {
+      const child = spawn(
+        process.execPath,
+        [entry, "--bundle", empty, "validate"],
+        {
+          env: {
+            ...process.env,
+            STRAUSS_TELEMETRY: "local",
+            STRAUSS_TELEMETRY_DIR: home,
+            STRAUSS_TELEMETRY_URL: `http://127.0.0.1:${port}/events`,
+          },
+          stdio: "ignore",
+        },
+      );
+      child.on("error", fail);
+      child.on("close", done);
+    });
+
+    expect(status).toBe(0);
+    // The POST's own timeout is 2 s; the flush cap is what has to end this.
+    expect(Date.now() - started).toBeLessThan(1_500);
   });
 });

@@ -15,6 +15,10 @@ export default defineConfig({
       // Remotes are `file://` bare repos on disk so the suite passes unplugged;
       // production refuses that protocol, so the suite has to widen the list.
       STRAUSS_KB_REPO_PROTOCOLS: "https,ssh,git,file",
+      // Instrumented commands run in every suite; off by default so no test
+      // writes to the developer's `$HOME` or a CI job summary. The telemetry
+      // suite turns it back on against a temp root of its own.
+      STRAUSS_TELEMETRY: "off",
     },
     // Grammars download on first use; the setup file serves the fixtures over
     // localhost so no test reaches the CDN.

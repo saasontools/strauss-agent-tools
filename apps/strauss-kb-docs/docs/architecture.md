@@ -57,11 +57,12 @@ A source file that accumulates more than one responsibility becomes a directory
 of single-responsibility modules with an `index.ts` barrel re-exporting the
 public surface. Importers point at the barrel.
 
-| Module          | Shape                                                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `src/commands/` | `model.ts` (the `KbCommand` type and shared Zod pieces), one file per command, `index.ts` assembling `KB_COMMANDS`              |
-| `src/kb-pins/`  | `model.ts` (manifest schemas), `layers.ts`, `budgets.ts`, `frozen.ts`, `errors.ts`, `pin.ts`, `unpin.ts`, `list.ts`, `index.ts` |
-| `src/kb-links/` | `model.ts` (the inbound-edge types), `inbound.ts` (the index), `impact.ts`, `backlinks.ts`, `index.ts`                          |
+| Module           | Shape                                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `src/commands/`  | `model.ts` (the `KbCommand` type and shared Zod pieces), one file per command, `index.ts` assembling `KB_COMMANDS`              |
+| `src/kb-pins/`   | `model.ts` (manifest schemas), `layers.ts`, `budgets.ts`, `frozen.ts`, `errors.ts`, `pin.ts`, `unpin.ts`, `list.ts`, `index.ts` |
+| `src/kb-links/`  | `model.ts` (the inbound-edge types), `inbound.ts` (the index), `impact.ts`, `backlinks.ts`, `index.ts`                          |
+| `src/telemetry/` | `model.ts` (the event schema), `sinks.ts` (the three destinations), `emit.ts`, `summary.ts` (the read side), `index.ts`         |
 
 `index.ts`'s command order is the CLI usage listing's order: the write path, the
 read path, base housekeeping, the format, then the workspace pin verbs.
@@ -100,6 +101,16 @@ answer is declarative rather than coordinated: a
 in the base's `.gitattributes`. A **lock** was rejected here for the same reason
 as above, and the cost — reordered and occasionally duplicated lines — is
 absorbed on the read side.
+
+### Telemetry is a separate stream from the base log
+
+`log.jsonl` records judgment — who wrote, verified or superseded which record —
+and lives inside the base because that is part of what the base asserts.
+Telemetry records operations: what ran, how long it took, and what it found.
+Mixing them would put a CI run's noise into a base's history and make the log
+rewritable, so telemetry goes to `~/.strauss/telemetry` instead, and the later
+gate, reviewer and policy components share the stream through the same
+[`emit`](./cli-reference.md#telemetry).
 
 ### The store is the sole accessor
 
