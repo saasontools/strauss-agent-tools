@@ -1,0 +1,14 @@
+[
+  {
+    "message": "feat(checkout): return the charged amount",
+    "files": [
+      "src/checkout/pay.ts",
+      ".strauss/kb/risk.checkout-refund-partial.md",
+      ".strauss/kb/log.jsonl"
+    ]
+  },
+  {
+    "message": "chore(kb): drop the refund risk",
+    "files": [".strauss/kb/risk.checkout-refund-partial.md.deleted"]
+  }
+]

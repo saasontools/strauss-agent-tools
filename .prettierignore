@@ -9,3 +9,8 @@ bundle/server/
 # .docusaurus/ — both are outputs, neither is checked in.
 build/
 .docusaurus/
+# Fixture trees are diff material, not repo source. Reformatting them would
+# break the two things they exist for: records byte-identical to what the
+# strauss-kb store writes, and the commit hashes built from those trees.
+fixtures/**/base/
+fixtures/**/head/
