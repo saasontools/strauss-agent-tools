@@ -290,6 +290,66 @@ test("layering — enabled rises on dry-run, true, false", () => {
   assert.equal(raised.data.enabled, "false");
 });
 
+test("calibration — the closed set, and the defaults a layer replaces", () => {
+  assert.deepEqual(read({ version: 1 }).data.calibration, {
+    window: 20,
+    maxFalseAuto: 0,
+  });
+
+  // The first layer to name it replaces the built-in default outright.
+  const named = read({ calibration: { window: 5, maxFalseAuto: 0.1 } });
+  assert.deepEqual(named.data.calibration, { window: 5, maxFalseAuto: 0.1 });
+  assert.deepEqual(named.errors, []);
+
+  // A deeper layer may only ask for more evidence: a wider window, a lower cap.
+  const layered = read(
+    { calibration: { window: 5, maxFalseAuto: 0.2 } },
+    { defaults: { calibration: { window: 30, maxFalseAuto: 0.05 } } },
+  );
+  assert.deepEqual(layered.data.calibration, {
+    window: 30,
+    maxFalseAuto: 0.05,
+  });
+
+  // A layer carries only the sub-keys it named: naming a window alone asks for
+  // a wider one, and cannot quietly zero the cap the layer above it set.
+  const window = read(
+    { calibration: { window: 40 } },
+    { defaults: { calibration: { window: 30, maxFalseAuto: 0.05 } } },
+  );
+  assert.deepEqual(window.data.calibration, { window: 40, maxFalseAuto: 0.05 });
+  assert.deepEqual(window.errors, []);
+
+  // The same the other way: a cap alone leaves the window it found alone.
+  const cap = read(
+    { calibration: { maxFalseAuto: 0.01 } },
+    { defaults: { calibration: { window: 30, maxFalseAuto: 0.05 } } },
+  );
+  assert.deepEqual(cap.data.calibration, { window: 30, maxFalseAuto: 0.01 });
+
+  // The first layer to name it still replaces both built-in defaults.
+  assert.deepEqual(read({ calibration: { window: 40 } }).data.calibration, {
+    window: 40,
+    maxFalseAuto: 0,
+  });
+
+  for (const [why, body] of /** @type {[string, unknown][]} */ ([
+    ["a window that is not a count", { calibration: { window: 0 } }],
+    ["a fractional window", { calibration: { window: 1.5 } }],
+    ["a rate above one", { calibration: { maxFalseAuto: 2 } }],
+    ["a key outside the pair", { calibration: { windowSize: 10 } }],
+    ["a list where an object belongs", { calibration: [] }],
+  ])) {
+    assert.ok(read(body).errors.length > 0, why);
+  }
+
+  // The key itself is in the closed set: a near miss beside it still errors.
+  assert.match(
+    read({ version: 1, calibrations: {} }).errors[0] ?? "",
+    /calibrations is not one of/,
+  );
+});
+
 test("layering — verifiers narrow to the intersection, never widen", () => {
   const policy = read(
     { verifiers: ["a", "c"] },
