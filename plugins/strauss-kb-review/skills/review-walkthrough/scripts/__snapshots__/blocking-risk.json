@@ -1,0 +1,129 @@
+{
+  "range": "main..blocking-risk",
+  "headSha": "b94e3c24b3cb5f6bd43a4d0ddda122a3c85d2b39",
+  "digest": "ead151d092072bf099ac36e2609d8cd2f50c1a68c1aa217e8e8bb8de10b66e4a",
+  "pr": "https://github.com/acme/app/pull/7",
+  "classifier": "kb-only",
+  "steps": 3,
+  "primary": [
+    {
+      "n": 1,
+      "kind": "stamp",
+      "title": "Reviewing main..blocking-risk",
+      "why": "Everything below describes this commit; a different checkout reads a different diff.",
+      "detail": {
+        "range": "main..blocking-risk",
+        "headSha": "b94e3c24b3cb5f6bd43a4d0ddda122a3c85d2b39",
+        "digest": "ead151d092072bf099ac36e2609d8cd2f50c1a68c1aa217e8e8bb8de10b66e4a",
+        "recordCount": 6,
+        "driftChecked": 4,
+        "drift": [],
+        "unchecked": []
+      },
+      "link": {
+        "href": null,
+        "precise": false
+      },
+      "collapsed": false
+    },
+    {
+      "n": 2,
+      "kind": "risk",
+      "title": "A retried checkout can charge twice if the idempotency key is rotated",
+      "why": "Blocking: do not merge without reading this.",
+      "detail": {
+        "conceptId": "risk.checkout-retry-double-charge",
+        "materiality": "blocking",
+        "confidence": "medium",
+        "standing": "open",
+        "status": "open",
+        "anchor": {
+          "file": "src/checkout/pay.ts",
+          "symbol": "PaymentClient.charge"
+        },
+        "mitigation": "idempotencyKey now returns the order id, which PaymentClient.charge receives already assigned.",
+        "verification": "`node --test --experimental-strip-types src/checkout/checkout.spec.ts` edits the cart\nmid-retry and asserts the provider recorded one charge.",
+        "verify": "node --test --experimental-strip-types src/checkout/checkout.spec.ts",
+        "verifiedBy": [
+          {
+            "conceptId": "test-obligation.checkout-single-charge",
+            "standing": "open"
+          }
+        ],
+        "verifiedByState": "open",
+        "verdict": null
+      },
+      "link": {
+        "href": "https://github.com/acme/app/pull/7/files#diff-2c81e7b068e0eaaef9a8dbb3aa11072b08bbbe782487abba3b09da299ba367b8R24",
+        "precise": true
+      },
+      "collapsed": false
+    },
+    {
+      "n": 3,
+      "kind": "skip",
+      "title": "Skip these",
+      "why": "Reading these by eye finds nothing their generator or their move did not intend.",
+      "detail": {
+        "files": [
+          {
+            "filePath": ".strauss/kb/log.jsonl",
+            "class": "kb",
+            "reason": "the companion base itself — this walkthrough is its reading",
+            "link": {
+              "href": "https://github.com/acme/app/pull/7/files#diff-eccf8577448b010d6b3e2cbae9a002ec5c04f2d6d86c1c2f463986ff840f5009",
+              "precise": false,
+              "note": "no resolved line for this anchor, so the link opens the file"
+            }
+          },
+          {
+            "filePath": ".strauss/kb/risk.checkout-retry-double-charge.md",
+            "class": "kb",
+            "reason": "the companion base itself — this walkthrough is its reading",
+            "link": {
+              "href": "https://github.com/acme/app/pull/7/files#diff-a55995d0a4107d7ee17031597663224b0e3098af213f1caa7a98b425ca61ddb8",
+              "precise": false,
+              "note": "no resolved line for this anchor, so the link opens the file"
+            }
+          },
+          {
+            "filePath": ".strauss/kb/test-obligation.checkout-single-charge.md",
+            "class": "kb",
+            "reason": "the companion base itself — this walkthrough is its reading",
+            "link": {
+              "href": "https://github.com/acme/app/pull/7/files#diff-ea5c9808a2a1269f696d14018a8b6026afa39d7782f40d5fe848043a1726157b",
+              "precise": false,
+              "note": "no resolved line for this anchor, so the link opens the file"
+            }
+          }
+        ],
+        "records": []
+      },
+      "link": {
+        "href": null,
+        "precise": false
+      },
+      "collapsed": false
+    },
+    {
+      "n": 4,
+      "kind": "file",
+      "title": "src/checkout/checkout.spec.ts",
+      "why": "Nothing in the base singles this out; read it as an ordinary hunk.",
+      "detail": {
+        "filePath": "src/checkout/checkout.spec.ts",
+        "class": null,
+        "records": ["test-obligation.checkout-single-charge"]
+      },
+      "link": {
+        "href": "https://github.com/acme/app/pull/7/files#diff-8b8edb5cc3145c388f93ae69bf6d5d5487c21ec5c49b2e374cd16da2a9bda75e",
+        "precise": false,
+        "note": "no resolved line for this anchor, so the link opens the file"
+      },
+      "collapsed": true
+    }
+  ],
+  "also": [],
+  "drift": [],
+  "unchecked": []
+}

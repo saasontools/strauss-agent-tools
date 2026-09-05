@@ -1,0 +1,90 @@
+{
+  "range": "main..generated-block",
+  "headSha": "2863bdd31d9cf58169b784c4ce0640b8deb5b927",
+  "digest": "85b80ad97d8e65b428ec2a3313e2b3a2bab1aa6e68c0676088aef15e6a572378",
+  "pr": "https://github.com/acme/app/pull/7",
+  "classifier": "kb-only",
+  "steps": 1,
+  "primary": [
+    {
+      "n": 1,
+      "kind": "stamp",
+      "title": "Reviewing main..generated-block",
+      "why": "Everything below describes this commit; a different checkout reads a different diff.",
+      "detail": {
+        "range": "main..generated-block",
+        "headSha": "2863bdd31d9cf58169b784c4ce0640b8deb5b927",
+        "digest": "85b80ad97d8e65b428ec2a3313e2b3a2bab1aa6e68c0676088aef15e6a572378",
+        "recordCount": 5,
+        "driftChecked": 1,
+        "drift": [],
+        "unchecked": []
+      },
+      "link": {
+        "href": null,
+        "precise": false
+      },
+      "collapsed": false
+    },
+    {
+      "n": 2,
+      "kind": "skip",
+      "title": "Skip these",
+      "why": "Reading these by eye finds nothing their generator or their move did not intend.",
+      "detail": {
+        "files": [
+          {
+            "filePath": ".strauss/kb/fact.protocol-schemas-generated.md",
+            "class": "kb",
+            "reason": "the companion base itself — this walkthrough is its reading",
+            "link": {
+              "href": "https://github.com/acme/app/pull/7/files#diff-71af93584cf91b991b79c28642596cb5d8d9ddd62a281e54ffef48ac4741d121",
+              "precise": false,
+              "note": "no resolved line for this anchor, so the link opens the file"
+            }
+          },
+          {
+            "filePath": ".strauss/kb/log.jsonl",
+            "class": "kb",
+            "reason": "the companion base itself — this walkthrough is its reading",
+            "link": {
+              "href": "https://github.com/acme/app/pull/7/files#diff-eccf8577448b010d6b3e2cbae9a002ec5c04f2d6d86c1c2f463986ff840f5009",
+              "precise": false,
+              "note": "no resolved line for this anchor, so the link opens the file"
+            }
+          }
+        ],
+        "records": [
+          {
+            "conceptId": "fact.protocol-schemas-generated",
+            "title": "Protocol types are generated from src/protocol/protocol.json",
+            "tag": "review:generated",
+            "anchors": [
+              {
+                "file": "src/protocol/generated/index.ts"
+              },
+              {
+                "file": "src/protocol/protocol.json"
+              }
+            ],
+            "verify": null,
+            "onDiff": true,
+            "link": {
+              "href": "https://github.com/acme/app/pull/7/files#diff-1c89606b3d5b8d496154bd03490f06910c09e8360cf8437fee7fb2006eec0c37R4",
+              "precise": true
+            },
+            "verdict": null
+          }
+        ]
+      },
+      "link": {
+        "href": null,
+        "precise": false
+      },
+      "collapsed": false
+    }
+  ],
+  "also": [],
+  "drift": [],
+  "unchecked": []
+}

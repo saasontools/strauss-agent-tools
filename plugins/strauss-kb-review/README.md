@@ -29,6 +29,18 @@ honest answer.
 **`review-companion`** — risks, invented requirements, business flows, and
 review-focus marks kept current across a pull request's commits.
 
+**`review-walkthrough`** — the base and the diff rendered as one HTML review
+guide for a human.
+
+## Walkthrough
+
+`scripts/__snapshots__/*.json` pin the deck two `fixtures/companion-repo`
+scenarios produce. A snapshot diff is a review, not a failure — read it, decide
+whether the new deck is better, then `UPDATE_SNAPSHOTS=1` to accept it.
+
+How to run it, the order it renders and when it refuses:
+[`skills/review-walkthrough/SKILL.md`](skills/review-walkthrough/SKILL.md).
+
 ## Install (unpublished)
 
 Local session, from a checkout of this repo:
