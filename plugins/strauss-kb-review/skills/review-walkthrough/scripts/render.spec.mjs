@@ -281,6 +281,33 @@ test("the companion base's own files go in the skip step, not the deck", () => {
   assert.equal(skip.detail.records[0].verify, null);
 });
 
+test("takes a Windows repo root and bundle without losing the skip step", () => {
+  // `--repo-root`/`--bundle` reach the model in the host's separator; every
+  // path they are compared against comes from git, which prints `/`.
+  const model = buildModel(fakeRunners(everyKind()), {
+    ...OPTIONS,
+    repoRoot: "C:\\repo",
+    bundle: "C:\\repo\\.strauss\\kb",
+  });
+  const skip = model.primary.find((/** @type {any} */ s) => s.kind === "skip");
+  const base = skip.detail.files.find(
+    (/** @type {any} */ f) => f.class === "kb",
+  );
+  assert.equal(base.filePath, ".strauss/kb/risk.double-charge.md");
+  // The deck is the POSIX one: no second `file` step for the base's own file.
+  assert.deepEqual(
+    model.primary.map((/** @type {any} */ step) => step.kind),
+    buildModel(fakeRunners(everyKind()), OPTIONS).primary.map(
+      (/** @type {any} */ step) => step.kind,
+    ),
+  );
+  // A deep link hashes the path git printed, whatever the host's separator.
+  assert.equal(
+    base.link.href,
+    `${OPTIONS.pr}/files#diff-${fileAnchor(".strauss/kb/risk.double-charge.md")}`,
+  );
+});
+
 test("drops a superseded risk and an answered question", () => {
   const fixture = everyKind();
   fixture.match[0].records[0].standing = "superseded";
