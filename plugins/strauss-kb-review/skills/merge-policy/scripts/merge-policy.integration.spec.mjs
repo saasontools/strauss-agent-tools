@@ -1052,16 +1052,18 @@ test("--enforce fails a decider escalation, and dry-run makes it advice", () => 
   assert.equal(blocked.model.enforce.exit, 1);
   assert.deepEqual(blocked.model.enforce.approvedBy, []);
 
+  // A dry run names the same verdict `would`, and `--visible` shows it.
   const dry = docsRepo({ enabled: "dry-run" });
   const advised = route(dry.repo, [
     ...args(dry.repo),
+    "--visible",
     "--decider",
     escalation(dry.sha),
   ]);
-  assert.equal(advised.model.route, "human", advised.model.reason);
+  assert.equal(advised.model.would, "human", advised.model.reason);
   assert.equal(advised.model.rule, "decider-escalate");
   assert.equal(advised.status, 0);
-  assert.match(advised.model.enforce.why, /dry-run/);
+  assert.match(advised.model.enforce.why, /dry run/);
 });
 
 test("a --pr-url that is not a github pull request is a usage error", () => {
