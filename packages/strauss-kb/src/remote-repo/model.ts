@@ -26,6 +26,8 @@ export const UNCHECKED_REASONS: readonly AnchorUnresolvedReason[] = [
   "remote-unreachable",
   "repo-unauthorized",
   "default-branch-unknown",
+  /** Local, but the same finding: a shallow clone has no rev to read. */
+  "ref-unavailable",
 ];
 
 export function isUncheckedReason(

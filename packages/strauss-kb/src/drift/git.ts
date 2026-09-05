@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { AnchorRead } from "../anchor-resolver/model.js";
 import { filePathIsSafe, refShapeIsSafe } from "../remote-repo/validate.js";
 
 const execFileAsync = promisify(execFile);
@@ -48,6 +49,44 @@ async function git(cwd: string, args: string[]): Promise<GitResult> {
   }
 }
 
+/**
+ * The committed file an old-side anchor names, at its own `ref` and nowhere
+ * else. No history fallback: `side: "old"` asserts one exact tree, so guessing
+ * a nearby commit would answer a question the anchor did not ask.
+ *
+ * A rev this clone does not carry is `ref-unavailable` — unchecked, not
+ * `gone`: a shallow checkout is no evidence the code went away.
+ */
+export async function readFileAtRef(
+  repoRoot: string,
+  anchor: { file: string; ref?: string },
+): Promise<AnchorRead> {
+  if (!filePathIsSafe(anchor.file))
+    return { ok: false, reason: "outside-repo" };
+  if (!anchor.ref || !refShapeIsSafe(anchor.ref)) {
+    return { ok: false, reason: "ref-unreadable" };
+  }
+  const blob = await catBlob(repoRoot, anchor.ref, anchor.file);
+  if (blob !== null) return { ok: true, source: blob };
+  return {
+    ok: false,
+    reason: (await hasCommit(repoRoot, anchor.ref))
+      ? "ref-unreadable"
+      : "ref-unavailable",
+  };
+}
+
+/** Whether the rev resolves to a commit here. `^{commit}` is ours, not bundle data. */
+async function hasCommit(repoRoot: string, ref: string): Promise<boolean> {
+  const found = await git(repoRoot, [
+    "cat-file",
+    "-e",
+    "--end-of-options",
+    `${ref}^{commit}`,
+  ]);
+  return found.ok;
+}
+
 /** Repository-relative paths, for the `moved` search. Empty when git fails. */
 export async function listRepoFiles(repoRoot: string): Promise<string[]> {
   const result = await git(repoRoot, ["ls-files", "-z", "--cached"]);
@@ -63,7 +102,7 @@ export async function remoteOriginUrl(cwd: string): Promise<string | null> {
 
 /** Where a recovered file came from, so a packet can say how far back it looked. */
 export type OldSourceOrigin =
-  /** `git show <anchor.ref>:<file>` — the rev the record itself named. */
+  /** `git cat-file blob <anchor.ref>:<file>` — the rev the record named. */
   | { kind: "ref"; ref: string }
   /** The last commit touching the path before `resolved_at`. */
   | { kind: "history"; ref: string };
@@ -94,7 +133,7 @@ export async function readOldSource(
     return { ok: false, reason: "unrecoverable" };
 
   if (anchor.ref && refShapeIsSafe(anchor.ref)) {
-    const shown = await showFile(repoRoot, anchor.ref, anchor.file);
+    const shown = await catBlob(repoRoot, anchor.ref, anchor.file);
     if (shown !== null) {
       return {
         ok: true,
@@ -124,20 +163,25 @@ export async function readOldSource(
   if (!sha || !refShapeIsSafe(sha))
     return { ok: false, reason: "unrecoverable" };
 
-  const shown = await showFile(repoRoot, sha, anchor.file);
+  const shown = await catBlob(repoRoot, sha, anchor.file);
   if (shown === null) return { ok: false, reason: "unrecoverable" };
   return { ok: true, source: shown, origin: { kind: "history", ref: sha } };
 }
 
-/** `<rev>:<path>` is one positional, so both halves are validated together. */
-async function showFile(
+/**
+ * `<rev>:<path>` is one positional, so both halves are validated together.
+ * `cat-file blob` rather than `show`: a path naming a directory must fail, and
+ * `show` would hand back a tree listing to be hashed as if it were source.
+ */
+async function catBlob(
   repoRoot: string,
   ref: string,
   file: string,
 ): Promise<string | null> {
   const path = file.replace(/^\.\//, "");
   const result = await git(repoRoot, [
-    "show",
+    "cat-file",
+    "blob",
     "--end-of-options",
     `${ref}:${path}`,
   ]);

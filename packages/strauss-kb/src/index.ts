@@ -25,6 +25,8 @@ export {
 } from "./kb-errors.js";
 export {
   kbAnchorSchema,
+  kbAnchorSpanSchema,
+  kbAnchorWriteSchema,
   kbActorStampSchema,
   kbConceptIdSchema,
   kbLinkSchema,
@@ -39,6 +41,7 @@ export {
   KB_SLUG_PATTERN,
   type KbActorStamp,
   type KbAnchor,
+  type KbAnchorSpan,
   type KbLink,
   type KbRecord,
   type KbRecordFrontmatter,
