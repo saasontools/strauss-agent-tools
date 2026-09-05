@@ -152,6 +152,8 @@ describe("parseUnifiedDiff", () => {
     ).toEqual([
       {
         filePath: "src/new.ts",
+        renamedFrom: "src/old.ts",
+        similarity: 80,
         hunks: [
           { startLine: 7, endLine: 7 },
           { startLine: 7, endLine: 7, side: "old" },
@@ -335,5 +337,93 @@ describe("parseUnifiedDiff", () => {
       { startLine: 10, endLine: 13 },
       { startLine: 10, endLine: 12, side: "old" },
     ]);
+  });
+});
+
+describe("parseUnifiedDiff options", () => {
+  const pureRename = patch(
+    "diff --git a/src/old.ts b/src/new.ts",
+    "similarity index 100%",
+    "rename from src/old.ts",
+    "rename to src/new.ts",
+  );
+
+  test("a rename that changed nothing is dropped, as before", () => {
+    expect(parseUnifiedDiff(pureRename)).toEqual([]);
+  });
+
+  test("keepEmpty keeps it, named by its new path", () => {
+    expect(parseUnifiedDiff(pureRename, { keepEmpty: true })).toEqual([
+      {
+        filePath: "src/new.ts",
+        renamedFrom: "src/old.ts",
+        similarity: 100,
+        hunks: [],
+      },
+    ]);
+  });
+
+  test("keepEmpty returns a binary and a mode-only file, with no hunks", () => {
+    expect(
+      parseUnifiedDiff(
+        patch(
+          "diff --git a/assets/logo.png b/assets/logo.png",
+          "index 3333333..4444444 100644",
+          "Binary files a/assets/logo.png and b/assets/logo.png differ",
+          "diff --git a/scripts/run.sh b/scripts/run.sh",
+          "old mode 100644",
+          "new mode 100755",
+        ),
+        { keepEmpty: true },
+      ),
+    ).toEqual([
+      { filePath: "assets/logo.png", hunks: [] },
+      { filePath: "scripts/run.sh", hunks: [] },
+    ]);
+  });
+
+  test("withLines puts added lines on the new hunk and removed on the old", () => {
+    const [file] = parseUnifiedDiff(
+      patch(
+        "diff --git a/src/order.ts b/src/order.ts",
+        "--- a/src/order.ts",
+        "+++ b/src/order.ts",
+        "@@ -10,1 +10,2 @@",
+        "-gone",
+        "+kept",
+        "+added",
+      ),
+      { withLines: true },
+    );
+
+    expect(file?.hunks).toEqual([
+      { startLine: 10, endLine: 11, lines: ["kept", "added"] },
+      { startLine: 10, endLine: 10, side: "old", lines: ["gone"] },
+    ]);
+  });
+
+  test("a header line past the first hunk is content, not a header", () => {
+    const [file] = parseUnifiedDiff(
+      patch(
+        "diff --git a/src/order.ts b/src/order.ts",
+        "--- a/src/order.ts",
+        "+++ b/src/order.ts",
+        "@@ -1,0 +1,2 @@",
+        "+++ not a header",
+        "+rename from nowhere",
+      ),
+      { withLines: true, keepEmpty: true },
+    );
+
+    expect(file).toEqual({
+      filePath: "src/order.ts",
+      hunks: [
+        {
+          startLine: 1,
+          endLine: 2,
+          lines: ["++ not a header", "rename from nowhere"],
+        },
+      ],
+    });
   });
 });

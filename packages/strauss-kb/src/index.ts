@@ -14,6 +14,7 @@ export {
   type KbCatalogResult,
 } from "./catalog.js";
 export {
+  KbClassifyInputError,
   KbInvalidConceptIdError,
   KbMissingFlagValueError,
   KbPackBudgetExceededError,
@@ -175,6 +176,21 @@ export {
   type SymbolRangeIndex,
 } from "./match-diff.js";
 export type { KbMatch, KbMatchRecord } from "./commands/match/index.js";
+// The rule tables and their helpers stay behind `classify/index.js`: they are
+// how the verdict is reached, not part of it.
+export {
+  classifyDiff,
+  DEFAULT_THRESHOLDS,
+  KB_CLASSES,
+  type KbClass,
+  type KbClassifiedFile,
+  type KbClassifiedHunk,
+  type KbClassifyFile,
+  type KbClassifyOptions,
+  type KbClassifyResult,
+  type KbClassifyThresholds,
+  type KbVerdict,
+} from "./classify/index.js";
 export {
   adjudicate,
   resolveHeads,

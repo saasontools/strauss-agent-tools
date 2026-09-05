@@ -1,0 +1,100 @@
+{
+  "agent": "kb-reviewer",
+  "note": "Outcome expectations per companion-repo scenario, for SAA-746's codex-claude-agent runner to assert against. Trigger accuracy is the kb-review skill's evals; this file is the other half and cannot run in CI here.",
+  "fixture": "fixtures/companion-repo",
+  "actor": "agent:reviewer",
+  "range": "main..<scenario>",
+  "rangeNote": "Two-dot, the same form the agent takes. Every scenario branch has main as its merge base, which is what <base> must be.",
+  "writtenNote": "`writes` and `events` are the two halves of the agent's `written` array: a `writes` entry is an element with `op: \"write\"`, an `events` entry one with `op: \"verify\"`, `\"status\"` or `\"rebaseline\"`.",
+  "mustNotWrite": ["decision"],
+  "scenarios": {
+    "silent-code-change": {
+      "writes": [
+        {
+          "kind": "record",
+          "type": "risk",
+          "anchor": {
+            "file": "src/services/tenant.service.ts",
+            "symbol": "TenantService.findMany"
+          },
+          "tags": ["review"],
+          "materiality": { "present": true },
+          "why": "findMany now dedupes ids, so `missing` is over unique ids and a caller passing duplicates gets a shorter array than it passed."
+        },
+        {
+          "kind": "record",
+          "type": "open-question",
+          "owner": "agent:impl",
+          "why": "Nothing records why the dedupe landed; the why is the author's, not the reviewer's to invent."
+        }
+      ],
+      "verdicts": {
+        "flow.tenant-batch-get": "disputed"
+      },
+      "delta": {
+        "blindOnly": { "empty": true },
+        "why": "flow.tenant-batch-get is anchored on the changed symbol, so a record does cover the hunk — but no record covers the dedupe, so there was no claim for the base to talk the reviewer out of."
+      }
+    },
+    "fabricated-decision": {
+      "writes": [
+        {
+          "kind": "record",
+          "type": "open-question",
+          "owner": "agent:impl",
+          "why": "The cache has no invalidation and no eviction; the decision does not answer it. A refutation is a question beside the record, never an edit of it."
+        }
+      ],
+      "verdicts": {
+        "decision.tenant-cache-ttl": "lies"
+      },
+      "why": "No `## Rejected` section and a rationale that restates the title: the record rejected nothing, so there is no claim to check.",
+      "delta": {
+        "blindOnly": ["the unbounded Map", "the missing invalidation"],
+        "why": "The pass-1 findings the record's presence would otherwise have absorbed."
+      }
+    },
+    "blocking-risk": {
+      "events": [
+        {
+          "kind": "verify",
+          "conceptId": "risk.checkout-retry-double-charge",
+          "actor": "agent:reviewer",
+          "note": "must name the anchor read and the command run"
+        }
+      ],
+      "verdicts": {
+        "risk.checkout-retry-double-charge": "verified"
+      },
+      "verifyCommands": [
+        {
+          "source": "## Verification section, not strauss_verify",
+          "command": "node --test --experimental-strip-types src/checkout/checkout.spec.ts",
+          "expect": "pass"
+        }
+      ],
+      "why": "The mitigation names real code at the anchor and the test that pins it exists. `verified` requires both the anchor read and the command run."
+    },
+    "generated-block": {
+      "events": [
+        {
+          "kind": "verify",
+          "conceptId": "fact.protocol-schemas-generated",
+          "actor": "agent:reviewer",
+          "note": "must name the generator run and that the tree came back clean"
+        }
+      ],
+      "verdicts": {
+        "fact.protocol-schemas-generated": "verified"
+      },
+      "verifyCommands": [
+        {
+          "source": "strauss_verify",
+          "command": "pnpm gen:protocol && git diff --exit-code src/protocol/generated",
+          "expect": "pass"
+        }
+      ],
+      "why": "The only defensible way to accept 600 generated lines is to re-run the generator. A run that reports `verified` without executing the command fails this scenario."
+    }
+  }
+}

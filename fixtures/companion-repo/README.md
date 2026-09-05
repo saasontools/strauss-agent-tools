@@ -58,7 +58,7 @@ path needs two states across commits and each needs its own name in `head/`
 | `deleted-record`         | `human` | A             | The risk is in `log.jsonl` and gone from the tree    |
 | `policy-file-change`     | `human` | —             | Everything else says auto; the policy row wins       |
 | `excluded-path-crosses`  | `human` | A             | The excluded hunk imports an included symbol         |
-| `drift-after-commit`     | `human` | D             | One anchor wants `--rebaseline`, one must not get it |
+| `drift-after-commit`     | `human` | B, D          | One anchor wants `--rebaseline`, one must not get it |
 | `review-thread-decision` | `human` | —             | `kb_verify` is audit, not approval                   |
 | `fabricated-decision`    | `human` | C             | Anchored, typed, validates, and says nothing         |
 
@@ -68,10 +68,10 @@ Families are SAA-729's A–F; each `expected.json` names the individual checks.
 so a path added and deleted across the branch is absent from it;
 `materialize.spec.mjs` asserts every key appears in that diff.
 
-Classifier classes follow SAA-728 (`test`, `config`, `generated`,
-`boilerplate`, `rename`) plus `code` and `docs`. `kb` marks the companion
-base's own files; SAA-728 may fold those into `config`, and the fixture names
-them separately so a consumer can choose.
+Classifier classes are SAA-728's closed set: `test`, `config`, `ci`, `docs`,
+`lockfile`, `generated`, `boilerplate`, `rename`, `source`. The companion
+base's own files fall out of the path table like any other — a record is
+`docs`, `log.jsonl` is `config` — and carry no class of their own.
 
 ## Health of each base
 
