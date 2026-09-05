@@ -77,7 +77,9 @@ function render(scenario) {
 
 // The base digest comes from `strauss-kb stamp` and differs across platforms;
 // the deck does not. Pin its shape, not its value.
+/** @param {unknown} model */
 function withoutDigest(model) {
+  /** @type {(value: unknown) => unknown} */
   const seen = (value) =>
     Array.isArray(value)
       ? value.map(seen)
