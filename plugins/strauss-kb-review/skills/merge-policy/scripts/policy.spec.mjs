@@ -298,6 +298,16 @@ test("layering — verifiers narrow to the intersection, never widen", () => {
   assert.deepEqual(policy.data.verifiers, ["a"]);
 });
 
+test("layering — an org layer naming no verifiers leaves the repo free to name some", () => {
+  // Naming a list where the layer above named none only narrows, so it stands.
+  const policy = read(
+    { verifiers: ["human:sec"] },
+    { defaults: { owners: ["org-lead"] } },
+  );
+  assert.deepEqual(policy.errors, []);
+  assert.deepEqual(policy.data.verifiers, ["human:sec"]);
+});
+
 test("layering — review.exclude unions, and crossing rises to human", () => {
   const policy = read(
     { review: { exclude: ["src/**"], crossing: "off" } },

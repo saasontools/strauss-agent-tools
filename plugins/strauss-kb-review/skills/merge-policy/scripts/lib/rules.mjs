@@ -11,7 +11,7 @@
  * | 3 | `policy-changed` | human | the policy file changed in this range |
  * | 4 | `unearned-resolution` | human | a `review` record closed by its own author |
  * | 5 | `open-obligation` | human | blocking, open question, assumption, open test-obligation |
- * | 6 | `unverified-important` | human | `important` after floors, no non-author verify |
+ * | 6 | `unverified-important` | human | `important` after floors, no verify that counts |
  * | 7 | `reviewer-dissent` | human | reviewer wrote a risk, or a `lies`/`disputed` verdict |
  * | 8 | `record-deleted` | human | a record the base or the log knew is gone, unsettled |
  * | 9 | `uncovered-change` | human | a gate family A block on a path review still covers |

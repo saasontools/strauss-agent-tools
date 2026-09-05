@@ -733,6 +733,9 @@ function gatherWith(over) {
       policyPath: null,
       reviewer: null,
       approvals: [],
+      defaults: over.defaults
+        ? { path: "/org/defaults.json", text: JSON.stringify(over.defaults) }
+        : null,
     },
     run,
   );
@@ -867,9 +870,76 @@ test("verifiers — a listed verifier still may not verify its own record", () =
     assert.equal(decide(own).rule, "unverified-important");
   }
 
-  const other = answer({ trusted: ["agent:reviewer"], by: "agent:second" });
+  const other = answer({
+    trusted: ["agent:reviewer", "agent:second"],
+    by: "agent:second",
+  });
   assert.deepEqual(other.records[0]?.verifiedBy, ["agent:second"]);
   assert.notEqual(decide(other).rule, "unverified-important");
+});
+
+test("verifiers — named it is an allowlist, unnamed any non-author verify counts", () => {
+  /** @param {{ repo?: object, org?: object, by: string, writtenBy?: string }} over */
+  const answer = ({ repo, org, by, writtenBy = "agent:impl" }) =>
+    gatherWith({
+      run: {
+        show: showing({
+          "main:.strauss/merge-policy.json": JSON.stringify({
+            version: 1,
+            floors: { "review:security": "important" },
+            ...repo,
+          }),
+        }),
+      },
+      defaults: org,
+      bundleFiles: [{ name: "fact.x.md", path: ".strauss/kb/fact.x.md" }],
+      bundle: frontmatter({
+        type: "fact",
+        tags: ["review:security"],
+        strauss_status: "accepted",
+      }),
+      changed: "M\t.strauss/kb/fact.x.md\n",
+      log: [
+        { operation: "write", by: writtenBy, conceptId: "fact.x" },
+        { operation: "verify", by, conceptId: "fact.x" },
+      ],
+    });
+  /** @param {any} over */
+  const counted = (over) => answer(over).records[0]?.verifiedBy;
+
+  // No list: any actor that did not write the record counts.
+  const open = answer({ by: "agent:reviewer" });
+  assert.deepEqual(open.records[0]?.verifiedBy, ["agent:reviewer"]);
+  assert.notEqual(decide(open).rule, "unverified-important");
+
+  // Named: an actor off the list is not a verifier, and the floor still bites.
+  const named = { repo: { verifiers: ["human:sec"] } };
+  const off = answer({ ...named, by: "agent:reviewer" });
+  assert.deepEqual(off.records[0]?.verifiedBy, []);
+  assert.equal(decide(off).rule, "unverified-important");
+
+  const listed = answer({ ...named, by: "human:sec" });
+  assert.deepEqual(listed.records[0]?.verifiedBy, ["human:sec"]);
+  assert.notEqual(decide(listed).rule, "unverified-important");
+
+  // Listed and the writer: still the author's own word.
+  assert.deepEqual(
+    counted({ ...named, by: "human:sec", writtenBy: "human:sec" }),
+    [],
+  );
+
+  // The layers intersect, so the repo file shrinks the org list.
+  const both = {
+    org: { verifiers: ["human:sec", "human:ops"] },
+    repo: { verifiers: ["human:sec"] },
+  };
+  assert.deepEqual(counted({ ...both, by: "human:ops" }), []);
+  assert.deepEqual(counted({ ...both, by: "human:sec" }), ["human:sec"]);
+
+  // An org layer that named none is silence, not a licence: the repo list runs.
+  const repoOnly = { org: { owners: ["org-lead"] }, ...named };
+  assert.deepEqual(counted({ ...repoOnly, by: "agent:reviewer" }), []);
+  assert.deepEqual(counted({ ...repoOnly, by: "human:sec" }), ["human:sec"]);
 });
 
 test("crossing — off makes an exclusion final and says so, human reads the edges", () => {

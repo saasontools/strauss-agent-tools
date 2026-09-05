@@ -69,7 +69,9 @@ export function gather(options, run) {
   const matched = matchIds(run, options.base, options.head);
   for (const record of records) {
     record.onDiff = record.touched || matched.has(record.id);
-    record.verifiedBy = verifiers(record, log);
+    record.verifiedBy = verifiers(record, log, {
+      allow: policy.data.verifiers,
+    });
   }
 
   return {
@@ -255,11 +257,13 @@ function codeowners(run, base, policy) {
 }
 
 /**
- * Actors that verified a record and did not write it. A policy-listed verifier
- * is no exception: its verify on its own record is still the author's word.
+ * Actors that verified a record and did not write it. `allow` is the effective
+ * `verifiers`: named, it is an allowlist and no other actor counts; empty, any
+ * non-author verify counts. A listed verifier is no exception either way — its
+ * verify on its own record is still the author's word.
  * @param {{ id: string, writtenBy: string | null, verifiedFrontmatter: unknown[] }} record
- * @param {any[]} log */
-function verifiers(record, log) {
+ * @param {any[]} log @param {{ allow: string[] }} options */
+function verifiers(record, log, options) {
   /** @type {Set<string>} */
   const actors = new Set();
   for (const event of record.verifiedFrontmatter) {
@@ -273,7 +277,9 @@ function verifiers(record, log) {
     }
   }
   const author = record.writtenBy ?? writerOf(record.id, log);
-  return [...actors].filter((actor) => actor !== author);
+  const allowed = (/** @type {string} */ actor) =>
+    options.allow.length === 0 || options.allow.includes(actor);
+  return [...actors].filter((actor) => actor !== author && allowed(actor));
 }
 
 /** @param {string} id @param {any[]} log */
@@ -285,9 +291,9 @@ function writerOf(id, log) {
 }
 
 /**
- * A `review` record the log moved to a terminal status with no non-author
- * `verify` behind it. The status is the author's own word, so it counts as
- * still open.
+ * A `review` record the log moved to a terminal status with no `verify` that
+ * counts behind it. The status is the author's own word, so it reads as still
+ * open.
  * @param {ReturnType<typeof readRecords>["records"]} records @param {any[]} log
  */
 function unearnedResolutions(records, log) {
