@@ -50,7 +50,8 @@ same report without one.
 2. `strauss-kb doctor --strict --bundle <bundlePath> --repo-root <repoRoot>`.
 
 Non-zero from either: stop, write nothing, report `partial: true` with
-`reason: "unvalidated-base"`.
+`reason: "unvalidated-base"`. Repairing it is not yours — the `kb-fix` skill
+routes it to whoever can, and you run again on what comes back.
 
 ## 4. Pass 1 — blind
 
@@ -110,9 +111,8 @@ question beside it.
 Two mechanical fixes you apply yourself: `anchor-resolve --rebaseline` where
 the drift is a move, and `status` where the diff settles a terminal state.
 Those two are the stated exception to §10 — the only writes allowed on another
-actor's record. Everything else the gate labels mechanical needs a record
-edited, which §10 forbids and no granted tool does, so it becomes an
-`open-question` owned by the author, like a semantic finding.
+actor's record. Every other finding, whatever the gate labels it, becomes an
+`open-question` owned by the author; `kb-fix` says who repairs the rest.
 
 ## 8. Output
 

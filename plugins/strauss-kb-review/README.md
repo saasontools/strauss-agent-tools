@@ -37,6 +37,8 @@ verdicts.
 **`review-walkthrough`** — the base and the diff rendered as one HTML review
 guide for a human.
 
+**`kb-fix`** — see [Fixing a base](#fixing-a-base).
+
 ## Reviewer agent
 
 `agents/kb-reviewer.md` (Claude Code only) reviews a pull request against the
@@ -44,6 +46,16 @@ base the other two skills wrote, and writes its verdicts back as
 `agent:reviewer`. The procedure, the two surfaces it writes through, and the
 output shape live there. Per-scenario outcome expectations are in
 `agents/kb-reviewer.expectations.json`, for SAA-746's runner to assert against.
+
+## Fixing a base
+
+Whoever held the why fixes the base. `skills/kb-fix/` routes between the three
+tiers — the author in the blocked turn, the author's subagent in the same
+session, and a fresh `agents/kb-fixer.md` in a later one — and the gate marks
+each `--report` finding `fixable`, so the routing is data. The one repair the
+late tier may apply, and the `open-question` everything else becomes, live in
+`agents/kb-fixer.md`; per-scenario expectations are in
+`agents/kb-fixer.expectations.json`.
 
 ## Gate
 

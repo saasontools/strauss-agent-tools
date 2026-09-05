@@ -30,7 +30,9 @@ hunk.
 Its JSON, keyed by record id, then its summary. `partial: true` has two causes
 and `reason` names which: `budget`, where the base now holds an `open-question`
 saying what was not covered, or `unvalidated-base`, where pre-flight failed and
-nothing was reviewed or written. Say which rather than reporting a clean review.
+nothing was reviewed or written. Say which rather than reporting a clean
+review, and route `unvalidated-base` to `kb-fix`, as the agent does; run again
+on what comes back.
 
 ## Record and replay
 
