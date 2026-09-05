@@ -1,5 +1,6 @@
 import { adjudicate, type KbStanding } from "./adjudicate.js";
 import type { KbRecord } from "./kb-record.schema.js";
+import { matchesTags, type KbTagFilter } from "./kb-tags.js";
 
 /** One record as the catalog names it — no body, no description, one line. */
 export type KbCatalogEntry = {
@@ -74,7 +75,7 @@ const EMPTY_STANDINGS: Record<KbStanding, number> = {
  */
 export function catalog(
   bundle: KbRecord[],
-  options: { type?: string; now?: Date } = {},
+  options: { type?: string; now?: Date } & KbTagFilter = {},
 ): KbCatalogResult {
   const wanted = options.type
     ? bundle.filter((record) => record.frontmatter.type === options.type)
@@ -84,6 +85,9 @@ export function catalog(
   // replacement may be of another type, and a filter must not turn a
   // superseded record into a current-looking one.
   const entries = adjudicate(wanted, bundle, options.now ?? new Date())
+    // Tags cut after adjudication, for the same reason: a tag narrows what the
+    // catalog names, never the standing it names it with.
+    .filter((hit) => matchesTags(hit.record, options))
     .map((hit) => ({
       conceptId: hit.record.conceptId,
       type: hit.record.frontmatter.type,

@@ -318,7 +318,8 @@ the vector tier is off by default.
 
 ### Tags are not the growth path
 
-The `tags` field exists, is written, and is read by nothing but an index line.
+The `tags` field is written and can be
+[selected on](./specification.md#frontmatter), but nothing validates it.
 Free-text tags drift the way `auth` / `authentication` / `authn` drift, and
 enforcing a vocabulary would make them a closed enum, which `type` already is.
 The labels that matter are already verifiable: `strauss_anchors` names a file

@@ -225,7 +225,7 @@ prices the whole base at full rate on every later call.
 
 As CLI [`catalog`](./cli-reference.md#catalog): every record as one line —
 concept id, type, title, standing, stale flag — at roughly thirty tokens each.
-Parameters: `bundlePath` required, `type` optional.
+Parameters: `bundlePath` required, `type` and `tags` (string array) optional.
 
 The **tier-one listing**, and what to reach for when `kb_load` refuses: alone
 among the read tools it has **no ceiling and never refuses**. Bodies are not
@@ -240,9 +240,9 @@ here.
 As CLI [`query`](./cli-reference.md#query); the query text is `text`, and
 this surface adds `type` and `includeNonCurrent`.
 
-Parameters: `bundlePath` required; `text` (`string`), `type` (enum),
-`includeNonCurrent` (`boolean` — the CLI always sets this), and `repoRoot`
-(`string`, default cwd, for the drift check) optional.
+Parameters: `bundlePath` required; `text` (`string`), `type` (enum), `tags`
+(string array), `includeNonCurrent` (`boolean` — the CLI always sets this), and
+`repoRoot` (`string`, default cwd, for the drift check) optional.
 
 :::note These results are volatile per call
 Place them at the **tail** of the context, not the stable prefix `kb_load`'s
@@ -320,7 +320,11 @@ standing of the record that made it. Parameters: `bundlePath`, `conceptId`.
 ### `kb_list`
 
 As CLI [`list`](./cli-reference.md#list): every record, optionally narrowed
-to one type. Parameters: `bundlePath` required, `type` optional.
+to one type or tag. Parameters: `bundlePath` required, `type` and `tags` (string
+array) optional.
+
+`tags` is the CLI's repeatable `--tag`, and is the same field on `kb_query` and
+`kb_catalog` — see [tags](./specification.md#frontmatter).
 
 ```json
 { "bundlePath": "/repo/.strauss/kb", "type": "open-question" }
@@ -479,14 +483,17 @@ All parameters are optional: `budgetTokens` (ceiling on the whole block, default
 whose complete load fits under it arrives as full records; off by default),
 `profile` (named budget set — built-ins `session-start` (full-under 1500),
 `compact` and `turn` (budget 2500); an unknown name falls through to defaults),
-`format` (`markdown` | `json` — the CLI envelope for hook protocols requiring
-strict JSON on stdout; MCP callers omit it, the block itself is identical), and
-`event` (`string`, the `hookEventName` stamped into that envelope, only
-meaningful with `format: "json"`).
+`excludeTags` (string array — records carrying one stay out of the block, the
+base still pinned and still readable through the tools), `format` (`markdown` |
+`json` — the CLI envelope for hook protocols requiring strict JSON on stdout;
+MCP callers omit it, the block itself is identical), and `event` (`string`, the
+`hookEventName` stamped into that envelope, only meaningful with
+`format: "json"`).
 
-Budgets resolve most-specific-first: explicit parameters, then the workspace
-manifests' `context` tables (per profile, over their `default`), then the
-built-in profile, then package defaults.
+Budgets and exclusions resolve most-specific-first: explicit parameters, then
+the workspace manifests' `context` tables (per profile, over their `default`),
+then the built-in profile, then package defaults. No profile excludes a tag by
+default.
 
 ```json
 { "profile": "session-start" }
