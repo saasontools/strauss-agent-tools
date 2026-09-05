@@ -107,6 +107,32 @@ Each anchor records the resolver that stamped it. A hash only the previous
 resolver reproduces is `drifted`, reason `resolver-changed`. Trees are cached
 per content hash, grammars load once per process.
 
+A tree-sitter stamp hashes the span's token stream rather than its text
+(`hash_kind: "ast"`), so a reformat is not drift; a raw hash keeps comparing
+raw until it is rebaselined.
+
+### Drift classification
+
+Once the bytes differ, the question is what a machine can settle and what it
+must hand on.
+
+| Class      | Test                                        | Who settles it |
+| ---------- | ------------------------------------------- | -------------- |
+| `moved`    | the stored hash resolves at another address | `kb_reassess`  |
+| `cosmetic` | both spans are one token stream             | classification |
+| `gone`     | the file or symbol no longer exists         | a reader       |
+| `changed`  | everything else                             | a reader       |
+
+`moved` and `cosmetic` cost a repository search and a git read, so `load` and
+`query` report only the two a hash comparison already answers and
+`classifyDrift` refines the rest on demand.
+
+Classification stops there because the next question — does the record's claim
+still hold — is a reading, and every mechanical proxy for it (similarity
+scores, "small" diffs) answers a different question confidently. So the packet
+carries the evidence a reader needs and names a type-based default, and no
+drift path writes `verified[]` or moves standing.
+
 Repository identity is normalised and compared, not parsed: an invented format
 would reject correct values from unseen hosts.
 

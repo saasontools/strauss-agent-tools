@@ -1196,6 +1196,38 @@ process.exit(r.status ?? 1);
     expect(lines.join("\n")).toContain(join("docs", "adr"));
   });
 
+  /**
+   * The reload notice's other half. A pull that only touches code leaves every
+   * record byte-identical, so a notice about records alone would say nothing
+   * on the sync that most needs it.
+   */
+  it("names how many records drifted, and what to run about it", () => {
+    writeFileSync(
+      join(repo, "src.ts"),
+      "export function totals() {\n  return 1;\n}\n",
+    );
+    writeFileSync(
+      join(repo, "docs", "kb", "fact.anchored.md"),
+      stringifyMarkdownWithFrontmatter("anchored", {
+        type: "fact",
+        strauss_anchors: [
+          {
+            file: "src.ts",
+            symbol: "totals",
+            // A hash nothing in the tree produces: the code moved under it.
+            hash: `sha256:${"0".repeat(64)}`,
+          },
+        ],
+      }),
+    );
+    commit("anchor a record at code that has since changed");
+
+    const message = context(bash("git pull"));
+
+    expect(message).toContain("1 anchored record drifted");
+    expect(message).toContain("kb_doctor --drifted --with-diff");
+  });
+
   it("fails open on malformed stdin and on a missing session id", () => {
     expect(
       hook({ hook_event_name: "SubagentStop", session_id: "" }).stdout,

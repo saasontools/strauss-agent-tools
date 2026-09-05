@@ -205,6 +205,39 @@ code; `--rebaseline` is the whole fix.
 
 ---
 
+### `reassess`
+
+```
+reassess <concept-id> [--repo-root <path>] [--with-diff]
+```
+
+One drifted record, turned into something a reader can judge without opening the
+repository: the record's claim, each anchor's
+[drift class](./specification.md#drift-classes), and the record's
+[`impact`](#impact) set.
+
+| Flag                 | Effect                                                              |
+| -------------------- | ------------------------------------------------------------------- |
+| `--repo-root <path>` | Where the anchored source lives. Defaults to the working directory. |
+| `--with-diff`        | Recover each anchor's committed span and render the diff.           |
+
+Anchors whose code only `moved` are rebaselined — `file` and `symbol` are
+updated, the hash is not — and dropped from the packet; `cosmetic` ones are
+counted and dropped. A record with nothing left returns `packet: null`. Never
+verifies, never supersedes, never moves standing: what to do about a real change
+is the [skill's protocol](https://github.com/saasontools/strauss-agent-tools/blob/main/plugins/strauss-kb/skills/knowledge-base/SKILL.md).
+
+```bash
+strauss-kb reassess fact.region-key --with-diff
+```
+
+Returns `{ conceptId, packet, rebaselined, cosmetic }`. Each packet anchor
+carries `{ file, symbol?, class, storedHash, diffSize, movedTo?, diff? }`, and
+`diff` is either `{ status: "ok", source, ref, unified, added, removed,
+truncated }` or `{ status: "unrecoverable" }`.
+
+---
+
 ## The read path
 
 ### `load`
@@ -412,8 +445,10 @@ stamp [--bundle PATH] [--since DIGEST|FILE]
 
 The base's content stamp without its bodies: `load`'s
 [`digest`](./specification.md#the-load-digest), record and superseded counts,
-the newest record date, and a digest per record. With no `--bundle` it stamps
-every pinned base — the list `context` injects.
+the newest record date, a digest per record, and `drifted`: how many records
+have an anchor whose code no longer matches its hash. Drift is counted but stays
+out of the digest, so a `stamp` and a `load` of the same base always agree.
+With no `--bundle` it stamps every pinned base — the list `context` injects.
 
 | Flag             | Effect                                                                                       |
 | ---------------- | -------------------------------------------------------------------------------------------- |
@@ -450,6 +485,7 @@ strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 
 ```
 doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--repo-root PATH] [--strict]
+       [--drifted [--with-diff]]
 ```
 
 A health sweep over a whole base. **Read-only** — it never writes, supersedes,
@@ -467,20 +503,27 @@ or re-dates; every finding names a record for a person to repair.
 | `drifted`              | A hash-carrying anchor whose code moved, or whose file or symbol is gone.      |
 | `unchecked`            | An anchor in another repository nothing could reach, grouped per repository.   |
 
-| Flag                  | Default | Effect                                                |
-| --------------------- | ------- | ----------------------------------------------------- |
-| `--expiring-days N`   | 30      | How far ahead `expiring` looks.                       |
-| `--unverified-days N` | 90      | How old an unconfirmed record must be to be reported. |
-| `--aging-days N`      | 90      | How long a record may stay `open` or `proposed`.      |
-| `--repo-root PATH`    | cwd     | Where the anchored source lives, for `drifted`.       |
-| `--offline`           | —       | Read foreign anchors from the repo cache only.        |
-| `--strict`            | —       | Exit 1 if anything has **expired**.                   |
+| Flag                  | Default | Effect                                                             |
+| --------------------- | ------- | ------------------------------------------------------------------ |
+| `--expiring-days N`   | 30      | How far ahead `expiring` looks.                                    |
+| `--unverified-days N` | 90      | How old an unconfirmed record must be to be reported.              |
+| `--aging-days N`      | 90      | How long a record may stay `open` or `proposed`.                   |
+| `--repo-root PATH`    | cwd     | Where the anchored source lives, for `drifted`.                    |
+| `--offline`           | —       | Read foreign anchors from the repo cache only.                     |
+| `--strict`            | —       | Exit 1 if anything has **expired**.                                |
+| `--drifted`           | —       | Report only drift, as a [`reassess`](#reassess) packet per record. |
+| `--with-diff`         | —       | With `--drifted`: each anchor's old-vs-new span diff.              |
 
 ```bash
 strauss-kb doctor --json                # the object behind the table
 strauss-kb doctor --strict              # exit 1 if anything has expired
 strauss-kb doctor --unverified-days 30  # a stricter confirmation window
+strauss-kb doctor --drifted --with-diff  # only the records whose code moved
 ```
+
+`--drifted` stays read-only like the rest of the sweep: it names the records
+carrying a `moved` anchor under `rebaselinable` and leaves the write to
+[`reassess`](#reassess).
 
 The header carries one line the checks do not: how many hashed anchors each
 resolver stamped. A base still leaning on `regex` has weaker evidence than one

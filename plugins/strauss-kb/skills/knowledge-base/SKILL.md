@@ -168,4 +168,21 @@ machine output, `--strict` to exit 1 on any expiry.
 `kb_load`/`kb_query` warn `drifted` when the code moved, `unchecked` when a
 foreign remote was not cached.
 
+## When a record's code drifted
+
+`strauss-kb doctor --drifted --with-diff` (one record: `reassess <id>`) gives
+the claim, each anchor's class, the old-vs-new diff, and what depends on it.
+Anchors that only `moved` are rebaselined for you; `cosmetic` ones are dropped.
+Read what is left, then pick exactly one:
+
+- **still holds** — `anchor-resolve <id> --rebaseline`, then `verify <id>
+--note "<what you checked>"`.
+- **no longer holds** — `write` the replacement with `supersedes`, or
+  `status <id> rejected` with a reason.
+- **unclear** — `write open-question` and link it to the record with
+  `informs`.
+
+Never auto-verify on drift and never auto-supersede: both are readings, and
+the type default in the packet is a starting point, not a verdict.
+
 Do not edit `INDEX.md` or `log.jsonl` by hand.

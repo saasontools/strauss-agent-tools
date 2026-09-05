@@ -211,13 +211,14 @@ end of it. Six optional fields extend it:
 | Field         | Meaning                                                                               |
 | ------------- | ------------------------------------------------------------------------------------- |
 | `hash`        | `sha256:<hex>` over the anchored text, algorithm-prefixed.                            |
+| `hash_kind`   | What `hash` covered: `raw` text, or the `ast` token stream. Absent means `raw`.       |
 | `lines`       | Line count the hash covered.                                                          |
 | `resolved_at` | When the anchor last resolved.                                                        |
 | `resolver`    | Which resolver produced the hash: `tree-sitter` or `regex`.                           |
 | `repo`        | Which repository — remote URL or short name. Absent means this base's own repository. |
 | `ref`         | Git rev the evidence was taken at.                                                    |
 
-`hash`, `lines`, `resolved_at`, and `resolver` are **measured** — a resolution pass stamps
+`hash`, `hash_kind`, `lines`, `resolved_at`, and `resolver` are **measured** — a resolution pass stamps
 them; `repo` and `ref` are **author-owned identity** and a resolution pass
 never writes them.
 
@@ -259,6 +260,29 @@ package: grammar and query both download on first use, sha256-pinned against
 the new one does not is `drifted` with reason `resolver-changed` — accept it
 with `--rebaseline`.
 
+A tree-sitter stamp hashes the span's normalised token stream
+(`hash_kind: "ast"`), so reformatting the anchored code is not drift. An anchor
+stamped before that keeps comparing raw text until `--rebaseline` restamps it.
+
+### Drift classes
+
+Once the bytes differ, drift is classified — two classes a machine can close,
+two it hands on:
+
+- **moved** — the stored hash turned up elsewhere: same code, new address.
+  `kb_reassess` moves the anchor and asks nothing of a reader.
+- **cosmetic** — the old and new spans are one token stream; only formatting
+  changed. Needs a grammar, so the regex resolver never reports it.
+- **gone** — the file or the symbol no longer exists. The strongest signal:
+  the described code cannot be re-read.
+- **changed** — everything else, and the only class a reader has to judge.
+
+`kb_reassess <concept-id>` (`kb_doctor --drifted` base-wide) turns what is left
+into a packet: the record's claim, each anchor's class, the old-vs-new span diff
+(`--with-diff`, recovered from `ref` or from history), and the record's `impact`
+set. Neither verb verifies, supersedes, or changes standing — see the skill's
+protocol.
+
 Drift also surfaces on read: `kb_load` and `kb_query` attach a
 `{ kind: "drifted" }` warning — or `{ kind: "unchecked" }` for a foreign anchor
 they could not read from the cache, because they never fetch — and `kb_doctor`
@@ -285,6 +309,8 @@ strauss-kb [--bundle PATH] <command> [args]
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
   anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]
                                            Resolve anchors against the working tree: stamp, or report drift.
+  reassess <concept-id> [--repo-root <path>] [--with-diff]
+                                           One drifted record as something to judge: claim, classes, diff, impact.
   load [type] [--budget N | --all] [--repo-root PATH]
                                            Hand over the whole base, each record with its standing.
   catalog [type]                           Every record in one line — id, type, title, standing, stale flag.
@@ -354,9 +380,11 @@ strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 ```
 
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_load`, `kb_catalog`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_reassess`,
+`kb_load`, `kb_catalog`,
 `kb_pack`,
-`kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`, `kb_index`, `kb_log`, `kb_validate`,
+`kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`, `kb_index`, `kb_log`, `kb_stamp`,
+`kb_validate`,
 `kb_doctor`, `kb_schema`, `kb_types`, `kb_pin`, `kb_unpin`, `kb_pins`,
 `kb_context`. Most take a `bundlePath`. The one CLI verb with no tool is
 `sync-instructions`; the agent capability is `kb_context`.

@@ -89,7 +89,7 @@ export function select(
  * A receiver stands in for an ancestor where a grammar has one — Go's
  * `func (s *Server) Cancel` chains as `Server.Cancel`.
  */
-function chainOf(
+export function chainOf(
   definition: Definition,
   byNodeId: Map<number, Definition>,
 ): string[] {

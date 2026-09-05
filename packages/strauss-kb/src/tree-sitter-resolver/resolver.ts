@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Language, Parser, Query } from "web-tree-sitter";
+import { Language, Parser, Query, type Tree } from "web-tree-sitter";
 import type {
   AnchorResolver,
   ResolvedSymbol,
@@ -14,6 +14,7 @@ import {
   type GrammarOptions,
 } from "../grammars/index.js";
 import {
+  chainOf,
   index,
   select,
   spanOf,
@@ -21,6 +22,7 @@ import {
   type ParsedFile,
 } from "./definitions.js";
 import { languageForFile } from "./languages.js";
+import { tokens } from "./tokens.js";
 
 /**
  * AST-backed anchor resolution: a symbol resolves to the byte range of the
@@ -196,6 +198,69 @@ export class TreeSitterResolver implements AnchorResolver {
     }
     this.trees.set(key, parsed);
     return parsed;
+  }
+
+  /**
+   * Every definition this file declares, as dotted symbol and span.
+   *
+   * The inverse of `attempt`: that asks "where is this name", this asks "what
+   * names are here". `moved` needs the second — the stored hash has to be
+   * looked for at every definition in the repository, and there is no name to
+   * ask about, since the whole question is which name now carries that code.
+   */
+  spans(
+    source: string,
+    file: string,
+  ): { symbol: string; span: ResolvedSymbol }[] {
+    const language = languageForFile(file);
+    if (!language) return [];
+    const loaded = this.loaded.get(language);
+    if (!loaded) return [];
+    const parsed = this.parse(language, loaded, source);
+    if (!parsed) return [];
+
+    return parsed.definitions
+      .filter((definition) => definition.target)
+      .map((definition) => ({
+        symbol: chainOf(definition, parsed.byNodeId).join("."),
+        span: spanOf(definition, source),
+      }));
+  }
+
+  /**
+   * The token stream of a span: every leaf the parser sees, comments dropped,
+   * joined by single spaces.
+   *
+   * This is what makes a reformat not be drift. Hashing it rather than the raw
+   * text means indentation, line breaks, trailing commas the formatter moved,
+   * and every comment above or inside the definition are outside the hash —
+   * and a renamed identifier or a changed literal is still inside it, because
+   * those are leaves.
+   *
+   * `null` when the file has no grammar, the grammar would not load, or the
+   * text will not parse: no normalisation is better than a guessed one.
+   */
+  normalize(text: string, file?: string): string | null {
+    const language = file ? languageForFile(file) : undefined;
+    if (!language) return null;
+    const loaded = this.loaded.get(language);
+    if (!loaded) return null;
+
+    const parser = this.parser;
+    if (!parser) return null;
+    let tree: Tree | null;
+    try {
+      parser.setLanguage(loaded.language);
+      tree = parser.parse(text);
+    } catch {
+      return null;
+    }
+    if (!tree) return null;
+    try {
+      return tokens(tree.rootNode).join(" ");
+    } finally {
+      tree.delete();
+    }
   }
 
   /** Drops cached trees. Grammars stay loaded — they are immutable. */

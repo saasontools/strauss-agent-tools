@@ -550,6 +550,9 @@ function anchorFindings(
 
 function describeAnchor(anchor: KbWarningAnchor): string {
   const at = anchor.symbol ? `${anchor.file}:${anchor.symbol}` : anchor.file;
+  if (anchor.class === "gone") {
+    return `${at} gone${anchor.reason ? ` (${anchor.reason})` : ""}`;
+  }
   if (anchor.reason) return `${at} (${anchor.reason})`;
   if (anchor.remoteState === "drifted-on-default") {
     return `${at} (matches ref, moved on the default branch)`;

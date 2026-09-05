@@ -3,6 +3,7 @@ import type { KbAnchor } from "../kb-record.schema.js";
 import type { GrammarOptions } from "../grammars/index.js";
 import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import type {
+  AnchorHashKind,
   AnchorResolution,
   AnchorResolverName,
   AnchorResolver,
@@ -367,10 +368,12 @@ export function resolveAnchorSpan(
       if (attempt.reason === "symbol-not-found") continue;
       return { ok: false, reason: attempt.reason };
     }
+    const tokens = resolver.normalize?.(attempt.span.text, anchor.file);
     return {
       ok: true,
       span: attempt.span,
       ...(isResolverName(resolver.name) ? { resolver: resolver.name } : {}),
+      ...(tokens ? { normalized: tokens } : {}),
     };
   }
   return { ok: false, reason: "symbol-not-found" };
@@ -433,4 +436,24 @@ export function resolverChanged(
     anchor.symbol,
   );
   return before !== null && hashAnchorText(before.text) === anchor.hash;
+}
+
+/**
+ * Which hash to compare, and over what.
+ *
+ * A stored hash is only ever compared against a hash of the same kind — an
+ * `ast` hash and a `raw` hash of the same code differ by construction, and
+ * treating that as drift would report every anchor once. An anchor with no
+ * hash yet takes the strongest kind the resolver can offer, so newly stamped
+ * anchors stop drifting on reformatting.
+ */
+export function anchorHashOf(
+  anchor: KbAnchor,
+  outcome: { span: ResolvedSymbol; normalized?: string },
+): { hash: string; kind: AnchorHashKind } {
+  const stored = anchor.hash ? (anchor.hash_kind ?? "raw") : undefined;
+  const wanted = stored ?? (outcome.normalized ? "ast" : "raw");
+  return wanted === "ast" && outcome.normalized
+    ? { hash: hashAnchorText(outcome.normalized), kind: "ast" }
+    : { hash: hashAnchorText(outcome.span.text), kind: "raw" };
 }

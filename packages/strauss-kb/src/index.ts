@@ -239,6 +239,16 @@ export {
   type KbCommand,
   type KbCommandContext,
 } from "./commands/index.js";
+export {
+  classifyDrift,
+  reassessPacket,
+  unifiedDiff,
+  type ClassifiedAnchor,
+  type KbReassessAnchor,
+  type KbReassessDefault,
+  type KbReassessDiff,
+  type KbReassessPacket,
+} from "./drift/index.js";
 export { createKbMcpServer, runKbMcpServer } from "./mcp.js";
 export { runKbCli } from "./cli.js";
 export {

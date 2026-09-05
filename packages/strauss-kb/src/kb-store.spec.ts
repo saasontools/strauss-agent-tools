@@ -1747,7 +1747,9 @@ describe("load anchor drift", () => {
     );
     expect(drifted).toBeDefined();
     if (drifted?.kind !== "drifted") return;
-    expect(drifted.anchors).toEqual([{ file: "src/order.ts", diffSize: 2 }]);
+    expect(drifted.anchors).toEqual([
+      { file: "src/order.ts", diffSize: 2, class: "changed" },
+    ]);
   });
 
   // The default fixture's anchor carries no hash and names a file that does

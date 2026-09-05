@@ -36,11 +36,26 @@ export interface AnchorResolver {
   /** The richer verdict the chain uses; defaults to `resolve`. */
   attempt?(source: string, symbol: string, file?: string): ResolverAttempt;
   resolve(source: string, symbol: string, file?: string): ResolvedSymbol | null;
+  /**
+   * The span's normalised token stream — comments dropped, runs of whitespace
+   * collapsed — or `null` when this resolver cannot parse the text.
+   *
+   * Only a resolver that understands the language can offer one, which is why
+   * it is optional: a text heuristic normalising by guess would call two
+   * different programs equal.
+   */
+  normalize?(text: string, file?: string): string | null;
 }
 
 /** A resolved span, and which resolver produced it. */
 export type AnchorResolution =
-  | { ok: true; span: ResolvedSymbol; resolver?: AnchorResolverName }
+  | {
+      ok: true;
+      span: ResolvedSymbol;
+      resolver?: AnchorResolverName;
+      /** The span's token stream, when the resolver that spanned it can parse. */
+      normalized?: string;
+    }
   | { ok: false; reason: AnchorUnresolvedReason };
 
 /** Why an anchor could not be compared. Never an error — always a finding. */
@@ -84,6 +99,34 @@ export type RemoteAnchorState =
 /** Big enough for any hand-written source file, small enough to read eagerly. */
 export const MAX_ANCHOR_FILE_BYTES = 1_048_576;
 
+/** What `hash` was taken over. Absent on an anchor means `raw`. */
+export type AnchorHashKind = "raw" | "ast";
+
+/**
+ * How an anchor's code changed, once the bytes are known to differ.
+ *
+ * The classes a machine can settle, so a reader only sees the ones it cannot:
+ * `moved` and `cosmetic` are answered and closed, `gone` and `changed` are
+ * handed on. Deliberately shallow — whether the record's *claim* still holds
+ * is a reading, and no hash can stand in for one.
+ */
+export const KB_DRIFT_CLASSES = [
+  "moved",
+  "cosmetic",
+  "gone",
+  "changed",
+] as const;
+
+export type KbDriftClass = (typeof KB_DRIFT_CLASSES)[number];
+
+/** Where a `moved` anchor's stored hash turned up. */
+export type KbDriftMovedTo = {
+  file: string;
+  symbol?: string;
+  startLine: number;
+  endLine: number;
+};
+
 export type KbAnchorDriftEntry = {
   file: string;
   symbol?: string;
@@ -98,6 +141,17 @@ export type KbAnchorDriftEntry = {
   /** Set only when the anchor was resolved against another repository. */
   repo?: string;
   remoteState?: RemoteAnchorState;
+  /** What the compared hashes were taken over. */
+  hashKind?: AnchorHashKind;
+  /**
+   * Provisional: `gone` or `changed`, the two a hash comparison alone can
+   * settle. `moved` and `cosmetic` cost a repository search and a git read, so
+   * `classifyDrift` refines this on the reassessment path rather than on every
+   * `load`.
+   */
+  class?: KbDriftClass;
+  /** Set by `classifyDrift` when the class is `moved`. */
+  movedTo?: KbDriftMovedTo;
 };
 
 export type AnchorRead =

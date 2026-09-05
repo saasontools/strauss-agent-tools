@@ -165,6 +165,27 @@ defaults to the working directory), `offline`, `rebaseline` and `restamp`
 }
 ```
 
+### `kb_reassess`
+
+As CLI [`reassess`](./cli-reference.md#reassess), with the flags as camelCase
+parameters. Reach for it when a drift warning names a record and the question is
+whether the record still holds.
+
+Parameters: `bundlePath` and `conceptId` required; `repoRoot` (`string`,
+defaults to the working directory) and `withDiff` (`boolean`) optional.
+
+```json
+{
+  "bundlePath": "…/kb",
+  "conceptId": "fact.region-key",
+  "withDiff": true
+}
+```
+
+Returns `{ conceptId, packet, rebaselined, cosmetic }`; `packet` is `null` when
+the record needs no reading. It rebaselines `moved` anchors and does nothing
+else to the record — never `verified[]`, never standing.
+
 ---
 
 ## Read tools
@@ -328,7 +349,8 @@ Malformed lines are reported rather than repaired. Parameter: `bundlePath`.
 
 As CLI [`stamp`](./cli-reference.md#stamp): the base's
 [`digest`](./specification.md#the-load-digest), counts, and a digest per
-record — no bodies. Parameters: `bundlePath` optional (omit it to stamp every
+record, and `drifted`: how many records have an anchor whose code no longer
+matches its hash — no bodies. Parameters: `bundlePath` optional (omit it to stamp every
 pinned base), `since` optional (a digest, or a path to a prior stamp, which
 also names the changed ids). Empty means nothing moved.
 
@@ -363,8 +385,11 @@ parameters. **Read-only** — every finding names a record for a person to repai
 
 Parameters: `bundlePath` required; `expiringDays` (default 30), `unverifiedDays`
 (default 90), `agingDays` (default 90), `repoRoot` (default cwd, for `drifted`),
-`offline` (`boolean`, read foreign anchors from the repo cache only), and `strict` (`boolean` — turns an expired record into a non-zero **CLI** exit,
-with no effect on the report) optional.
+`offline` (`boolean`, read foreign anchors from the repo cache only), `strict`
+(`boolean` — turns an expired record into a non-zero **CLI** exit, with no
+effect on the report), `drifted` (`boolean` — report only drift, as a
+[`kb_reassess`](#kb_reassess) packet per record) and `withDiff` (`boolean`, with
+`drifted`) optional.
 
 The checks are `expired`, `expiring`, `unverified`, `aging`, `orphaned`,
 `broken-supersession`, `superseded-but-cited`, `drifted`, and `unchecked` — see the
@@ -378,7 +403,8 @@ is reported even when empty.**
 Returns `{ bundlePath, checkedAt, recordCount, thresholds, counts, groups,
 findingCount, healthy }`, where each group is
 `{ check, headline, count, findings }` and each finding is
-`{ conceptId, title, status, note }`.
+`{ conceptId, title, status, note }`. Under `drifted` it also carries `packets`
+and `rebaselinable`.
 
 ### `kb_schema`
 

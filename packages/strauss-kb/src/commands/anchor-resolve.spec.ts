@@ -9,7 +9,16 @@ import { composeRecord } from "../compose.js";
 import { pinBase } from "../kb-pins/index.js";
 import { KbStore } from "../kb-store.js";
 import type { KbAnchor } from "../kb-record.schema.js";
+import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import { anchorResolveCommand } from "./anchor-resolve.js";
+
+/** What a tree-sitter stamp now hashes: the span's normalised token stream. */
+async function astHash(source: string): Promise<string> {
+  const resolver = new TreeSitterResolver();
+  await resolver.prepare([FILE]);
+  const span = resolver.resolve(source, "totals", FILE);
+  return hashAnchorText(resolver.normalize(span!.text, FILE) as string);
+}
 
 /** Counts the files the command actually opens, per run. */
 const readerCalls: string[] = [];
@@ -47,6 +56,7 @@ type Output = {
     state: string;
     storedHash?: string;
     currentHash?: string;
+    hashKind?: string;
     diffSize?: number | null;
     reason?: string;
     rebaselined?: boolean;
@@ -172,6 +182,7 @@ describe("anchorResolveCommand", () => {
           state: "match",
           storedHash: anchor.hash,
           currentHash: anchor.hash,
+          hashKind: "raw",
           resolver: "tree-sitter",
         },
       ],
@@ -256,12 +267,18 @@ describe("anchorResolveCommand", () => {
       rebaselined: true,
     });
     const record = await new KbStore().read(bundle, ID);
+    // Rebaselining stamps the strongest hash available: over the parsed token
+    // stream, not the raw text, so a later reformat of this span is not drift.
     expect(record?.frontmatter.strauss_anchors?.[0]).toMatchObject({
-      hash: hashAnchorText(
-        resolveAnchor(edited, { file: FILE, symbol: "totals" })!.text,
-      ),
+      hash: await astHash(edited),
+      hash_kind: "ast",
       resolved_at: NOW,
     });
+    expect(record?.frontmatter.strauss_anchors?.[0]?.hash).not.toBe(
+      hashAnchorText(
+        resolveAnchor(edited, { file: FILE, symbol: "totals" })!.text,
+      ),
+    );
   });
 
   // A stored hash that no longer resolves is a broken anchor, not an absence:
@@ -411,15 +428,14 @@ describe("anchorResolveCommand", () => {
 
     const output = await run({});
 
-    const expectedHash = hashAnchorText(
-      resolveAnchor(SOURCE, { file: FILE, symbol: "totals" })!.text,
-    );
+    const expectedHash = await astHash(SOURCE);
     expect(output.results).toEqual([
       {
         file: FILE,
         symbol: "totals",
         state: "stamped",
         currentHash: expectedHash,
+        hashKind: "ast",
         resolver: "tree-sitter",
       },
     ]);
@@ -431,6 +447,7 @@ describe("anchorResolveCommand", () => {
       file: FILE,
       symbol: "totals",
       hash: expectedHash,
+      hash_kind: "ast",
       lines: 3,
       resolved_at: NOW,
       resolver: "tree-sitter",
