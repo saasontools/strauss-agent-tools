@@ -78,7 +78,7 @@ export function matchToDiff(
   records: KbRecord[],
   options: MatchOptions = {},
 ): DiffMatch[] {
-  const ranges = indexRanges(options.symbolRanges ?? []);
+  const ranges = symbolRangeIndex(options.symbolRanges ?? []);
   const anchored = records.filter(
     (record) => (record.frontmatter.strauss_anchors ?? []).length > 0,
   );
@@ -101,8 +101,8 @@ export function matchToDiff(
 
       for (const { record, anchors } of candidates) {
         const placement = place(anchors, file.filePath, hunk, ranges);
-        if (placement === "miss") continue;
-        if (placement === "file") precision = "file";
+        if (placement.kind === "miss") continue;
+        if (placement.kind === "file") precision = "file";
         hits.push(record);
       }
 
@@ -117,6 +117,52 @@ export function matchToDiff(
   }
 
   return matches;
+}
+
+/**
+ * How one record landed on one hunk, and through which anchor.
+ *
+ * `matchToDiff` reports the precision of a whole hunk, so a caller naming the
+ * record that matched has no way back to the anchor that did it.
+ */
+export type HunkPlacement = {
+  kind: "symbol" | "file" | "miss";
+  anchor?: KbAnchor;
+};
+
+export function placeOnHunk(
+  record: KbRecord,
+  filePath: string,
+  hunk: DiffHunk,
+  symbolRanges: readonly SymbolRange[] | SymbolRangeIndex = [],
+): HunkPlacement {
+  const anchors = (record.frontmatter.strauss_anchors ?? []).filter(
+    (anchor) => normalize(anchor.file) === normalize(filePath),
+  );
+  return place(anchors, filePath, hunk, asIndex(symbolRanges));
+}
+
+/** Ranges arrive as a list, or as the index a caller built once for a diff. */
+function asIndex(
+  ranges: readonly SymbolRange[] | SymbolRangeIndex,
+): SymbolRangeIndex {
+  return isIndex(ranges) ? ranges : symbolRangeIndex(ranges);
+}
+
+function isIndex(
+  ranges: readonly SymbolRange[] | SymbolRangeIndex,
+): ranges is SymbolRangeIndex {
+  return !Array.isArray(ranges);
+}
+
+/** The anchor alone, for a caller that already knows the hunk matched. */
+export function anchorOnHunk(
+  record: KbRecord,
+  filePath: string,
+  hunk: DiffHunk,
+  symbolRanges: readonly SymbolRange[] | SymbolRangeIndex = [],
+): KbAnchor | undefined {
+  return placeOnHunk(record, filePath, hunk, symbolRanges).anchor;
 }
 
 /**
@@ -137,9 +183,9 @@ function place(
   anchors: KbAnchor[],
   filePath: string,
   hunk: DiffHunk,
-  ranges: Map<string, SymbolRange[]>,
-): "symbol" | "file" | "miss" {
-  let fallback: "file" | "miss" = "miss";
+  ranges: SymbolRangeIndex,
+): HunkPlacement {
+  let fallback: HunkPlacement = { kind: "miss" };
 
   for (const anchor of anchors) {
     if (side(anchor.side) !== side(hunk.side)) continue;
@@ -151,20 +197,22 @@ function place(
           hunk,
         )
       ) {
-        return "symbol";
+        return { kind: "symbol", anchor };
       }
       continue;
     }
-    if (!anchor.symbol) return "file";
+    if (!anchor.symbol) return { kind: "file", anchor };
 
     const resolved = ranges.get(
       key(filePath, anchor.symbol, side(anchor.side)),
     );
     if (!resolved?.length) {
-      fallback = "file";
+      if (fallback.kind === "miss") fallback = { kind: "file", anchor };
       continue;
     }
-    if (resolved.some((range) => overlaps(range, hunk))) return "symbol";
+    if (resolved.some((range) => overlaps(range, hunk))) {
+      return { kind: "symbol", anchor };
+    }
   }
 
   return fallback;
@@ -200,7 +248,12 @@ function order(records: KbAdjudicated[]): KbAdjudicated[] {
   );
 }
 
-function indexRanges(ranges: SymbolRange[]): Map<string, SymbolRange[]> {
+/** Built once by a caller placing many records on many hunks of one diff. */
+export type SymbolRangeIndex = ReadonlyMap<string, SymbolRange[]>;
+
+export function symbolRangeIndex(
+  ranges: readonly SymbolRange[],
+): SymbolRangeIndex {
   const byKey = new Map<string, SymbolRange[]>();
   for (const range of ranges) {
     const id = key(range.file, range.symbol, side(range.side));

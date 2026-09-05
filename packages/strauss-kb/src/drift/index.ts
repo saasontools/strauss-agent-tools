@@ -23,8 +23,11 @@ export {
   listRepoFiles,
   readFileAtRef,
   readOldSource,
+  readRangeDiff,
+  MAX_RANGE_DIFF_BYTES,
   type OldSource,
   type OldSourceOrigin,
+  type RangeDiff,
 } from "./git.js";
 export {
   movedSearch,
