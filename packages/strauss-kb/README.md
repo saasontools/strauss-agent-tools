@@ -326,6 +326,8 @@ strauss-kb [--bundle PATH] <command> [args]
   validate                                 Cross-record checks. Exits 1 when it reports a problem.
   doctor [--expiring-days N] [--unverified-days N] [--aging-days N] [--repo-root PATH] [--strict]
                                            Health sweep: what expired, went unconfirmed, aged, was orphaned, or drifted.
+  sweep --tag <tag> --terminal [--dry-run]
+                                           Delete tagged records that are resolved, rejected or superseded.
   schema                                   JSON Schema for the format.
   types                                    The twelve types, their sections and initial status.
   pin [bundle-path] [flags]                Pin a base. --mode, --profiles, --frozen; --local/--user pick the layer.
@@ -384,7 +386,7 @@ Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_pack`,
 `kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_list`, `kb_index`, `kb_log`, `kb_stamp`,
 `kb_validate`,
-`kb_doctor`, `kb_schema`, `kb_types`, `kb_pin`, `kb_unpin`, `kb_pins`,
+`kb_doctor`, `kb_sweep`, `kb_schema`, `kb_types`, `kb_pin`, `kb_unpin`, `kb_pins`,
 `kb_context`. Most take a `bundlePath`. The one CLI verb with no tool is
 `sync-instructions`; the agent capability is `kb_context`.
 
