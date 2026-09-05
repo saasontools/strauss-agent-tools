@@ -23,9 +23,15 @@ import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
  * those, not the base.
  */
 export type DiffHunk = {
-  /** 1-based, inclusive, in the file's post-change line numbering. */
+  /** 1-based, inclusive, in the numbering of this hunk's `side`. */
   startLine: number;
   endLine: number;
+  /**
+   * Which half of the change these lines number; absent means `new`. An
+   * old-side anchor lands here on the caller's word that its `ref` is this
+   * diff's base rev — nothing compares the two.
+   */
+  side?: "old" | "new";
 };
 
 export type DiffFile = {
@@ -43,6 +49,8 @@ export type SymbolRange = {
   symbol: string;
   startLine: number;
   endLine: number;
+  /** Which side these lines number; absent means `new`, as on a hunk. */
+  side?: "old" | "new";
 };
 
 export type DiffMatch = {
@@ -119,6 +127,11 @@ export function matchToDiff(
  * — unless nothing resolved the symbol, in which case it falls back to the file
  * rather than disappearing. A record silently absent because a resolver was
  * unavailable is worse than one shown imprecisely and labelled as such.
+ *
+ * A span is already the resolved range, so it needs no `symbolRanges` and is
+ * symbol-precision by construction. Sides never cross: an anchor's line
+ * numbers only mean anything in its own half of the change, and a symbol
+ * indexed on the new tree cannot place an old-side anchor.
  */
 function place(
   anchors: KbAnchor[],
@@ -129,9 +142,24 @@ function place(
   let fallback: "file" | "miss" = "miss";
 
   for (const anchor of anchors) {
+    if (side(anchor.side) !== side(hunk.side)) continue;
+
+    if (anchor.span) {
+      if (
+        overlaps(
+          { startLine: anchor.span.start, endLine: anchor.span.end },
+          hunk,
+        )
+      ) {
+        return "symbol";
+      }
+      continue;
+    }
     if (!anchor.symbol) return "file";
 
-    const resolved = ranges.get(key(filePath, anchor.symbol));
+    const resolved = ranges.get(
+      key(filePath, anchor.symbol, side(anchor.side)),
+    );
     if (!resolved?.length) {
       fallback = "file";
       continue;
@@ -142,7 +170,15 @@ function place(
   return fallback;
 }
 
-function overlaps(range: SymbolRange, hunk: DiffHunk): boolean {
+/** Absent means the post-change side, on an anchor and on a hunk alike. */
+function side(value: "old" | "new" | undefined): "old" | "new" {
+  return value ?? "new";
+}
+
+function overlaps(
+  range: { startLine: number; endLine: number },
+  hunk: DiffHunk,
+): boolean {
   return range.startLine <= hunk.endLine && hunk.startLine <= range.endLine;
 }
 
@@ -167,14 +203,14 @@ function order(records: KbAdjudicated[]): KbAdjudicated[] {
 function indexRanges(ranges: SymbolRange[]): Map<string, SymbolRange[]> {
   const byKey = new Map<string, SymbolRange[]>();
   for (const range of ranges) {
-    const id = key(range.file, range.symbol);
+    const id = key(range.file, range.symbol, side(range.side));
     byKey.set(id, [...(byKey.get(id) ?? []), range]);
   }
   return byKey;
 }
 
-function key(file: string, symbol: string): string {
-  return `${normalize(file)}#${symbol}`;
+function key(file: string, symbol: string, at: "old" | "new"): string {
+  return `${normalize(file)}#${symbol}#${at}`;
 }
 
 /** Anchors are written by hand often enough that `./` shows up. */

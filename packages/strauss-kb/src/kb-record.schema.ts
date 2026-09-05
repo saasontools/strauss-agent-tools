@@ -69,10 +69,33 @@ export const kbVerifiedEventSchema = kbActorStampSchema.extend({
  * independent of each other, so every anchor written before they existed stays
  * valid.
  */
+
+/**
+ * An explicit line range, 1-based and inclusive. Author-owned: a resolver
+ * hashes it but never moves it.
+ */
+export const kbAnchorSpanSchema = z
+  .object({
+    start: z.number().int().positive(),
+    end: z.number().int().positive(),
+  })
+  .strict();
+
 export const kbAnchorSchema = z
   .object({
     file: z.string().min(1),
     symbol: z.string().min(1).optional(),
+    /**
+     * The lines the concept names, when no symbol covers them — deleted code,
+     * YAML, SQL, Markdown. Alternative to `symbol`, never a refinement of it.
+     */
+    span: kbAnchorSpanSchema.optional(),
+    /**
+     * Which side of the change the anchor describes. `old` is code as it was
+     * committed at `ref`, which is the only way to anchor something deleted;
+     * absent means the working tree.
+     */
+    side: z.enum(["old", "new"]).optional(),
     /**
      * Which repository the file lives in — a remote URL
      * (`https://github.com/org/name`) or a short name. Absent means the base's
@@ -114,9 +137,49 @@ export const kbAnchorSchema = z
      * before resolvers were named, which is read as `regex` — the only one
      * there was. A hash from a different resolver is drift, not a match.
      */
-    resolver: z.enum(["tree-sitter", "regex"]).optional(),
+    resolver: z.enum(["tree-sitter", "regex", "span"]).optional(),
   })
   .strict();
+
+/**
+ * The anchor rules a resolver cannot settle for itself.
+ *
+ * Write-side only, like `kbVerifiedEventSchema`: the frontmatter keeps parsing
+ * with `kbAnchorSchema`, so a hand-edited defect is a `kb_validate` finding
+ * rather than a record that silently vanishes from `list()`.
+ */
+export const kbAnchorWriteSchema = kbAnchorSchema.superRefine((anchor, ctx) => {
+  if (anchor.span && anchor.symbol) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["span"],
+      message: "an anchor names a symbol or a span, not both",
+    });
+  }
+  if (anchor.span && anchor.span.end < anchor.span.start) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["span", "end"],
+      message: "span end must not precede start",
+    });
+  }
+  // A span is hashed raw, so an `ast` kind on one would compare a raw hash
+  // against a token-stream hash and report drift for ever.
+  if (anchor.span && anchor.hash_kind === "ast") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["hash_kind"],
+      message: "a span is hashed raw, never ast",
+    });
+  }
+  if (anchor.side === "old" && !anchor.ref) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["ref"],
+      message: 'side: "old" needs a ref — committed code has no other address',
+    });
+  }
+});
 
 /**
  * One typed causal edge, as the frontmatter stores it.
@@ -248,6 +311,7 @@ export const kbRecordFrontmatterSchema = z
 export type KbSource = z.infer<typeof kbSourceSchema>;
 export type KbActorStamp = z.infer<typeof kbActorStampSchema>;
 export type KbVerifiedEvent = z.infer<typeof kbVerifiedEventSchema>;
+export type KbAnchorSpan = z.infer<typeof kbAnchorSpanSchema>;
 export type KbAnchor = z.infer<typeof kbAnchorSchema>;
 export type KbLink = z.infer<typeof kbLinkSchema>;
 export type KbRecordFrontmatter = z.infer<typeof kbRecordFrontmatterSchema>;

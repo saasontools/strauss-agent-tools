@@ -15,6 +15,7 @@ import {
   stringifyMarkdownWithFrontmatter,
 } from "./markdown.js";
 import {
+  kbAnchorWriteSchema,
   kbRecordFrontmatterSchema,
   kbVerifiedEventSchema,
   KB_SLUG_PATTERN,
@@ -368,6 +369,9 @@ export class KbStore {
    * Wholesale rather than merged: the caller just resolved the anchors it is
    * writing, so it holds the complete current set, and a merge would keep
    * stale entries the resolution pass deliberately dropped.
+   *
+   * Through the write schema: this is a write, and a defect a hand-edit put in
+   * the frontmatter must not be published back out under an actor stamp.
    */
   async updateAnchors(
     bundlePath: string,
@@ -375,10 +379,11 @@ export class KbStore {
     anchors: KbAnchor[],
     actor = "unknown",
   ): Promise<KbRecord> {
+    const checked = anchors.map((anchor) => kbAnchorWriteSchema.parse(anchor));
     return this.mutate(
       bundlePath,
       conceptId,
-      (frontmatter) => ({ ...frontmatter, strauss_anchors: anchors }),
+      (frontmatter) => ({ ...frontmatter, strauss_anchors: checked }),
       { operation: "anchor-resolve", by: actor },
     );
   }
