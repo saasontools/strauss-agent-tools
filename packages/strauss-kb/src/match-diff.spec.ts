@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { matchToDiff, type SymbolRange } from "./match-diff.js";
+import { anchorOnHunk, matchToDiff, type SymbolRange } from "./match-diff.js";
 import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
 
 function record(
@@ -327,5 +327,90 @@ describe("matchToDiff", () => {
       "decision.a",
       "decision.b",
     ]);
+  });
+});
+
+describe("anchorOnHunk", () => {
+  test("a bare file anchor answers before any symbol is consulted", () => {
+    const anchor = anchorOnHunk(
+      record("decision.mixed", [
+        { file: SERVICE },
+        { file: SERVICE, symbol: "listOrders" },
+      ]),
+      SERVICE,
+      { startLine: 100, endLine: 110 },
+      [listOrders],
+    );
+
+    expect(anchor).toEqual({ file: SERVICE });
+  });
+
+  // The unresolved anchor is the one that put the record on this hunk, so it
+  // is the one returned — the resolved one missed.
+  test("an unresolved symbol is the answer where the resolved one misses", () => {
+    const anchor = anchorOnHunk(
+      record("decision.mixed", [
+        { file: SERVICE, symbol: "vanished" },
+        { file: SERVICE, symbol: "listOrders" },
+      ]),
+      SERVICE,
+      { startLine: 10, endLine: 20 },
+      [listOrders],
+    );
+
+    expect(anchor).toEqual({ file: SERVICE, symbol: "vanished" });
+  });
+
+  test("a resolved symbol that overlaps wins over the fallback", () => {
+    const anchor = anchorOnHunk(
+      record("decision.mixed", [
+        { file: SERVICE, symbol: "vanished" },
+        { file: SERVICE, symbol: "listOrders" },
+      ]),
+      SERVICE,
+      { startLine: 100, endLine: 110 },
+      [listOrders],
+    );
+
+    expect(anchor).toEqual({ file: SERVICE, symbol: "listOrders" });
+  });
+
+  test("nothing anchored to this file is no anchor at all", () => {
+    expect(
+      anchorOnHunk(
+        record("decision.elsewhere", [{ file: "src/other.ts" }]),
+        SERVICE,
+        { startLine: 1, endLine: 5 },
+      ),
+    ).toBeUndefined();
+  });
+
+  // Side gating applies here too: an old-side anchor names lines in the base
+  // rev, which say nothing about a new-side hunk.
+  test("an old-side anchor answers nothing on a new-side hunk", () => {
+    const record_ = record("fact.was-here", [
+      {
+        file: SERVICE,
+        side: "old",
+        ref: "abc1234",
+        span: { start: 1, end: 5 },
+      },
+    ]);
+
+    expect(
+      anchorOnHunk(record_, SERVICE, { startLine: 1, endLine: 5 }),
+    ).toBeUndefined();
+    expect(
+      anchorOnHunk(record_, SERVICE, {
+        startLine: 1,
+        endLine: 5,
+        side: "old",
+      }),
+    ).toEqual({
+      file: SERVICE,
+      side: "old",
+      ref: "abc1234",
+      span: { start: 1, end: 5 },
+    });
   });
 });

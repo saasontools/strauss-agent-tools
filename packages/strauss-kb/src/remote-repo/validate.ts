@@ -28,6 +28,13 @@ export function refShapeIsSafe(ref: string): boolean {
   return REF_SHAPE.test(ref);
 }
 
+/** Wider than `refShapeIsSafe` (`~`, `^`) for a local read; never guards a fetch. */
+export function localRevShapeIsSafe(rev: string): boolean {
+  if (!rev || rev.length > MAX_REF_LENGTH) return false;
+  if (rev.includes("..")) return false;
+  return /^[A-Za-z0-9][A-Za-z0-9._/^~-]*$/.test(rev);
+}
+
 /**
  * git's own opinion of the name, asked only once the shape has made it safe to
  * pass. `--allow-onelevel` because `main` and a bare sha are both legal here.

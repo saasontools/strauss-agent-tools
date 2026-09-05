@@ -1,7 +1,11 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { AnchorRead } from "../anchor-resolver/model.js";
-import { filePathIsSafe, refShapeIsSafe } from "../remote-repo/validate.js";
+import {
+  filePathIsSafe,
+  localRevShapeIsSafe,
+  refShapeIsSafe,
+} from "../remote-repo/validate.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -23,30 +27,53 @@ const execFileAsync = promisify(execFile);
 /** Output cap. A recovered file is source, and source this large is not. */
 export const MAX_GIT_OUTPUT_BYTES = 1_048_576;
 
-const GIT_TIMEOUT_MS = 5_000;
+/** A range diff is a whole change rather than one file, so it gets its own. */
+export const MAX_RANGE_DIFF_BYTES = 8 * 1_048_576;
 
-type GitResult = { ok: true; stdout: string } | { ok: false };
+const GIT_TIMEOUT_MS = 5_000;
+const RANGE_DIFF_TIMEOUT_MS = 20_000;
+
+/** `failed` is git's own non-zero exit; the other three are the run itself. */
+type GitFailure = "failed" | "too-large" | "timeout" | "git-missing";
+
+type GitResult =
+  { ok: true; stdout: string } | { ok: false; reason: GitFailure };
+
+type GitLimits = { maxBytes?: number; timeoutMs?: number };
 
 /**
  * `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` are stripped from the child:
  * a caller's environment must not be able to redirect a read that `-C` already
  * addressed.
  */
-async function git(cwd: string, args: string[]): Promise<GitResult> {
+async function git(
+  cwd: string,
+  args: string[],
+  limits: GitLimits = {},
+): Promise<GitResult> {
   const env = { ...process.env };
   delete env["GIT_DIR"];
   delete env["GIT_WORK_TREE"];
   delete env["GIT_INDEX_FILE"];
   try {
     const { stdout } = await execFileAsync("git", ["-C", cwd, ...args], {
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: MAX_GIT_OUTPUT_BYTES,
+      timeout: limits.timeoutMs ?? GIT_TIMEOUT_MS,
+      maxBuffer: limits.maxBytes ?? MAX_GIT_OUTPUT_BYTES,
       env,
     });
     return { ok: true, stdout };
-  } catch {
-    return { ok: false };
+  } catch (error) {
+    return { ok: false, reason: failureOf(error) };
   }
+}
+
+/** A killed child is over the cap before it is over time: the cap kills too. */
+function failureOf(error: unknown): GitFailure {
+  const { code, killed } = error as { code?: unknown; killed?: boolean };
+  if (code === "ENOENT") return "git-missing";
+  if (code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return "too-large";
+  if (killed === true) return "timeout";
+  return "failed";
 }
 
 /**
@@ -98,6 +125,68 @@ export async function listRepoFiles(repoRoot: string): Promise<string[]> {
 export async function remoteOriginUrl(cwd: string): Promise<string | null> {
   const result = await git(cwd, ["config", "--get", "remote.origin.url"]);
   return result.ok ? result.stdout.trim() || null : null;
+}
+
+/**
+ * `<base>..<head>` or `<base>...<head>`, both halves spelled out. git reads
+ * `..head` and `base..` as ranges against `HEAD`; a shape-checked half is the
+ * only kind that reaches argv, so the omitted one is refused instead.
+ */
+const DIFF_RANGE = /^(.+?)(\.{2,3})(.+)$/;
+
+/**
+ * A commit range as a zero-context patch, for a caller turning a change into
+ * hunks.
+ *
+ * The reason travels with the refusal: a range git would not take, a patch past
+ * the cap, a run that timed out, and no git at all are four different things to
+ * tell a caller. External diff drivers and textconv filters are off — both run
+ * a command the repository configured — and the prefixes and `core.quotePath`
+ * are pinned so the parser reads one spelling rather than the repo's.
+ */
+export type RangeDiff =
+  | { ok: true; text: string }
+  | {
+      ok: false;
+      reason: "bad-range" | "too-large" | "timeout" | "git-missing";
+    };
+
+export async function readRangeDiff(
+  repoRoot: string,
+  range: string,
+  maxBytes: number = MAX_RANGE_DIFF_BYTES,
+): Promise<RangeDiff> {
+  const parts = DIFF_RANGE.exec(range);
+  if (!parts) return { ok: false, reason: "bad-range" };
+  const [, base = "", dots = "", head = ""] = parts;
+  if (!localRevShapeIsSafe(base) || !localRevShapeIsSafe(head)) {
+    return { ok: false, reason: "bad-range" };
+  }
+
+  const result = await git(
+    repoRoot,
+    [
+      "-c",
+      "core.quotePath=false",
+      "diff",
+      "--unified=0",
+      "--no-color",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--find-renames",
+      "--src-prefix=a/",
+      "--dst-prefix=b/",
+      "--end-of-options",
+      `${base}${dots}${head}`,
+      "--",
+    ],
+    { maxBytes, timeoutMs: RANGE_DIFF_TIMEOUT_MS },
+  );
+  if (result.ok) return { ok: true, text: result.stdout };
+  return {
+    ok: false,
+    reason: result.reason === "failed" ? "bad-range" : result.reason,
+  };
 }
 
 /** Where a recovered file came from, so a packet can say how far back it looked. */
