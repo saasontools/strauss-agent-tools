@@ -34,7 +34,16 @@ import {
   wantKey,
 } from "../remote-repo/index.js";
 import { countBy, emitKb } from "../telemetry/index.js";
-import { argvFlag, bundlePath, conceptId, define } from "./model.js";
+import {
+  ACTOR,
+  actorOf,
+  argvActor,
+  argvFlag,
+  argvPositional,
+  bundlePath,
+  conceptId,
+  define,
+} from "./model.js";
 
 type AnchorResolveResult = {
   file: string;
@@ -75,12 +84,13 @@ export const anchorResolveCommand = define({
   name: "anchor-resolve",
   tool: "kb_anchor_resolve",
   usage:
-    "anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp]",
+    "anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp] [--strict] [--actor K:N]",
   description:
-    "Resolve a record's anchors: stamp a hash onto anchors that lack one, report drift where the code moved. An anchor naming another repository is read from that remote through a bare cache; --offline uses the cache only. kb_verify's mechanical counterpart — reach for it when the question is whether the code still is what it was. Exits non-zero on drift.",
+    "Resolve a record's anchors: stamp a hash onto anchors that lack one, report drift where the code moved. An anchor naming another repository is read from that remote through a bare cache; --offline uses the cache only. kb_verify's mechanical counterpart — reach for it when the question is whether the code still is what it was.",
   input: z.object({
     bundlePath,
     conceptId,
+    actor: ACTOR,
     repoRoot: z.string().min(1).optional(),
     offline: z
       .boolean()
@@ -100,19 +110,34 @@ export const anchorResolveCommand = define({
       .describe(
         "Refresh `resolved_at` on anchors that already match. Off by default, so a green run writes nothing.",
       ),
+    strict: z
+      .boolean()
+      .optional()
+      .describe(
+        "Exit non-zero when an anchor is drifted or broken. Off by default: a report is a command success.",
+      ),
   }),
   fromArgv: (argv, path) => ({
     bundlePath: path,
-    conceptId: argv[1],
+    conceptId: argvPositional(argv, "--repo-root", "--actor"),
     repoRoot: argvFlag(argv, "--repo-root"),
     offline: argv.includes("--offline"),
     rebaseline: argv.includes("--rebaseline"),
     restamp: argv.includes("--restamp"),
+    strict: argv.includes("--strict"),
+    ...argvActor(argv),
   }),
-  run: async (
-    { store, actor, now },
-    { bundlePath: path, conceptId: id, repoRoot, offline, rebaseline, restamp },
-  ) => {
+  run: async (ctx, parsed) => {
+    const {
+      bundlePath: path,
+      conceptId: id,
+      repoRoot,
+      offline,
+      rebaseline,
+      restamp,
+    } = parsed;
+    const { store, now } = ctx;
+    const actor = actorOf(ctx, parsed);
     const root = repoRoot ?? process.cwd();
     const record = await store.read(path, id);
     if (!record) throw new KbRecordNotFoundError(id);
@@ -361,13 +386,15 @@ export const anchorResolveCommand = define({
       ...hintNote,
     };
   },
-  // A stored hash that no longer resolves is a broken anchor, not an absence:
-  // the file was deleted or the symbol renamed, and exiting zero on it would
-  // let the one edit that destroys an anchor pass the gate that exists to
-  // catch it. An anchor nobody ever stamped is still just unstamped, and one
-  // whose remote nothing could reach was never checked — failing CI on either
-  // would gate on work this command did not do.
-  failsWhen: (result) =>
+  // A drift report is a command success — it answered the question asked — so
+  // only `--strict` turns a finding into an exit code, as on `doctor`. Under
+  // it, a stored hash that no longer resolves counts: the file was deleted or
+  // the symbol renamed, and passing there would let the one edit that destroys
+  // an anchor through the gate that exists to catch it. An anchor nobody ever
+  // stamped is still just unstamped, and one whose remote nothing could reach
+  // was never checked — failing on either would gate on work this did not do.
+  failsWhen: (result, input) =>
+    input.strict === true &&
     (result as { results: AnchorResolveResult[] }).results.some(
       (entry) =>
         entry.state === "drifted" ||

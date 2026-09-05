@@ -1,4 +1,5 @@
 import type { KbStanding, KbWarning } from "../adjudicate.js";
+import type { KbRecordSummary } from "../record-summary.js";
 
 /**
  * Types for the inbound half of the typed causal graph. `kb-edges.ts` answers
@@ -17,11 +18,11 @@ export type KbInboundEdge = {
 };
 
 /** One record pointing at the target, with the standing of what it claims. */
-export type KbBacklink = KbInboundEdge & {
-  title: string | null;
-  standing: KbStanding;
-  warnings: KbWarning[];
-};
+export type KbBacklink = KbInboundEdge &
+  KbRecordSummary & {
+    standing: KbStanding;
+    warnings: KbWarning[];
+  };
 
 export type KbBacklinksResult = {
   target: string;
@@ -54,9 +55,8 @@ export type KbImpactOptions = {
   depth?: number;
 };
 
-export type KbImpactedRecord = {
+export type KbImpactedRecord = KbRecordSummary & {
   conceptId: string;
-  title: string | null;
   standing: KbStanding;
   warnings: KbWarning[];
   /** Hops from the record asked about. 1 is a direct dependant. */

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recordSummary } from "../record-summary.js";
 import { TRACE_EDGES } from "../trace.js";
 import { bundlePath, conceptId, define } from "./model.js";
 
@@ -30,8 +31,7 @@ export const traceCommand = define({
     ).map((step) => ({
       conceptId: step.record.conceptId,
       at: step.record.frontmatter.generated?.at ?? null,
-      status: step.record.frontmatter.strauss_status,
-      title: step.record.frontmatter.title ?? null,
+      ...recordSummary(step.record),
       depth: step.depth,
       via: step.via,
       body: step.record.body,

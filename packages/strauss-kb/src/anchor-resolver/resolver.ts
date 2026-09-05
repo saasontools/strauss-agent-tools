@@ -7,6 +7,7 @@ import type {
   AnchorResolution,
   AnchorResolverName,
   AnchorResolver,
+  FoundDefinition,
   ResolvedSymbol,
   ResolverAttempt,
 } from "./model.js";
@@ -287,7 +288,80 @@ export const regexResolver: AnchorResolver = {
 
     return null;
   },
+  definitions(source) {
+    return regexDefinitions(source);
+  },
 };
+
+/**
+ * Lines that open something with a body. A `type` alias is a shape rather than
+ * a definition, and is left out so both resolvers name the same hunks.
+ */
+const DEFINES: RegExp[] = [
+  /^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?(?:async\s+)?(?:function\s*\*?|class|interface|def)\s+([A-Za-z_$][\w$]*)/,
+  /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*(?:async\s+)?(?:function\b|\(|<|[A-Za-z_$][\w$]*\s*=>)/,
+  /^\s+(?:(?:public|private|protected|static|readonly|abstract|async|get|set)\s+)*\*?\s*([A-Za-z_$][\w$]*)\s*(?:<[^(]*>)?\(/,
+];
+
+/** What the member pattern would otherwise read as a method name. */
+const NOT_A_DEFINITION = new Set([
+  "if",
+  "for",
+  "while",
+  "switch",
+  "catch",
+  "return",
+  "throw",
+  "new",
+  "await",
+  "do",
+  "else",
+  "typeof",
+  "function",
+  "const",
+  "let",
+  "var",
+]);
+
+/**
+ * Which names this file declares, and over which lines — the inverse of
+ * `resolve`, over the same brace and indent scopes.
+ *
+ * Names chain by containment, so a method comes back as `Class.method` the way
+ * a parsed one does. A shape these patterns do not open is simply not listed:
+ * the caller reads a missing name as "no definition covers those lines".
+ */
+function regexDefinitions(source: string): FoundDefinition[] {
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  const found: { name: string; span: ResolvedSymbol }[] = [];
+
+  for (let at = 0; at < lines.length; at++) {
+    const line = lines[at] ?? "";
+    const name = DEFINES.map((pattern) => pattern.exec(line)?.[1]).find(
+      (hit) => hit !== undefined && !NOT_A_DEFINITION.has(hit),
+    );
+    if (!name) continue;
+    const span = PYTHON_HEADER.test(line)
+      ? captureIndentedBlock(lines, at)
+      : captureBraceBlock(lines, at);
+    if (span) found.push({ name, span });
+  }
+
+  return found.map(({ name, span }) => ({
+    symbol: [
+      ...found
+        .filter((outer) => encloses(outer.span, span))
+        .map((outer) => outer.name),
+      name,
+    ].join("."),
+    span,
+  }));
+}
+
+/** Strictly outside: a definition never scopes itself. */
+function encloses(outer: ResolvedSymbol, inner: ResolvedSymbol): boolean {
+  return outer.startLine < inner.startLine && outer.endLine >= inner.endLine;
+}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

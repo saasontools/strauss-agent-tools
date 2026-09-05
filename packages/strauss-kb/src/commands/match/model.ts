@@ -1,11 +1,8 @@
 import { z } from "zod";
 import type { KbStanding } from "../../adjudicate.js";
 import type { DiffHunk } from "../../match-diff.js";
-import type {
-  KbAnchor,
-  KbRecordFrontmatter,
-  KbRecordStatus,
-} from "../../kb-record.schema.js";
+import type { KbAnchor } from "../../kb-record.schema.js";
+import type { KbRecordSummary } from "../../record-summary.js";
 
 /**
  * One changed range, 1-based and inclusive, in the numbering of its `side`;
@@ -36,18 +33,12 @@ export const symbolRangeSchema = z.object({
 });
 
 /** One record on a hunk: enough to decide whether to read it, and no body. */
-export type KbMatchRecord = {
+export type KbMatchRecord = KbRecordSummary & {
   conceptId: string;
-  type: string;
-  title: string | null;
   /** Carried on every entry, so a hit is never handed over as a bare match. */
   standing: KbStanding;
-  status: KbRecordStatus;
   /** Where the supersession chain ends. Empty while the record still holds. */
   supersededBy: string[];
-  materiality?: KbRecordFrontmatter["strauss_materiality"];
-  confidence?: KbRecordFrontmatter["strauss_confidence"];
-  tags?: string[];
   /** The anchor that put this record on this hunk. */
   anchor?: KbAnchor;
 };
@@ -58,4 +49,10 @@ export type KbMatch = {
   /** `symbol` when every record here was placed by a resolved symbol range. */
   precision: "symbol" | "file";
   records: KbMatchRecord[];
+  /**
+   * The symbol whose definition encloses this hunk, from the same resolver
+   * pass. Present only under `includeUncovered`, and `null` where no
+   * definition covers the lines.
+   */
+  symbol?: string | null;
 };

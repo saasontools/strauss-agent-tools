@@ -38,8 +38,12 @@ The default base is `.strauss/kb`, relative to the working directory;
 | Repair  | rebuilt when it disagrees | malformed lines reported            |
 | If lost | reconstructed free        | gone                                |
 
-The store excludes both from record listings and repairs the index on read,
-which holds only because it is the sole _accessor_.
+The store excludes both from record listings, and **no read writes anything**
+beyond the two verbs that own these files — `strauss-kb index` / `kb_index`
+repairs `INDEX.md`, and the first call to append a log line writes
+`.gitattributes` — so `git status` after a read is empty. The exception is
+`query`, which materialises the derived, gitignored `.index.sqlite` when the
+optional search backend is installed.
 
 ### `INDEX.md`
 
@@ -65,13 +69,13 @@ One JSON object per line, appended with `O_APPEND`:
 }
 ```
 
-| Field       | Required | Meaning                                                                                                                |
-| ----------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `at`        | yes      | ISO timestamp                                                                                                          |
-| `by`        | yes      | the actor, from `STRAUSS_KB_ACTOR`                                                                                     |
-| `operation` | yes      | e.g. `write`, `verify:refused`                                                                                         |
-| `conceptId` | yes      | the record acted on                                                                                                    |
-| `target`    | no       | the operation's other end: a second id for supersession, the other base's absolute path for `promote-in`/`promote-out` |
+| Field       | Required | Meaning                                                                                                                                                     |
+| ----------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `at`        | yes      | ISO timestamp                                                                                                                                               |
+| `by`        | yes      | the actor, from `STRAUSS_KB_ACTOR`                                                                                                                          |
+| `operation` | yes      | e.g. `write`, `verify:refused`, or `status:<value>` — a status move names the status it moved to                                                            |
+| `conceptId` | yes      | the record acted on                                                                                                                                         |
+| `target`    | no       | the operation's other end: a second id for supersession, the new status for `status:<value>`, the other base's absolute path for `promote-in`/`promote-out` |
 
 The schema is `.strict()`: unknown keys are a malformed line, and `at` must be
 an ISO-8601 UTC datetime. Malformed lines are reported with their 1-based

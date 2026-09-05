@@ -340,15 +340,19 @@ strauss-kb [--bundle PATH] <command> [args]
   sync-instructions <file>                 Plant the context block between sentinels in an instruction file.
 
   --bundle PATH  defaults to ./.strauss/kb
-  --json         the machine shape, where a command prints a table
+  --json         the machine shape; refused by catalog, pack and index
+  --actor K:N    who is writing, on the verbs that log one
+  --help         a verb's own usage, after the verb
   --             everything after it is text, not flags
+  --version      the installed package version
   STRAUSS_KB_ACTOR names the writer in the log
 ```
 
 Results go to stdout as JSON; `index`, `catalog` and `pack` are markdown, and
-`doctor` prints a table unless `--json`. `--json` is refused where a command has
-one form; `--` ends flag parsing. Errors go to stderr with exit 1; `validate`,
-`anchor-resolve` and `doctor --strict` exit 1 with findings on stdout; only
+`doctor` prints a table unless `--json`. `--json` is accepted wherever the
+result is a shape and refused on those three; `--` ends flag parsing.
+Errors go to stderr with exit 1; `validate`, `anchor-resolve --strict` and
+`doctor --strict` exit 1 with findings on stdout; only
 `validate` findings with `severity: "error"` do, so warnings alone exit 0. Per-command flags:
 [cli-reference](https://saasontools.github.io/strauss-agent-tools/cli-reference).
 
@@ -394,7 +398,9 @@ Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_context`. Most take a `bundlePath`. The one CLI verb with no tool is
 `sync-instructions`; the agent capability is `kb_context`.
 
-`STRAUSS_KB_ACTOR` names the writer in the log; diagnostics go to stderr, since
+`STRAUSS_KB_ACTOR` names the writer in the log, and every writing tool takes an
+`actor` (`kind:name`) that overrides it for that call — one session may act for
+several people. Diagnostics go to stderr, since
 stdout is the JSON-RPC transport. Per-tool schemas:
 [mcp-reference](https://saasontools.github.io/strauss-agent-tools/mcp-reference).
 

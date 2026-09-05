@@ -12,6 +12,9 @@ export type ResolvedSymbol = {
   endLine: number;
 };
 
+/** One definition a file declares: its dotted name, and where it sits. */
+export type FoundDefinition = { symbol: string; span: ResolvedSymbol };
+
 /** Which resolver produced a span. Stamped on the anchor. */
 export type AnchorResolverName = "tree-sitter" | "regex" | "span";
 
@@ -35,6 +38,11 @@ export interface AnchorResolver {
   /** The richer verdict the chain uses; defaults to `resolve`. */
   attempt?(source: string, symbol: string, file?: string): ResolverAttempt;
   resolve(source: string, symbol: string, file?: string): ResolvedSymbol | null;
+  /**
+   * Every definition the file declares, or `null` where this resolver cannot
+   * read it — the definitions pass's `abstain`.
+   */
+  definitions?(source: string, file?: string): FoundDefinition[] | null;
   /**
    * The span's normalised token stream — comments dropped, runs of whitespace
    * collapsed — or `null` when this resolver cannot parse the text.

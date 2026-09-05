@@ -77,9 +77,12 @@ describe("command table", () => {
       expect(Object.keys(command.input.shape), name).toContain("repoRoot");
       expect(command.usage, name).toContain("--repo-root");
 
+      // The id-taking verbs get one: a free-text positional starting with `--`
+      // is a mistyped flag, and the schema now says so.
+      const positional = name === "anchor-resolve" ? ["decision.any"] : [];
       const parsed = command.input.parse(
         command.fromArgv?.(
-          [name, "--repo-root", "/somewhere/else"],
+          [name, ...positional, "--repo-root", "/somewhere/else"],
           "/bundle",
           noStdin,
         ) ?? {},

@@ -29,6 +29,12 @@ because stdout is the JSON-RPC transport.
 - `type` (enum) — one of `fact`, `requirement`, `constraint`, `decision`,
   `assumption`, `open-question`, `risk`, `contract`, `flow`, `affected-system`,
   `test-obligation`, `source-note`.
+- `actor` (`string`, optional) — `kind:name`, on every tool that logs a writer.
+  It overrides `STRAUSS_KB_ACTOR` for that call, so one session can act for
+  several people; `kb_verify` weighs it exactly as it weighs the ambient one.
+
+Every read that returns a record hands it back in
+[the record shape](./cli-reference.md#record-shape).
 
 The tool descriptions the server registers carry the judgment a schema cannot:
 an unsourced claim is an `assumption`, a conflict belongs in a `risk` or a
@@ -151,11 +157,11 @@ parameter, a non-blank string that must say what the check found. Parameters:
 ### `kb_anchor_resolve`
 
 As CLI [`anchor-resolve`](./cli-reference.md#anchor-resolve), with the
-flags as camelCase parameters. The non-zero exit on drift is CLI-only.
+flags as camelCase parameters. `strict`'s non-zero exit is CLI-only.
 
 Parameters: `bundlePath` and `conceptId` required; `repoRoot` (`string`,
-defaults to the working directory), `offline`, `rebaseline` and `restamp`
-(`boolean`) optional.
+defaults to the working directory), `offline`, `rebaseline`, `restamp` and
+`strict` (`boolean`) optional, plus `actor`.
 
 ```json
 {
@@ -319,8 +325,10 @@ optional `side` is `"old"` or `"new"` and picks which half of the change its
 lines number — only an anchor on the same side lands on it) required;
 `symbolRanges`
 (`[{ file, symbol, startLine, endLine }]`, resolved from `repoRoot` when
-omitted), `repoRoot` (`string`), `offline` (`boolean`) and `includeNonCurrent`
-(`boolean`) optional.
+omitted), `repoRoot` (`string`), `offline`, `includeNonCurrent` and
+`includeUncovered` (`boolean`) optional. `includeUncovered` returns a row per
+changed symbol instead — see
+[`--include-uncovered`](./cli-reference.md#match).
 
 ```json
 {

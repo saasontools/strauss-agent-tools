@@ -6,20 +6,24 @@ import {
 } from "../decision-record.js";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
 import { actorClassOf, emitKb } from "../telemetry/index.js";
-import { bundlePath, define } from "./model.js";
+import { ACTOR, actorOf, argvActor, bundlePath, define } from "./model.js";
 
 export const writeDecisionCommand = define({
   name: "write-decision",
   tool: "kb_write_decision",
-  usage: "write-decision < decision.json",
+  usage: "write-decision [--actor K:N] < decision.json",
   description:
     "Write a decision, with `alternative` (what was rejected and why) and `impact` as fields. Record one when a later reader would otherwise simplify the constraint away; skip when the diff already answers it. `sources` for material read, `anchors` for code, `relatedConceptIds` for records.",
-  input: z.object({ bundlePath, input: decisionInputSchema }),
-  fromArgv: async (_argv, path, stdin) => ({
+  input: z.object({ bundlePath, input: decisionInputSchema, actor: ACTOR }),
+  fromArgv: async (argv, path, stdin) => ({
     bundlePath: path,
     input: JSON.parse(await stdin()) as unknown,
+    ...argvActor(argv),
   }),
-  run: async ({ store, actor, now }, { bundlePath: path, input }) => {
+  run: async (ctx, parsed) => {
+    const { bundlePath: path, input } = parsed;
+    const { store, now } = ctx;
+    const actor = actorOf(ctx, parsed);
     await assertBaseNotFrozen(process.cwd(), path);
     const record = await store.write(
       path,

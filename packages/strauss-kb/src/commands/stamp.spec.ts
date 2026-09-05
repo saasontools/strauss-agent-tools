@@ -1,4 +1,11 @@
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
@@ -210,6 +217,44 @@ describe("stampCommand", () => {
     expect(description.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(
       25,
     );
+  });
+
+  // `stamp` runs from a reload hook on every turn, so its cost is paid by a
+  // person waiting. The headroom is generous — this guards a regression in
+  // kind (a per-record read, a grammar load per anchor), not a few milliseconds.
+  test("a 200-record base stamps well inside the hook's budget", async () => {
+    const repoRoot = workspace;
+    const source = `export const value = ${"1 + ".repeat(50)}1;\n`;
+    mkdirSync(join(repoRoot, "src"), { recursive: true });
+    writeFileSync(join(repoRoot, "src/a.ts"), source, "utf8");
+    const hash = `sha256:${createHash("sha256").update(source).digest("hex")}`;
+
+    for (let at = 0; at < 200; at += 1) {
+      await store.write(bundle, {
+        ...composeRecord(
+          "decision",
+          {
+            slug: `rec-${at}`,
+            title: `Decision ${at}`,
+            why: "Offsets skip rows under concurrent writes.",
+            anchors: [{ file: "src/a.ts", hash }],
+          },
+          "agent:writer",
+          AT,
+        ),
+      });
+    }
+
+    // One warm-up: the first call pays module and JIT costs a hook's second
+    // call never sees, and it is the steady state a turn is charged for.
+    await store.stamp(bundle, { repoRoot });
+    const started = performance.now();
+    const stamped = await store.stamp(bundle, { repoRoot });
+    const elapsed = performance.now() - started;
+
+    expect(stamped.recordCount).toBe(200);
+    expect(stamped.drifted).toBe(0);
+    expect(elapsed).toBeLessThan(250);
   });
 
   test("--bundle is only passed on when the flag was given", () => {
