@@ -201,14 +201,22 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 
 #### Symbol resolution
 
-A symbol resolves through a chain, and the first resolver that understands the
-file answers for it:
+A symbol resolves through a chain, and tree-sitter answers when its tags query
+defines the symbol:
 
-| Resolver      | Covers                                                       |
-| ------------- | ------------------------------------------------------------ |
-| `tree-sitter` | the 20 languages with both a grammar and a definitions query |
-| `regex`       | every other extension                                        |
-| whole-file    | an anchor with no `symbol`                                   |
+| Resolver      | Covers                                                               |
+| ------------- | -------------------------------------------------------------------- |
+| `tree-sitter` | the 20 languages with both a grammar and a definitions query         |
+| `regex`       | every other extension, and any symbol the tags query does not define |
+| whole-file    | an anchor with no `symbol`                                           |
+
+Upstream tags queries define functions, classes, methods, interfaces, traits,
+structs and modules — but not constants, type aliases, TypeScript `enum`s or
+class fields. A symbol the query does not define falls through to regex, and
+the anchor records `resolver: regex`. An ambiguous AST match
+(`symbol-ambiguous`) and a grammar that will not load (`resolver-unavailable`)
+never fall through: one would be settled by guessing, the other would trade a
+precise span for a guessed one.
 
 Which languages those are is data, not code. A language pack is a WASM grammar
 and its definitions query pinned together at one `package@version`;
@@ -228,8 +236,8 @@ named by its `@name`. A dotted symbol (`KbStore.setStatus`) resolves to the
 definition whose enclosing chain matches — a Go method through its receiver, a
 Rust function through its `impl` block. A bare symbol must match exactly one
 definition; two make it `symbol-ambiguous`, except that a signature loses to
-the implementation of the same symbol. Only declarations count, so a symbol
-that appears only in a call is `symbol-not-found` rather than the call site.
+the implementation of the same symbol. Only declarations count: a symbol that
+appears only in a call is no tree-sitter match, and goes down the chain.
 
 Neither half of a pack is shipped with the package: the grammar and the tags
 query both download from jsDelivr on first use, are verified against the sha256
@@ -243,7 +251,7 @@ fetching; the report names the grammar and the repair.
 
 The regex resolver ranks candidates by shape, scopes a dotted symbol to the
 nearest parent above it, and captures by brace depth or Python indentation. It
-runs only where no grammar applies.
+runs where no grammar applies, and for symbols no grammar defines.
 
 Because the two resolvers span code differently, an anchor stamped by one and
 re-resolved by the other can hash differently over unchanged code. That is

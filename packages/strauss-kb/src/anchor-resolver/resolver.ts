@@ -334,10 +334,12 @@ export function resolveAnchor(
  * Walks the resolver chain: tree-sitter, then regex, then a whole-file span
  * when the anchor names no symbol.
  *
- * A resolver that understands the language answers for it — the next link is
- * tried only on `abstain`. Falling through from a parsed miss to a text search
- * would swap "there is no such definition" for the first line that mentions
- * the name, which is exactly the wrong span drift detection must not record.
+ * A resolver that understands the language answers for it, except when it has
+ * no definition of the symbol at all: a tags query defines functions and types
+ * but not constants, aliases or fields, so `symbol-not-found` falls through and
+ * the anchor records the resolver that did answer. `symbol-ambiguous` and
+ * `resolver-unavailable` end the chain — one would be settled by guessing, the
+ * other would trade a precise span for a guessed one.
  */
 export function resolveAnchorSpan(
   source: string,
@@ -364,6 +366,7 @@ export function resolveAnchorSpan(
       : fromResolve(resolver, normalized, anchor.symbol, anchor.file);
     if (attempt.kind === "abstain") continue;
     if (attempt.kind === "unresolved") {
+      if (attempt.reason === "symbol-not-found") continue;
       return { ok: false, reason: attempt.reason };
     }
     return {

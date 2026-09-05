@@ -437,6 +437,23 @@ describe("anchorResolveCommand", () => {
     });
   });
 
+  // No tags query defines a constant, so the chain hands it to regex and the
+  // stamp says so — the anchor that used to come back `symbol-not-found`.
+  test("a const stamps through regex; a function beside it through tree-sitter", async () => {
+    writeSource([SOURCE, "export const LIMIT = { max: 25 };", ""].join("\n"));
+    await seed([
+      { file: FILE, symbol: "LIMIT" },
+      { file: FILE, symbol: "totals" },
+    ]);
+
+    const output = await run({});
+
+    expect(output.results).toMatchObject([
+      { symbol: "LIMIT", state: "stamped", resolver: "regex" },
+      { symbol: "totals", state: "stamped", resolver: "tree-sitter" },
+    ]);
+  });
+
   test("the record's own generator gets the drift report but a refused verify", async () => {
     writeSource(SOURCE);
     await seed([stamped("totals", SOURCE)], "agent:writer");
