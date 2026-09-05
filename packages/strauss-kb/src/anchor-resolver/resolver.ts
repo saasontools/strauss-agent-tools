@@ -334,12 +334,10 @@ export function resolveAnchor(
  * Walks the resolver chain: tree-sitter, then regex, then a whole-file span
  * when the anchor names no symbol.
  *
- * A resolver that understands the language answers for it, except when it has
- * no definition of the symbol at all: a tags query defines functions and types
- * but not constants, aliases or fields, so `symbol-not-found` falls through and
- * the anchor records the resolver that did answer. `symbol-ambiguous` and
- * `resolver-unavailable` end the chain — one would be settled by guessing, the
- * other would trade a precise span for a guessed one.
+ * `symbol-not-found` falls through (a tags query defines functions and types,
+ * not constants or fields) and the anchor records the resolver that answered.
+ * `symbol-ambiguous` and `resolver-unavailable` end the chain: one would be
+ * settled by guessing, the other would trade a precise span for a guessed one.
  */
 export function resolveAnchorSpan(
   source: string,
