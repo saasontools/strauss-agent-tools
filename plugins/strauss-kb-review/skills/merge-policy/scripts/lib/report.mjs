@@ -156,7 +156,7 @@ function records(model, link, bundle) {
   return [...head, ...body, ...rest];
 }
 
-/** Classifier, gate and reviewer, one line each. @param {any} model */
+/** Classifier, gate, reviewer and decider, one line each. @param {any} model */
 function facts(model) {
   /** @type {Record<string, number>} */
   const counts = {};
@@ -187,6 +187,11 @@ function facts(model) {
               .map(([verdict, count]) => `${verdict} ${count}`)
               .join(", ") || "no verdicts"
           }`
+        : "not supplied"
+    }`,
+    `- **Decider** — ${
+      model.decider.present
+        ? `${cell(model.decider.verdict)}${model.decider.reason ? ` — ${cell(model.decider.reason)}` : ""} (${cell(model.decider.model ?? "no model named")})`
         : "not supplied"
     }`,
   ];

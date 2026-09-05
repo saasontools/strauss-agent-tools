@@ -62,6 +62,16 @@ function input(over = {}) {
       answered: true,
     },
     reviewer: { present: false, sha: null, verdicts: {}, risksWritten: [] },
+    decider: {
+      present: false,
+      verdict: null,
+      reason: "",
+      sha: null,
+      model: null,
+      reliedOn: [],
+      disputes: [],
+      notes: ["decider: no --decider output"],
+    },
     approvals: [],
     log: [],
     ...over,
@@ -105,7 +115,8 @@ test("an auto route names human review as what it rejected", () => {
   assert.equal(body.why, "auto-mechanical: only mechanical classes");
   assert.match(body.alternative, /^Human review\. Rejected: `auto-mechanical`/);
   assert.match(body.impact, /`auto` merges 1 changed file with no human read/);
-  assert.match(body.impact, /- decider: exit 0 — auto/);
+  assert.match(body.impact, /- decider: not supplied/);
+  assert.match(body.impact, /- enforce: exit 0 — auto/);
   assert.deepEqual(body.tags, [
     "review",
     "review:merge-policy",
@@ -262,9 +273,11 @@ test("the docs-only report is one capped block behind a stable marker", () => {
 - **Classifier** — docs 1
 - **Gate** — blocks none; warns none
 - **Reviewer** — not supplied
+- **Decider** — not supplied
 
 **Not checked**
 - reviewer: no --reviewer output
+- decider: no --decider output
 - approvals: no --approvals dump
 `,
   );

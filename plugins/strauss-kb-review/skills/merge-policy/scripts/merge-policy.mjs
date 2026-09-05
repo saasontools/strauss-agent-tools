@@ -7,7 +7,8 @@
  *                    [--policy FILE] [--reviewer FILE|JSON] [--gate FILE|JSON]
  *                    [--approvals FILE|JSON] [--pr N] [--json] [--enforce]
  *                    [--pr-url URL] [--write-record] [--report-out FILE]
- *                    [--summary] [--dry-run] [--blind|--visible]
+ *                    [--summary] [--decider FILE|JSON]
+ *                    [--dry-run] [--blind|--visible]
  *                    [--labels FILE|JSON] [--reactions FILE|JSON]
  *                    [--bot-logins a,b]
  *   merge-policy.mjs --calibrate [--since ISO] [--repo SLUG] [--json]
@@ -74,6 +75,7 @@ const USAGE = `merge-policy.mjs --range <base>..<head> [--repo-root DIR] [--bund
                  [--policy FILE] [--reviewer FILE|JSON] [--gate FILE|JSON]
                  [--approvals FILE|JSON] [--pr N] [--json] [--enforce]
                  [--pr-url URL] [--write-record] [--report-out FILE] [--summary]
+                 [--decider FILE|JSON]
                  [--dry-run] [--blind|--visible] [--labels FILE|JSON]
                  [--reactions FILE|JSON] [--bot-logins a,b]
 merge-policy.mjs --calibrate [--since ISO] [--repo SLUG] [--json]`;
@@ -155,7 +157,8 @@ export function checkPrUrl(value) {
 /**
  * The shape each caller payload must have before a rule reads one, so a
  * malformed dump is a usage error rather than a quiet clean answer.
- * @param {unknown} value @param {"--gate"|"--reviewer"|"--approvals"} flag
+ * @param {unknown} value
+ * @param {"--gate"|"--reviewer"|"--approvals"|"--decider"} flag
  */
 export function checkPayload(value, flag) {
   if (value === null) return flag === "--approvals" ? [] : null;
@@ -182,6 +185,22 @@ export function checkPayload(value, flag) {
     !Array.isArray(raw.written)
   )
     bad("needs written to be an array");
+  if (flag === "--decider") {
+    if (raw.verdict !== "concur" && raw.verdict !== "escalate")
+      bad("needs verdict to be concur or escalate");
+    if (raw.reason !== undefined && typeof raw.reason !== "string")
+      bad("needs reason to be a string");
+    if (raw.verdict === "escalate" && !String(raw.reason ?? "").trim())
+      bad("needs a non-empty reason when it escalates");
+    for (const key of ["reliedOn", "disputes"]) {
+      if (raw[key] === undefined) continue;
+      if (
+        !Array.isArray(raw[key]) ||
+        raw[key].some((/** @type {unknown} */ id) => typeof id !== "string")
+      )
+        bad(`needs ${key} to be an array of strings`);
+    }
+  }
   return value;
 }
 
@@ -209,6 +228,7 @@ export function main(argv) {
       reviewer: { type: "string" },
       gate: { type: "string" },
       approvals: { type: "string" },
+      decider: { type: "string" },
       pr: { type: "string" },
       json: { type: "boolean", default: false },
       enforce: { type: "boolean", default: false },
@@ -272,6 +292,7 @@ export function main(argv) {
       approvals: /** @type {any[]} */ (
         checkPayload(readJson(values.approvals, "--approvals"), "--approvals")
       ),
+      decider: checkPayload(readJson(values.decider, "--decider"), "--decider"),
       gateSupplied: gatePayload !== null,
     },
     makeRun({

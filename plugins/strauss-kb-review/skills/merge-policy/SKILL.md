@@ -18,9 +18,13 @@ node "$CLAUDE_PLUGIN_ROOT/skills/merge-policy/scripts/merge-policy.mjs" \
 ```
 
 `--repo-root` defaults to the cwd, `--bundle` to `<repo-root>/.strauss/kb`, and
-`--policy` to `.strauss/merge-policy.json` then `.yaml`. `--reviewer`, `--gate`
-and `--approvals` take a path or the JSON itself; without `--gate` the gate's
-own `--report` runs. `strauss-kb` comes from `$STRAUSS_KB_BIN`, else `PATH`.
+`--policy` to `.strauss/merge-policy.json` then `.yaml`. `--reviewer`, `--gate`,
+`--approvals` and `--decider` take a path or the JSON itself; without `--gate`
+the gate's own `--report` runs. `strauss-kb` comes from `$STRAUSS_KB_BIN`, else
+`PATH`. `--decider` is a fresh-eye verdict that may only add `human`: its
+`escalate` matches `decider-escalate`, `concur` matches nothing, and a `sha`
+that is not the head is dropped with a `notChecked` line. Producing one is
+[merge-decide](../merge-decide/SKILL.md).
 
 `--enforce` makes the route the exit code: `auto` passes,
 `agent-review-then-auto` only when `--reviewer`'s `sha` is the head SHA, and
