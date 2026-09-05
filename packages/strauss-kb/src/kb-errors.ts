@@ -141,6 +141,21 @@ export class KbMissingFlagValueError extends BaseError {
   }
 }
 
+/** `classify` invoked with no diff it could read, or one it could not parse. */
+export class KbClassifyInputError extends BaseError {
+  constructor(readonly reason: string) {
+    super({
+      message: `classify: ${reason}`,
+      errorType: ErrorTypes.KbClassifyInput,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { reason },
+    });
+  }
+}
+
 /** The target base already holds one of the records. Refused for the whole run. */
 export class KbPromoteCollisionError extends BaseError {
   constructor(
