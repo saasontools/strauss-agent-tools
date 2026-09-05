@@ -335,6 +335,32 @@ omitted), `repoRoot` (`string`), `offline` (`boolean`) and `includeNonCurrent`
 }
 ```
 
+### `kb_classify`
+
+As CLI [`classify`](./cli-reference.md#classify) minus its two CLI-side ways
+in: the diff arrives as `files`. Reach for it to decide what in a change needs
+reading; `kb_match` says what is attached to it.
+
+Parameters: `bundlePath` and `files` required — each file
+`{ filePath, hunks: [{ startLine, endLine, side?, lines? }], renamedFrom?, similarity? }`,
+where `lines` are the hunk's changed lines and feed the boilerplate and banner
+rules; `repoRoot` (`string`) optional, and the file's first lines and any
+symbol-scoped override are resolved from it; `offline` (`boolean`) optional,
+which keeps that resolution off the network.
+
+```json
+{
+  "bundlePath": "…/kb",
+  "files": [
+    {
+      "filePath": "src/protocol/generated/index.ts",
+      "hunks": [{ "startLine": 4, "endLine": 4, "lines": ["// @generated"] }]
+    }
+  ],
+  "repoRoot": "/repo"
+}
+```
+
 ### `kb_backlinks`
 
 As CLI [`backlinks`](./cli-reference.md#backlinks): every inbound typed
