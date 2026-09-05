@@ -11,6 +11,7 @@ import { backlinksCommand } from "./backlinks.js";
 import { catalogCommand } from "./catalog.js";
 import { contextCommand } from "./context.js";
 import { doctorCommand } from "./doctor.js";
+import { exportCommand } from "./export.js";
 import { impactCommand } from "./impact.js";
 import { listCommand } from "./list.js";
 import { loadCommand } from "./load.js";
@@ -20,6 +21,7 @@ import { noDecisionCommand } from "./no-decision.js";
 import { packCommand } from "./pack.js";
 import { pinCommand } from "./pin.js";
 import { pinsCommand } from "./pins.js";
+import { promoteCommand } from "./promote/index.js";
 import { queryCommand } from "./query.js";
 import { readIndexCommand } from "./read-index.js";
 import { reassessCommand } from "./reassess.js";
@@ -49,9 +51,11 @@ export const KB_COMMANDS: KbCommand[] = [
   verifyCommand,
   anchorResolveCommand,
   reassessCommand,
+  promoteCommand,
   loadCommand,
   catalogCommand,
   packCommand,
+  exportCommand,
   queryCommand,
   traceCommand,
   impactCommand,
