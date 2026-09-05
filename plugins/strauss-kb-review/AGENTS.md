@@ -9,13 +9,14 @@ A multi-client agent plugin served as-is (no build step) to Claude Code,
 Codex, and Agent Plugins 1.0 clients:
 
 - `skills/recording-decisions/`, `skills/review-companion/`,
-  `skills/kb-review/`, `skills/review-walkthrough/` and `skills/kb-fix/` — the
-  portable core every client reads; put the real procedure here, never only in
-  client-specific files
-- `agents/kb-reviewer.md` and `agents/kb-fixer.md` — Claude Code only, so
-  `kb-review` and `kb-fix` stay skills and the agents stay the things they
-  spawn. A client with no subagents (Codex) runs the passes inline from those
-  files instead
+  `skills/kb-review/`, `skills/review-walkthrough/`, `skills/kb-fix/`,
+  `skills/merge-policy/` and `skills/merge-decide/` — the portable core every
+  client reads; put the real procedure here, never only in client-specific
+  files
+- `agents/kb-reviewer.md`, `agents/kb-fixer.md` and `agents/kb-decider.md` —
+  Claude Code only, so `kb-review`, `kb-fix` and `merge-decide` stay skills and
+  the agents stay the things they spawn. A client with no subagents (Codex)
+  runs the passes inline from those files instead
 - `hooks/scripts/` — the review gate, node builtins only, `// @ts-check`ed.
   It spawns the `strauss-kb` CLI and never imports the package, which is what
   keeps this directory buildless

@@ -114,7 +114,12 @@ function impact(input, decision, verdict, options) {
           }`
         : "not supplied"
     }`,
-    `- decider: ${options.enforcing ? `exit ${verdict.exit} — ${verdict.why}` : "not enforcing, so no exit code was claimed"}`,
+    `- decider: ${
+      input.decider.present
+        ? `${input.decider.verdict}${input.decider.reason ? ` — ${input.decider.reason}` : ""} (${input.decider.model ?? "no model named"})`
+        : "not supplied"
+    }`,
+    `- enforce: ${options.enforcing ? `exit ${verdict.exit} — ${verdict.why}` : "not enforcing, so no exit code was claimed"}`,
   ];
 
   return [

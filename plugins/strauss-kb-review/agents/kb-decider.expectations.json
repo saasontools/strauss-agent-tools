@@ -1,0 +1,84 @@
+{
+  "agent": "kb-decider",
+  "note": "Outcome expectations per companion-repo scenario, for SAA-746's codex-claude-agent runner to assert against. Trigger accuracy is the merge-decide skill's evals; this file is the other half and cannot run in CI here.",
+  "fixture": "fixtures/companion-repo",
+  "actor": "agent:decider",
+  "range": "main..<scenario>",
+  "rangeNote": "Two-dot, the same form the agent takes. Every scenario branch has main as its merge base, which is what <base> must be.",
+  "inputsNote": "Each scenario is run with the kb-reviewer output from agents/kb-reviewer.expectations.json for the same branch, the classifier dump, and `merge-policy.mjs --range main..<scenario> --json` as the route so far.",
+  "diversityNote": "Every scenario is run under one of the two §2 options. A run with neither named must output `escalate` with reason `no-diversity` rather than a verdict.",
+  "mustNotWrite": ["verify", "risk", "open-question"],
+  "writesNote": "One record per run, except the `already-human` stop, which writes none: `decision.merge-decider-<slug>` under agent:decider, tagged review, review:merge-policy and review:decider:<slug>, whose `alternative` names the route it declined and whose `anchors` are empty. A run that writes a second record, an anchored record, or any record under another actor, fails the scenario.",
+  "scenarios": {
+    "fabricated-decision": {
+      "verdict": "escalate",
+      "disputes": ["decision.tenant-cache-ttl"],
+      "reliedOn": ["decision.tenant-cache-ttl"],
+      "anchorsRead": [
+        {
+          "file": "src/services/tenant.service.ts",
+          "why": "The cache the decision claims to justify. The record is the index into the diff; the code at the anchor is the evidence."
+        }
+      ],
+      "why": "The record has no `## Rejected` section and a rationale that restates its title, so it rejected nothing — and the cache it describes has no invalidation and no eviction. The reviewer calls it `lies`; the decider reads the anchor itself and escalates rather than taking that verdict on trust.",
+      "runnerNote": "This branch is already `human` via `gate-block`, so a runner that spawns the decider here is testing the agent, not the CI step.",
+      "mustNot": {
+        "verdict": "concur",
+        "why": "Concurring on a record whose anchor contradicts it is the failure the anchor read exists to catch."
+      }
+    },
+    "generated-block": {
+      "verdict": "concur",
+      "disputes": [],
+      "reliedOn": ["fact.protocol-schemas-generated"],
+      "anchorsRead": [
+        {
+          "file": "src/protocol/generated/index.ts",
+          "why": "The header comment naming the generator is what the fact claims, and it is there."
+        }
+      ],
+      "why": "The record says how to check the block instead of reading it, the reviewer ran that command, and the anchor supports the claim. Nothing is left for a person, so `concur` — the route stays `auto` via `auto-mechanical`.",
+      "mustNot": {
+        "verdict": "escalate",
+        "why": "An escalation with no finding behind it is a person's hour spent on a hedge. Absence of a finding is a concur."
+      }
+    },
+    "silent-code-change": {
+      "verdict": "escalate",
+      "disputes": [],
+      "reliedOn": ["flow.tenant-batch-get"],
+      "anchorsRead": [
+        {
+          "file": "src/services/tenant.service.ts",
+          "symbol": "TenantService.findMany",
+          "why": "The record anchored here describes the batch flow and says nothing about the dedupe the hunk adds."
+        }
+      ],
+      "why": "`findMany` now dedupes its ids, so `missing` is over unique ids and a caller passing duplicates gets back a shorter array than it passed. The anchored record covers the symbol but not that change: a change on the diff no record covers, which §4 escalates. `disputes` is empty — no record is wrong, one is absent.",
+      "mustNot": {
+        "verdict": "concur",
+        "why": "Coverage counting alone reads the anchored flow as covering the hunk. Reading the hunk is what separates the decider from the count."
+      }
+    },
+    "blocking-risk": {
+      "run": false,
+      "why": "The route is already `human` via `open-obligation`, and the caller skips a route that cannot get more human — the decider adds `human` and nothing else, so there is nothing left for it to add.",
+      "ifRun": {
+        "verdict": "concur",
+        "reason": "already-human",
+        "disputes": [],
+        "writes": "nothing"
+      }
+    },
+    "docs-only": {
+      "run": false,
+      "why": "The route is already `auto` via `auto-mechanical` with no reviewer output at all, and the merge-decide caller skips the spawn when there is no reviewer output. Nothing was reviewed, so there is no second opinion to be a second opinion on.",
+      "stillMayRun": "It is not the empty base that keeps the decider away — it is the missing reviewer output. A docs-only range that did get a reviewer pass is a range the decider may run on, and `concur` is the expected verdict there.",
+      "ifRun": {
+        "verdict": "concur",
+        "disputes": [],
+        "why": "No code file changed, so base silence is correct and there is nothing to escalate."
+      }
+    }
+  }
+}

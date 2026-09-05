@@ -47,6 +47,14 @@ export function result(input, decision, verdict, options) {
       sha: input.reviewer.sha,
       verdicts: input.reviewer.verdicts,
     },
+    decider: {
+      present: input.decider.present,
+      verdict: input.decider.verdict,
+      reason: input.decider.reason,
+      model: input.decider.model,
+      reliedOn: input.decider.reliedOn,
+      disputes: input.decider.disputes,
+    },
     policy: {
       path: input.policy.path,
       version: input.policy.version,
@@ -90,6 +98,7 @@ function notChecked(input) {
       : []),
     ...gateNotes(input.gate),
     ...(input.reviewer.present ? [] : ["reviewer: no --reviewer output"]),
+    ...input.decider.notes,
     ...(input.approvals.length > 0 ? [] : ["approvals: no --approvals dump"]),
   ];
 }
@@ -118,6 +127,12 @@ export function render(model) {
   }
   if (model.gate.blocks.length > 0) {
     lines.push("", `  gate blocks: ${model.gate.blocks.join(", ")}`);
+  }
+  if (model.decider.present) {
+    lines.push(
+      "",
+      `  decider: ${model.decider.verdict}${model.decider.reason ? ` — ${model.decider.reason}` : ""}`,
+    );
   }
   for (const item of model.notChecked) lines.push(`  not checked — ${item}`);
   if (model.enforce)

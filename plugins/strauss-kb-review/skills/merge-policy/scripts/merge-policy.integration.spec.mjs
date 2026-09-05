@@ -645,6 +645,172 @@ test("a dry-run policy routes, writes nothing, and says dryRun in its event", ()
   assert.equal(events[0].data.wrote, false);
 });
 
+test("--decider escalate on the head sha turns an auto route human", () => {
+  const repo = materialize("docs-only");
+  const base = ["--range", "main..docs-only", "--repo-root", repo, "--json"];
+  const sha = execFileSync("git", ["-C", repo, "rev-parse", "docs-only"], {
+    encoding: "utf8",
+  }).trim();
+
+  const clean = route(repo, base);
+  assert.equal(clean.model.route, "auto");
+  assert.deepEqual(clean.model.decider, {
+    present: false,
+    verdict: null,
+    reason: "",
+    model: null,
+    reliedOn: [],
+    disputes: [],
+  });
+  assert.ok(
+    clean.model.notChecked.includes("decider: no --decider output"),
+    clean.model.notChecked.join(" | "),
+  );
+
+  const escalated = route(repo, [
+    ...base,
+    "--decider",
+    JSON.stringify({
+      verdict: "escalate",
+      reason: "the docs restate a constraint no record carries",
+      reliedOn: [],
+      disputes: [],
+      sha,
+      model: "sonnet",
+    }),
+  ]);
+  assert.equal(escalated.model.route, "human", escalated.model.reason);
+  assert.equal(escalated.model.rule, "decider-escalate");
+  assert.match(escalated.model.reason, /the docs restate a constraint/);
+  assert.equal(escalated.model.decider.verdict, "escalate");
+
+  // Concur is not an authority either way: it leaves the route alone.
+  const concurred = route(repo, [
+    ...base,
+    "--decider",
+    JSON.stringify({ verdict: "concur", reason: "", sha, model: "sonnet" }),
+  ]);
+  assert.equal(concurred.model.route, "auto");
+  assert.equal(concurred.model.rule, "auto-mechanical");
+});
+
+test("a --decider on another commit is ignored, and notChecked says so", () => {
+  const repo = materialize("docs-only");
+  const { model } = route(repo, [
+    "--range",
+    "main..docs-only",
+    "--repo-root",
+    repo,
+    "--json",
+    "--decider",
+    JSON.stringify({
+      verdict: "escalate",
+      reason: "read a diff this range does not have",
+      sha: "0".repeat(40),
+      model: "sonnet",
+    }),
+  ]);
+  assert.equal(model.route, "auto", model.reason);
+  assert.equal(model.decider.present, false);
+  assert.ok(
+    model.notChecked.some((/** @type {string} */ note) =>
+      /^decider: ran on 0{40}, not the head sha/.test(note),
+    ),
+    model.notChecked.join(" | "),
+  );
+});
+
+test("a malformed --decider is a usage error, never a quiet concur", () => {
+  const repo = materialize("docs-only");
+  const base = ["--range", "main..docs-only", "--repo-root", repo, "--json"];
+  const sha = execFileSync("git", ["-C", repo, "rev-parse", "docs-only"], {
+    encoding: "utf8",
+  }).trim();
+  for (const [why, payload] of /** @type {[string, string][]} */ ([
+    ["a verdict outside the enum", '{"verdict":"maybe","sha":"x"}'],
+    ["no verdict at all", '{"reason":"something","sha":"x"}'],
+    ["an escalation with no reason", '{"verdict":"escalate","sha":"x"}'],
+    [
+      "an escalation whose reason is blank",
+      '{"verdict":"escalate","reason":"  ","sha":"x"}',
+    ],
+    ["a reason that is not a string", '{"verdict":"concur","reason":3}'],
+    [
+      "a reliedOn that is not an array",
+      '{"verdict":"concur","reliedOn":"decision.a"}',
+    ],
+    [
+      "a disputes holding something that is not a string",
+      '{"verdict":"escalate","reason":"r","disputes":[7]}',
+    ],
+    ["an array where an object belongs", "[]"],
+    // On the head sha, so the enum check is what refuses it and not the drop
+    // a stale sha would have earned anyway.
+    [
+      "a verdict outside the enum on the head sha",
+      JSON.stringify({ verdict: "maybe", sha }),
+    ],
+  ])) {
+    const answer = route(repo, [...base, "--decider", payload]);
+    assert.equal(answer.status, 2, `${why}: ${answer.stderr}`);
+    assert.match(answer.stderr, /--decider/, why);
+  }
+});
+
+test("--enforce fails a decider escalation, and dry-run makes it advice", () => {
+  /** @param {Record<string, unknown>} extra */
+  const docsRepo = (extra) =>
+    ownedRepo({
+      // Default deny: the docs class is auto only because this policy names it.
+      policy: { auto: { classes: ["docs"] }, ...extra },
+      change: ["docs/guide.md", "# guide\n"],
+    });
+  /** @param {string} repo */
+  const args = (repo) => [
+    "--range",
+    "main..topic",
+    "--repo-root",
+    repo,
+    "--json",
+    "--gate",
+    '{"findings":[]}',
+    "--enforce",
+  ];
+  /** @param {string} sha */
+  const escalation = (sha) =>
+    JSON.stringify({
+      verdict: "escalate",
+      reason: "the docs restate a constraint no record carries",
+      sha,
+    });
+
+  const live = docsRepo({});
+  const clean = route(live.repo, args(live.repo));
+  assert.equal(clean.model.route, "auto", clean.model.reason);
+  assert.equal(clean.status, 0);
+
+  const blocked = route(live.repo, [
+    ...args(live.repo),
+    "--decider",
+    escalation(live.sha),
+  ]);
+  assert.equal(blocked.model.rule, "decider-escalate", blocked.model.reason);
+  assert.equal(blocked.status, 1);
+  assert.equal(blocked.model.enforce.exit, 1);
+  assert.deepEqual(blocked.model.enforce.approvedBy, []);
+
+  const dry = docsRepo({ enabled: "dry-run" });
+  const advised = route(dry.repo, [
+    ...args(dry.repo),
+    "--decider",
+    escalation(dry.sha),
+  ]);
+  assert.equal(advised.model.route, "human", advised.model.reason);
+  assert.equal(advised.model.rule, "decider-escalate");
+  assert.equal(advised.status, 0);
+  assert.match(advised.model.enforce.why, /dry-run/);
+});
+
 test("a --pr-url that is not a github pull request is a usage error", () => {
   const { repo } = ownedRepo();
   const answer = route(repo, [
