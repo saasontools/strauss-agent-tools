@@ -310,11 +310,14 @@ strauss-kb [--bundle PATH] <command> [args]
                                            Resolve anchors against the working tree: stamp, or report drift.
   reassess <concept-id> [--repo-root <path>] [--with-diff]
                                            One drifted record as something to judge: claim, classes, diff, impact.
+  promote <concept-id...> --to <bundle> [--source <url>] [--force] | --list
+                                           Copy settled records into the base that outlives the pull request.
   load [type] [--budget N | --all] [--repo-root PATH]
                                            Hand over the whole base, each record with its standing.
   catalog [type]                           Every record in one line — id, type, title, standing, stale flag.
   pack <conceptId> [--hops N] [--max-nodes N] [--budget N]
                                            The bounded neighbourhood around one record, every cut named.
+  export --format madr --to <dir>          Write the base's decisions out as numbered MADR files.
   query <text...> [--repo-root PATH]       Search; every match arrives flagged with its standing.
   trace <concept-id> [edges...]            How a position was arrived at, as a timeline.
   impact <concept-id> [--depth N] [--rels a,b]
@@ -382,8 +385,9 @@ strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
 `kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_reassess`,
+`kb_promote`,
 `kb_load`, `kb_catalog`,
-`kb_pack`,
+`kb_pack`, `kb_export`,
 `kb_query`, `kb_trace`, `kb_impact`, `kb_backlinks`, `kb_match`, `kb_list`, `kb_index`, `kb_log`, `kb_stamp`,
 `kb_validate`,
 `kb_doctor`, `kb_sweep`, `kb_schema`, `kb_types`, `kb_pin`, `kb_unpin`, `kb_pins`,
