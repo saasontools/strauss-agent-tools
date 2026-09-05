@@ -46,9 +46,12 @@ function materialize(scenario) {
     [FIXTURE, "--out", out, "--scenarios", scenario, "--force"],
     { encoding: "utf8" },
   );
-  execFileSync("git", ["-C", out, "checkout", "--quiet", scenario], {
-    encoding: "utf8",
-  });
+  // The runner's own git config must not rewrite the fixture's line endings.
+  execFileSync(
+    "git",
+    ["-C", out, "-c", "core.autocrlf=false", "checkout", "--quiet", scenario],
+    { encoding: "utf8" },
+  );
   return out;
 }
 
