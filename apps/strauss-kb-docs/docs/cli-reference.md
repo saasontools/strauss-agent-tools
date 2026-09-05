@@ -42,8 +42,8 @@ pinned, since even a bare newline is noise in a fresh context.
 
 Every write verb refuses outright when the base is pinned `--frozen` in this
 workspace: `write`, `write-decision`, `no-decision`, `status`, `supersede`,
-`answer`, and `verify`. `anchor-resolve` stamps nothing on a frozen base and
-says so in its result rather than failing.
+`answer`, `verify`, and `sweep` (except under `--dry-run`). `anchor-resolve`
+stamps nothing on a frozen base and says so in its result rather than failing.
 
 ---
 
@@ -436,8 +436,10 @@ strauss-kb index
 log
 ```
 
-What touched what, and when. Returns `{ entries, malformed }`; malformed lines
-are reported with their 1-based position and never repaired.
+What touched what, and when. Returns `{ entries, malformed, conflicted }`.
+Malformed lines are reported with their 1-based position and never repaired;
+`conflicted` is true when the log still carries merge markers, which the read
+skips past.
 
 ```bash
 strauss-kb log
@@ -553,6 +555,31 @@ Judgments worth knowing before reading one:
 `--strict` gates on **expiry alone**, the one finding a pipeline can act on
 without a judgment call. `validate` is the narrower neighbour, checking only
 whether pointers between records agree.
+
+### `sweep`
+
+```
+sweep --tag <tag> --terminal [--dry-run]
+```
+
+Deletes records carrying `--tag` that are also `resolved`, `rejected` or
+`superseded`. See [the one deletion](./specification.md#the-one-deletion).
+
+| Flag         | Effect                                                                  |
+| ------------ | ----------------------------------------------------------------------- |
+| `--tag TAG`  | Required. Without it the command refuses; it never sweeps a whole base. |
+| `--terminal` | Required. Names the only scope it deletes: the three terminal statuses. |
+| `--dry-run`  | Report what would go, and delete nothing.                               |
+
+A record another **surviving** record points at — by typed link or by
+supersession — is kept and reported under `skipped`, with the ids holding it; an
+id the run could not remove is reported under `failed`. Each deletion is one
+`sweep` log entry; afterwards the index is rebuilt and the search index dropped.
+
+```bash
+strauss-kb sweep --tag review --terminal --dry-run
+strauss-kb sweep --tag review --terminal
+```
 
 ### `schema`
 

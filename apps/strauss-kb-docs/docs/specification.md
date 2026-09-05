@@ -81,20 +81,28 @@ exact equality** over the whole parsed entry.
 ### `.gitattributes` and cross-worktree writes
 
 Git's line-level merge is wrong for a file both sides only append to, so the
-first call that appends a log line writes a merge driver:
+first call that appends a log line writes a merge driver, and marks every
+store-owned file generated so a review of a committed base is a review of its
+records:
 
 ```
-log.jsonl text eol=lf merge=union
+log.jsonl text eol=lf merge=union linguist-generated=true
+INDEX.md linguist-generated=true
+.index.sqlite linguist-generated=true
 ```
 
 `union` is built in, so the attribute alone is enough, and `eol=lf` pins line
-endings regardless of `core.autocrlf`. A `.gitattributes` that already gives
-`log.jsonl` any strategy is left alone; the step is best-effort and never fails
-the mutation that triggered it.
+endings regardless of `core.autocrlf`. Each attribute is checked separately, so
+a base written before this block grew gains only the lines it lacks and a value
+already set — `merge=ours`, `-linguist-generated` — is left alone. The step is
+best-effort and never fails the mutation that triggered it.
 
 :::warning This applies to a local `git merge`, not to GitHub
 GitHub computes pull request merges through its own service, which does not read
-`.gitattributes` merge-driver declarations.
+`.gitattributes` merge-driver declarations, so its merge button can leave
+conflict markers in `log.jsonl`. Reads skip every marker line — `<<<<<<<`,
+`=======`, `>>>>>>>`, and diff3's `|||||||` base section — keep both sides'
+entries, and warn once for the file.
 :::
 
 ## Records
@@ -491,6 +499,15 @@ own id is a no-op, duplicates mark once, and the array is capped at **32**. The
 write returns `{ conceptId, action, supersededIds }`, where `supersededIds`
 holds only the ids **actually** marked, so a crash mid-way is reported by
 `validate` rather than silent.
+
+### The one deletion
+
+[`sweep`](./cli-reference.md#sweep) is the single exception: review-tagged
+records in a terminal status are never traced, so git history is their archive.
+It deletes only records carrying the tag it was given **and** sitting in
+`resolved`, `rejected` or `superseded`, refuses without a tag, keeps any record
+a surviving record still points at — by typed link or by supersession — and logs
+each deletion as `sweep`.
 
 ### Chain resolution happens on read
 

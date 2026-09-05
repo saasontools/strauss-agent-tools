@@ -26,6 +26,7 @@ import { schemaCommand } from "./schema.js";
 import { stampCommand } from "./stamp.js";
 import { statusCommand } from "./status.js";
 import { supersedeCommand } from "./supersede.js";
+import { sweepCommand } from "./sweep.js";
 import { syncInstructionsCommand } from "./sync-instructions.js";
 import { telemetryCommand } from "./telemetry.js";
 import { traceCommand } from "./trace.js";
@@ -60,6 +61,7 @@ export const KB_COMMANDS: KbCommand[] = [
   stampCommand,
   validateCommand,
   doctorCommand,
+  sweepCommand,
   schemaCommand,
   pinCommand,
   unpinCommand,
