@@ -607,7 +607,8 @@ test("a report with nowhere to go is a usage error, never a silent no-op", () =>
 
 test("a dry-run policy routes, writes nothing, and says dryRun in its event", () => {
   const { repo } = ownedRepo({
-    policy: { enabled: "dry-run" },
+    // Default deny: the docs class is auto only because this policy names it.
+    policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
     change: ["docs/guide.md", "# guide\n"],
   });
   const sink = mkdtempSync(join(tmpdir(), "merge-policy-dry-"));
