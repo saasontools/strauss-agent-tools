@@ -55,9 +55,13 @@ function materialize(scenario) {
     [FIXTURE, "--out", out, "--scenarios", scenario, "--force"],
     { encoding: "utf8" },
   );
-  execFileSync("git", ["-C", out, "checkout", "--quiet", scenario], {
-    encoding: "utf8",
-  });
+  execFileSync(
+    "git",
+    ["-C", out, "-c", "core.autocrlf=false", "checkout", "--quiet", scenario],
+    {
+      encoding: "utf8",
+    },
+  );
   return out;
 }
 

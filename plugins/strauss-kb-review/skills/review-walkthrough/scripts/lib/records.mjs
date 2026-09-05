@@ -61,7 +61,7 @@ export function sections(body) {
       .trim();
     found.set(heading, text);
   };
-  for (const line of (body ?? "").split("\n")) {
+  for (const line of (body ?? "").split(/\r?\n/)) {
     const match = /^##\s+(.+?)\s*$/.exec(line);
     if (match) {
       flush();
@@ -143,13 +143,13 @@ export function verifyCommand(record) {
   if (!text) return null;
   const fenced = /```[a-z]*\n([\s\S]*?)```/.exec(text);
   if (fenced?.[1]) {
-    const first = fenced[1].split("\n").find((line) => line.trim());
+    const first = fenced[1].split(/\r?\n/).find((line) => line.trim());
     if (first) return first.trim();
   }
   const inline = /`([^`\n]+)`/.exec(text);
   if (inline?.[1]) return inline[1].trim();
   const line = text
-    .split("\n")
+    .split(/\r?\n/)
     .map((entry) => entry.trim())
     .find((entry) => entry.length > 0 && !entry.endsWith("."));
   return line ?? null;
