@@ -17,11 +17,11 @@ rather than closing it. A lock would close it and add a worse failure: a crashed
 A base loaded at the start of a long conversation is summarised away by the end,
 so no consumer loads it that way:
 
-| Consumer                        | How it reads                                        |
-| ------------------------------- | --------------------------------------------------- |
-| Diff annotation                 | `matchToDiff` — deterministic, no context           |
-| "Has this been decided?"        | a fresh short-lived reader, given base and question |
-| An implementor writing a record | a point query at the moment of writing              |
+| Consumer                        | How it reads                                         |
+| ------------------------------- | ---------------------------------------------------- |
+| Diff annotation                 | `matchToDiff`/`kb_match` — deterministic, no context |
+| "Has this been decided?"        | a fresh short-lived reader, given base and question  |
+| An implementor writing a record | a point query at the moment of writing               |
 
 Reloading costs about three thousand tokens for twenty records.
 
