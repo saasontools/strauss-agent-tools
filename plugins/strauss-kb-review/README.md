@@ -29,6 +29,27 @@ honest answer.
 **`review-companion`** — risks, invented requirements, business flows, and
 review-focus marks kept current across a pull request's commits.
 
+## Gate
+
+`hooks/scripts/kb-review-gate.mjs` reads the session's diff and the companion
+base and asks one question: did this change record what it owes? Every check
+sits in the header of its [`lib/family-*.mjs`](./hooks/scripts/lib/).
+
+It blocks on what a record does or does not say — an uncovered change, a
+fabricated record, an unearned status move, a `kb_validate` error, an F signal
+with no record of the type it owes — and warns on the heuristics: sizes,
+duplicates, expiry, drift. `--report` prints the same findings and exits 0.
+
+**Arming** takes both halves: copy the entries from
+[`hooks/example-hooks.json`](./hooks/example-hooks.json) into
+`.claude/settings.json`, and add a `gate` key to `.strauss/kb-pins.json` (or set
+`STRAUSS_KB_GATE=1`). Unwired or unkeyed it reads nothing. That key also demotes
+a block by id, or switches a check off:
+
+```json
+{ "gate": { "warn": ["F4", "C6"], "off": ["B2"], "factOnlyLines": 40 } }
+```
+
 ## Install (unpublished)
 
 Local session, from a checkout of this repo:

@@ -7,7 +7,7 @@
     ".strauss/kb/log.jsonl": "kb",
     ".strauss/kb/fact.chunking-extracted-from-tenant-service.md": "kb"
   },
-  "gateFamilies": ["D"],
+  "gateFamilies": ["B", "D"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
   "notes": "Both anchors carry a tree-sitter `ast` hash stamped against the commit-1 tree. Commit 2 drifts them differently: TenantService.findMany still resolves with a new hash and wants `--rebaseline`; chunkIds is gone from tenant.service.ts and resolves `symbol-not-found`, which rebaselining must not paper over. D5 fires on both until the first is rebaselined. B5 fires on the second whatever happens. Family A stays quiet on the new chunker.ts because commit 2 also carries the `review:extract` fact the record map prescribes, anchored on chunkIds and naming the diff that proves the move."
 }
