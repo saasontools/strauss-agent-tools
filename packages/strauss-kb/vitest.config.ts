@@ -19,11 +19,17 @@ export default defineConfig({
       // writes to the developer's `$HOME` or a CI job summary. The telemetry
       // suite turns it back on against a temp root of its own.
       STRAUSS_TELEMETRY: "off",
+      // `classify` caches banner reads on disk by default; off here so no
+      // suite writes to `$HOME`. The cache suite points it at a temp dir.
+      STRAUSS_KB_CACHE_DIR: "off",
     },
     // Grammars download on first use; the setup file serves the fixtures over
     // localhost so no test reaches the CDN.
     setupFiles: ["test/grammars.setup.ts"],
     include: ["src/**/*.spec.ts", "test/**/*.spec.ts"],
+    // Benches are their own run (`pnpm bench`) and never part of `test`: a
+    // ceiling belongs in a spec, and a timing distribution does not gate CI.
+    benchmark: { include: ["src/**/*.bench.ts"] },
     testTimeout: 20_000,
     hookTimeout: 30_000,
     coverage: {
@@ -32,8 +38,15 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       // The two *-main.ts files are entry glue — argv slicing and a catch that
       // exits. They are exercised by the spawned-binary suites under test/,
-      // which v8 in-process coverage cannot see.
-      exclude: ["src/**/*.spec.ts", "src/cli-main.ts", "src/mcp-main.ts"],
+      // which v8 in-process coverage cannot see. Benches and their generator
+      // are dev-only and `test` never runs them.
+      exclude: [
+        "src/**/*.spec.ts",
+        "src/**/*.bench.ts",
+        "src/bench/**",
+        "src/cli-main.ts",
+        "src/mcp-main.ts",
+      ],
       thresholds: {
         lines: 85,
         statements: 85,

@@ -58,6 +58,7 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "bench": "vitest bench --run",
     "lint": "eslint .",
     "grammars": "node scripts/grammars.mjs"
   },
