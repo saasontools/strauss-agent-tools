@@ -63,6 +63,7 @@ public surface. Importers point at the barrel.
 | `src/kb-pins/`   | `model.ts` (manifest schemas), `layers.ts`, `budgets.ts`, `frozen.ts`, `errors.ts`, `pin.ts`, `unpin.ts`, `list.ts`, `index.ts` |
 | `src/kb-links/`  | `model.ts` (the inbound-edge types), `inbound.ts` (the index), `impact.ts`, `backlinks.ts`, `index.ts`                          |
 | `src/telemetry/` | `model.ts` (the event schema), `sinks.ts` (the three destinations), `emit.ts`, `summary.ts` (the read side), `index.ts`         |
+| `src/classify/`  | `model.ts` (the class set and options), `rules.ts` (the path table and shapes), `classify.ts`, `index.ts`                       |
 
 `index.ts`'s command order is the CLI usage listing's order: the write path, the
 read path, base housekeeping, the format, then the workspace pin verbs.
@@ -280,6 +281,14 @@ accumulates every edge that reached it.
 **`trace`** is the inverse of a point query: in a query a `rejected` record is
 the most dangerous thing retrievable, and in a history it is the content. It
 orders by `generated.at` rather than by rank.
+
+## Classes are derived, never stored
+
+`classify` reads a class off the diff and the base never holds one, because a
+stored class is a second copy of an answer the patch already gives and the two
+disagree the first time a rule changes. The one input no script can derive —
+"this output is generated, read its input instead" — is a `review:*` fact, and
+that is the only part of the answer a record carries.
 
 ## Read for a question, not for a session
 
