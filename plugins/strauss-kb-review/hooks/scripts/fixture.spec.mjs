@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { buildContext } from "./lib/context.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../../../..");
@@ -21,9 +22,15 @@ const { materialize, readExpected, scenarioNames } = await import(
   pathToFileURL(FIXTURE).href
 );
 
-/** @param {string} repo @param {string[]} args */
+/**
+ * Every call carries autocrlf=false: the runner's own git config must not
+ * rewrite the fixture's line endings on checkout or reset.
+ * @param {string} repo @param {string[]} args
+ */
 const git = (repo, args) =>
-  execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  execFileSync("git", ["-C", repo, "-c", "core.autocrlf=false", ...args], {
+    encoding: "utf8",
+  });
 
 /** @param {string} repo @param {string} branch */
 function reportOn(repo, branch) {
@@ -52,6 +59,58 @@ function reportOn(repo, branch) {
   );
   return JSON.parse(out);
 }
+
+test("the gate honours `classify --git`, not its built-in patterns", (t) => {
+  if (!existsSync(CLI)) {
+    t.skip("strauss-kb is not built");
+    return;
+  }
+  const { repo } = materialize({ scenarios: ["generated-block"] });
+  const previous = process.env.STRAUSS_KB_BIN;
+  process.env.STRAUSS_KB_BIN = CLI;
+  try {
+    git(repo, ["checkout", "-q", "generated-block"]);
+    const ctx = buildContext({
+      repoRoot: repo,
+      bundle: join(repo, ".strauss", "kb"),
+      base: "main",
+      head: "HEAD",
+      offline: true,
+      report: true,
+    });
+    assert.equal(ctx.classifier, "cli");
+    // Neither answer is the built-in one: `protocol.json` reads `config` and
+    // `log.jsonl` `kb` from the patterns alone.
+    assert.equal(ctx.classes.get("src/protocol/protocol.json"), "generated");
+    assert.equal(ctx.classes.get(".strauss/kb/log.jsonl"), "config");
+
+    const cli = JSON.parse(
+      execFileSync(
+        "node",
+        [
+          CLI,
+          "--bundle",
+          join(repo, ".strauss", "kb"),
+          "classify",
+          "--git",
+          "main..HEAD",
+          "--repo-root",
+          repo,
+          "--offline",
+          "--json",
+        ],
+        { encoding: "utf8", cwd: repo, maxBuffer: 64 * 1024 * 1024 },
+      ),
+    );
+    for (const row of cli.files) {
+      assert.equal(ctx.classes.get(row.filePath), row.class, row.filePath);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.STRAUSS_KB_BIN;
+    else process.env.STRAUSS_KB_BIN = previous;
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
 
 test(
   "--report reproduces every scenario's gate families",

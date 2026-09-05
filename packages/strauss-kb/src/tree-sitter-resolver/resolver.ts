@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Language, Parser, Query, type Tree } from "web-tree-sitter";
 import type {
   AnchorResolver,
+  FoundDefinition,
   ResolvedSymbol,
   ResolverAttempt,
 } from "../anchor-resolver/index.js";
@@ -214,16 +215,18 @@ export class TreeSitterResolver implements AnchorResolver {
    * looked for at every definition in the repository, and there is no name to
    * ask about, since the whole question is which name now carries that code.
    */
-  spans(
-    source: string,
-    file: string,
-  ): { symbol: string; span: ResolvedSymbol }[] {
-    const language = languageForFile(file);
-    if (!language) return [];
+  spans(source: string, file: string): FoundDefinition[] {
+    return this.definitions(source, file) ?? [];
+  }
+
+  /** `spans`, and `null` where no grammar could read the file — an abstain. */
+  definitions(source: string, file?: string): FoundDefinition[] | null {
+    const language = file ? languageForFile(file) : undefined;
+    if (!language) return null;
     const loaded = this.loaded.get(language);
-    if (!loaded) return [];
+    if (!loaded) return null;
     const parsed = this.parse(language, loaded, source);
-    if (!parsed) return [];
+    if (!parsed) return null;
 
     return parsed.definitions
       .filter((definition) => definition.target)

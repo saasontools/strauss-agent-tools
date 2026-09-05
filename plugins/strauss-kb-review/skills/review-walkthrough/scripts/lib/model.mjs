@@ -4,7 +4,7 @@
  * the base. Nothing here is written by a model except the optional per-record
  * reviewer notes passed in through `--reviewer`.
  */
-import { relative, resolve } from "node:path";
+import { posix, resolve } from "node:path";
 import { deepLink } from "./links.mjs";
 import {
   citesSource,
@@ -97,6 +97,18 @@ export class AnchorCheckError extends Refusal {
  * @property {Record<string, { verdict?: string, note?: string, findings?: unknown[] }>} reviewer
  * @property {boolean} allowDrift
  */
+
+/**
+ * A repo-relative path is POSIX wherever it is compared, hashed or classified:
+ * git prints `/`, and a deep link hashes what git printed. Only `--repo-root`
+ * and `--bundle` arrive in the host's separator, so they are converted once.
+ *
+ * @param {string} path
+ * @returns {string}
+ */
+function toPosix(path) {
+  return path.split("\\").join("/");
+}
 
 /**
  * @param {unknown} value
@@ -261,7 +273,10 @@ export function buildModel({ kb, git }, options) {
     .split("\0")
     .filter(Boolean);
 
-  const bundleRel = relative(resolve(repoRoot), resolve(bundle));
+  const bundleRel = posix.relative(
+    toPosix(resolve(repoRoot)),
+    toPosix(resolve(bundle)),
+  );
   const inBundle = (/** @type {string} */ file) =>
     bundleRel !== "" &&
     !bundleRel.startsWith("..") &&
