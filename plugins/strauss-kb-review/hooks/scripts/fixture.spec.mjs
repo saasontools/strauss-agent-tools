@@ -9,7 +9,7 @@ import test from "node:test";
 import { execFileSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../../../..");
@@ -17,7 +17,9 @@ const FIXTURE = join(ROOT, "fixtures/companion-repo/materialize.mjs");
 const CLI = join(ROOT, "packages/strauss-kb/dist/cli-main.js");
 const GATE = join(HERE, "kb-review-gate.mjs");
 
-const { materialize, readExpected, scenarioNames } = await import(FIXTURE);
+const { materialize, readExpected, scenarioNames } = await import(
+  pathToFileURL(FIXTURE).href
+);
 
 /** @param {string} repo @param {string[]} args */
 const git = (repo, args) =>
