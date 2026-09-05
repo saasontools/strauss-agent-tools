@@ -64,7 +64,7 @@ test(
       for (const scenario of scenarioNames()) {
         await t.test(scenario, (sub) => {
           const result = reportOn(repo, scenario);
-          assert.equal(result.classifier, "builtin");
+          assert.equal(result.classifier, "cli");
           assert.equal(result.base, "main");
           assert.ok(
             typeof result.stamp === "string" && result.stamp.length > 0,
