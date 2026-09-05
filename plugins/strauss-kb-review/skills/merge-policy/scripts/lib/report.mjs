@@ -43,12 +43,26 @@ export function prRepo(url) {
 }
 
 /**
+ * The bundle as a path inside the repository, segment by segment, or null for
+ * one that climbs out of it — a `..` link would leave the repo the URL names.
+ * @param {unknown} dir
+ */
+export function bundleHref(dir) {
+  const path = String(dir ?? "");
+  if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) return null;
+  const parts = path.split("/").filter((part) => part !== "" && part !== ".");
+  if (parts.length === 0 || parts.includes("..")) return null;
+  return parts.map(encodeURIComponent).join("/");
+}
+
+/**
  * One markdown block, at most `MAX_LINES` lines.
  * @param {any} model the `--json` shape
  * @returns {string}
  */
 export function report(model) {
-  const link = prRepo(model.prUrl);
+  const bundle = bundleHref(model.bundle);
+  const link = bundle ? prRepo(model.prUrl) : null;
   const lines = [
     MARKER,
     `### Merge policy: ${model.route}`,
@@ -70,7 +84,7 @@ export function report(model) {
         ]
       : []),
     "",
-    ...records(model, link),
+    ...records(model, link, bundle),
     "",
     ...facts(model),
     ...notChecked(model),
@@ -92,8 +106,9 @@ function policy(model) {
   ].join(" ");
 }
 
-/** @param {any} model @param {ReturnType<typeof prRepo>} link */
-function records(model, link) {
+/** @param {any} model @param {ReturnType<typeof prRepo>} link
+ * @param {string | null} bundle */
+function records(model, link, bundle) {
   /** @type {any[]} */
   const rows = model.records;
   if (rows.length === 0) return ["**Records on the diff** — none."];
@@ -104,9 +119,10 @@ function records(model, link) {
     "| --- | --- | --- | --- | --- |",
   ];
   const body = rows.slice(0, RECORDS).map((row) => {
-    const name = link
-      ? `[${cell(row.id)}](${link.repo}/blob/${encodeURIComponent(model.headSha)}/${model.bundle}/${encodeURIComponent(row.id)}.md)`
-      : `\`${cell(row.id)}\``;
+    const name =
+      link && bundle
+        ? `[${cell(row.id)}](${link.repo}/blob/${encodeURIComponent(model.headSha)}/${bundle}/${encodeURIComponent(row.id)}.md)`
+        : `\`${cell(row.id)}\``;
     return `| ${name} | ${cell(row.type)} | ${cell(row.effective)} | ${cell(row.status)} | ${cell(row.verifiedBy.join(", ") || "nobody")} |`;
   });
   const rest =
@@ -168,7 +184,7 @@ function notChecked(model) {
 
 /** Untrusted text inside a table cell: one line, and no cell break.
  * @param {unknown} value */
-function cell(value) {
+export function cell(value) {
   return oneLine(value, 120).split("|").join("\\|");
 }
 

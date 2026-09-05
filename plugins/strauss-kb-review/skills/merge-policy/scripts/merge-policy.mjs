@@ -20,7 +20,13 @@
  * Node builtins only; the strauss-kb CLI is spawned, never imported.
  */
 import { spawnSync } from "node:child_process";
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -180,6 +186,12 @@ export function main(argv) {
   });
   if (values.help) return { help: true, model: null, exit: 0 };
   if (!values.range) throw new UsageError("--range <base>..<head> is required");
+  // Checked before any work: a summary with nowhere to go is a bad invocation,
+  // not a run whose output quietly went nowhere.
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY ?? "";
+  if (values.summary === true && !summaryPath) {
+    throw new UsageError("--summary needs $GITHUB_STEP_SUMMARY to be set");
+  }
 
   const { base, head } = splitRange(values.range);
   const repoRoot = resolve(values["repo-root"] ?? process.cwd());
@@ -227,13 +239,14 @@ export function main(argv) {
       body: model.record,
       route: model.route,
       enforcing: values.enforce === true,
+      enabled: model.policy.enabled,
     });
   }
 
   const block = report(model);
-  if (values["report-out"]) writeFileSync(values["report-out"], block, "utf8");
-  if (values.summary === true && process.env.GITHUB_STEP_SUMMARY) {
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${block}\n`, "utf8");
+  if (values["report-out"]) writeReport(values["report-out"], block);
+  if (values.summary === true) {
+    appendFileSync(summaryPath, `${block}\n`, "utf8");
   }
   if (values.enforce === true) {
     emitRoute(kb, model, Date.now() - started);
@@ -245,6 +258,24 @@ export function main(argv) {
     exit: values.enforce === true ? (model.enforce?.exit ?? 0) : 0,
     json: values.json === true,
   };
+}
+
+/**
+ * Staged then renamed, so a CI step that reads the file concurrently sees the
+ * whole block or none of it. An unwritable path is a usage error, not a route.
+ * @param {string} path @param {string} block
+ */
+function writeReport(path, block) {
+  const staging = `${path}.${process.pid}.tmp`;
+  try {
+    writeFileSync(staging, block, "utf8");
+    renameSync(staging, path);
+  } catch (error) {
+    rmSync(staging, { force: true });
+    throw new UsageError(
+      `--report-out could not be written: ${/** @type {Error} */ (error).message}`,
+    );
+  }
 }
 
 /** One event per enforced run: facts and counts, never a record body.

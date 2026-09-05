@@ -96,9 +96,12 @@ function route(repo, args, extra) {
  * A repository the fixture does not cover: a base policy that names an owner,
  * and a branch whose one source file routes human. The enforce contract needs
  * both, and `owners` is not part of the companion base's placeholder policy.
+ * `over` moves the policy or the branch's one file, for the runs that need a
+ * different route or a different `enabled`.
+ * @param {{ policy?: Record<string, unknown>, change?: [string, string] }} [over]
  * @returns {{ repo: string, sha: string }}
  */
-function ownedRepo() {
+function ownedRepo(over = {}) {
   const repo = mkdtempSync(join(tmpdir(), "merge-policy-owned-"));
   built.push(repo);
   /** @param {string[]} args */
@@ -117,14 +120,15 @@ function ownedRepo() {
   mkdirSync(join(repo, ".strauss"), { recursive: true });
   writeFileSync(
     join(repo, ".strauss", "merge-policy.json"),
-    `${JSON.stringify({ version: 1, owners: ["dana"] }, null, 2)}\n`,
+    `${JSON.stringify({ version: 1, owners: ["dana"], ...over.policy }, null, 2)}\n`,
   );
   writeFileSync(join(repo, "README.md"), "base\n");
   run(["add", "-A"]);
   run(["commit", "--quiet", "-m", "base"]);
   run(["checkout", "--quiet", "-b", "topic"]);
-  mkdirSync(join(repo, "src"), { recursive: true });
-  writeFileSync(join(repo, "src", "a.ts"), "export const a = 1;\n");
+  const [path, text] = over.change ?? ["src/a.ts", "export const a = 1;\n"];
+  mkdirSync(dirname(join(repo, path)), { recursive: true });
+  writeFileSync(join(repo, path), text);
   run(["add", "-A"]);
   run(["commit", "--quiet", "-m", "feat: a"]);
   return { repo, sha: run(["rev-parse", "topic"]).trim() };
@@ -364,12 +368,22 @@ test("--write-record lands one record per run, each superseding the last", () =>
     "--write-record",
     "--pr",
     "7",
+    "--pr-url",
+    "https://github.com/acme/app/pull/7",
   ];
 
   const first = route(repo, args);
   assert.equal(first.model.route, "auto");
   assert.equal(first.model.wrote.written, true, first.model.wrote?.why);
   assert.equal(first.model.wrote.conceptId, "decision.merge-7");
+
+  // `--pr-url` rides into the record as a source, so the landed file cites it.
+  const body = readFileSync(
+    join(repo, ".strauss", "kb", "decision.merge-7.md"),
+    "utf8",
+  );
+  assert.match(body, /\[\^pr\]: Pull request/);
+  assert.match(body, /https:\/\/github\.com\/acme\/app\/pull\/7/);
 
   const second = route(repo, args);
   assert.equal(second.model.wrote.written, true, second.model.wrote?.why);
@@ -385,6 +399,41 @@ test("--write-record lands one record per run, each superseding the last", () =>
   assert.deepEqual(
     written.filter((row) => row.superseded).map((row) => row.id),
     ["decision.merge-7"],
+  );
+});
+
+test("another subject's record is never taken as this subject's ordinal", () => {
+  const repo = materialize("docs-only");
+  /** @param {string} pr */
+  const write = (pr) =>
+    route(repo, [
+      "--range",
+      "main..docs-only",
+      "--repo-root",
+      repo,
+      "--json",
+      "--enforce",
+      "--write-record",
+      "--pr",
+      pr,
+    ]);
+
+  assert.equal(write("7").model.wrote.conceptId, "decision.merge-7");
+  // PR `7-2` owns `decision.merge-7-2`. It is not PR `7`'s second write, so
+  // PR `7`'s rerun steps over the taken id and leaves it alone.
+  assert.equal(write("7-2").model.wrote.conceptId, "decision.merge-7-2");
+
+  const again = write("7");
+  assert.equal(again.model.wrote.written, true, again.model.wrote?.why);
+  assert.equal(again.model.wrote.conceptId, "decision.merge-7-3");
+  assert.deepEqual(again.model.wrote.supersededIds, ["decision.merge-7"]);
+
+  assert.deepEqual(
+    mergeRecords(repo)
+      .filter((row) => !row.superseded)
+      .map((row) => row.id)
+      .sort(),
+    ["decision.merge-7-2", "decision.merge-7-3"],
   );
 });
 
@@ -501,6 +550,63 @@ test("without --enforce no route event is emitted", () => {
   });
   // The kb verbs this run spawns emit their own events; none of them is ours.
   assert.deepEqual(routeEvents(sink), []);
+});
+
+test("a report with nowhere to go is a usage error, never a silent no-op", () => {
+  const repo = materialize("docs-only");
+  const base = ["--range", "main..docs-only", "--repo-root", repo, "--json"];
+
+  const bare = route(repo, [...base, "--summary"], {
+    GITHUB_STEP_SUMMARY: undefined,
+  });
+  assert.equal(bare.status, 2, bare.stderr);
+  assert.match(bare.stderr, /GITHUB_STEP_SUMMARY/);
+
+  // The staging file has nowhere to land either, so the rename never happens.
+  const out = join(repo, "nowhere", "report.md");
+  const unwritable = route(repo, [...base, "--report-out", out]);
+  assert.equal(unwritable.status, 2, unwritable.stderr);
+  assert.match(unwritable.stderr, /--report-out/);
+  assert.ok(!existsSync(out));
+});
+
+test("a dry-run policy routes, writes nothing, and says dryRun in its event", () => {
+  const { repo } = ownedRepo({
+    policy: { enabled: "dry-run" },
+    change: ["docs/guide.md", "# guide\n"],
+  });
+  const sink = mkdtempSync(join(tmpdir(), "merge-policy-dry-"));
+  built.push(sink);
+  const { status, model } = route(
+    repo,
+    [
+      "--range",
+      "main..topic",
+      "--repo-root",
+      repo,
+      "--json",
+      "--enforce",
+      "--write-record",
+      "--pr",
+      "9",
+      "--gate",
+      '{"findings":[]}',
+    ],
+    { STRAUSS_TELEMETRY_DIR: sink },
+  );
+
+  assert.equal(model.route, "auto", model.reason);
+  assert.equal(status, 0);
+  // The config branch keeps strings: a boolean here is a regression.
+  assert.strictEqual(model.policy.enabled, "dry-run");
+  assert.equal(model.wrote.written, false);
+  assert.match(model.wrote.why, /dry-run/);
+  assert.ok(!existsSync(join(repo, ".strauss", "kb")));
+
+  const events = routeEvents(sink);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].data.dryRun, true);
+  assert.equal(events[0].data.wrote, false);
 });
 
 test("a --pr-url that is not a github pull request is a usage error", () => {

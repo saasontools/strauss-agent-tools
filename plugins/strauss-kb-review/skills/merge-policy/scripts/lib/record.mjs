@@ -7,15 +7,8 @@
  * so the evidence and the not-checked list ride inside `Impact` rather than
  * earning headings of their own. No anchor: the record is about the range.
  */
-import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import {
-  asString,
-  childEnv,
-  oneLine,
-  parseFrontmatter,
-} from "../../../../hooks/scripts/lib/util.mjs";
+import { run } from "../../../../hooks/scripts/lib/cli.mjs";
+import { asString, oneLine } from "../../../../hooks/scripts/lib/util.mjs";
 
 /** Who this record is written as. Never a human: the route is not a read. */
 export const ACTOR = "agent:merge-policy";
@@ -38,6 +31,11 @@ export function slugify(subject) {
   return slug || "unnamed";
 }
 
+/** The tag that says which subject a record belongs to. @param {string} slug */
+export function subjectTag(slug) {
+  return `review:merge-policy:${slug}`;
+}
+
 /**
  * The record body, built from the policy output alone.
  * @param {import("./inputs.mjs").Input} input
@@ -58,7 +56,9 @@ export function buildRecord(input, decision, verdict, options) {
     why: oneLine(`${decision.rule}: ${decision.reason}`, 240),
     alternative: alternative(decision),
     impact: impact(input, decision, verdict, options),
-    tags: ["review", "review:merge-policy"],
+    // The subject tag is how a rerun finds its own priors: an id's shape says
+    // nothing — `merge-7-2` is subject `7-2`, not the second write for `7`.
+    tags: ["review", "review:merge-policy", subjectTag(slug)],
     sources: options.prUrl
       ? [{ id: "pr", resource: options.prUrl, title: "Pull request" }]
       : [],
@@ -137,78 +137,95 @@ function list(items) {
 }
 
 /**
- * `decision.merge-<subject>` is written once per subject, so a rerun writes a
- * numbered sibling that supersedes every current one rather than colliding on
- * the id — the store refuses a second write of a concept id, and a record
- * naming itself in `supersedes` is a no-op.
- * @param {string} bundle @param {string} slug
+ * @typedef {import("../../../../hooks/scripts/lib/cli.mjs").Launcher} Launcher
+ * @typedef {(kb: Launcher, tag: string) => any[] | null} List
+ * @typedef {(kb: Launcher, input: unknown) =>
+ *   import("../../../../hooks/scripts/lib/cli.mjs").Run} Send
+ * @typedef {{ list?: List, send?: Send }} Hooks
  */
-export function priorRecords(bundle, slug) {
-  // The ordinal is only ever the suffix this function added, so it is read
-  // from the shape's own group — `merge-7` is subject 7, not ordinal 7.
-  const shape = new RegExp(
-    `^${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:-(\\d+))?$`,
-  );
-  /** @type {{ id: string, superseded: boolean, ordinal: number }[]} */
-  const prior = [];
-  let names;
+
+/** Every record this subject already has, oldest ordinal first. Selection is
+ * by tag, never by id shape: `merge-7-2` is subject `7-2`'s own record.
+ * @param {Launcher} kb @param {string} slug @param {List} [list]
+ * @returns {{ id: string, superseded: boolean, ordinal: number }[] | null}
+ */
+export function priorRecords(kb, slug, list = listBySubject) {
+  const rows = list(kb, subjectTag(slug));
+  if (!rows) return null;
+  return rows
+    .map((row) => ({
+      id: asString(row?.conceptId),
+      superseded: asString(row?.status) === "superseded",
+      ordinal: ordinalOf(asString(row?.conceptId), slug),
+    }))
+    .filter((record) => record.id !== "")
+    .sort((a, b) => a.ordinal - b.ordinal || a.id.localeCompare(b.id));
+}
+
+/** The suffix this module adds, or 0 for an id it did not write.
+ * @param {string} id @param {string} slug */
+function ordinalOf(id, slug) {
+  const own = id.startsWith("decision.") ? id.slice("decision.".length) : "";
+  if (own === slug) return 1;
+  const rest = own.startsWith(`${slug}-`) ? own.slice(slug.length + 1) : "";
+  return /^[1-9][0-9]*$/.test(rest) ? Number(rest) : 0;
+}
+
+/** @type {List} */
+function listBySubject(kb, tag) {
+  const answer = run(kb, ["list", "decision", "--tag", tag]);
+  if (answer.missing || answer.unknownVerb || answer.status !== 0) return null;
   try {
-    names = readdirSync(bundle);
+    const rows = JSON.parse(answer.stdout);
+    return Array.isArray(rows) ? rows : null;
   } catch {
-    // No bundle is no prior record; the write below creates the directory.
-    return prior;
+    return null;
   }
-  for (const name of names) {
-    if (!name.startsWith("decision.") || !name.endsWith(".md")) continue;
-    const id = name.slice(0, -3);
-    const found = shape.exec(id.slice("decision.".length));
-    if (!found) continue;
-    let status = "accepted";
-    try {
-      status =
-        asString(
-          parseFrontmatter(readFileSync(join(bundle, name), "utf8")).data
-            .strauss_status,
-        ) || "accepted";
-    } catch {
-      // Unreadable counts as present: the id is taken either way.
-    }
-    prior.push({
-      id,
-      superseded: status === "superseded",
-      ordinal: Number(found[1] ?? 1),
-    });
-  }
-  return prior;
 }
 
 /**
- * The slug this run writes under, and the current records it replaces.
- * @param {string} bundle @param {string} slug
+ * The slug this run writes under, and the one record it replaces: the record
+ * for this subject that is still current. A rerun takes the next free ordinal
+ * rather than colliding — the store refuses a second write of a concept id.
+ * `skip` holds ordinals a failed attempt already found taken.
+ * @param {Launcher} kb @param {string} slug @param {List} [list]
+ * @param {Set<number>} [skip]
  */
-export function nextWrite(bundle, slug) {
-  const prior = priorRecords(bundle, slug);
+export function nextWrite(kb, slug, list, skip = new Set()) {
+  const prior = priorRecords(kb, slug, list);
+  if (!prior) return null;
   const taken = new Set(prior.map((record) => record.ordinal));
   let ordinal = 1;
-  while (taken.has(ordinal)) ordinal += 1;
+  while (taken.has(ordinal) || skip.has(ordinal)) ordinal += 1;
+  const current = prior.filter((record) => !record.superseded);
+  const last = current[current.length - 1];
   return {
+    ordinal,
     slug: ordinal === 1 ? slug : `${slug}-${ordinal}`,
-    supersedes: prior
-      .filter((record) => !record.superseded)
-      .map((record) => record.id),
+    supersedes: last ? [last.id] : [],
   };
+}
+
+/** @type {Send} */
+function sendWrite(kb, input) {
+  return run(kb, ["write-decision"], {
+    input: JSON.stringify(input),
+    env: { STRAUSS_KB_ACTOR: ACTOR },
+    timeout: WRITE_TIMEOUT_MS,
+  });
 }
 
 /**
  * Writes the body through the CLI, as `agent:merge-policy`. Only an unattended
- * route under `--enforce` earns one: a dry run and a human route leave the
- * body in the JSON and touch nothing.
- * @param {{ kb: import("../../../../hooks/scripts/lib/cli.mjs").Launcher,
- *   body: ReturnType<typeof buildRecord>, route: string, enforcing: boolean }} how
+ * route under `--enforce` earns one: a dry run, a `dry-run` policy and a human
+ * route leave the body in the JSON and touch nothing.
+ * @param {{ kb: Launcher, body: ReturnType<typeof buildRecord>, route: string,
+ *   enforcing: boolean, enabled?: string }} how
+ * @param {Hooks} [hooks]
  * @returns {{ written: boolean, why: string, conceptId: string | null,
  *   action?: string, supersededIds?: string[] }}
  */
-export function writeRecord(how) {
+export function writeRecord(how, hooks = {}) {
   if (!how.enforcing) {
     return {
       written: false,
@@ -216,16 +233,41 @@ export function writeRecord(how) {
       conceptId: null,
     };
   }
-  if (!UNATTENDED.includes(how.route)) {
+  if (!UNATTENDED.includes(how.route) || how.enabled === "dry-run") {
     return {
       written: false,
-      why: `route is ${how.route}, which a human signs off; nothing to record`,
+      why:
+        how.enabled === "dry-run"
+          ? "policy is enabled: dry-run, so the route is reported and nothing lands"
+          : `route is ${how.route}, which a human signs off; nothing to record`,
       conceptId: null,
     };
   }
 
-  const { slug, supersedes } = nextWrite(how.kb.bundle, how.body.slug);
-  const input = {
+  // One retry, because the scan and the write are not one step: a sibling run
+  // may take the ordinal in between, and the store refuses the collision.
+  let attempt = land(how, hooks, new Set());
+  if (attempt.collided) attempt = land(how, hooks, new Set([attempt.ordinal]));
+  return attempt.answer;
+}
+
+/** One scan-then-write pass. @param {Parameters<typeof writeRecord>[0]} how
+ * @param {Hooks} hooks @param {Set<number>} skip */
+function land(how, hooks, skip) {
+  const next = nextWrite(how.kb, how.body.slug, hooks.list, skip);
+  if (!next) {
+    return {
+      collided: false,
+      ordinal: 0,
+      answer: {
+        written: false,
+        why: "could not list the prior records for this subject",
+        conceptId: null,
+      },
+    };
+  }
+  const { slug, supersedes } = next;
+  const answer = (hooks.send ?? sendWrite)(how.kb, {
     slug,
     title: how.body.title,
     why: how.body.why,
@@ -234,48 +276,43 @@ export function writeRecord(how) {
     tags: how.body.tags,
     ...(how.body.sources.length > 0 ? { sources: how.body.sources } : {}),
     ...(supersedes.length > 0 ? { supersedes } : {}),
-  };
+  });
 
-  const command = how.kb.command ?? "strauss-kb";
-  const script = /\.[cm]?js$/.test(command);
-  const argv = ["--bundle", how.kb.bundle, "write-decision"];
-  const answer = spawnSync(
-    script ? process.execPath : command,
-    script ? [command, ...argv] : argv,
-    {
-      cwd: how.kb.cwd,
-      encoding: "utf8",
-      input: JSON.stringify(input),
-      timeout: WRITE_TIMEOUT_MS,
-      maxBuffer: 64 * 1024 * 1024,
-      env: { ...childEnv(), STRAUSS_KB_ACTOR: ACTOR },
-      shell: false,
-    },
-  );
-  if (answer.error || answer.status !== 0) {
+  if (answer.missing || answer.status !== 0) {
     return {
-      written: false,
-      why: oneLine(
-        answer.stderr || answer.error?.message || "the write verb failed",
-        200,
-      ),
-      conceptId: null,
+      collided: /already exists/i.test(answer.stderr),
+      ordinal: next.ordinal,
+      answer: {
+        written: false,
+        why: oneLine(
+          answer.stderr ||
+            (answer.missing
+              ? "the kb CLI could not be spawned"
+              : "the write verb failed"),
+          200,
+        ),
+        conceptId: null,
+      },
     };
   }
   /** @type {any} */
   let parsed = null;
   try {
-    parsed = JSON.parse(answer.stdout ?? "");
+    parsed = JSON.parse(answer.stdout);
   } catch {
     // The verb exited 0, so the record is there; only the receipt is missing.
   }
   return {
-    written: true,
-    why: `written as ${ACTOR}`,
-    conceptId: asString(parsed?.conceptId) || `decision.${slug}`,
-    action: asString(parsed?.action) || "created",
-    supersededIds: Array.isArray(parsed?.supersededIds)
-      ? parsed.supersededIds.map(String)
-      : supersedes,
+    collided: false,
+    ordinal: next.ordinal,
+    answer: {
+      written: true,
+      why: `written as ${ACTOR}`,
+      conceptId: asString(parsed?.conceptId) || `decision.${slug}`,
+      action: asString(parsed?.action) || "created",
+      supersededIds: Array.isArray(parsed?.supersededIds)
+        ? parsed.supersededIds.map(String)
+        : supersedes,
+    },
   };
 }

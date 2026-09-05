@@ -5,12 +5,22 @@
  * shows up here before it shows up on a pull request.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { test } from "node:test";
-import { buildRecord, nextWrite, slugify } from "./lib/record.mjs";
-import { MARKER, MAX_LINES, prRepo, report } from "./lib/report.mjs";
+import {
+  buildRecord,
+  nextWrite,
+  slugify,
+  subjectTag,
+  writeRecord,
+} from "./lib/record.mjs";
+import {
+  bundleHref,
+  cell,
+  MARKER,
+  MAX_LINES,
+  prRepo,
+  report,
+} from "./lib/report.mjs";
 import { result } from "./lib/render.mjs";
 
 /** The `Input` shape the two builders read, with everything quiet by default.
@@ -96,7 +106,11 @@ test("an auto route names human review as what it rejected", () => {
   assert.match(body.alternative, /^Human review\. Rejected: `auto-mechanical`/);
   assert.match(body.impact, /`auto` merges 1 changed file with no human read/);
   assert.match(body.impact, /- decider: exit 0 — auto/);
-  assert.deepEqual(body.tags, ["review", "review:merge-policy"]);
+  assert.deepEqual(body.tags, [
+    "review",
+    "review:merge-policy",
+    "review:merge-policy:merge-7",
+  ]);
   // The record is about the range, so it anchors to no symbol.
   assert.deepEqual(body.anchors, []);
   assert.deepEqual(body.sources, [
@@ -211,6 +225,14 @@ function model(over, decision, verdict) {
 }
 
 test("the docs-only report is one capped block behind a stable marker", () => {
+  const quiet = model(
+    {},
+    { route: "auto", rule: "auto-mechanical", reason: "q" },
+    CLEAN,
+  );
+  // `enabled` is the string union all the way out: `true` here is a regression.
+  assert.strictEqual(quiet.policy.enabled, "true");
+
   const block = report(
     model(
       {},
@@ -326,39 +348,188 @@ test("the block stays inside its line cap however loud the range is", () => {
   assert.match(block, /and 52 more\./);
 });
 
-test("a rerun takes the next free ordinal and supersedes every current sibling", () => {
-  const bundle = mkdtempSync(join(tmpdir(), "merge-record-"));
-  assert.deepEqual(nextWrite(bundle, "merge-7"), {
+test("a cell is one line, and a pipe in it never opens a column", () => {
+  assert.equal(cell("risk.a|b"), "risk.a\\|b");
+  assert.equal(
+    cell("blocked | see\nthe next line"),
+    "blocked \\| see the next line",
+  );
+  assert.ok(!cell("a\nb").includes("\n"));
+});
+
+test("a bundle that climbs out of the repo builds no link", () => {
+  assert.equal(bundleHref(".strauss/kb"), ".strauss/kb");
+  assert.equal(bundleHref("kb/one two"), "kb/one%20two");
+  for (const bad of ["../elsewhere/kb", "..", "/abs/kb", "C:/kb", ""]) {
+    assert.equal(bundleHref(bad), null, bad);
+  }
+});
+
+test("a record whose bundle is outside the repo is named, never linked", () => {
+  const block = report({
+    ...model(
+      {},
+      { route: "auto", rule: "auto-mechanical", reason: "q" },
+      CLEAN,
+    ),
+    bundle: "../other/kb",
+    records: [
+      {
+        id: "risk.a",
+        type: "risk",
+        materiality: "blocking",
+        effective: "blocking",
+        status: "open",
+        verifiedBy: [],
+      },
+    ],
+  });
+  assert.match(block, /\| `risk\.a` \| risk \|/);
+  assert.ok(!block.includes("../other/kb"), block);
+});
+
+/** A bundle as the `list` verb reports it, keyed by subject tag.
+ * @param {Record<string, { conceptId: string, status: string }[]>} rows */
+function lister(rows) {
+  /** @type {import("./lib/record.mjs").List} */
+  const list = (_kb, tag) => rows[tag] ?? [];
+  return list;
+}
+
+/** @type {any} */
+const KB = { cwd: ".", bundle: ".strauss/kb", command: "strauss-kb" };
+
+test("a rerun takes the next free ordinal and supersedes the record still current", () => {
+  const tag = subjectTag("merge-7");
+  assert.deepEqual(nextWrite(KB, "merge-7", lister({})), {
+    ordinal: 1,
     slug: "merge-7",
     supersedes: [],
   });
 
-  writeFileSync(
-    join(bundle, "decision.merge-7.md"),
-    "---\ntype: decision\nstrauss_status: accepted\n---\n",
+  assert.deepEqual(
+    nextWrite(
+      KB,
+      "merge-7",
+      lister({
+        [tag]: [{ conceptId: "decision.merge-7", status: "accepted" }],
+      }),
+    ),
+    { ordinal: 2, slug: "merge-7-2", supersedes: ["decision.merge-7"] },
   );
-  assert.deepEqual(nextWrite(bundle, "merge-7"), {
-    slug: "merge-7-2",
-    supersedes: ["decision.merge-7"],
-  });
 
-  // A record already settled is not superseded twice, but its id stays taken.
-  writeFileSync(
-    join(bundle, "decision.merge-7-2.md"),
-    "---\ntype: decision\nstrauss_status: superseded\n---\n",
+  // A settled record is not superseded twice, but its ordinal stays taken.
+  assert.deepEqual(
+    nextWrite(
+      KB,
+      "merge-7",
+      lister({
+        [tag]: [
+          { conceptId: "decision.merge-7", status: "superseded" },
+          { conceptId: "decision.merge-7-2", status: "accepted" },
+        ],
+      }),
+    ),
+    { ordinal: 3, slug: "merge-7-3", supersedes: ["decision.merge-7-2"] },
   );
-  assert.deepEqual(nextWrite(bundle, "merge-7-2"), {
+});
+
+test("a subject's priors are its own tag's records, never an id that looks like one", () => {
+  // `merge-7-2` is PR `7-2`'s own first record. A run for PR `7` neither
+  // supersedes it nor counts it: selection is the tag, not the id's shape.
+  const list = lister({
+    [subjectTag("merge-7")]: [
+      { conceptId: "decision.merge-7", status: "accepted" },
+    ],
+    [subjectTag("merge-7-2")]: [
+      { conceptId: "decision.merge-7-2", status: "accepted" },
+    ],
+  });
+  const next = nextWrite(KB, "merge-7", list);
+  assert.deepEqual(next?.supersedes, ["decision.merge-7"]);
+  assert.ok(!next?.supersedes.includes("decision.merge-7-2"));
+
+  // And PR `7-2`'s own rerun is numbered from its own chain.
+  assert.deepEqual(nextWrite(KB, "merge-7-2", list), {
+    ordinal: 2,
     slug: "merge-7-2-2",
-    supersedes: [],
+    supersedes: ["decision.merge-7-2"],
   });
+});
 
-  // A different subject is a different record, never an ordinal of this one.
-  writeFileSync(
-    join(bundle, "decision.merge-8.md"),
-    "---\ntype: decision\nstrauss_status: accepted\n---\n",
-  );
-  assert.deepEqual(nextWrite(bundle, "merge-7"), {
-    slug: "merge-7-3",
-    supersedes: ["decision.merge-7"],
+/** The write half of `writeRecord`, with the store in memory.
+ * @param {Partial<any>} [over] */
+function how(over = {}) {
+  return {
+    kb: KB,
+    body: buildRecord(
+      input(),
+      { route: "auto", rule: "auto-mechanical", reason: "quiet" },
+      CLEAN,
+      options(),
+    ),
+    route: "auto",
+    enforcing: true,
+    ...over,
+  };
+}
+
+/** @param {number} status @param {string} stdout @param {string} stderr */
+function reply(status, stdout, stderr = "") {
+  return { status, stdout, stderr, missing: false, unknownVerb: false };
+}
+
+test("a dry-run policy reports the route and writes nothing", () => {
+  let sent = 0;
+  const answer = writeRecord(how({ enabled: "dry-run" }), {
+    send: () => {
+      sent += 1;
+      return reply(0, "{}");
+    },
   });
+  assert.equal(answer.written, false);
+  assert.equal(sent, 0);
+  assert.match(answer.why, /dry-run/);
+});
+
+test("an ordinal taken between the scan and the write is retried, once", () => {
+  /** @type {{ conceptId: string, status: string }[]} */
+  const held = [{ conceptId: "decision.merge-7", status: "accepted" }];
+  const rows = { [subjectTag("merge-7")]: held };
+  /** @type {string[]} */
+  const tried = [];
+  const answer = writeRecord(how(), {
+    list: lister(rows),
+    send: (_kb, input) => {
+      const slug = /** @type {any} */ (input).slug;
+      tried.push(slug);
+      // A sibling run lands this ordinal between our scan and our write.
+      if (tried.length === 1) {
+        held.push({ conceptId: `decision.${slug}`, status: "accepted" });
+        return reply(
+          1,
+          "",
+          `strauss-kb: error: kb: decision.${slug} already exists — choose a more specific slug\n`,
+        );
+      }
+      return reply(0, JSON.stringify({ conceptId: `decision.${slug}` }));
+    },
+  });
+  assert.deepEqual(tried, ["merge-7-2", "merge-7-3"]);
+  assert.equal(answer.written, true);
+  assert.equal(answer.conceptId, "decision.merge-7-3");
+});
+
+test("a prior scan that did not answer writes nothing", () => {
+  let sent = 0;
+  const answer = writeRecord(how(), {
+    list: () => null,
+    send: () => {
+      sent += 1;
+      return reply(0, "{}");
+    },
+  });
+  assert.equal(answer.written, false);
+  assert.equal(sent, 0);
+  assert.match(answer.why, /could not list/);
 });

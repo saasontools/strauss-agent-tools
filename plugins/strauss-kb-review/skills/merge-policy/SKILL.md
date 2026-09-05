@@ -47,8 +47,11 @@ the same records. One sticky comment per PR:
 ```sh
 id=$(gh api "repos/$R/issues/$PR/comments" --jq \
   'map(select(.body|startswith("<!-- strauss-kb merge-policy -->")))[0].id')
-[ "$id" = null ] && gh api "repos/$R/issues/$PR/comments" -F body=@report.md \
-  || gh api -X PATCH "repos/$R/issues/comments/$id" -F body=@report.md
+if [ "$id" = null ]; then
+  gh api "repos/$R/issues/$PR/comments" -F body=@report.md
+else
+  gh api -X PATCH "repos/$R/issues/comments/$id" -F body=@report.md
+fi
 ```
 
 ## Policy file
