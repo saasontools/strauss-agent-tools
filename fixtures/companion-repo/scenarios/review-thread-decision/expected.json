@@ -1,10 +1,10 @@
 {
   "route": "human",
   "classifier": {
-    "src/checkout/pay.ts": "code",
-    ".strauss/kb/decision.checkout-retry-budget-per-tenant.md": "kb",
-    ".strauss/kb/decision.checkout-retry-budget.md": "kb",
-    ".strauss/kb/log.jsonl": "kb"
+    "src/checkout/pay.ts": "source",
+    ".strauss/kb/decision.checkout-retry-budget-per-tenant.md": "docs",
+    ".strauss/kb/decision.checkout-retry-budget.md": "docs",
+    ".strauss/kb/log.jsonl": "config"
   },
   "gateFamilies": [],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
