@@ -21,6 +21,7 @@ export {
 } from "./diff.js";
 export {
   listRepoFiles,
+  readFileAtRef,
   readOldSource,
   type OldSource,
   type OldSourceOrigin,

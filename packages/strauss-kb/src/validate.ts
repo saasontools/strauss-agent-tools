@@ -108,6 +108,45 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
     // error: it still matches this root's own origin, and records are never
     // rewritten under an author.
     for (const anchor of fm.strauss_anchors ?? []) {
+      // A symbol and a span are two ways to name one range, and a resolver
+      // handed both has to pick — which is a guess about what the author meant.
+      if (anchor.span && anchor.symbol) {
+        report(
+          "anchor_span",
+          conceptId,
+          `anchor ${anchor.file} names both a symbol and a span — one or the other`,
+        );
+      }
+
+      // A backwards range resolves to nothing, and an `ast` hash over a span
+      // is compared against a raw one for ever. Both only reach a bundle by
+      // hand: the write schema refuses them.
+      if (anchor.span && anchor.span.end < anchor.span.start) {
+        report(
+          "anchor_span",
+          conceptId,
+          `anchor ${anchor.file} span ${anchor.span.start}-${anchor.span.end} ends before it starts`,
+        );
+      }
+
+      if (anchor.span && anchor.hash_kind === "ast") {
+        report(
+          "anchor_span",
+          conceptId,
+          `anchor ${anchor.file} is a span with hash_kind: "ast" — a span is hashed raw`,
+        );
+      }
+
+      // Committed code has no address but a rev: without one there is nothing
+      // to read the old side from, and the working tree is the wrong answer.
+      if (anchor.side === "old" && !anchor.ref) {
+        report(
+          "anchor_side",
+          conceptId,
+          `anchor ${anchor.file} is side: "old" with no ref`,
+        );
+      }
+
       if (anchor.repo && !isCanonicalRepoUrl(anchor.repo)) {
         report(
           "anchor_repo",

@@ -91,6 +91,15 @@ export async function classifyDrift(
 
   const out: ClassifiedAnchor[] = [];
   for (const { anchor, entry } of wanted) {
+    // Both passes read the working tree — `search.find` for a move, and the
+    // cosmetic check for the current text — which is not the tree an old-side
+    // anchor names, so the provisional class stands.
+    if (anchor.side === "old") {
+      const settled = entry.class ?? "changed";
+      out.push({ anchor, entry: { ...entry, class: settled }, class: settled });
+      continue;
+    }
+
     const movedTo = await search.find(anchor);
     if (movedTo) {
       out.push({

@@ -95,6 +95,11 @@ export const reassessCommand = define({
           ...found.anchor,
           file: to.file,
           ...(to.symbol ? { symbol: to.symbol } : {}),
+          // A span is the anchor's whole address, so relocating it means
+          // moving the line range the same code now occupies.
+          ...(found.anchor.span
+            ? { span: { start: to.startLine, end: to.endLine } }
+            : {}),
         });
         rebaselined.push({
           file: found.anchor.file,
