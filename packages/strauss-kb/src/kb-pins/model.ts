@@ -85,9 +85,15 @@ export const pinsManifestSchema = z
 export type KbPin = z.infer<typeof pinSchema>;
 export type KbPinsManifest = z.infer<typeof pinsManifestSchema>;
 
+/** One profile's `context` settings, from the manifest or the built-ins. */
 export type KbContextBudgets = {
   budgetTokens?: number;
   fullUnderTokens?: number;
+  /**
+   * Frontmatter tags whose records this profile leaves out of the block —
+   * `review`, say, kept out of session-start without unpinning the base.
+   */
+  excludeTags?: string[];
 };
 
 /** A pin as the merged view hands it back: entry + where it came from. */

@@ -2,27 +2,45 @@ import { z } from "zod";
 import type { KbStanding } from "../adjudicate.js";
 import { renderCatalogLine, type KbCatalogResult } from "../catalog.js";
 import { KB_RECORD_TYPES } from "../kb-record.schema.js";
-import { bundlePath, define } from "./model.js";
+import {
+  argvFlags,
+  argvPositional,
+  bundlePath,
+  define,
+  TAGS,
+} from "./model.js";
 
 export const catalogCommand = define({
   name: "catalog",
   tool: "kb_catalog",
-  usage: "catalog [type]",
+  usage: "catalog [type] [--tag T]...",
   description:
     "Lists every record as one line — concept id, type, title, standing, and a stale flag — at roughly thirty tokens each. Pick this over kb_load once kb_load refuses: kb_catalog never refuses. Superseded records show only their replacement; fetch bodies with kb_load, kb_pack, kb_query, or kb_trace.",
   input: z.object({
     bundlePath,
     type: z.enum(KB_RECORD_TYPES).optional(),
+    tags: TAGS,
   }),
-  fromArgv: (argv, path) => ({
-    bundlePath: path,
-    ...(argv[1] && !argv[1].startsWith("--") ? { type: argv[1] } : {}),
-  }),
-  run: async ({ store }, { bundlePath: path, type }) =>
+  fromArgv: (argv, path) => {
+    const tags = argvFlags(argv, "--tag");
+    // The type is the first positional, in either order: a flag in the slot is
+    // a flag, and `catalog --tag review decision` still narrows by type.
+    const type = argvPositional(argv, "--tag");
+    return {
+      bundlePath: path,
+      ...(type ? { type } : {}),
+      ...(tags.length ? { tags } : {}),
+    };
+  },
+  run: async ({ store }, { bundlePath: path, type, tags }) =>
     render(
-      await store.catalog(path, { ...(type ? { type } : {}) }),
+      await store.catalog(path, {
+        ...(type ? { type } : {}),
+        ...(tags ? { tags } : {}),
+      }),
       path,
       type,
+      tags,
     ),
 });
 
@@ -34,9 +52,16 @@ function render(
   result: KbCatalogResult,
   bundle: string,
   type?: string,
+  tags?: string[],
 ): string {
+  // The filter is named in the heading: an empty catalog otherwise reads as an
+  // empty base. Tags carry a prefix so a tag cannot read as a type.
+  const narrowed = [
+    ...(type ? [type] : []),
+    ...(tags?.length ? [`tags: ${tags.join(", ")}`] : []),
+  ].join(" · ");
   const lines = [
-    `# KB Catalog${type ? ` — ${type}` : ""}`,
+    `# KB Catalog${narrowed ? ` — ${narrowed}` : ""}`,
     `bundle: ${bundle}`,
     `${count(result.recordCount, "record")}: ${standingCounts(result)}`,
   ];
@@ -54,8 +79,8 @@ function render(
 
   if (!result.entries.length) {
     lines.push(
-      type
-        ? `(no records of type ${type})`
+      narrowed
+        ? `(no records matching ${narrowed})`
         : "(no records — this base is empty)",
     );
   } else {

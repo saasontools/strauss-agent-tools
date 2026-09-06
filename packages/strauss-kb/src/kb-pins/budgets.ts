@@ -17,9 +17,15 @@ function asBudgets(value: unknown): KbContextBudgets {
   const budgetTokens = pick("budgetTokens", 1);
   // 0 is meaningful — "full-under off", overriding a `default` that set it.
   const fullUnderTokens = pick("fullUnderTokens", 0);
+  // An empty array is meaningful too: it lifts a `default`'s exclusions.
+  const raw = table["excludeTags"];
+  const excludeTags = Array.isArray(raw)
+    ? raw.filter((tag): tag is string => typeof tag === "string" && tag !== "")
+    : undefined;
   return {
     ...(budgetTokens ? { budgetTokens } : {}),
     ...(fullUnderTokens !== undefined ? { fullUnderTokens } : {}),
+    ...(excludeTags ? { excludeTags } : {}),
   };
 }
 

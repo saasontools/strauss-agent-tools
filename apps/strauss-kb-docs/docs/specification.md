@@ -119,20 +119,28 @@ is optional, and unknown keys are kept rather than stripped.
 
 **OKF keys**
 
-| Key           | Type           | Meaning                                                                           |
-| ------------- | -------------- | --------------------------------------------------------------------------------- |
-| `type`        | string         | the only always-required key                                                      |
-| `title`       | string         | one line, in the reader's terms                                                   |
-| `description` | string         | what breaks if this is wrong                                                      |
-| `resource`    | string         | a path this concept names                                                         |
-| `tags`        | string[]       | free-text labels ([Architecture](./architecture.md#tags-are-not-the-growth-path)) |
-| `sources`     | Source[]       | material the record draws on                                                      |
-| `generated`   | `{ by, at }`   | who wrote it, and when                                                            |
-| `verified`    | `{ by, at }[]` | the append-only trail of checks                                                   |
-| `stale_after` | string         | the date this record stops being trusted                                          |
+| Key           | Type           | Meaning                                  |
+| ------------- | -------------- | ---------------------------------------- |
+| `type`        | string         | the only always-required key             |
+| `title`       | string         | one line, in the reader's terms          |
+| `description` | string         | what breaks if this is wrong             |
+| `resource`    | string         | a path this concept names                |
+| `tags`        | string[]       | free-text labels, filterable — see below |
+| `sources`     | Source[]       | material the record draws on             |
+| `generated`   | `{ by, at }`   | who wrote it, and when                   |
+| `verified`    | `{ by, at }[]` | the append-only trail of checks          |
+| `stale_after` | string         | the date this record stops being trusted |
 
 A **source** is `{ id, resource, title?, author?, last_modified? }`, `id` and
 `resource` required; footnotes key to `id`.
+
+`tags` are **selectable**: `kb_list`, `kb_query` and `kb_catalog` take a `tags`
+array (CLI `--tag`, repeatable) and return the records carrying every tag in it,
+and a `kb_context` profile takes `excludeTags` to keep tagged records out of the
+injected block without unpinning the base. Selection runs after adjudication, so
+a tag never changes a record's standing or the replacement it names. Matching is
+exact and the vocabulary is **not** enforced, so an unknown tag returns nothing
+([Architecture](./architecture.md#tags-are-not-the-growth-path)).
 
 **strauss extensions**, namespaced so a later OKF version cannot collide:
 

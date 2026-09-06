@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { buildContext, toHookJson } from "../kb-context.js";
-import { argvFlag, define } from "./model.js";
+import { argvFlag, argvFlags, define } from "./model.js";
 
 export const contextCommand = define({
   name: "context",
   tool: "kb_context",
   usage:
-    "context [--profile NAME] [--budget N] [--full-under N] [--format json] [--event NAME]",
+    "context [--profile NAME] [--budget N] [--full-under N] [--exclude-tag T]... [--format json] [--event NAME]",
   description:
     "Index block of pinned bases (ids, titles, standing) for injection at context birth. Takes no bundlePath — reads the workspace pin manifests. Empty when nothing is pinned; refuses over budget rather than truncating. Budget precedence: flags, then the manifest `context[profile]` over `context.default`, then the built-in profile, then package defaults.",
   input: z.object({
@@ -32,6 +32,12 @@ export const contextCommand = define({
       .describe(
         "Named budget set: built-ins are session-start (full-under 1500), compact and turn (budget 2500); the manifests' `context` tables override per repo. Unknown names fall through to defaults rather than failing.",
       ),
+    excludeTags: z
+      .array(z.string().min(1))
+      .optional()
+      .describe(
+        "Frontmatter tags whose records stay out of the block. The base stays pinned and stays readable by tool; resolved like the budgets.",
+      ),
     format: z
       .enum(["markdown", "json"])
       .optional()
@@ -51,22 +57,25 @@ export const contextCommand = define({
     const profile = argvFlag(argv, "--profile");
     const format = argvFlag(argv, "--format");
     const event = argvFlag(argv, "--event");
+    const excludeTags = argvFlags(argv, "--exclude-tag");
     return {
       ...(budget ? { budgetTokens: Number(budget) } : {}),
       ...(fullUnder ? { fullUnderTokens: Number(fullUnder) } : {}),
       ...(profile ? { profile } : {}),
+      ...(excludeTags.length ? { excludeTags } : {}),
       ...(format ? { format } : {}),
       ...(event ? { event } : {}),
     };
   },
   run: async (
     { store },
-    { budgetTokens, fullUnderTokens, profile, format, event },
+    { budgetTokens, fullUnderTokens, profile, excludeTags, format, event },
   ) => {
     const result = await buildContext(store, process.cwd(), {
       ...(budgetTokens ? { budgetTokens } : {}),
       ...(fullUnderTokens ? { fullUnderTokens } : {}),
       ...(profile ? { profile } : {}),
+      ...(excludeTags ? { excludeTags } : {}),
       // Degradations — a full pin that could not fit, a refused block — go
       // to stderr as well as into the block itself: stderr is diagnostics on
       // both surfaces (hooks discard it, MCP logs it), so an operator can

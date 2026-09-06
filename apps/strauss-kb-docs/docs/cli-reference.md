@@ -32,6 +32,9 @@ Results go to stdout as JSON; `index`, `catalog`, and `pack` emit markdown,
 A flag taking a value accepts `--budget 4000` or `--budget=4000`; given **no**
 value it is an error rather than a fall back to the default.
 
+`--tag T` is repeatable on `list`, `query`, and `catalog` — see
+[tags](./specification.md#frontmatter).
+
 Errors go to stderr and exit 1. `validate` and `doctor --strict` exit **1** with
 their findings still on stdout: a check that reports a problem succeeded as a
 command and failed as a check. `context` prints nothing at all when nothing is
@@ -268,15 +271,17 @@ strauss-kb load --all
 ### `catalog`
 
 ```
-catalog [type]
+catalog [type] [--tag T]...
 ```
 
 Every record in one line — concept id, type, title, standing, and a stale flag —
 sorted by type then title, at roughly thirty tokens each. Emits markdown; the
-optional positional narrows to one record type, and there are no flags.
+optional positional narrows to one record type and `--tag` narrows further. Both
+are named in the heading, so an empty result cannot read as an empty base.
 
 ```bash
 strauss-kb catalog open-question
+strauss-kb catalog --tag review --tag review:extract
 ```
 
 ```text
@@ -317,7 +322,7 @@ strauss-kb pack decision.cursor-v2 --hops 2 --max-nodes 20
 ### `query`
 
 ```
-query <text...> [--repo-root PATH]
+query <text...> [--tag T]... [--repo-root PATH]
 ```
 
 Search and return each match with its standing, flagged and never filtered; the
@@ -325,8 +330,8 @@ remaining arguments are joined into the query text. The **narrowest** of the
 three retrieval rungs: a query cannot tell you that nothing was decided, so when
 the question is _what exists_, use [`catalog`](#catalog). `--repo-root PATH`
 says where the anchored source lives for the
-[drift check](./specification.md#drift), and is spliced out of the argv before
-the remaining words become the query text.
+[drift check](./specification.md#drift); it and `--tag` are spliced out of the
+argv before the remaining words become the query text.
 
 ```bash
 strauss-kb query cache key region
@@ -400,15 +405,16 @@ ordered by source id then rel.
 ### `list`
 
 ```
-list [type]
+list [type] [--tag T]...
 ```
 
-Every record, optionally narrowed to one type — for enumerating, where `query`
-is for a question. Returns concept id, title, description, status, and anchors
-per record.
+Every record, optionally narrowed to one type or tag — for enumerating, where
+`query` is for a question. Returns concept id, title, description, status, and
+anchors per record.
 
 ```bash
 strauss-kb list open-question
+strauss-kb list --tag review
 ```
 
 ### `index`
@@ -639,26 +645,28 @@ strauss-kb pins
 ### `context`
 
 ```
-context [--profile NAME] [--budget N] [--full-under N] [--format json] [--event NAME]
+context [--profile NAME] [--budget N] [--full-under N] [--exclude-tag T]... [--format json] [--event NAME]
 ```
 
 The pinned-base index block, for injection at every context birth — startup,
 clear, resume, and after compaction. An index, not the content.
 
-| Flag             | Effect                                                                                                                                         |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--profile NAME` | named budget set. Built-ins: `session-start` (full-under 1500), `compact` and `turn` (budget 2500). An unknown name falls through to defaults. |
-| `--budget N`     | ceiling on the whole emitted block; past it the command refuses with a list of bases rather than truncating. Defaults to 4000.                 |
-| `--full-under N` | per-base threshold: a base whose complete load fits under this arrives as full records instead of index lines. Off by default.                 |
-| `--format json`  | wrap the block in a JSON envelope, for hook protocols that require strict JSON on stdout.                                                      |
-| `--event NAME`   | the `hookEventName` stamped into that envelope. Only meaningful with `--format json`.                                                          |
+| Flag              | Effect                                                                                                                                         |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--profile NAME`  | named budget set. Built-ins: `session-start` (full-under 1500), `compact` and `turn` (budget 2500). An unknown name falls through to defaults. |
+| `--budget N`      | ceiling on the whole emitted block; past it the command refuses with a list of bases rather than truncating. Defaults to 4000.                 |
+| `--full-under N`  | per-base threshold: a base whose complete load fits under this arrives as full records instead of index lines. Off by default.                 |
+| `--exclude-tag T` | repeatable: records carrying the tag stay out of the block. The base stays pinned and stays readable through the tools.                        |
+| `--format json`   | wrap the block in a JSON envelope, for hook protocols that require strict JSON on stdout.                                                      |
+| `--event NAME`    | the `hookEventName` stamped into that envelope. Only meaningful with `--format json`.                                                          |
 
-Budgets resolve most-specific-first: explicit flags, then the manifests'
-`context` tables (per profile, over their `default`), then the built-in profile,
-then package defaults.
+Budgets and exclusions resolve most-specific-first: explicit flags, then the
+manifests' `context` tables (per profile, over their `default`), then the
+built-in profile, then package defaults. No profile excludes a tag by default.
 
 ```bash
 strauss-kb context --format json --event SessionStart
+strauss-kb context --profile session-start --exclude-tag review
 ```
 
 ### `sync-instructions`

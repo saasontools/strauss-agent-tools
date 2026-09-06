@@ -154,6 +154,7 @@ export {
   type KbLogEntry,
   type KbLogReadResult,
 } from "./kb-log.js";
+export { matchesTags, type KbTagFilter } from "./kb-tags.js";
 export { kbJsonSchemas } from "./json-schema.js";
 export {
   matchToDiff,
