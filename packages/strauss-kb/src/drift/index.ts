@@ -24,7 +24,6 @@ export {
   readFileAtRef,
   readOldSource,
   readRangeDiff,
-  remoteOriginUrl,
   MAX_RANGE_DIFF_BYTES,
   type OldSource,
   type OldSourceOrigin,
