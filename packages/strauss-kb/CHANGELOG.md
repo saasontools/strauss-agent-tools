@@ -1,3 +1,17 @@
+## 0.1.18 (2026-09-06)
+
+### 🩹 Fixes
+
+- Classify anchor drift as moved, cosmetic, gone or changed, and hand what is ([0d4115d](https://github.com/saasontools/strauss-agent-tools/commit/0d4115d))
+  left to a reader as a packet: the record's claim, an old-vs-new span diff, and
+  its impact set. `kb_reassess`, `kb_doctor --drifted`, a `drifted` count on
+  `kb_stamp`.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5.1
+
 ## 0.1.17 (2026-09-05)
 
 ### 🩹 Fixes
