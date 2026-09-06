@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
-import { actorClassOf, emitKb } from "../telemetry/index.js";
 import {
   ACTOR,
   actorOf,
@@ -37,11 +36,6 @@ export const supersedeCommand = define({
     const actor = actorOf(ctx, parsed);
     await assertBaseNotFrozen(process.cwd(), path);
     await ctx.store.supersede(path, id, replacementId, actor);
-    await emitKb("supersede", {
-      bundle: path,
-      actorClass: actorClassOf(actor),
-      data: { conceptId: id, replacementId },
-    });
     return { superseded: id, replacedBy: replacementId };
   },
 });
