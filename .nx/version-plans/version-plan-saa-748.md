@@ -6,5 +6,3 @@
 and mtime within a process, and across runs under `~/.strauss/cache/classify`
 (`STRAUSS_KB_CACHE_DIR`, `off` to disable). `match` and `classify` over the same
 range now resolve each file's symbols once between them instead of once each.
-Both emit a telemetry event carrying record, file and hunk counts beside
-`durationMs`.
