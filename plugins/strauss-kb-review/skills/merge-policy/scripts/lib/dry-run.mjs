@@ -59,9 +59,12 @@ function botSet(logins) {
   );
 }
 
-/** @param {{ login: string, type: string }} actor @param {Set<string>} bots */
+/** An actor nobody named is not a person: an anonymous reaction count could be
+ * all bots, so it never lifts a blind and never contradicts a route.
+ * @param {{ login: string, type: string }} actor @param {Set<string>} bots */
 function isHuman(actor, bots) {
   return (
+    actor.login !== "" &&
     actor.type !== BOT_TYPE &&
     !BOT_LOGIN.test(actor.login) &&
     !bots.has(actor.login.toLowerCase())
@@ -94,7 +97,8 @@ export function humanReviewed(approvals, headSha, botLogins = []) {
  * what this route would have. Absence is agreement only in the weak sense that
  * nobody objected, which is what the rate measures.
  * @param {unknown} labels `[{ name }]`, or bare strings
- * @param {unknown} reactions `[{ content, user }]` on the sticky comment
+ * @param {unknown} reactions `[{ content, user }]` on the sticky comment; a
+ *   reaction naming no user is no signal
  * @param {string[]} [botLogins] the sticky comment's own author among them
  * @returns {{ disagreement: boolean, signals: string[] }}
  */
@@ -111,7 +115,7 @@ export function disagreement(labels, reactions, botLogins = []) {
     if (!DISAGREE_REACTIONS.includes(content)) continue;
     const actor = who(row);
     if (!isHuman(actor, bots)) continue;
-    signals.push(`reaction:${content} by ${actor.login || "someone"}`);
+    signals.push(`reaction:${content} by ${actor.login}`);
   }
   return { disagreement: signals.length > 0, signals };
 }

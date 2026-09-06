@@ -3,9 +3,8 @@
  * The calibration loop's read side: the false-auto rate per class and per rule,
  * over a dump of pull requests a caller collected with `gh`.
  *
- * The sticky comment is where a dry-run verdict is persisted, so the verdict is
- * parsed back out of it and the disagreement is read off the same PR's labels
- * and the reactions on that comment.
+ * A rate that can flip a class to `auto` must not be forgeable: only the bot's
+ * own sticky comment carries a verdict, and only a named human's 👎 counts.
  */
 import { asArray, asString } from "../../../../hooks/scripts/lib/util.mjs";
 import { disagreement } from "./dry-run.mjs";
@@ -19,34 +18,55 @@ const FENCE = /```json\s*\r?\n([\s\S]*?)\r?\n```/;
 /** GraphQL names a reaction; the REST dumps and this step spell it `-1`. */
 const THUMBS_DOWN = "THUMBS_DOWN";
 
+/** Who posts the sticky when `--bot-logins` names nobody. */
+const DEFAULT_BOT = "github-actions[bot]";
+
 /**
- * The `calibration` block of the policy at `rev`, or the built-in defaults for
- * a policy that is absent or would not parse. Read from the working branch and
- * not from a base: this report gates nothing, so a branch's own numbers can
- * only ever change what a table prints.
+ * The `calibration` thresholds and the hash of the policy at `rev`, or the
+ * built-in defaults and no hash for a policy that is absent or would not parse.
+ * Read from the working branch and not from a base: this report gates nothing,
+ * so a branch's own numbers can only ever change what a table prints.
  * @param {(args: string[]) => string | null} show `git show <rev>:<path>`
  * @param {string} rev @param {string | null} policyPath
+ * @returns {{ thresholds: { window: number, maxFalseAuto: number },
+ *   hash: string | null }}
  */
-export function thresholdsAt(show, rev, policyPath) {
+export function policyAt(show, rev, policyPath) {
   const policy = readPolicy(
     show,
     rev,
     policyPath ? [policyPath] : POLICY_PATHS,
   );
-  return policy.errors.length > 0
-    ? { ...CALIBRATION_DEFAULTS }
-    : policy.data.calibration;
+  if (policy.errors.length > 0) {
+    return { thresholds: { ...CALIBRATION_DEFAULTS }, hash: null };
+  }
+  return { thresholds: policy.data.calibration, hash: policy.hash };
 }
 
 /** The last comment this step owns, which is the one a rerun left standing.
- * @param {unknown} comments @returns {any} */
-export function stickyOf(comments) {
-  const owned = asArray(comments).filter((comment) =>
-    asString(/** @type {any} */ (comment)?.body)
-      .trimStart()
-      .startsWith(MARKER),
+ * The marker is text anyone can type, so only a `--bot-logins` author may own
+ * one: a verdict a reader forged must not move the rate.
+ * @param {unknown} comments @param {string[]} [botLogins] @returns {any} */
+export function stickyOf(comments, botLogins = []) {
+  const owners = new Set(
+    (botLogins.length > 0 ? botLogins : [DEFAULT_BOT]).map((login) =>
+      asString(login).toLowerCase(),
+    ),
+  );
+  const owned = asArray(comments).filter(
+    (comment) =>
+      asString(/** @type {any} */ (comment)?.body)
+        .trimStart()
+        .startsWith(MARKER) && owners.has(authorOf(comment).toLowerCase()),
   );
   return owned.length > 0 ? owned[owned.length - 1] : null;
+}
+
+/** The login on a comment, as GraphQL and as REST each name it.
+ * @param {unknown} comment */
+function authorOf(comment) {
+  const row = /** @type {any} */ (comment);
+  return asString(row?.author?.login) || asString(row?.user?.login);
 }
 
 /** The verdict out of one sticky comment's fenced JSON, or null for a comment
@@ -65,37 +85,46 @@ export function parseVerdict(body) {
   }
 }
 
-/** Either shape a dump carries: `gh pr list`'s `reactionGroups`, which count
- * reactors without naming them, or a REST array with a user on every row.
+/** The reactions a dump names a reactor for: a REST array with a user on every
+ * row, or `reactionGroups` that listed their users. A bare `totalCount` names
+ * nobody, so it is no signal — a bot could be the whole count.
  * @param {any} comment */
 function reactionsOf(comment) {
   const rest = asArray(comment?.reactions);
   if (rest.length > 0) return rest;
   return asArray(comment?.reactionGroups).flatMap((group) =>
-    asString(/** @type {any} */ (group)?.content) === THUMBS_DOWN &&
-    Number(/** @type {any} */ (group)?.users?.totalCount ?? 0) > 0
-      ? [{ content: "-1" }]
+    asString(/** @type {any} */ (group)?.content) === THUMBS_DOWN
+      ? asArray(/** @type {any} */ (group)?.users?.nodes).map((user) => ({
+          content: "-1",
+          user,
+        }))
       : [],
   );
 }
 
 /**
  * One observation per pull request: the verdict its sticky comment carries, and
- * whether a human contradicted it. A PR with no verdict — no comment yet, or
- * one still withheld — is no observation, never a silent agreement.
+ * whether a human contradicted it. A PR with no verdict — no comment yet, one
+ * still withheld, one unreadable — is no observation, never a silent agreement.
  * @param {unknown} entries @param {string[]} [botLogins]
- * @returns {{ rows: any[], noVerdict: number }}
+ * @returns {{ rows: any[], noComment: number, withheld: number,
+ *   unreadable: number }}
  */
 export function observations(entries, botLogins = []) {
   /** @type {any[]} */
   const rows = [];
-  let noVerdict = 0;
+  const skipped = { noComment: 0, withheld: 0, unreadable: 0 };
   for (const entry of asArray(entries)) {
-    const sticky = stickyOf(/** @type {any} */ (entry)?.comments);
-    const verdict = sticky ? parseVerdict(sticky.body) : null;
+    const sticky = stickyOf(/** @type {any} */ (entry)?.comments, botLogins);
+    if (!sticky) {
+      skipped.noComment += 1;
+      continue;
+    }
+    const verdict = parseVerdict(sticky.body);
     const would = asString(verdict?.would);
     if (!would) {
-      noVerdict += 1;
+      if (verdict) skipped.withheld += 1;
+      else skipped.unreadable += 1;
       continue;
     }
     rows.push({
@@ -111,18 +140,19 @@ export function observations(entries, botLogins = []) {
       ),
     });
   }
-  return { rows, noVerdict };
+  return { rows, ...skipped };
 }
 
 /**
  * The false-auto rate: of the PRs this policy would have merged unattended, how
  * many a human said it should not have. Grouped by the config hash the verdict
  * was made under, so a policy change starts the count over rather than carrying
- * its own history.
+ * its own history — and only the group matching `currentHash` may be `ready`.
  * @param {any[]} rows
  * @param {{ window: number, maxFalseAuto: number }} thresholds
+ * @param {string | null} [currentHash] the hash of the policy at HEAD
  */
-export function calibrate(rows, thresholds) {
+export function calibrate(rows, thresholds, currentHash = null) {
   /** @type {Map<string, any>} */
   const groups = new Map();
   for (const row of rows) {
@@ -145,19 +175,23 @@ export function calibrate(rows, thresholds) {
     }
   }
   return [...groups.values()]
-    .map((group) => ({
-      policyHash: group.policyHash,
-      routes: Object.values(group.routes)
-        .map((/** @type {any} */ route) => ({
-          would: route.would,
-          n: route.prs,
-          disagreed: route.disagreed,
-          rate: rate(route.disagreed, route.prs),
-          byClass: rates(route.byClass, thresholds),
-          byRule: rates(route.byRule, thresholds),
-        }))
-        .sort((left, right) => left.would.localeCompare(right.would)),
-    }))
+    .map((group) => {
+      const current = currentHash !== null && group.policyHash === currentHash;
+      return {
+        policyHash: group.policyHash,
+        current,
+        routes: Object.values(group.routes)
+          .map((/** @type {any} */ route) => ({
+            would: route.would,
+            n: route.prs,
+            disagreed: route.disagreed,
+            rate: rate(route.disagreed, route.prs),
+            byClass: rates(route.byClass, thresholds, current),
+            byRule: rates(route.byRule, thresholds, current),
+          }))
+          .sort((left, right) => left.would.localeCompare(right.would)),
+      };
+    })
     .sort((left, right) => left.policyHash.localeCompare(right.policyHash));
 }
 
@@ -195,11 +229,13 @@ function rate(bad, n) {
 
 /**
  * Each bucket with its verdict against the policy's own thresholds: `ready`
- * only once the window is full and the rate is at or under the cap.
+ * only under the current policy, once the minimum is met and the rate is at or
+ * under the cap.
  * @param {Record<string, { n: number, disagreed: number }>} buckets
  * @param {{ window: number, maxFalseAuto: number }} thresholds
+ * @param {boolean} current
  */
-function rates(buckets, thresholds) {
+function rates(buckets, thresholds, current) {
   return Object.entries(buckets)
     .map(([name, bucket]) => ({
       name,
@@ -207,6 +243,7 @@ function rates(buckets, thresholds) {
       disagreed: bucket.disagreed,
       rate: rate(bucket.disagreed, bucket.n),
       ready:
+        current &&
         bucket.n >= thresholds.window &&
         rate(bucket.disagreed, bucket.n) <= thresholds.maxFalseAuto,
     }))
@@ -219,9 +256,8 @@ function rates(buckets, thresholds) {
 export function renderCalibration(model) {
   const lines = [
     `calibration — ${model.dump}`,
-    `  ${model.verdicts} verdict(s) over ${model.prs} pull request(s), window ${model.thresholds.window}, max false-auto ${percent(model.thresholds.maxFalseAuto)}${
-      model.noVerdict ? `, ${model.noVerdict} with no verdict` : ""
-    }`,
+    `  ${model.verdicts} verdict(s) over ${model.prs} pull request(s), minimum ${model.thresholds.window} observation(s) per class, max false-auto ${percent(model.thresholds.maxFalseAuto)}`,
+    ...skipped(model),
   ];
   if (model.groups.length === 0) {
     lines.push("", "  nothing to calibrate: no dry run would have merged yet");
@@ -238,7 +274,7 @@ export function renderCalibration(model) {
       );
       lines.push(
         "",
-        `  policy ${group.policyHash} — would: ${route.would} (${percent(route.rate)} false-auto over ${route.n})`,
+        `  policy ${group.policyHash} — ${group.current ? "current" : "stale (policy changed)"} — would: ${route.would} (${percent(route.rate)} false-auto over ${route.n})`,
         `      ${"".padEnd(width)}  false-auto      n  verdict`,
       );
       lines.push(...table("by class", route.byClass, width));
@@ -246,6 +282,18 @@ export function renderCalibration(model) {
     }
   }
   return lines.join("\n");
+}
+
+/** The PRs this dump held no verdict for, each named only when it happened.
+ * @param {any} model */
+function skipped(model) {
+  return [
+    [model.noComment, "with no comment yet"],
+    [model.withheld, "still withheld"],
+    [model.unreadable, "with an unreadable verdict"],
+  ]
+    .filter(([count]) => Number(count) > 0)
+    .map(([count, why]) => `  ${count} ${why}`);
 }
 
 /** @param {string} heading @param {any[]} rows @param {number} width */
