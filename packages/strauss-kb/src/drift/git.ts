@@ -121,12 +121,6 @@ export async function listRepoFiles(repoRoot: string): Promise<string[]> {
   return result.stdout.split("\0").filter(Boolean);
 }
 
-/** The `origin` remote of the tree at `cwd`, or `null` when there is none. */
-export async function remoteOriginUrl(cwd: string): Promise<string | null> {
-  const result = await git(cwd, ["config", "--get", "remote.origin.url"]);
-  return result.ok ? result.stdout.trim() || null : null;
-}
-
 /**
  * `<base>..<head>` or `<base>...<head>`, both halves spelled out. git reads
  * `..head` and `base..` as ranges against `HEAD`; a shape-checked half is the
