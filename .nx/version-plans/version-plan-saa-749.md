@@ -10,7 +10,5 @@ takes `actor` (`--actor kind:name`), overriding `STRAUSS_KB_ACTOR` per call, and
 `kb_verify` weighs it the same way. `--json` is accepted on every verb, and
 every read that returns a record hands back its full frontmatter through one
 projection. `match --include-uncovered` returns every hunk with its enclosing
-symbol, so a caller can enumerate the changed symbols nothing covers. New
-`telemetry emit` writes a consumer's own event into the same sink, refusing
-code content rather than dropping it. A status move now also carries the new
-status as the log entry's `target`.
+symbol, so a caller can enumerate the changed symbols nothing covers. A status
+move now also carries the new status as the log entry's `target`.
