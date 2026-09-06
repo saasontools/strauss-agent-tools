@@ -11,7 +11,7 @@
  *                    [--dry-run] [--blind|--visible]
  *                    [--labels FILE|JSON] [--reactions FILE|JSON]
  *                    [--bot-logins a,b]
- *   merge-policy.mjs --calibrate [--since ISO] [--repo SLUG] [--json]
+ *   merge-policy.mjs --calibrate DUMP.json [--bot-logins a,b] [--json]
  *
  * The route table, with the rule id each row reports, is the header of
  * [lib/rules.mjs](./lib/rules.mjs). The `decision.merge-<pr>` body always comes
@@ -50,10 +50,8 @@ import { placeholder, prRepo, report } from "./lib/report.mjs";
 import { blindOf, modeOf } from "./lib/dry-run.mjs";
 import {
   calibrate,
-  readDryRuns,
+  observations,
   renderCalibration,
-  telemetryMode,
-  telemetryRoot,
   thresholdsAt,
 } from "./lib/calibrate.mjs";
 
@@ -78,7 +76,7 @@ const USAGE = `merge-policy.mjs --range <base>..<head> [--repo-root DIR] [--bund
                  [--decider FILE|JSON]
                  [--dry-run] [--blind|--visible] [--labels FILE|JSON]
                  [--reactions FILE|JSON] [--bot-logins a,b]
-merge-policy.mjs --calibrate [--since ISO] [--repo SLUG] [--json]`;
+merge-policy.mjs --calibrate DUMP.json [--bot-logins a,b] [--json]`;
 
 /** A bad invocation, which exits 2 rather than looking like a base problem. */
 export class UsageError extends Error {
@@ -245,16 +243,14 @@ export function main(argv) {
       labels: { type: "string" },
       reactions: { type: "string" },
       "bot-logins": { type: "string" },
-      calibrate: { type: "boolean", default: false },
-      since: { type: "string" },
-      repo: { type: "string" },
+      calibrate: { type: "string" },
     },
   });
   if (values.help) return { help: true, model: null, exit: 0 };
   if (values.blind === true && values.visible === true) {
     throw new UsageError("--blind and --visible ask for opposite things");
   }
-  if (values.calibrate === true) return calibration(values);
+  if (values.calibrate !== undefined) return calibration(values);
   if (!values.range) throw new UsageError("--range <base>..<head> is required");
   // Checked before any work: a summary with nowhere to go is a bad invocation,
   // not a run whose output quietly went nowhere.
@@ -270,7 +266,6 @@ export function main(argv) {
   const kb = launcher(repoRoot, bundle);
   const pr = checkPr(values.pr);
   const prUrl = checkPrUrl(values["pr-url"]);
-  const started = Date.now();
   const gatePayload = checkPayload(readJson(values.gate, "--gate"), "--gate");
   const gate = memo(
     () => gatePayload ?? runGate({ repoRoot, bundle, base, head }),
@@ -336,14 +331,11 @@ export function main(argv) {
   if (values.summary === true) {
     appendFileSync(summaryPath, `${block}\n`, "utf8");
   }
-  if (values.enforce === true || model.mode === "dry-run") {
-    emitRoute(kb, model, Date.now() - started, pr);
-  }
 
   return {
     help: false,
-    // Redacted last, and only for the caller: the event above carries the real
-    // route, which is what calibration counts.
+    // Redacted last: the block's own verdict fence is where a dry run's answer
+    // is persisted, and a withheld one names no route there either.
     model: redact(model),
     // A dry run exits 0 for every route, so a merge step reads `mode` and
     // never this.
@@ -376,41 +368,35 @@ export function checkSignals(value, flag) {
 }
 
 /**
- * `--calibrate`: the false-auto rate over the local stream this step's dry runs
- * wrote. No range, no route and no exit code — a table, and `--json` beside it.
+ * `--calibrate DUMP.json`: the false-auto rate over the sticky comments and
+ * labels a caller collected from GitHub — SKILL.md names the `gh` command that
+ * writes the dump. No range, no route and no exit code — a table, and `--json`
+ * beside it.
  * @param {Record<string, any>} values
  */
 export function calibration(values) {
-  if (values.since !== undefined && Number.isNaN(Date.parse(values.since))) {
-    throw new UsageError("--since must be a date the stream can be cut at");
-  }
-  const sink = telemetryMode();
-  if (sink === "off") {
-    throw new UsageError(
-      "STRAUSS_TELEMETRY=off: no dry run was recorded, so there is nothing to calibrate",
-    );
+  const dump = readJson(values.calibrate, "--calibrate");
+  if (!Array.isArray(dump)) {
+    throw new UsageError("--calibrate needs a JSON array of pull requests");
   }
   const repoRoot = resolve(values["repo-root"] ?? process.cwd());
-  const bundle = resolve(values.bundle ?? join(repoRoot, ".strauss", "kb"));
-  const repo = values.repo ?? slugOf(launcher(repoRoot, bundle));
   const thresholds = thresholdsAt(
     (args) =>
       git(repoRoot, ["show", "--no-textconv", "--end-of-options", ...args]),
     "HEAD",
     values.policy ?? null,
   );
-  const { events, unreadable } = readDryRuns(
-    join(telemetryRoot(), repo),
-    values.since,
+  const { rows, noVerdict } = observations(
+    dump,
+    botLogins(values["bot-logins"]),
   );
   const model = {
-    repo,
-    ...(values.since ? { since: values.since } : {}),
-    sink,
-    events: events.length,
-    unreadable,
+    dump: values.calibrate,
+    prs: dump.length,
+    verdicts: rows.length,
+    noVerdict,
     thresholds,
-    groups: calibrate(events, thresholds),
+    groups: calibrate(rows, thresholds),
   };
   return {
     help: false,
@@ -419,25 +405,6 @@ export function calibration(values) {
     json: values.json === true,
     text: renderCalibration(model),
   };
-}
-
-/**
- * Which directory of the stream is this repository's. `telemetry summary`
- * derives it the one way the package does; a slug guessed here would drift
- * from the one the events were written under.
- * @param {ReturnType<typeof launcher>} kb
- */
-function slugOf(kb) {
-  const answer = /** @type {any} */ (
-    json(kb, ["telemetry", "summary", "--json"])
-  );
-  const slug = typeof answer?.repo === "string" ? answer.repo : "";
-  if (!slug) {
-    throw new UsageError(
-      "--repo SLUG is required: strauss-kb could not name this repository's telemetry stream",
-    );
-  }
-  return slug;
 }
 
 /**
@@ -456,58 +423,6 @@ function writeReport(path, block) {
       `--report-out could not be written: ${/** @type {Error} */ (error).message}`,
     );
   }
-}
-
-/**
- * One event per enforced run and per dry run: facts and counts, never a record
- * body. A dry run reports `would` and an enforced one `route`; everything else
- * is the same, so the calibration read side compares like with like.
- * @param {ReturnType<typeof launcher>} kb @param {any} model @param {number} ms
- * @param {string | null} pr
- */
-function emitRoute(kb, model, ms, pr) {
-  const dry = model.mode === "dry-run";
-  const data = {
-    ...(dry ? { would: model.would } : { route: model.route }),
-    rule: model.rule,
-    policyHash: model.policy.hash,
-    classes: classCounts(model.classifier),
-    disagreement: model.signals.disagreement,
-    blind: model.signals.blind,
-    ...(dry ? { withheld: model.signals.withheld } : {}),
-    records: model.records.length,
-    files: Object.keys(model.classifier).length,
-    blocks: model.gate.blocks.length,
-    warns: model.gate.warns.length,
-    wrote: model.wrote?.written === true,
-  };
-  json(kb, [
-    "telemetry",
-    "emit",
-    "--component",
-    "merge-policy",
-    "--event",
-    dry ? "dry-run" : "route",
-    "--data",
-    JSON.stringify(data),
-    "--sha",
-    model.headSha,
-    // Only a numbered PR: the event schema's `pr` is an integer, and a subject
-    // like `SAA-745` is a name. Calibration falls back to the sha for those.
-    ...(pr && /^[1-9][0-9]*$/.test(pr) ? ["--pr", pr] : []),
-    "--duration-ms",
-    String(ms),
-  ]);
-}
-
-/** How many changed files of each class. @param {Record<string, string>} classifier */
-function classCounts(classifier) {
-  /** @type {Record<string, number>} */
-  const counts = {};
-  for (const name of Object.values(classifier)) {
-    counts[name] = (counts[name] ?? 0) + 1;
-  }
-  return counts;
 }
 
 /**

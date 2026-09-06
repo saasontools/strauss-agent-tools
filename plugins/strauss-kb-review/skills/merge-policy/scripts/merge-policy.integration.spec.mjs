@@ -33,18 +33,6 @@ after(() => {
   for (const dir of built) rmSync(dir, { recursive: true, force: true });
 });
 
-/** @type {string | null} */
-let telemetry = null;
-
-/** One sink for the whole file, torn down with everything else. */
-function telemetryDir() {
-  if (!telemetry) {
-    telemetry = mkdtempSync(join(tmpdir(), "merge-policy-telemetry-"));
-    built.push(telemetry);
-  }
-  return telemetry;
-}
-
 /** A fresh repository per scenario: the run stamps anchors that carry no hash.
  * @param {string} scenario */
 function materialize(scenario) {
@@ -73,13 +61,7 @@ function route(repo, args, extra) {
       cwd: repo,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
-      // `--enforce` emits one telemetry event, which must never reach $HOME.
-      env: {
-        ...process.env,
-        STRAUSS_KB_BIN: KB_CLI,
-        STRAUSS_TELEMETRY_DIR: telemetryDir(),
-        ...extra,
-      },
+      env: { ...process.env, STRAUSS_KB_BIN: KB_CLI, ...extra },
     });
     return { status: 0, model: JSON.parse(stdout), stderr: "" };
   } catch (error) {
@@ -544,48 +526,15 @@ test("--report-out writes the sticky block, and --summary appends the same one",
   assert.ok(readFileSync(summary, "utf8").includes(block), "summary differs");
 });
 
-/** This step's own events in a sink every kb verb also writes into.
- * @param {string} sink */
-function routeEvents(sink) {
-  return readdirSync(sink)
-    .flatMap((slug) => {
-      const file = join(sink, slug, "events.jsonl");
-      return existsSync(file) ? readFileSync(file, "utf8").split("\n") : [];
-    })
-    .filter(Boolean)
-    .map((line) => JSON.parse(line))
-    .filter((event) => event.component === "merge-policy");
+/** The fenced verdict the sticky comment carries, which is the only place a
+ * dry run's answer is persisted. @param {string} block */
+function verdictOf(block) {
+  const at = block.indexOf("<!-- strauss-kb merge-policy:verdict -->");
+  assert.ok(at >= 0, block);
+  const fence = /```json\n(.*)\n```/.exec(block.slice(at));
+  assert.ok(fence, block);
+  return JSON.parse(fence[1] ?? "");
 }
-
-test("--enforce emits one route event, and no record body with it", () => {
-  const repo = materialize("docs-only");
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-events-"));
-  built.push(sink);
-  route(
-    repo,
-    ["--range", "main..docs-only", "--repo-root", repo, "--json", "--enforce"],
-    { STRAUSS_TELEMETRY_DIR: sink },
-  );
-
-  const events = routeEvents(sink);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].event, "route");
-  assert.equal(events[0].data.route, "auto");
-  assert.equal(events[0].data.rule, "auto-mechanical");
-  assert.equal(typeof events[0].durationMs, "number");
-  assert.ok(!JSON.stringify(events[0]).includes("Considered"), "body leaked");
-});
-
-test("without --enforce no route event is emitted", () => {
-  const repo = materialize("docs-only");
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-quiet-"));
-  built.push(sink);
-  route(repo, ["--range", "main..docs-only", "--repo-root", repo, "--json"], {
-    STRAUSS_TELEMETRY_DIR: sink,
-  });
-  // The kb verbs this run spawns emit their own events; none of them is ours.
-  assert.deepEqual(routeEvents(sink), []);
-});
 
 test("a report with nowhere to go is a usage error, never a silent no-op", () => {
   const repo = materialize("docs-only");
@@ -605,35 +554,28 @@ test("a report with nowhere to go is a usage error, never a silent no-op", () =>
   assert.ok(!existsSync(out));
 });
 
-test("a dry-run policy reports `would`, writes nothing, and emits one event", () => {
+test("a dry-run policy reports `would` and writes no record", () => {
   const { repo } = ownedRepo({
     // Default deny: the docs class is auto only because this policy names it.
     policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
     change: ["docs/guide.md", "# guide\n"],
   });
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-dry-"));
-  built.push(sink);
-  const { status, model } = route(
+  const { status, model } = route(repo, [
+    "--range",
+    "main..topic",
+    "--repo-root",
     repo,
-    [
-      "--range",
-      "main..topic",
-      "--repo-root",
-      repo,
-      "--json",
-      "--enforce",
-      "--write-record",
-      "--pr",
-      "9",
-      "--gate",
-      '{"findings":[]}',
-    ],
-    { STRAUSS_TELEMETRY_DIR: sink },
-  );
+    "--json",
+    "--enforce",
+    "--write-record",
+    "--pr",
+    "9",
+    "--gate",
+    '{"findings":[]}',
+  ]);
 
   assert.equal(model.mode, "dry-run");
-  // Blind by default, so the caller's JSON is withheld too — the event below
-  // is where the real route lives.
+  // Blind by default, so the caller's JSON is withheld too.
   assert.equal(model.would, "<withheld>");
   assert.equal(model.withheld, true);
   assert.equal(model.route, undefined);
@@ -643,39 +585,20 @@ test("a dry-run policy reports `would`, writes nothing, and emits one event", ()
   assert.equal(model.wrote.written, false);
   assert.match(model.wrote.why, /dry-run/);
   assert.ok(!existsSync(join(repo, ".strauss", "kb")));
-
-  const events = routeEvents(sink);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].event, "dry-run");
-  assert.equal(events[0].data.would, "auto");
-  assert.equal(events[0].data.route, undefined);
-  assert.equal(events[0].data.rule, "auto-mechanical");
-  assert.deepEqual(events[0].data.classes, { docs: 1 });
-  assert.equal(events[0].data.disagreement, false);
-  assert.equal(events[0].data.blind, true);
-  assert.equal(events[0].data.withheld, true);
-  assert.equal(events[0].pr, 9);
-  assert.equal(events[0].data.wrote, false);
 });
 
 test("--dry-run overrides an enabled policy, and never fails the build", () => {
   const repo = materialize("blocking-risk");
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-forced-"));
-  built.push(sink);
-  const { status, model } = route(
+  const { status, model } = route(repo, [
+    "--range",
+    "main..blocking-risk",
+    "--repo-root",
     repo,
-    [
-      "--range",
-      "main..blocking-risk",
-      "--repo-root",
-      repo,
-      "--json",
-      "--enforce",
-      "--write-record",
-      "--dry-run",
-    ],
-    { STRAUSS_TELEMETRY_DIR: sink },
-  );
+    "--json",
+    "--enforce",
+    "--write-record",
+    "--dry-run",
+  ]);
 
   assert.equal(status, 0);
   assert.equal(model.mode, "dry-run");
@@ -684,7 +607,6 @@ test("--dry-run overrides an enabled policy, and never fails the build", () => {
   assert.match(model.enforce.why, /dry run/);
   assert.equal(model.wrote.written, false);
   assert.match(model.wrote.why, /--dry-run/);
-  assert.equal(routeEvents(sink)[0]?.event, "dry-run");
 });
 
 test("docs-only under a dry run would auto, and writes the would block", () => {
@@ -710,6 +632,16 @@ test("docs-only under a dry run would auto, and writes the would block", () => {
   assert.ok(block.startsWith("<!-- strauss-kb merge-policy -->\n"), block);
   assert.match(block, /### Merge policy \(dry run\): would auto/);
   assert.match(block, /\| would \| `auto` via `auto-mechanical` \|/);
+
+  // The fenced verdict is what `--calibrate` reads back off the PR.
+  assert.deepEqual(verdictOf(block), {
+    mode: "dry-run",
+    would: "auto",
+    rule: "auto-mechanical",
+    classes: { docs: 1 },
+    policyHash: model.policy.hash,
+    headSha: model.headSha,
+  });
 });
 
 test("blind holds the block back until the head has been reviewed", () => {
@@ -718,26 +650,20 @@ test("blind holds the block back until the head has been reviewed", () => {
     change: ["docs/guide.md", "# guide\n"],
   });
   const out = join(repo, "report.md");
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-blind-"));
-  built.push(sink);
   /** @param {string[]} extra */
   const run = (extra) =>
-    route(
+    route(repo, [
+      "--range",
+      "main..topic",
+      "--repo-root",
       repo,
-      [
-        "--range",
-        "main..topic",
-        "--repo-root",
-        repo,
-        "--json",
-        "--gate",
-        '{"findings":[]}',
-        "--report-out",
-        out,
-        ...extra,
-      ],
-      { STRAUSS_TELEMETRY_DIR: sink },
-    );
+      "--json",
+      "--gate",
+      '{"findings":[]}',
+      "--report-out",
+      out,
+      ...extra,
+    ]);
 
   const held = run([]);
   assert.equal(held.model.signals.withheld, true);
@@ -750,6 +676,9 @@ test("blind holds the block back until the head has been reviewed", () => {
     ),
   );
   assert.ok(!placeholder.includes("auto-mechanical"), placeholder);
+  // The fence a calibration read parses names no route while it is withheld.
+  assert.equal(verdictOf(placeholder).would, undefined);
+  assert.equal(verdictOf(placeholder).withheld, true);
 
   // A comment on the head commit is a read, and the verdict lands.
   const approvals = join(repo, "approvals.json");
@@ -759,42 +688,29 @@ test("blind holds the block back until the head has been reviewed", () => {
   );
   const released = run(["--approvals", approvals]);
   assert.equal(released.model.signals.withheld, false);
-  assert.match(
-    readFileSync(out, "utf8"),
-    /### Merge policy \(dry run\): would auto/,
-  );
-
-  // Every event so far says whether the answer was on show at the time.
-  assert.deepEqual(
-    routeEvents(sink).map((event) => event.data.withheld),
-    [true, false],
-  );
+  const shown = readFileSync(out, "utf8");
+  assert.match(shown, /### Merge policy \(dry run\): would auto/);
+  assert.equal(verdictOf(shown).would, "auto");
 });
 
-test("a label and a 👎 are each a disagreement in the event", () => {
+test("a label and a 👎 are each a disagreement on the block", () => {
   const { repo } = ownedRepo({
     policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
     change: ["docs/guide.md", "# guide\n"],
   });
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-signal-"));
-  built.push(sink);
   /** @param {string[]} extra */
   const run = (extra) =>
-    route(
+    route(repo, [
+      "--range",
+      "main..topic",
+      "--repo-root",
       repo,
-      [
-        "--range",
-        "main..topic",
-        "--repo-root",
-        repo,
-        "--json",
-        "--visible",
-        "--gate",
-        '{"findings":[]}',
-        ...extra,
-      ],
-      { STRAUSS_TELEMETRY_DIR: sink },
-    );
+      "--json",
+      "--visible",
+      "--gate",
+      '{"findings":[]}',
+      ...extra,
+    ]);
 
   const quiet = run(["--labels", '[{"name":"chore"}]']);
   assert.equal(quiet.model.signals.disagreement, false);
@@ -805,14 +721,9 @@ test("a label and a 👎 are each a disagreement in the event", () => {
   const reacted = run(["--reactions", '[{"content":"-1","user":"dana"}]']);
   assert.equal(reacted.model.signals.disagreement, true);
   assert.deepEqual(reacted.model.signals.signals, ["reaction:-1 by dana"]);
-
-  assert.deepEqual(
-    routeEvents(sink).map((event) => event.data.disagreement),
-    [false, true, true],
-  );
 });
 
-test("--calibrate reports the false-auto rate over the stream it wrote", () => {
+test("--calibrate reports the false-auto rate over blocks this step wrote", () => {
   const { repo } = ownedRepo({
     policy: {
       enabled: "dry-run",
@@ -821,38 +732,47 @@ test("--calibrate reports the false-auto rate over the stream it wrote", () => {
     },
     change: ["docs/guide.md", "# guide\n"],
   });
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-calibrate-"));
-  built.push(sink);
-  /** @param {string[]} extra */
-  const run = (extra) =>
-    route(
+  /** One PR's sticky comment, as a CI step would have upserted it.
+   * @param {number} number @param {string[]} labels */
+  const pr = (number, labels) => {
+    const out = join(repo, `report-${number}.md`);
+    route(repo, [
+      "--range",
+      "main..topic",
+      "--repo-root",
       repo,
-      [
-        "--range",
-        "main..topic",
-        "--repo-root",
-        repo,
-        "--json",
-        "--visible",
-        "--gate",
-        '{"findings":[]}',
-        ...extra,
-      ],
-      { STRAUSS_TELEMETRY_DIR: sink },
-    );
-  run(["--pr", "1"]);
-  run(["--pr", "2", "--labels", '[{"name":"policy:would-not-auto"}]']);
+      "--json",
+      "--visible",
+      "--gate",
+      '{"findings":[]}',
+      "--pr",
+      String(number),
+      "--report-out",
+      out,
+    ]);
+    return {
+      number,
+      labels: labels.map((name) => ({ name })),
+      comments: [{ body: readFileSync(out, "utf8"), reactionGroups: [] }],
+    };
+  };
 
-  // The stream is one slug deep, and the run does not know its own name.
-  const slug = readdirSync(sink)[0] ?? "";
-  const { model } = route(
-    repo,
-    ["--calibrate", "--repo", slug, "--repo-root", repo, "--json"],
-    { STRAUSS_TELEMETRY_DIR: sink },
+  const dump = join(repo, "prs.json");
+  writeFileSync(
+    dump,
+    JSON.stringify([pr(1, []), pr(2, ["policy:would-not-auto"])]),
   );
+  const { model } = route(repo, [
+    "--calibrate",
+    dump,
+    "--repo-root",
+    repo,
+    "--json",
+  ]);
 
-  assert.equal(model.repo, slug);
-  assert.equal(model.sink, "local");
+  assert.equal(model.prs, 2);
+  assert.equal(model.verdicts, 2);
+  assert.equal(model.noVerdict, 0);
   assert.deepEqual(model.thresholds, { window: 2, maxFalseAuto: 0 });
   assert.equal(model.groups.length, 1);
   const [auto] = model.groups[0].routes;
@@ -869,15 +789,6 @@ test("--calibrate reports the false-auto rate over the stream it wrote", () => {
   );
   // Half the window disagreed, so the class is not ready to be flipped.
   assert.equal(auto.byClass[0].ready, false);
-
-  // A sink that recorded nothing is a usage error, never an empty table.
-  const off = route(
-    repo,
-    ["--calibrate", "--repo", slug, "--repo-root", repo, "--json"],
-    { STRAUSS_TELEMETRY_DIR: sink, STRAUSS_TELEMETRY: "off" },
-  );
-  assert.equal(off.status, 2, off.stderr);
-  assert.match(off.stderr, /STRAUSS_TELEMETRY=off/);
 });
 
 test("the dry run's own flags are checked before anything is read", () => {
@@ -892,7 +803,8 @@ test("the dry run's own flags are checked before anything is read", () => {
     // A dump read as empty would say nobody disagreed, which flatters the route.
     ["a labels dump that is an object", ["--labels", "{}"]],
     ["a reactions dump that is an object", ["--reactions", '{"content":"-1"}']],
-    ["a since that is not a date", ["--calibrate", "--since", "yesterday"]],
+    ["a calibration dump that is not an array", ["--calibrate", "{}"]],
+    ["a calibration dump that is not there", ["--calibrate", "nope.json"]],
   ])) {
     assert.equal(bad(extra).status, 2, why);
   }
