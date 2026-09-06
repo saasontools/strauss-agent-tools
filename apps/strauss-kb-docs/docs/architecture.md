@@ -372,7 +372,7 @@ fails on, and a dash is a number the bench reports and nothing gates:
 | ------------------------------------------ | --------------- | ------- |
 | `matchToDiff`, 1k records × 100 hunks      | 7.4 ms          | 300 ms  |
 | `match` command, same shape                | 51 ms           | —       |
-| `classifyDiff`, 5k files, 200 overrides    | 138 ms          | 1500 ms |
+| `classifyDiff`, 5k files, 200 overrides    | 138 ms          | 4000 ms |
 | `classify` command, 340 files, cold / warm | 13.7 / 5.2 ms   | —       |
 | regex resolver, 5k-line file               | 0.3 ms (2.9 ms) | —       |
 | tree-sitter resolver, 5k-line TypeScript   | 23 ms           | —       |
