@@ -526,8 +526,7 @@ test("--report-out writes the sticky block, and --summary appends the same one",
   assert.ok(readFileSync(summary, "utf8").includes(block), "summary differs");
 });
 
-/** The fenced verdict the sticky comment carries, which is the only place a
- * dry run's answer is persisted. @param {string} block */
+/** The fenced verdict out of one sticky comment. @param {string} block */
 function verdictOf(block) {
   const at = block.indexOf("<!-- strauss-kb merge-policy:verdict -->");
   assert.ok(at >= 0, block);
@@ -753,7 +752,13 @@ test("--calibrate reports the false-auto rate over blocks this step wrote", () =
     return {
       number,
       labels: labels.map((name) => ({ name })),
-      comments: [{ body: readFileSync(out, "utf8"), reactionGroups: [] }],
+      comments: [
+        {
+          author: { login: "github-actions[bot]" },
+          body: readFileSync(out, "utf8"),
+          reactionGroups: [],
+        },
+      ],
     };
   };
 
@@ -772,9 +777,12 @@ test("--calibrate reports the false-auto rate over blocks this step wrote", () =
 
   assert.equal(model.prs, 2);
   assert.equal(model.verdicts, 2);
-  assert.equal(model.noVerdict, 0);
+  assert.equal(model.noComment, 0);
   assert.deepEqual(model.thresholds, { window: 2, maxFalseAuto: 0 });
   assert.equal(model.groups.length, 1);
+  // The blocks were written under the policy at HEAD, so the group is current.
+  assert.equal(model.groups[0].policyHash, model.policyHash);
+  assert.equal(model.groups[0].current, true);
   const [auto] = model.groups[0].routes;
   assert.equal(auto.would, "auto");
   assert.equal(auto.n, 2);

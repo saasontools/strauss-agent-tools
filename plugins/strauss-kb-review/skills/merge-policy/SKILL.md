@@ -57,30 +57,36 @@ or a 👎, from a login the same three rules do not exclude, is a disagreement.
 
 The block ends in a fenced JSON verdict behind
 `<!-- strauss-kb merge-policy:verdict -->` — `would`, `rule`, `classes`,
-`policyHash`, `headSha` — the only place a dry run's answer is persisted.
+`policyHash`, `headSha` — the only place a dry run's answer is persisted, and
+what `--calibrate` reads back.
 
 ## Calibration
 
-The signals live in GitHub, so calibration reads them back off the pull
-requests. `--calibrate DUMP.json` takes what one command collects:
+`--calibrate DUMP.json` takes what one command collects:
 
 ```sh
 gh pr list --state all --limit 50 --json number,labels,comments > prs.json
 ```
 
-Each entry is `{ number, labels: [{name}], comments: [{ body, reactionGroups }] }`.
-The last comment opening with `<!-- strauss-kb merge-policy -->` carries the
-verdict; a 👎 in its `reactionGroups` (or in a REST `reactions` array) or a
-`policy:would-not-auto` label is the disagreement. A PR whose comment names no
-verdict — none posted, or one still withheld — is never read as agreement.
+Each entry is `{ number, labels: [{name}], comments: [{ author, body,
+reactionGroups }] }`. The verdict comes from the last marker comment authored
+by a `--bot-logins` login (`github-actions[bot]` unnamed); a marker anyone else
+typed is ignored. With this dump the label is the disagreement signal —
+`reactionGroups` counts reactors without naming them, so a 👎 counts only from
+a dump that names its reactor: a REST `reactions` array, or groups carrying
+`users.nodes`. A PR whose comment names no verdict — none posted, one still
+withheld, one unreadable — is never read as agreement. Nothing is keyed on the
+head SHA: a 👎 or label left on an earlier head still counts, and the direction
+is toward `human`.
 
 It prints the false-auto rate — PRs where `would` was unattended and a human
 disagreed, over that route's total, with `n` — per class and per rule, grouped
-by `policyHash` so a policy change starts the count over.
+by `policyHash`, one group `current` and every other `stale (policy changed)`.
 
 **Flip a class to `auto` only once its false-auto rate is at or under
-`calibration.maxFalseAuto` over at least `calibration.window` PRs** — 0% over
-20 by default, and the table's `verdict` column says `ready` or `hold`.
+`calibration.maxFalseAuto` over at least `calibration.window` observations of
+it** — a minimum sample size, not a recency window; 0% over 20 by default.
+Only the current group's `verdict` column can read `ready` rather than `hold`.
 
 ## CI
 

@@ -352,6 +352,11 @@ test("the block stays inside its line cap however loud the range is", () => {
   );
   assert.ok(block.trimEnd().split("\n").length <= MAX_LINES, block);
   assert.match(block, /and 52 more\./);
+  // The rows are what gets trimmed; the fenced verdict outlives them.
+  const at = block.indexOf(VERDICT_MARKER);
+  assert.ok(at >= 0, block);
+  const fence = /```json\n(.*)\n```/.exec(block.slice(at));
+  assert.equal(JSON.parse(fence?.[1] ?? "").route, "human");
 });
 
 test("a cell is one line, and a pipe in it never opens a column", () => {

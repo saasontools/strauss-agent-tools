@@ -4,7 +4,7 @@
     "labels": [{ "name": "docs" }],
     "comments": [
       {
-        "author": { "login": "github-actions" },
+        "author": { "login": "github-actions[bot]" },
         "body": "<!-- strauss-kb merge-policy -->\n### Merge policy (dry run): would auto\n\n| | |\n| --- | --- |\n| would | `auto` via `auto-mechanical` |\n\n<!-- strauss-kb merge-policy:verdict -->\n```json\n{\"mode\":\"dry-run\",\"would\":\"auto\",\"rule\":\"auto-mechanical\",\"classes\":{\"docs\":2},\"policyHash\":\"sha256:current\",\"headSha\":\"aaa1\"}\n```",
         "reactionGroups": []
       }
@@ -15,7 +15,7 @@
     "labels": [{ "name": "policy:would-not-auto" }],
     "comments": [
       {
-        "author": { "login": "github-actions" },
+        "author": { "login": "github-actions[bot]" },
         "body": "<!-- strauss-kb merge-policy -->\n### Merge policy (dry run): would auto\n\n<!-- strauss-kb merge-policy:verdict -->\n```json\n{\"mode\":\"dry-run\",\"would\":\"auto\",\"rule\":\"auto-mechanical\",\"classes\":{\"docs\":1},\"policyHash\":\"sha256:current\",\"headSha\":\"bbb2\"}\n```",
         "reactionGroups": []
       }
@@ -26,7 +26,7 @@
     "labels": [],
     "comments": [
       {
-        "author": { "login": "github-actions" },
+        "author": { "login": "github-actions[bot]" },
         "body": "<!-- strauss-kb merge-policy -->\n### Merge policy (dry run): would auto\n\n<!-- strauss-kb merge-policy:verdict -->\n```json\n{\"mode\":\"dry-run\",\"would\":\"auto\",\"rule\":\"auto-mechanical\",\"classes\":{\"docs\":1},\"policyHash\":\"sha256:stale\",\"headSha\":\"ccc3\"}\n```",
         "reactionGroups": [
           { "content": "THUMBS_DOWN", "users": { "totalCount": 1 } }

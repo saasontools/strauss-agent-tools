@@ -104,9 +104,8 @@ export function report(model) {
 }
 
 /**
- * The verdict a `--calibrate` read parses back out: the comment is the only
- * place a dry run's answer is persisted, so it carries one machine-readable
- * copy of it. A withheld run names no route here either.
+ * The machine-readable copy of the verdict a `--calibrate` read parses back
+ * out. A withheld run names no route here either.
  * @param {any} model @returns {string[]}
  */
 function verdictBlock(model) {

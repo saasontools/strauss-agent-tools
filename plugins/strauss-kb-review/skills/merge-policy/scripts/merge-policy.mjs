@@ -50,8 +50,8 @@ import { blindOf, modeOf } from "./lib/dry-run.mjs";
 import {
   calibrate,
   observations,
+  policyAt,
   renderCalibration,
-  thresholdsAt,
 } from "./lib/calibrate.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -313,8 +313,7 @@ export function main(argv) {
 
   return {
     help: false,
-    // Redacted last: the block's own verdict fence is where a dry run's answer
-    // is persisted, and a withheld one names no route there either.
+    // Redacted last: a withheld run names no route in the verdict fence either.
     model: redact(model),
     // A dry run exits 0 for every route, so a merge step reads `mode` and
     // never this.
@@ -349,8 +348,9 @@ export function checkSignals(value, flag) {
 /**
  * `--calibrate DUMP.json`: the false-auto rate over the sticky comments and
  * labels a caller collected from GitHub — SKILL.md names the `gh` command that
- * writes the dump. No range, no route and no exit code — a table, and `--json`
- * beside it.
+ * writes the dump. `calibration.window` is the minimum observations a class
+ * needs, never a recency window. No range, no route and no exit code — a
+ * table, and `--json` beside it.
  * @param {Record<string, any>} values
  */
 export function calibration(values) {
@@ -359,13 +359,13 @@ export function calibration(values) {
     throw new UsageError("--calibrate needs a JSON array of pull requests");
   }
   const repoRoot = resolve(values["repo-root"] ?? process.cwd());
-  const thresholds = thresholdsAt(
+  const { thresholds, hash } = policyAt(
     (args) =>
       git(repoRoot, ["show", "--no-textconv", "--end-of-options", ...args]),
     "HEAD",
     values.policy ?? null,
   );
-  const { rows, noVerdict } = observations(
+  const { rows, ...skipped } = observations(
     dump,
     botLogins(values["bot-logins"]),
   );
@@ -373,9 +373,10 @@ export function calibration(values) {
     dump: values.calibrate,
     prs: dump.length,
     verdicts: rows.length,
-    noVerdict,
+    ...skipped,
     thresholds,
-    groups: calibrate(rows, thresholds),
+    policyHash: hash,
+    groups: calibrate(rows, thresholds, hash),
   };
   return {
     help: false,
