@@ -1,137 +1,23 @@
 // @ts-check
 /**
  * The calibration loop's read side: the false-auto rate per class and per rule,
- * over the local telemetry stream this step's dry runs wrote.
+ * over a dump of pull requests a caller collected with `gh`.
  *
- * It reads the events file directly. `telemetry summary` aggregates its own
- * metrics and returns no raw events, so it is asked only for the repository
- * slug — the one rule for naming a stream's directory stays in the package.
+ * The sticky comment is where a dry-run verdict is persisted, so the verdict is
+ * parsed back out of it and the disagreement is read off the same PR's labels
+ * and the reactions on that comment.
  */
-import { closeSync, openSync, readdirSync, readSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { StringDecoder } from "node:string_decoder";
-import { asString } from "../../../../hooks/scripts/lib/util.mjs";
+import { asArray, asString } from "../../../../hooks/scripts/lib/util.mjs";
+import { disagreement } from "./dry-run.mjs";
 import { CALIBRATION_DEFAULTS, POLICY_PATHS, readPolicy } from "./policy.mjs";
 import { UNATTENDED } from "./record.mjs";
+import { MARKER, VERDICT_MARKER } from "./report.mjs";
 
-/** As many of a slug's files as the package's read side opens, newest last. */
-const MAX_FILES = 10;
+/** The fenced JSON the sticky comment carries its verdict in. */
+const FENCE = /```json\s*\r?\n([\s\S]*?)\r?\n```/;
 
-/** Enough of a file to hold a line, never the whole of a rotated 10 MiB one. */
-const CHUNK = 64 * 1024;
-
-/** Where the package's local sink writes, mirrored here because no verb says. */
-export function telemetryRoot() {
-  return (
-    process.env.STRAUSS_TELEMETRY_DIR ??
-    join(homedir(), ".strauss", "telemetry")
-  );
-}
-
-/** Which sink the events went to. `--calibrate` reads what `local` wrote, so
- * any other mode has a different story to tell about an empty table.
- * @returns {"local" | "stdout" | "off"} */
-export function telemetryMode() {
-  const value = (process.env.STRAUSS_TELEMETRY ?? "").toLowerCase();
-  return value === "off" || value === "stdout" ? value : "local";
-}
-
-/**
- * The newest `MAX_FILES` of one slug's `events*.jsonl`, oldest first, as this
- * step's own dry-run events. Read a line at a time so a rotated file is never
- * held whole. A line that will not parse is counted, never dropped silently.
- * @param {string} dir @param {string} [since] an ISO instant to cut at
- * @returns {{ events: any[], unreadable: number }}
- */
-export function readDryRuns(dir, since) {
-  /** @type {string[]} */
-  let names;
-  try {
-    names = readdirSync(dir);
-  } catch {
-    // No directory is no dry runs yet, which is a table with no rows.
-    return { events: [], unreadable: 0 };
-  }
-  const floor = since ? Date.parse(since) : Number.NEGATIVE_INFINITY;
-  /** @type {{ at: number, event: any }[]} */
-  const rows = [];
-  let unreadable = 0;
-  for (const name of newestFiles(names)) {
-    for (const line of lines(join(dir, name))) {
-      if (!line.trim()) continue;
-      /** @type {any} */
-      let event;
-      try {
-        event = JSON.parse(line);
-      } catch {
-        unreadable += 1;
-        continue;
-      }
-      if (event?.component !== "merge-policy") continue;
-      if (event?.event !== "dry-run") continue;
-      if (Date.parse(asString(event.ts)) < floor) continue;
-      rows.push({ at: rows.length, event });
-    }
-  }
-  // File then line order breaks a tie, so two events on one instant come back
-  // in the same order on every read.
-  rows.sort(
-    (left, right) =>
-      compare(asString(left.event.ts), asString(right.event.ts)) ||
-      left.at - right.at,
-  );
-  return { events: rows.map((row) => row.event), unreadable };
-}
-
-/** One file's lines, a chunk at a time. The package streams with
- * `createInterface`; this step is synchronous, so it reads the same way by
- * hand. @param {string} path @returns {Generator<string>} */
-function* lines(path) {
-  /** @type {number} */
-  let fd;
-  try {
-    fd = openSync(path, "r");
-  } catch {
-    return;
-  }
-  const buffer = Buffer.alloc(CHUNK);
-  const decoder = new StringDecoder("utf8");
-  let held = "";
-  try {
-    for (;;) {
-      const read = readSync(fd, buffer, 0, CHUNK, null);
-      if (read === 0) break;
-      held += decoder.write(buffer.subarray(0, read));
-      const parts = held.split("\n");
-      held = parts.pop() ?? "";
-      yield* parts;
-    }
-  } finally {
-    closeSync(fd);
-  }
-  held += decoder.end();
-  if (held) yield held;
-}
-
-/** @param {string} left @param {string} right */
-function compare(left, right) {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-/** Rotated files are numbered oldest first, with the live file newest; the
- * tail is as far back as the read goes. @param {string[]} names */
-function newestFiles(names) {
-  const rotated = names
-    .map((name) => /^events\.(\d+)\.jsonl$/.exec(name))
-    .flatMap((hit) => (hit ? [{ name: hit[0], n: Number(hit[1]) }] : []))
-    .sort((left, right) => left.n - right.n)
-    .map((entry) => entry.name);
-  const ordered = names.includes("events.jsonl")
-    ? [...rotated, "events.jsonl"]
-    : rotated;
-  return ordered.slice(-MAX_FILES);
-}
+/** GraphQL names a reaction; the REST dumps and this step spell it `-1`. */
+const THUMBS_DOWN = "THUMBS_DOWN";
 
 /**
  * The `calibration` block of the policy at `rev`, or the built-in defaults for
@@ -152,55 +38,109 @@ export function thresholdsAt(show, rev, policyPath) {
     : policy.data.calibration;
 }
 
-/**
- * One observation per pull request, the newest event winning: a PR is re-run on
- * every push, and counting each push would weight a busy branch as many PRs. A
- * run with no `--pr` judged no PR, so it is never a denominator.
- * @param {any[]} events
- */
-export function latestPerPr(events) {
-  /** @type {Map<string, any>} */
-  const held = new Map();
-  for (const event of events) {
-    const pr = event.pr;
-    if (pr === undefined || pr === null) continue;
-    const key = `${asString(event.data?.policyHash)}|pr:${String(pr)}`;
-    const prior = held.get(key);
-    if (!prior || compare(asString(prior.ts), asString(event.ts)) <= 0) {
-      held.set(key, event);
-    }
+/** The last comment this step owns, which is the one a rerun left standing.
+ * @param {unknown} comments @returns {any} */
+export function stickyOf(comments) {
+  const owned = asArray(comments).filter((comment) =>
+    asString(/** @type {any} */ (comment)?.body)
+      .trimStart()
+      .startsWith(MARKER),
+  );
+  return owned.length > 0 ? owned[owned.length - 1] : null;
+}
+
+/** The verdict out of one sticky comment's fenced JSON, or null for a comment
+ * carrying none — a withheld run posts a placeholder with no route in it.
+ * @param {unknown} body @returns {any} */
+export function parseVerdict(body) {
+  const text = asString(body);
+  const at = text.indexOf(VERDICT_MARKER);
+  if (at < 0) return null;
+  const hit = FENCE.exec(text.slice(at));
+  if (!hit) return null;
+  try {
+    return JSON.parse(hit[1] ?? "");
+  } catch {
+    return null;
   }
-  return [...held.values()];
+}
+
+/** Either shape a dump carries: `gh pr list`'s `reactionGroups`, which count
+ * reactors without naming them, or a REST array with a user on every row.
+ * @param {any} comment */
+function reactionsOf(comment) {
+  const rest = asArray(comment?.reactions);
+  if (rest.length > 0) return rest;
+  return asArray(comment?.reactionGroups).flatMap((group) =>
+    asString(/** @type {any} */ (group)?.content) === THUMBS_DOWN &&
+    Number(/** @type {any} */ (group)?.users?.totalCount ?? 0) > 0
+      ? [{ content: "-1" }]
+      : [],
+  );
 }
 
 /**
- * The false-auto rate: of the PRs this policy would have merged unattended,
- * how many a human said it should not have. Grouped by `policy.hash` first, so
- * a policy change starts the count over rather than carrying its own history.
- * @param {any[]} events
+ * One observation per pull request: the verdict its sticky comment carries, and
+ * whether a human contradicted it. A PR with no verdict — no comment yet, or
+ * one still withheld — is no observation, never a silent agreement.
+ * @param {unknown} entries @param {string[]} [botLogins]
+ * @returns {{ rows: any[], noVerdict: number }}
+ */
+export function observations(entries, botLogins = []) {
+  /** @type {any[]} */
+  const rows = [];
+  let noVerdict = 0;
+  for (const entry of asArray(entries)) {
+    const sticky = stickyOf(/** @type {any} */ (entry)?.comments);
+    const verdict = sticky ? parseVerdict(sticky.body) : null;
+    const would = asString(verdict?.would);
+    if (!would) {
+      noVerdict += 1;
+      continue;
+    }
+    rows.push({
+      pr: /** @type {any} */ (entry)?.number ?? null,
+      would,
+      rule: asString(verdict.rule) || "no rule",
+      policyHash: asString(verdict.policyHash) || "no hash",
+      classes: verdict.classes,
+      ...disagreement(
+        /** @type {any} */ (entry)?.labels,
+        reactionsOf(sticky),
+        botLogins,
+      ),
+    });
+  }
+  return { rows, noVerdict };
+}
+
+/**
+ * The false-auto rate: of the PRs this policy would have merged unattended, how
+ * many a human said it should not have. Grouped by the config hash the verdict
+ * was made under, so a policy change starts the count over rather than carrying
+ * its own history.
+ * @param {any[]} rows
  * @param {{ window: number, maxFalseAuto: number }} thresholds
  */
-export function calibrate(events, thresholds) {
+export function calibrate(rows, thresholds) {
   /** @type {Map<string, any>} */
   const groups = new Map();
-  for (const event of latestPerPr(events)) {
-    const data = event.data ?? {};
-    const would = asString(data.would);
-    if (!UNATTENDED.includes(would)) continue;
-    const hash = asString(data.policyHash) || "no hash";
+  for (const row of rows) {
+    if (!UNATTENDED.includes(row.would)) continue;
+    const hash = asString(row.policyHash) || "no hash";
     const group = take(groups, hash, () => ({ policyHash: hash, routes: {} }));
-    const route = take(group.routes, would, () => ({
-      would,
+    const route = take(group.routes, row.would, () => ({
+      would: row.would,
       prs: 0,
       disagreed: 0,
       byClass: {},
       byRule: {},
     }));
-    const bad = data.disagreement === true;
+    const bad = row.disagreement === true;
     route.prs += 1;
     route.disagreed += bad ? 1 : 0;
-    bump(route.byRule, asString(data.rule) || "no rule", bad);
-    for (const name of Object.keys(classesOf(data.classes))) {
+    bump(route.byRule, asString(row.rule) || "no rule", bad);
+    for (const name of Object.keys(classesOf(row.classes))) {
       bump(route.byClass, name, bad);
     }
   }
@@ -278,9 +218,9 @@ function rates(buckets, thresholds) {
 /** One table per policy hash and route. @param {any} model */
 export function renderCalibration(model) {
   const lines = [
-    `calibration — ${model.repo}${model.since ? ` since ${model.since}` : ""}`,
-    `  ${model.events} dry-run event(s) from the ${model.sink} sink, window ${model.thresholds.window}, max false-auto ${percent(model.thresholds.maxFalseAuto)}${
-      model.unreadable ? `, ${model.unreadable} unreadable` : ""
+    `calibration — ${model.dump}`,
+    `  ${model.verdicts} verdict(s) over ${model.prs} pull request(s), window ${model.thresholds.window}, max false-auto ${percent(model.thresholds.maxFalseAuto)}${
+      model.noVerdict ? `, ${model.noVerdict} with no verdict` : ""
     }`,
   ];
   if (model.groups.length === 0) {

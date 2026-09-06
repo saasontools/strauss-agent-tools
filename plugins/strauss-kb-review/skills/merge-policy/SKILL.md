@@ -55,14 +55,28 @@ asks for the same anywhere; both flags at once exit 2.
 comment) are how a human contradicts the route: a `policy:would-not-auto` label
 or a 👎, from a login the same three rules do not exclude, is a disagreement.
 
+The block ends in a fenced JSON verdict behind
+`<!-- strauss-kb merge-policy:verdict -->` — `would`, `rule`, `classes`,
+`policyHash`, `headSha` — the only place a dry run's answer is persisted.
+
 ## Calibration
 
-`--calibrate [--since ISO] [--repo SLUG]` reads the dry-run events out of
-`~/.strauss/telemetry/<slug>/` and prints the false-auto rate — PRs where
-`would` was unattended and a human disagreed, over that route's total, with
-`n` — per class and per rule, grouped by `policyHash` so a policy change starts
-the count over. Only a run that named a `--pr` counts, and
-`STRAUSS_TELEMETRY=off` recorded nothing at all, so it exits 2.
+The signals live in GitHub, so calibration reads them back off the pull
+requests. `--calibrate DUMP.json` takes what one command collects:
+
+```sh
+gh pr list --state all --limit 50 --json number,labels,comments > prs.json
+```
+
+Each entry is `{ number, labels: [{name}], comments: [{ body, reactionGroups }] }`.
+The last comment opening with `<!-- strauss-kb merge-policy -->` carries the
+verdict; a 👎 in its `reactionGroups` (or in a REST `reactions` array) or a
+`policy:would-not-auto` label is the disagreement. A PR whose comment names no
+verdict — none posted, or one still withheld — is never read as agreement.
+
+It prints the false-auto rate — PRs where `would` was unattended and a human
+disagreed, over that route's total, with `n` — per class and per rule, grouped
+by `policyHash` so a policy change starts the count over.
 
 **Flip a class to `auto` only once its false-auto rate is at or under
 `calibration.maxFalseAuto` over at least `calibration.window` PRs** — 0% over

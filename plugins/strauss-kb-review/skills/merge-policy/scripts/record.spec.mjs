@@ -20,6 +20,7 @@ import {
   MAX_LINES,
   prRepo,
   report,
+  VERDICT_MARKER,
 } from "./lib/report.mjs";
 import { result } from "./lib/render.mjs";
 
@@ -266,6 +267,11 @@ test("the docs-only report is one capped block behind a stable marker", () => {
 **Not checked**
 - reviewer: no --reviewer output
 - approvals: no --approvals dump
+
+${VERDICT_MARKER}
+\`\`\`json
+{"mode":"enforce","route":"auto","rule":"auto-mechanical","classes":{"docs":1},"policyHash":"sha256:abc","headSha":"d1135cbf7b0cbbeecece9700f4bff6910590084b"}
+\`\`\`
 `,
   );
 });
