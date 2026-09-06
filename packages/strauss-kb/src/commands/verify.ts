@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
-import { actorClassOf, emitKb } from "../telemetry/index.js";
 import {
   ACTOR,
   actorOf,
@@ -37,14 +36,6 @@ export const verifyCommand = define({
     const actor = actorOf(ctx, parsed);
     await assertBaseNotFrozen(process.cwd(), path);
     const record = await store.verify(path, id, note, actor, now());
-    await emitKb("verify", {
-      bundle: path,
-      actorClass: actorClassOf(actor),
-      data: {
-        conceptId: record.conceptId,
-        verified: record.frontmatter.verified?.length ?? 0,
-      },
-    });
     return {
       conceptId: record.conceptId,
       verified: record.frontmatter.verified?.length ?? 0,

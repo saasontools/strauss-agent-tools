@@ -7,7 +7,6 @@ import {
 import { DEFAULT_IO_CONCURRENCY, mapLimit } from "../../concurrency.js";
 import { readRangeDiff, type RangeDiff } from "../../drift/index.js";
 import { KbClassifyInputError } from "../../kb-errors.js";
-import { actorClassOf, emitKb } from "../../telemetry/index.js";
 import {
   diffFileSchema,
   diffHunkSchema,
@@ -82,10 +81,9 @@ export const classifyCommand = define({
     return { ...base, files: fromStdin(await stdin()) };
   },
   run: async (
-    { store, actor },
+    { store },
     { bundlePath: path, files, repoRoot, offline },
   ): Promise<KbClassifyResult> => {
-    const started = Date.now();
     const records = await store.list(path);
     const root = repoRoot ?? process.cwd();
     const withHeaders = await mapLimit(
@@ -105,18 +103,6 @@ export const classifyCommand = define({
       offline === true,
     );
     const classified = classifyDiff(withHeaders, { records, symbolRanges });
-    // Counts beside the duration, so cost per pull request can be split later
-    // between what the base carries and what the diff does.
-    await emitKb("classify", {
-      bundle: path,
-      actorClass: actorClassOf(actor),
-      durationMs: Date.now() - started,
-      data: {
-        records: records.length,
-        files: files.length,
-        hunks: files.reduce((total, file) => total + file.hunks.length, 0),
-      },
-    });
     return { files: classified };
   },
   render: (result) => renderClassify(result as KbClassifyResult),
