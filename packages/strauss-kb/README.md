@@ -251,9 +251,10 @@ appends a `verified[]` event.
 Symbols resolve tree-sitter first — the 20 language packs that have both a
 grammar and a definitions query, pinned together by `pnpm grammars pin` from
 `grammars/packs.json` and proved at pin time — then the regex heuristic for
-other extensions, then a
-whole-file hash when the anchor names no symbol; an ambiguous or undefined symbol returns
-`unresolved` rather than a guess. Neither half of a pack is published with the
+other extensions and for symbols the tags query does not define (constants,
+type aliases, class fields), then a
+whole-file hash when the anchor names no symbol; an ambiguous match or an
+unloadable grammar returns `unresolved` rather than falling through to a guess. Neither half of a pack is published with the
 package: grammar and query both download on first use, sha256-pinned against
 `grammars/manifest.json`, and are cached under `~/.strauss/grammars`. A hash the old resolver still reproduces and
 the new one does not is `drifted` with reason `resolver-changed` — accept it
