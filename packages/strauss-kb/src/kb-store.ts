@@ -48,6 +48,7 @@ import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
 import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
 import { catalog, type KbCatalogResult } from "./catalog.js";
+import { matchesTags, type KbTagFilter } from "./kb-tags.js";
 import {
   backlinks,
   impact,
@@ -282,13 +283,20 @@ export class KbStore {
   }
 
   /**
-   * Every record in the bundle, optionally narrowed to one type.
+   * Every record in the bundle, optionally narrowed to one type and to the
+   * records carrying every tag in `filter.tags`. Selection only — `excludeTags`
+   * is not taken here, because `query`, `catalog` and `load` read through this
+   * and must adjudicate over the whole base.
    *
    * A file that fails to parse is skipped and logged rather than thrown: one
    * malformed record — hand-edited, or written by a producer we don't know —
    * must not make the whole bundle unreadable.
    */
-  async list(bundlePath: string, type?: string): Promise<KbRecord[]> {
+  async list(
+    bundlePath: string,
+    type?: string,
+    filter: { tags?: string[] } = {},
+  ): Promise<KbRecord[]> {
     const root = this.root(bundlePath);
     let names: string[];
     try {
@@ -315,7 +323,10 @@ export class KbStore {
       async ({ name, conceptId }) =>
         this.parse(conceptId, await readFile(join(root, name), "utf8")),
     );
-    return records.filter((record): record is KbRecord => record !== null);
+    return records.filter(
+      (record): record is KbRecord =>
+        record !== null && matchesTags(record, filter),
+    );
   }
 
   /**
@@ -493,7 +504,7 @@ export class KbStore {
       type?: string;
       includeNonCurrent?: boolean;
       repoRoot?: string;
-    } = {},
+    } & KbTagFilter = {},
   ): Promise<KbAdjudicated[]> {
     const bundle = await this.list(bundlePath);
     const needle = text.trim();
@@ -508,12 +519,17 @@ export class KbStore {
       await this.detectDrift(narrowed, options.repoRoot),
     );
 
-    if (options.includeNonCurrent) return adjudicated;
+    // Tags cut after adjudication: a tag narrows what is returned, never what
+    // anything's standing is or which record replaced it.
+    const kept = adjudicated.filter((hit) => matchesTags(hit.record, options));
+
+    if (options.includeNonCurrent) return kept;
     // Superseded records are dropped only once their replacement is in the
     // result too — otherwise the caller loses the thread entirely rather than
-    // being handed a newer version of it.
-    const present = new Set(adjudicated.map((hit) => hit.record.conceptId));
-    return adjudicated.filter(
+    // being handed a newer version of it. Over `kept`, so a replacement the
+    // tag filter cut cannot silence the record it replaced.
+    const present = new Set(kept.map((hit) => hit.record.conceptId));
+    return kept.filter(
       (hit) =>
         hit.standing !== "superseded" ||
         !hit.heads.some((head) => present.has(head.conceptId)),
@@ -626,6 +642,8 @@ export class KbStore {
       type?: string;
       all?: boolean;
       repoRoot?: string;
+      /** Records carrying any of these are left out. See `kb-tags.ts`. */
+      excludeTags?: string[];
     } = {},
   ): Promise<KbLoadResult> {
     const budgetTokens = options.budgetTokens ?? DEFAULT_LOAD_BUDGET;
@@ -642,8 +660,13 @@ export class KbStore {
       new Date(),
       await this.detectDrift(wanted, options.repoRoot),
     );
-    const records = adjudicated.filter((hit) => hit.standing !== "superseded");
-    const superseded = adjudicated
+    // Excluded tags cut after adjudication, so nothing's standing moves and
+    // the estimate below still measures exactly what is handed back.
+    const kept = adjudicated.filter((hit) =>
+      matchesTags(hit.record, { excludeTags: options.excludeTags }),
+    );
+    const records = kept.filter((hit) => hit.standing !== "superseded");
+    const superseded = kept
       .filter((hit) => hit.standing === "superseded")
       .map(stub);
 
@@ -660,7 +683,7 @@ export class KbStore {
     if (!options.all && approxTokens > budgetTokens) {
       return {
         loaded: false,
-        recordCount: wanted.length,
+        recordCount: kept.length,
         approxTokens,
         budgetTokens,
         message: refusalMessage({
@@ -674,7 +697,7 @@ export class KbStore {
 
     return {
       loaded: true,
-      recordCount: wanted.length,
+      recordCount: kept.length,
       tokensLoaded: approxTokens,
       budgetTokens: options.all ? null : budgetTokens,
       records,
@@ -754,7 +777,7 @@ export class KbStore {
   /** Every record named in one line each. See `catalog.ts`. */
   async catalog(
     bundlePath: string,
-    options: { type?: string; now?: Date } = {},
+    options: { type?: string; now?: Date } & KbTagFilter = {},
   ): Promise<KbCatalogResult> {
     return catalog(await this.list(bundlePath), options);
   }

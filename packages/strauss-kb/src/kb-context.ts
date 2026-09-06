@@ -7,6 +7,7 @@ import {
   type KbContextBudgets,
 } from "./kb-pins/index.js";
 import type { KbStore } from "./kb-store.js";
+import { matchesTags } from "./kb-tags.js";
 
 /**
  * The context block: an index of every pinned base, emitted at context birth.
@@ -56,6 +57,12 @@ export type KbContextOptions = {
    * name.
    */
   profile?: string;
+  /**
+   * Frontmatter tags whose records stay out of the block. Resolved like the
+   * budgets, and a profile setting rather than a pin's: it says what this
+   * context birth wants, so a base stays pinned and stays readable by tool.
+   */
+  excludeTags?: string[];
   /**
    * Where budget pressure is reported outside the block itself: a full pin
    * that had to degrade to an index, a block that refused. The block already
@@ -121,6 +128,7 @@ async function renderBase(
   fullUnderTokens: number,
   pinMode: "full" | "index" | undefined,
   budgetTokens: number,
+  excludeTags: string[],
 ): Promise<BaseSection> {
   const bundle = await store.list(absolutePath);
   if (bundle.length === 0) {
@@ -147,6 +155,7 @@ async function renderBase(
   if (fullCap > 0) {
     const full = await store.load(absolutePath, {
       budgetTokens: fullCap,
+      excludeTags,
     });
     if (!full.loaded && pinMode === "full") {
       degradedFrom = { approxTokens: full.approxTokens };
@@ -180,10 +189,11 @@ async function renderBase(
     }
   }
 
-  // Adjudicated against the whole base so a superseded record collapses to an
-  // id and its replacement — the same shape `load` hands back, for the same
-  // reason: a body outlives the qualifier that said it no longer holds.
-  const adjudicated = adjudicate(bundle, bundle);
+  // Adjudicated against the whole base, excluded only after: a record kept out
+  // of the block still supersedes, so the replacement it names stays right.
+  const adjudicated = adjudicate(bundle, bundle).filter((hit) =>
+    matchesTags(hit.record, { excludeTags }),
+  );
   const lines = adjudicated
     .filter((hit) => hit.standing !== "superseded")
     .map((hit) => renderIndexLine(hit.record));
@@ -238,6 +248,11 @@ export async function buildContext(
     fromManifest.fullUnderTokens ??
     builtin.fullUnderTokens ??
     0;
+  const excludeTags =
+    options.excludeTags ??
+    fromManifest.excludeTags ??
+    builtin.excludeTags ??
+    [];
 
   // A pin scoped to named profiles surfaces only in those; unscoped pins
   // surface everywhere, and a run without a profile sees everything — the
@@ -267,6 +282,7 @@ export async function buildContext(
         fullUnderTokens,
         pin.mode,
         budgetTokens,
+        excludeTags,
       ),
       frozen: pin.frozen === true,
     })),

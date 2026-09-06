@@ -83,6 +83,17 @@ export const bundlePath = z
 export const conceptId = z.string().min(1).describe("e.g. decision.cursor-v2");
 
 /**
+ * The tag filter every read surface shares. AND, and no vocabulary: `tags` is
+ * free text in frontmatter, so matching is exact and an unknown tag is empty.
+ */
+export const TAGS = z
+  .array(z.string().min(1))
+  .optional()
+  .describe(
+    "Keep only records carrying every one of these frontmatter tags. Matched exactly.",
+  );
+
+/**
  * Where the code an anchor points at lives, for the drift check.
  *
  * Pass it whenever the base is not inside the tree it describes: the default is
@@ -135,4 +146,58 @@ export function argvFlag(argv: string[], name: string): string | undefined {
     throw new KbMissingFlagValueError(name);
   }
   return value;
+}
+
+/**
+ * Every value of a repeatable `--name`, in both spellings, in argv order.
+ * Empty when the flag is absent; a flag with no value is an error, as above.
+ */
+export function argvFlags(argv: string[], name: string): string[] {
+  const values: string[] = [];
+  for (const [at, arg] of argv.entries()) {
+    if (arg.startsWith(`${name}=`)) {
+      const value = arg.slice(name.length + 1);
+      if (!value) throw new KbMissingFlagValueError(name);
+      values.push(value);
+    } else if (arg === name) {
+      const value = argv[at + 1];
+      if (value === undefined || value.startsWith("--")) {
+        throw new KbMissingFlagValueError(name);
+      }
+      values.push(value);
+    }
+  }
+  return values;
+}
+
+/**
+ * argv with every occurrence of the named flags, and their values, removed —
+ * for the verbs whose remaining words are free prose rather than positionals.
+ */
+export function argvWithout(argv: string[], ...names: string[]): string[] {
+  const kept: string[] = [];
+  for (let at = 0; at < argv.length; at += 1) {
+    const arg = argv[at] as string;
+    if (names.some((name) => arg.startsWith(`${name}=`))) continue;
+    if (names.includes(arg)) {
+      at += 1;
+      continue;
+    }
+    kept.push(arg);
+  }
+  return kept;
+}
+
+/**
+ * The first positional after the verb, once the named value-taking flags are
+ * out of the way — so `list --tag review decision` still sees the type. Read
+ * at a fixed index it would be dropped whenever a flag came first.
+ */
+export function argvPositional(
+  argv: string[],
+  ...names: string[]
+): string | undefined {
+  return argvWithout(argv.slice(1), ...names).find(
+    (arg) => !arg.startsWith("--"),
+  );
 }
