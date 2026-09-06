@@ -220,7 +220,6 @@ export function main(argv) {
   const kb = launcher(repoRoot, bundle);
   const pr = checkPr(values.pr);
   const prUrl = checkPrUrl(values["pr-url"]);
-  const started = Date.now();
   const gatePayload = checkPayload(readJson(values.gate, "--gate"), "--gate");
   const gate = memo(
     () => gatePayload ?? runGate({ repoRoot, bundle, base, head }),
@@ -269,9 +268,6 @@ export function main(argv) {
   if (values.summary === true) {
     appendFileSync(summaryPath, `${block}\n`, "utf8");
   }
-  if (values.enforce === true) {
-    emitRoute(kb, model, Date.now() - started);
-  }
 
   return {
     help: false,
@@ -297,36 +293,6 @@ function writeReport(path, block) {
       `--report-out could not be written: ${/** @type {Error} */ (error).message}`,
     );
   }
-}
-
-/** One event per enforced run: facts and counts, never a record body.
- * @param {ReturnType<typeof launcher>} kb @param {any} model @param {number} ms */
-function emitRoute(kb, model, ms) {
-  const data = {
-    route: model.route,
-    rule: model.rule,
-    policyHash: model.policy.hash,
-    records: model.records.length,
-    files: Object.keys(model.classifier).length,
-    blocks: model.gate.blocks.length,
-    warns: model.gate.warns.length,
-    wrote: model.wrote?.written === true,
-    ...(model.policy.enabled === "dry-run" ? { dryRun: true } : {}),
-  };
-  json(kb, [
-    "telemetry",
-    "emit",
-    "--component",
-    "merge-policy",
-    "--event",
-    "route",
-    "--data",
-    JSON.stringify(data),
-    "--sha",
-    model.headSha,
-    "--duration-ms",
-    String(ms),
-  ]);
 }
 
 /**

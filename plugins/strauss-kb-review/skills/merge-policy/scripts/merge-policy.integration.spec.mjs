@@ -33,18 +33,6 @@ after(() => {
   for (const dir of built) rmSync(dir, { recursive: true, force: true });
 });
 
-/** @type {string | null} */
-let telemetry = null;
-
-/** One sink for the whole file, torn down with everything else. */
-function telemetryDir() {
-  if (!telemetry) {
-    telemetry = mkdtempSync(join(tmpdir(), "merge-policy-telemetry-"));
-    built.push(telemetry);
-  }
-  return telemetry;
-}
-
 /** A fresh repository per scenario: the run stamps anchors that carry no hash.
  * @param {string} scenario */
 function materialize(scenario) {
@@ -73,11 +61,9 @@ function route(repo, args, extra) {
       cwd: repo,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
-      // `--enforce` emits one telemetry event, which must never reach $HOME.
       env: {
         ...process.env,
         STRAUSS_KB_BIN: KB_CLI,
-        STRAUSS_TELEMETRY_DIR: telemetryDir(),
         ...extra,
       },
     });
@@ -544,49 +530,6 @@ test("--report-out writes the sticky block, and --summary appends the same one",
   assert.ok(readFileSync(summary, "utf8").includes(block), "summary differs");
 });
 
-/** This step's own events in a sink every kb verb also writes into.
- * @param {string} sink */
-function routeEvents(sink) {
-  return readdirSync(sink)
-    .flatMap((slug) => {
-      const file = join(sink, slug, "events.jsonl");
-      return existsSync(file) ? readFileSync(file, "utf8").split("\n") : [];
-    })
-    .filter(Boolean)
-    .map((line) => JSON.parse(line))
-    .filter((event) => event.component === "merge-policy");
-}
-
-test("--enforce emits one route event, and no record body with it", () => {
-  const repo = materialize("docs-only");
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-events-"));
-  built.push(sink);
-  route(
-    repo,
-    ["--range", "main..docs-only", "--repo-root", repo, "--json", "--enforce"],
-    { STRAUSS_TELEMETRY_DIR: sink },
-  );
-
-  const events = routeEvents(sink);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].event, "route");
-  assert.equal(events[0].data.route, "auto");
-  assert.equal(events[0].data.rule, "auto-mechanical");
-  assert.equal(typeof events[0].durationMs, "number");
-  assert.ok(!JSON.stringify(events[0]).includes("Considered"), "body leaked");
-});
-
-test("without --enforce no route event is emitted", () => {
-  const repo = materialize("docs-only");
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-quiet-"));
-  built.push(sink);
-  route(repo, ["--range", "main..docs-only", "--repo-root", repo, "--json"], {
-    STRAUSS_TELEMETRY_DIR: sink,
-  });
-  // The kb verbs this run spawns emit their own events; none of them is ours.
-  assert.deepEqual(routeEvents(sink), []);
-});
-
 test("a report with nowhere to go is a usage error, never a silent no-op", () => {
   const repo = materialize("docs-only");
   const base = ["--range", "main..docs-only", "--repo-root", repo, "--json"];
@@ -605,31 +548,25 @@ test("a report with nowhere to go is a usage error, never a silent no-op", () =>
   assert.ok(!existsSync(out));
 });
 
-test("a dry-run policy routes, writes nothing, and says dryRun in its event", () => {
+test("a dry-run policy routes and writes nothing", () => {
   const { repo } = ownedRepo({
     // Default deny: the docs class is auto only because this policy names it.
     policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
     change: ["docs/guide.md", "# guide\n"],
   });
-  const sink = mkdtempSync(join(tmpdir(), "merge-policy-dry-"));
-  built.push(sink);
-  const { status, model } = route(
+  const { status, model } = route(repo, [
+    "--range",
+    "main..topic",
+    "--repo-root",
     repo,
-    [
-      "--range",
-      "main..topic",
-      "--repo-root",
-      repo,
-      "--json",
-      "--enforce",
-      "--write-record",
-      "--pr",
-      "9",
-      "--gate",
-      '{"findings":[]}',
-    ],
-    { STRAUSS_TELEMETRY_DIR: sink },
-  );
+    "--json",
+    "--enforce",
+    "--write-record",
+    "--pr",
+    "9",
+    "--gate",
+    '{"findings":[]}',
+  ]);
 
   assert.equal(model.route, "auto", model.reason);
   assert.equal(status, 0);
@@ -638,11 +575,6 @@ test("a dry-run policy routes, writes nothing, and says dryRun in its event", ()
   assert.equal(model.wrote.written, false);
   assert.match(model.wrote.why, /dry-run/);
   assert.ok(!existsSync(join(repo, ".strauss", "kb")));
-
-  const events = routeEvents(sink);
-  assert.equal(events.length, 1);
-  assert.equal(events[0].data.dryRun, true);
-  assert.equal(events[0].data.wrote, false);
 });
 
 test("a --pr-url that is not a github pull request is a usage error", () => {
