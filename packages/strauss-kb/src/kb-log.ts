@@ -51,15 +51,31 @@ export type KbLogReadResult = {
   entries: KbLogEntry[];
   /** Lines that did not parse, with their 1-based position. Never rewritten. */
   malformed: { line: number; text: string }[];
+  /** Whether the file still carried merge conflict markers. */
+  conflicted: boolean;
 };
+
+/**
+ * GitHub's merge button ignores `.gitattributes`, so a pull request that
+ * touches the log from both sides lands conflict markers in it. Both sides'
+ * entries are real; the markers are not, and reading past them keeps `kb_log`
+ * working on a file nobody has resolved yet. `|||||||` is diff3's base
+ * section, which `merge.conflictStyle` adds to the other three.
+ */
+const CONFLICT_MARKER = /^(<{7}|\|{7}|={7}|>{7})/;
 
 export function parseLog(raw: string): KbLogReadResult {
   const entries: KbLogEntry[] = [];
   const malformed: { line: number; text: string }[] = [];
   const seen = new Set<string>();
+  let conflicted = false;
 
   raw.split("\n").forEach((text, index) => {
     if (!text.trim()) return;
+    if (CONFLICT_MARKER.test(text)) {
+      conflicted = true;
+      return;
+    }
     let value: unknown;
     try {
       value = JSON.parse(text) as unknown;
@@ -100,5 +116,5 @@ export function parseLog(raw: string): KbLogReadResult {
     left.at < right.at ? -1 : left.at > right.at ? 1 : 0,
   );
 
-  return { entries, malformed };
+  return { entries, malformed, conflicted };
 }
