@@ -969,24 +969,3 @@ package.
 strauss-kb telemetry summary --since 2026-09-01T00:00:00Z
 strauss-kb telemetry summary --repo saasontools-strauss-agent-tools --json
 ```
-
-### `telemetry emit`
-
-```
-telemetry emit --component C --event E [--data JSON] [--pr N] [--sha S] [--duration-ms N] [--tokens N]
-```
-
-Write one event of your own into the same sink, so a consumer built on this
-package records its runs beside the package's rather than starting a second
-stream. `--data` is a JSON object of the event's own fields. **CLI-only**.
-
-Refused with exit 1, never dropped: `--data` that is not JSON, and any string
-in it over 512 characters — the cap that keeps code and record bodies out of
-the stream. A caller told nothing would go on sending them. Under
-`STRAUSS_TELEMETRY=off` it exits 0 with `{ emitted: false, mode: "off" }`:
-nothing was written, and there is no line to go looking for.
-
-```bash
-strauss-kb telemetry emit --component kb-review-gate --event gate.run \
-  --data '{"route":"human","families":["A"]}' --pr 59 --duration-ms 120
-```

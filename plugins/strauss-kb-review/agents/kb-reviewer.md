@@ -145,15 +145,13 @@ JSON first:
     "verifyCommandsRun": 0,
     "verifyCommandsFailed": 0
   },
-  "telemetry": "pending",
   "partial": false,
   "reason": null
 }
 ```
 
 `type` appears only on `op: "write"`. `reason` is `"budget"`,
-`"unvalidated-base"` or `null`. `telemetry` is always `"pending"`:
-`strauss-kb telemetry` has only a `summary` verb, so there is no event to emit.
+`"unvalidated-base"` or `null`.
 
 Verdicts: `verified` — anchor read, claim holds, every verify command passed.
 `disputed` — the claim may hold but its reasoning does not. `lies` — the anchor
