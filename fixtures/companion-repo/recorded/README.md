@@ -2,8 +2,8 @@
 
 Empty so far. Agent output is a fixture, not a dependency: the reviewer agent
 (SAA-730) runs once per scenario through `packages/codex-claude-agent`, and the
-base it leaves behind is committed here. Policy, walkthrough, telemetry and
-fixer-routing tests then replay that base with no agent call.
+base it leaves behind is committed here. Policy, walkthrough and fixer-routing
+tests then replay that base with no agent call.
 
 ```
 recorded/<scenario>/<skill-version>/
