@@ -17,7 +17,7 @@ export type AnchorResolverName = "tree-sitter" | "regex" | "span";
 
 /**
  * A resolver's verdict. `abstain` ("not my language") and `symbol-not-found`
- * ("nothing I recognize declares this") both pass the symbol down the chain;
+ * ("nothing I recognize declares this") pass the symbol down the chain;
  * `symbol-ambiguous` and `resolver-unavailable` end it, because neither may be
  * answered by a looser resolver guessing.
  */
@@ -29,12 +29,23 @@ export type ResolverAttempt =
     }
   | { kind: "abstain" };
 
+/** What the chain already knows when it calls a resolver. */
+export type ResolverAttemptOptions = {
+  /** A resolver that parsed this file already reported `symbol-not-found`. */
+  afterParsedMiss?: boolean;
+};
+
 export interface AnchorResolver {
   name: string;
   /** Loads whatever these files need, before any `resolve` call. Optional. */
   prepare?(files: readonly string[]): Promise<void>;
   /** The richer verdict the chain uses; defaults to `resolve`. */
-  attempt?(source: string, symbol: string, file?: string): ResolverAttempt;
+  attempt?(
+    source: string,
+    symbol: string,
+    file?: string,
+    options?: ResolverAttemptOptions,
+  ): ResolverAttempt;
   resolve(source: string, symbol: string, file?: string): ResolvedSymbol | null;
   /**
    * The span's normalised token stream — comments dropped, runs of whitespace
