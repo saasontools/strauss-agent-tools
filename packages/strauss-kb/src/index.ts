@@ -72,6 +72,7 @@ export {
   type RemoteAnchorState,
   type ResolvedSymbol,
   type ResolverAttempt,
+  type ResolverAttemptOptions,
 } from "./anchor-resolver/index.js";
 export {
   readRemoteAnchors,
