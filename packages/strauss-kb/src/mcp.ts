@@ -27,9 +27,8 @@ export function createKbMcpServer(): McpServer {
   };
 
   for (const command of KB_COMMANDS) {
-    // Two CLI-only verbs are plumbing, not capability: sync-instructions edits
-    // instruction files (the capability is kb_context), and telemetry reads the
-    // operation stream, which is not a base an agent asks about.
+    // CLI-only plumbing (sync-instructions) edits files for hooks and
+    // instruction blocks; the agent capability it serves is kb_context.
     if (!command.tool) continue;
     server.registerTool(
       command.tool,
