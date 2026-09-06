@@ -32,7 +32,6 @@ import { statusCommand } from "./status.js";
 import { supersedeCommand } from "./supersede.js";
 import { sweepCommand } from "./sweep.js";
 import { syncInstructionsCommand } from "./sync-instructions.js";
-import { telemetryCommand } from "./telemetry.js";
 import { traceCommand } from "./trace.js";
 import { typesCommand } from "./types.js";
 import { unpinCommand } from "./unpin.js";
@@ -76,7 +75,6 @@ export const KB_COMMANDS: KbCommand[] = [
   pinsCommand,
   contextCommand,
   syncInstructionsCommand,
-  telemetryCommand,
   typesCommand,
 ];
 
