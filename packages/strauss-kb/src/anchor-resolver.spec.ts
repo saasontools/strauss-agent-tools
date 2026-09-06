@@ -21,6 +21,10 @@ import {
   regexResolver,
   repoIdentifies,
   resolveAnchor,
+  resolveAnchorSpan,
+  type AnchorResolution,
+  type AnchorResolver,
+  type ResolverAttempt,
 } from "./anchor-resolver/index.js";
 import { composeInputSchema } from "./compose.js";
 import { kbAnchorSchema, type KbRecord } from "./kb-record.schema.js";
@@ -486,6 +490,96 @@ describe("resolveAnchor", () => {
   });
 });
 
+describe("resolveAnchorSpan after a parsed miss", () => {
+  const IMPORT_AND_CALL = [
+    'import { chunkIds } from "./chunker.js";',
+    "",
+    "export function ingest(ids: string[]): string[][] {",
+    "  return chunkIds(ids, 10);",
+    "}",
+    "",
+  ].join("\n");
+
+  function stub(verdict: ResolverAttempt): AnchorResolver {
+    return { name: "stub", attempt: () => verdict, resolve: () => null };
+  }
+
+  const parsedMiss = stub({
+    kind: "unresolved",
+    reason: "symbol-not-found",
+  });
+  const abstains = stub({ kind: "abstain" });
+
+  test("a call site does not stand in for a definition the parser lost", () => {
+    expect(
+      resolveAnchorSpan(
+        IMPORT_AND_CALL,
+        { file: "src/a.ts", symbol: "chunkIds" },
+        [parsedMiss, regexResolver],
+      ),
+    ).toEqual({ ok: false, reason: "symbol-not-found" });
+  });
+
+  test("a declaration the parser does not define still answers", () => {
+    const outcome = resolveAnchorSpan(
+      "const CHUNK_SIZE = 100;\n",
+      { file: "src/a.ts", symbol: "CHUNK_SIZE" },
+      [parsedMiss, regexResolver],
+    );
+    expect(outcome.ok).toBe(true);
+    expect((outcome as Extract<AnchorResolution, { ok: true }>).resolver).toBe(
+      "regex",
+    );
+  });
+
+  test("nothing parsed, so every tier is still on offer", () => {
+    const outcome = resolveAnchorSpan(
+      IMPORT_AND_CALL,
+      { file: "src/a.ts", symbol: "chunkIds" },
+      [abstains, regexResolver],
+    );
+    expect(outcome.ok).toBe(true);
+    expect(
+      (outcome as Extract<AnchorResolution, { ok: true }>).span.startLine,
+    ).toBe(4);
+  });
+
+  test("a resolve-only miss did not parse, so it narrows nothing", () => {
+    const resolveOnly: AnchorResolver = { name: "stub", resolve: () => null };
+    const outcome = resolveAnchorSpan(
+      IMPORT_AND_CALL,
+      { file: "src/a.ts", symbol: "chunkIds" },
+      [resolveOnly, regexResolver],
+    );
+    expect(outcome.ok).toBe(true);
+    expect(
+      (outcome as Extract<AnchorResolution, { ok: true }>).span.startLine,
+    ).toBe(4);
+  });
+
+  test("the anchored tier skips a parameter annotation", () => {
+    expect(
+      resolveAnchorSpan(
+        "function f(chunkIds: string[]) {}\n",
+        { file: "src/a.ts", symbol: "chunkIds" },
+        [parsedMiss, regexResolver],
+      ),
+    ).toEqual({ ok: false, reason: "symbol-not-found" });
+  });
+
+  test("the anchored tier takes a declaration at line start", () => {
+    const outcome = resolveAnchorSpan(
+      "export const chunkIds = 3;\n",
+      { file: "src/a.ts", symbol: "chunkIds" },
+      [parsedMiss, regexResolver],
+    );
+    expect(outcome.ok).toBe(true);
+    expect(
+      (outcome as Extract<AnchorResolution, { ok: true }>).span.startLine,
+    ).toBe(1);
+  });
+});
+
 describe("anchorFilePath", () => {
   test("keeps repo-relative paths and strips a leading ./", () => {
     const expected = resolve("/repo", "src", "a.ts");
@@ -626,6 +720,71 @@ describe("detectAnchorDrift", () => {
 
     const entry = drift.get("decision.cancel")?.[0];
     expect(entry?.state).toBe("drifted");
+    expect(entry?.reason).toBeUndefined();
+  });
+
+  // A constant is in no tags query, so the chain hands it back to regex every
+  // run. Nothing changed hands, and nothing may report as if it had.
+  test("a const stamped by regex re-resolves through regex and matches", async ({
+    repo,
+  }) => {
+    const source = [
+      "export const KB_EDGE_KINDS = [",
+      '  "supersedes",',
+      '  "refines",',
+      "] as const;",
+      "",
+    ].join("\n");
+    write(repo, "src/edges.ts", source);
+    const anchor = {
+      ...stamp("src/edges.ts", "KB_EDGE_KINDS", source),
+      resolver: "regex" as const,
+    };
+
+    const drift = await detectAnchorDrift(
+      [record("decision.edges", [anchor])],
+      { repoRoot: repo },
+    );
+
+    const entry = drift.get("decision.edges")?.[0];
+    expect(entry?.state).toBe("match");
+    expect(entry?.resolver).toBe("regex");
+    expect(entry?.reason).toBeUndefined();
+  });
+
+  // The definition is gone and regex lands on something else carrying the name.
+  // Drift is the right answer; `resolver-changed` would excuse a real deletion.
+  test("a deleted tree-sitter definition drifts, not resolver-changed", async ({
+    repo,
+  }) => {
+    write(repo, "src/orders.ts", SOURCE);
+    const anchor = {
+      ...stamp("src/orders.ts", "OrderService.cancel", SOURCE),
+      resolver: "tree-sitter" as const,
+    };
+    write(
+      repo,
+      "src/orders.ts",
+      [
+        "export class OrderService {",
+        "  close(id: string): void {",
+        "    this.repo.drop(id);",
+        "  }",
+        "}",
+        "",
+        "export const cancel = (id: string) => close(id);",
+        "",
+      ].join("\n"),
+    );
+
+    const drift = await detectAnchorDrift(
+      [record("decision.cancel", [anchor])],
+      { repoRoot: repo },
+    );
+
+    const entry = drift.get("decision.cancel")?.[0];
+    expect(entry?.state).toBe("drifted");
+    expect(entry?.resolver).toBe("regex");
     expect(entry?.reason).toBeUndefined();
   });
 
