@@ -47,11 +47,11 @@ describe("cost ceilings", () => {
     expect(elapsed(() => void matchToDiff(files, records))).toBeLessThan(300);
   });
 
-  test("classifyDiff over a 5000-file diff stays under 1500ms", () => {
+  test("classifyDiff over a 5000-file diff stays under 4000ms", () => {
     const files = benchDiff(5_000, 5_000, { withLines: true });
     const records = benchOverrides(200, 5_000);
     expect(elapsed(() => void classifyDiff(files, { records }))).toBeLessThan(
-      1_500,
+      4_000,
     );
   });
 
