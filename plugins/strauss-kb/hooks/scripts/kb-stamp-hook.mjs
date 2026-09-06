@@ -117,9 +117,16 @@ async function compare(cwd, statePath, event) {
   const before = new Map(
     (readState(statePath).stamps ?? []).map((stamp) => [stamp.path, stamp]),
   );
-  const changed = stamps.filter(
-    (stamp) => before.get(stamp.path)?.digest !== stamp.digest,
-  );
+  // Two ways a base can have moved under the agent: its own records changed,
+  // or the code its anchors point at did. The second is why `drifted` is
+  // compared rather than merely reported — a pull that only reformats an
+  // anchored file leaves every record byte-identical.
+  const changed = stamps.filter((stamp) => {
+    const previous = before.get(stamp.path);
+    return (
+      previous?.digest !== stamp.digest || newDrift(stamp, previous) > 0
+    );
+  });
   writeState(statePath, { head: await gitHead(cwd), stamps });
   if (changed.length === 0) return 0;
 
@@ -138,13 +145,39 @@ async function compare(cwd, statePath, event) {
 }
 
 function line(stamp, before) {
+  const drifted = drift(stamp);
+  if (before?.digest === stamp.digest) return drifted.trim();
+
   const ids = changedIds(stamp, before);
   const named = ids.slice(0, MAX_LISTED_IDS).join(", ");
   const more = ids.length > MAX_LISTED_IDS ? ", …" : "";
   return (
     `Knowledge base \`${stamp.path}\` changed since it was loaded ` +
     `(${stamp.recordCount} records) — \`kb_load\` it before relying on it.` +
-    (named ? ` Changed: ${named}${more}.` : "")
+    (named ? ` Changed: ${named}${more}.` : "") +
+    drifted
+  );
+}
+
+/** How many records drifted that had not drifted at the last stamp. */
+function newDrift(stamp, before) {
+  const now = Number(stamp?.drifted);
+  if (!Number.isInteger(now)) return 0;
+  const previous = Number(before?.drifted);
+  return now - (Number.isInteger(previous) ? previous : 0);
+}
+
+/**
+ * The reassessment half of the notice. A drifted anchor is not a reload — the
+ * base is current and the code moved — so it names the verb that produces
+ * something to read rather than telling the agent to load again.
+ */
+function drift(stamp) {
+  const count = Number(stamp?.drifted);
+  if (!Number.isInteger(count) || count <= 0) return "";
+  return (
+    ` ${count} anchored record${count === 1 ? "" : "s"} drifted — ` +
+    "`kb_doctor --drifted --with-diff`."
   );
 }
 

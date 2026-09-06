@@ -97,6 +97,14 @@ export const kbAnchorSchema = z
         message: "hash must be sha256:<64 hex chars>",
       })
       .optional(),
+    /**
+     * What `hash` was taken over: the span's raw text, or the normalised token
+     * stream a parser sees (`ast`). Absent means `raw`, which is what every
+     * anchor stamped before this field carries, so old hashes keep comparing
+     * the way they were written. An `ast` hash is blind to whitespace and
+     * comments, so reformatting the anchored code is not drift.
+     */
+    hash_kind: z.enum(["raw", "ast"]).optional(),
     /** ISO 8601 timestamp of the last successful resolution. */
     resolved_at: z.string().min(1).optional(),
     /** Line count of the text the hash was taken over. */

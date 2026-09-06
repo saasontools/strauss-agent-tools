@@ -336,7 +336,9 @@ describe("query anchor drift", () => {
 
     expect(drifted).toBeDefined();
     if (drifted?.kind !== "drifted") return;
-    expect(drifted.anchors).toEqual([{ file: "src/order.ts", diffSize: 2 }]);
+    expect(drifted.anchors).toEqual([
+      { file: "src/order.ts", diffSize: 2, class: "changed" },
+    ]);
   });
 
   // Until a resolution pass stamps hashes, drift detection must cost nothing

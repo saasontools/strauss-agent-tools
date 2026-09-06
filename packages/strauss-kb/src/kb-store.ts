@@ -43,6 +43,7 @@ import {
   looksLikeWrongRepoRoot,
   type KbAnchorDriftEntry,
 } from "./anchor-resolver/index.js";
+import { isUncheckedReason } from "./remote-repo/index.js";
 import { resolveHits, searchBase, SEARCH_INDEX_FILE } from "./search-index.js";
 import { trace, type KbTraceOptions, type KbTraceStep } from "./trace.js";
 import { pack, type KbPackOptions, type KbPackResult } from "./pack.js";
@@ -140,6 +141,15 @@ export type KbStampResult = {
   /** Newest `generated.at` across the base, or null when none carries one. */
   newestAt: string | null;
   records: KbRecordStamp[];
+  /**
+   * Records with at least one anchor whose code no longer matches its hash.
+   *
+   * Outside the digest, and deliberately: drift is a fact about the working
+   * tree, not about the base's content, and folding it in would make a stamp
+   * change every time someone checked out a branch. `null` when the drift pass
+   * could not run — an unknown count, which is not zero.
+   */
+  drifted: number | null;
 };
 
 export type KbWriteInput = {
@@ -675,11 +685,17 @@ export class KbStore {
 
   /**
    * `load`'s digest without `load`'s bodies — the same records, adjudicated
-   * the same way, handed back as a stamp. Skips the anchor drift pass, which
-   * reads source files and only ever adds warnings: no warning reaches the
-   * digest, so the value is identical to the one `load` returns.
+   * the same way, handed back as a stamp.
+   *
+   * Drift is counted but kept out of the digest, which is what lets the reload
+   * hook ask one question and get two answers: whether the base moved, and
+   * whether the code under it did. A `load` and a `stamp` of the same base
+   * still agree on the digest, because no warning has ever reached it.
    */
-  async stamp(bundlePath: string): Promise<KbStampResult> {
+  async stamp(
+    bundlePath: string,
+    options: { repoRoot?: string } = {},
+  ): Promise<KbStampResult> {
     const bundle = await this.list(bundlePath);
     const adjudicated = adjudicate(bundle, bundle, new Date());
     const current = adjudicated.filter((hit) => hit.standing !== "superseded");
@@ -693,6 +709,28 @@ export class KbStore {
       .filter((at): at is string => typeof at === "string")
       .sort();
 
+    // Counted after the digest, so a failed or suppressed drift pass can only
+    // cost the count, never the stamp.
+    //
+    // Deliberately the shallow pass: `detectAnchorDrift` compares hashes and
+    // stops, so this reads each anchored file once and never lists or parses
+    // the repository. `moved` and `cosmetic` would need both, and a count does
+    // not want them — a reload hook runs this after ordinary git commands, and
+    // it asks how many records need a look, not which of them are relocatable.
+    // That question belongs to `reassess` and `doctor --drifted`. Anchors
+    // naming another repository are read from the local cache only — never
+    // fetched — and an unchecked one is never counted.
+    const drift = await this.detectDrift(bundle, options.repoRoot);
+    const drifted =
+      drift === undefined
+        ? null
+        : [...drift.values()].filter((entries) =>
+            entries.some(
+              (entry) =>
+                entry.state !== "match" && !isUncheckedReason(entry.reason),
+            ),
+          ).length;
+
     return {
       path: bundlePath,
       digest: stamped.digest,
@@ -700,6 +738,7 @@ export class KbStore {
       superseded: superseded.length,
       newestAt: dates.at(-1) ?? null,
       records: stamped.records,
+      drifted,
     };
   }
 

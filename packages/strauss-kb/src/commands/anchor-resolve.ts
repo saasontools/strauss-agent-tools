@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   anchorFileReader,
+  anchorHashOf,
   defaultAnchorResolvers,
   hashAnchorText,
   LazyOrigin,
@@ -11,6 +12,7 @@ import {
   resolveAnchorSpan,
   resolverChanged,
   type AnchorDriftReason,
+  type AnchorHashKind,
   type AnchorRead,
   type AnchorResolver,
   type AnchorResolverName,
@@ -37,6 +39,8 @@ type AnchorResolveResult = {
   state: "stamped" | "match" | "drifted" | "unresolved";
   storedHash?: string;
   currentHash?: string;
+  /** What the compared hashes were taken over. */
+  hashKind?: AnchorHashKind;
   /** `null` when the anchor recorded no `lines` — size unknown, not zero. */
   diffSize?: number | null;
   reason?: AnchorUnresolvedReason | AnchorDriftReason;
@@ -163,13 +167,23 @@ export const anchorResolveCommand = define({
 
       const resolved = outcome.span;
       const producedBy = outcome.resolver;
-      const currentHash = hashAnchorText(resolved.text);
+      const { hash: currentHash, kind } = anchorHashOf(anchor, outcome);
       const currentLines = resolved.endLine - resolved.startLine + 1;
+      // A fresh or rebaselined stamp takes the strongest hash the resolver can
+      // offer: `hash_kind: "ast"` is over the parsed token stream, so
+      // reformatting the anchored code stops registering as drift. An anchor
+      // already carrying a raw hash keeps comparing raw until it is
+      // rebaselined — see `anchorHashOf`.
+      const stampedKind = outcome.normalized ? "ast" : "raw";
+      const stampedHash = outcome.normalized
+        ? anchorHashOf({ ...anchor, hash: undefined }, outcome).hash
+        : currentHash;
       // `resolver` records which resolver the stored hash came from, so a
       // later run can tell a precise span from a heuristic one.
       const stamped: KbAnchor = {
         ...anchor,
-        hash: currentHash,
+        hash: stampedHash,
+        hash_kind: stampedKind,
         lines: currentLines,
         resolved_at: now(),
         ...(producedBy ? { resolver: producedBy } : {}),
@@ -182,7 +196,8 @@ export const anchorResolveCommand = define({
         results.push({
           ...base,
           state: "stamped",
-          currentHash,
+          currentHash: stampedHash,
+          hashKind: stampedKind,
           ...(producedBy ? { resolver: producedBy } : {}),
         });
         updated.push(stamped);
@@ -195,6 +210,7 @@ export const anchorResolveCommand = define({
           ...base,
           state: "drifted",
           currentHash,
+          hashKind: kind,
           diffSize: lineDelta(anchor, currentLines),
           ...(producedBy ? { resolver: producedBy } : {}),
           // A regex-stamped anchor re-read by tree-sitter drifts because the
@@ -232,6 +248,7 @@ export const anchorResolveCommand = define({
         ...base,
         state: "match",
         currentHash,
+        hashKind: kind,
         ...(producedBy ? { resolver: producedBy } : {}),
         ...(pinned ? { remoteState: "matches-ref" as const } : {}),
       });

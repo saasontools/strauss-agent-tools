@@ -21,7 +21,7 @@ export const stampCommand = define({
   tool: "kb_stamp",
   usage: "stamp [--bundle PATH] [--since DIGEST|FILE]",
   description:
-    "Content stamp of a base — `load`'s digest, record counts, per-record digests — without any bodies. Takes no bundlePath to stamp every pinned base. With `since`, reports only the bases that moved, naming the changed ids when the baseline is a prior stamp; silent when nothing changed. Reads, never writes.",
+    "Content stamp of a base — `load`'s digest, record counts, per-record digests, how many records have drifted anchors — without any bodies. Takes no bundlePath to stamp every pinned base. With `since`, reports only the bases that moved, naming the changed ids. Reads, never writes.",
   input: z.object({
     bundlePath: z
       .string()
@@ -85,7 +85,9 @@ export const stampCommand = define({
   render: (result) =>
     (result as KbStampReport[])
       .map((report) => {
-        const counts = `${report.recordCount} record(s), ${report.superseded} superseded`;
+        const counts = `${report.recordCount} record(s), ${report.superseded} superseded${
+          report.drifted ? `, ${report.drifted} drifted` : ""
+        }`;
         const head = `${report.path}  ${report.digest}  ${counts}${
           report.newestAt ? `  newest ${report.newestAt}` : ""
         }`;

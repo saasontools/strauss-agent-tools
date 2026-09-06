@@ -1,4 +1,7 @@
-import type { KbAnchorDriftEntry } from "./anchor-resolver/index.js";
+import type {
+  KbAnchorDriftEntry,
+  KbDriftClass,
+} from "./anchor-resolver/index.js";
 import { isUncheckedReason } from "./remote-repo/index.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 
@@ -43,6 +46,12 @@ export type KbWarningAnchor = {
   /** Set only for an anchor resolved against another repository. */
   repo?: string;
   remoteState?: string;
+  /**
+   * `gone` or `changed` — what a hash comparison alone can settle. `moved` and
+   * `cosmetic` cost a repository search and a git read, so they are
+   * `kb_reassess`'s answer, not a read path's.
+   */
+  class?: KbDriftClass;
 };
 
 export type KbStanding =
@@ -143,6 +152,7 @@ function warningAnchor(entry: KbAnchorDriftEntry): KbWarningAnchor {
     ...(reason !== undefined ? { reason } : {}),
     ...(repo !== undefined ? { repo } : {}),
     ...(remoteState !== undefined ? { remoteState } : {}),
+    ...(entry.class !== undefined ? { class: entry.class } : {}),
   };
 }
 

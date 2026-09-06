@@ -9,16 +9,18 @@ import {
 } from "../remote-repo/index.js";
 import type {
   AnchorFileReader,
+  AnchorHashKind,
   AnchorRead,
   AnchorResolver,
   AnchorResolverName,
   KbAnchorDriftEntry,
+  KbDriftClass,
 } from "./model.js";
 import { anchorFileReader, readAnchorFiles } from "./read.js";
 import { LazyOrigin, normalizeRepoUrl } from "./repo-identity.js";
 import {
+  anchorHashOf,
   defaultAnchorResolvers,
-  hashAnchorText,
   prepareResolvers,
   resolveAnchorSpan,
   resolverChanged,
@@ -159,10 +161,44 @@ function unresolved(
     diffSize: null,
     ...(reason ? { reason } : {}),
     ...(repo ? { repo } : {}),
+    ...classOf(reason),
   };
 }
 
-type Current = { hash: string; lines: number; resolver?: AnchorResolverName };
+/**
+ * The class a hash comparison alone can settle.
+ *
+ * A vanished file or an undefined symbol is `gone` — the strongest signal
+ * there is, because the described code does not exist to be re-read. Anything
+ * that resolved and hashed differently is `changed` until a search proves it
+ * only moved.
+ */
+export function provisionalDriftClass(
+  entry: Pick<KbAnchorDriftEntry, "state" | "reason">,
+): KbDriftClass | undefined {
+  if (entry.state === "unresolved") {
+    return entry.reason === "file-missing" ||
+      entry.reason === "symbol-not-found"
+      ? "gone"
+      : undefined;
+  }
+  return entry.state === "drifted" ? "changed" : undefined;
+}
+
+/** `class` for an unresolved reason, or nothing to spread. */
+function classOf(reason: KbAnchorDriftEntry["reason"]): {
+  class?: KbDriftClass;
+} {
+  const settled = provisionalDriftClass({ state: "unresolved", reason });
+  return settled ? { class: settled } : {};
+}
+
+type Current = {
+  hash: string;
+  kind: AnchorHashKind;
+  lines: number;
+  resolver?: AnchorResolverName;
+};
 
 /** The hash of an anchor's text in one source, or the reason it has none. */
 function hashIn(
@@ -174,10 +210,12 @@ function hashIn(
   | { ok: false; reason: KbAnchorDriftEntry["reason"] } {
   const outcome = resolveAnchorSpan(source, anchor, resolvers);
   if (!outcome.ok) return { ok: false, reason: outcome.reason };
+  const { hash, kind } = anchorHashOf(anchor, outcome);
   return {
     ok: true,
     current: {
-      hash: hashAnchorText(outcome.span.text),
+      hash,
+      kind,
       lines: outcome.span.endLine - outcome.span.startLine + 1,
       ...(outcome.resolver ? { resolver: outcome.resolver } : {}),
     },
@@ -207,17 +245,20 @@ function resolverExtras(
 
 function compared(
   anchor: KbAnchor,
-  current: { hash: string; lines: number },
+  current: Current,
   extra: Partial<KbAnchorDriftEntry> = {},
 ): KbAnchorDriftEntry {
+  const matched = current.hash === anchor.hash;
   return {
     ...base(anchor),
-    state: current.hash === anchor.hash ? "match" : "drifted",
+    state: matched ? "match" : "drifted",
     currentHash: current.hash,
+    hashKind: current.kind,
     diffSize:
       anchor.lines === undefined
         ? null
         : Math.abs(current.lines - anchor.lines),
+    ...(matched ? {} : { class: "changed" as const }),
     ...extra,
   };
 }
