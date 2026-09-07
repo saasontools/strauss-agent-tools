@@ -37,7 +37,8 @@ verdicts.
 **`review-walkthrough`** — the base and the diff rendered as one HTML review
 guide for a human.
 
-**`kb-fix`** — see [Fixing a base](#fixing-a-base).
+**`kb-fix`** — a base whose gate findings block, routed to whoever can still
+fix them. See [Fixing a base](#fixing-a-base).
 
 ## Reviewer agent
 
