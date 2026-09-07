@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-nine tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-three tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.
@@ -309,9 +309,10 @@ not as walked. For one flat hop of every rel, use `kb_backlinks`.
 
 ### `kb_match`
 
-As CLI [`match`](./cli-reference.md#match) minus its two CLI-side ways in: the
-diff arrives as `files`. Reach for it when the question is what is attached to
-code in hand rather than whether anything addresses a question.
+As CLI [`match`](./cli-reference.md#match), except that the diff always arrives
+as `files` — there is no `--git` or `--stdin` here. Reach for it when you have
+code in hand and want what is attached to it; use `kb_answer` when you have a
+question and want whatever addresses it.
 
 Parameters: `bundlePath` and `files`
 (`[{ filePath, hunks: [{ startLine, endLine, side? }] }]`, where a hunk's
@@ -337,9 +338,9 @@ omitted), `repoRoot` (`string`), `offline` (`boolean`) and `includeNonCurrent`
 
 ### `kb_classify`
 
-As CLI [`classify`](./cli-reference.md#classify) minus its two CLI-side ways
-in: the diff arrives as `files`. Reach for it to decide what in a change needs
-reading; `kb_match` says what is attached to it.
+As CLI [`classify`](./cli-reference.md#classify), except that the diff always
+arrives as `files` — there is no `--git` or `--stdin` here. Reach for it to
+decide what in a change needs reading; `kb_match` says what is attached to it.
 
 Parameters: `bundlePath` and `files` required — each file
 `{ filePath, hunks: [{ startLine, endLine, side?, lines? }], renamedFrom?, similarity? }`,
