@@ -18,8 +18,8 @@ Codex, and Agent Plugins 1.0 clients:
   the agents stay the things they spawn. A client with no subagents (Codex)
   runs the passes inline from those files instead
 - `hooks/scripts/` — the review gate, node builtins only, `// @ts-check`ed.
-  It spawns the `strauss-kb` CLI and never imports the package, which is what
-  keeps this directory buildless
+  It spawns the `strauss-kb` CLI and never imports the package, so this
+  directory stays buildless
 - `plugin.json` / `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json`
   — one manifest per format; keep name/version/description in sync
 
@@ -33,8 +33,9 @@ Codex, and Agent Plugins 1.0 clients:
 - Validate with `claude plugin validate .` (or `pnpm nx run
 plugin-strauss-kb-review:validate` from the repo root) after any change.
 - **Every shipped script has a target.** `hooks/scripts/` and
-  `review-walkthrough/scripts/` are `// @ts-check`ed node, so `project.json` carries `lint`, `typecheck` and
-  `test` beside `validate`. A script CI never runs is a script that rots.
+  `review-walkthrough/scripts/` are `// @ts-check`ed node, so `project.json`
+  carries `lint`, `typecheck` and `test` beside `validate`. A script CI never
+  runs is a script that rots.
 - **Node builtins only in shipped scripts.** A plugin directory has no build
   step and no `node_modules` of its own.
 - **The gate ships unwired.** A plugin's `hooks/hooks.json` is auto-discovered

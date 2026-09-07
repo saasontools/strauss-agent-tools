@@ -37,7 +37,8 @@ verdicts.
 **`review-walkthrough`** — the base and the diff rendered as one HTML review
 guide for a human.
 
-**`kb-fix`** — see [Fixing a base](#fixing-a-base).
+**`kb-fix`** — a base whose gate findings block, routed to whoever can still
+fix them. See [Fixing a base](#fixing-a-base).
 
 **`merge-policy`** — who reviews a range, decided from the records alone.
 
@@ -46,7 +47,7 @@ guide for a human.
 ## Reviewer agent
 
 `agents/kb-reviewer.md` (Claude Code only) reviews a pull request against the
-base the other two skills wrote, and writes its verdicts back as
+companion base the other two skills wrote, and writes its verdicts back as
 `agent:reviewer`. The procedure, the two surfaces it writes through, and the
 output shape live there. Per-scenario outcome expectations are in
 `agents/kb-reviewer.expectations.json`, for SAA-746's runner to assert against.
@@ -64,12 +65,13 @@ late tier may apply, and the `open-question` everything else becomes, live in
 ## Gate
 
 `hooks/scripts/kb-review-gate.mjs` reads the session's diff and the companion
-base and asks one question: did this change record what it owes? Every check
-sits in the header of its [`lib/family-*.mjs`](./hooks/scripts/lib/).
+base and asks one question: did this change record what it owes? Its checks
+come in families A–F and are named by id (`B2`, `F4`); each family's checks sit
+in the header of its [`lib/family-*.mjs`](./hooks/scripts/lib/).
 
 It blocks on what a record does or does not say — an uncovered change, a
-fabricated record, an unearned status move, a `kb_validate` error, an F signal
-with no record of the type it owes — and warns on the heuristics: sizes,
+fabricated record, an unearned status move, a `kb_validate` error, a family-F
+signal with no record of the type it owes — and warns on the heuristics: sizes,
 duplicates, expiry, drift. `--report` prints the same findings and exits 0.
 
 **Arming** takes both halves: copy the entries from
@@ -84,27 +86,30 @@ a block by id, or switches a check off:
 
 ## Walkthrough
 
-`scripts/__snapshots__/*.json` pin the deck two `fixtures/companion-repo`
-scenarios produce. A snapshot diff is a review, not a failure — read it, decide
-whether the new deck is better, then `UPDATE_SNAPSHOTS=1` to accept it.
-
 How to run it, the order it renders and when it refuses:
 [`skills/review-walkthrough/SKILL.md`](skills/review-walkthrough/SKILL.md).
 
+`skills/review-walkthrough/scripts/__snapshots__/*.json` pin the page two
+`fixtures/companion-repo` scenarios produce. A snapshot diff is a review, not a
+failure — read it, decide whether the new page is better, then
+`UPDATE_SNAPSHOTS=1` to accept it.
+
 ## Merge policy
 
-`skills/merge-policy/scripts/merge-policy.mjs` answers one question about a
-range: `auto`, `agent-review-then-auto`, or `human`. Seventeen rows, first
-match wins, each reporting the rule id it matched; the table is the header of
-[`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
+`skills/merge-policy/scripts/merge-policy.mjs` decides who reviews a commit
+range: `auto`, `agent-review-then-auto`, or `human`. Seventeen rules settle it,
+first match wins, and the result names the one that matched; the table is the
+header of [`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
 
-`--enforce` turns the route into the exit code, approval comes from the GitHub
-reviews API, and what `.strauss/merge-policy.json` may say — an allowlist over
-types, tags, floors, paths, classes and layers — is
+`--enforce` turns the route into the exit code, and approval comes from the
+GitHub reviews API. What `.strauss/merge-policy.json` may hold — dispositions
+per record type and tag, materiality floors, auto-eligible paths and classes,
+and the layers that may only escalate them — is
 [`SKILL.md`](./skills/merge-policy/SKILL.md). With `--write-record` the run also
 lands the `decision.merge-<pr>` that `--report-out` renders as the PR's sticky
-comment. The route each `fixtures/companion-repo` scenario produces is pinned
-by that scenario's `expected.json`.
+comment. The route each
+`fixtures/companion-repo` scenario produces is pinned by that scenario's
+`expected.json`.
 
 ## Fresh-eye decider
 
