@@ -39,7 +39,7 @@ const IMPORT = /(?:from|import|require)\s*\(?\s*["']([^"']+)["']/g;
 /**
  * @param {{ base: string, head: string, headSha: string, repoRoot: string,
  *   bundleDir: string, policyPath: string | null, reviewer: any,
- *   approvals: any[], gateSupplied?: boolean,
+ *   approvals: any[], gateSupplied?: boolean, decider?: any,
  *   defaults?: { path: string, text: string | null } | null }} options
  * @param {Run} run
  */
@@ -87,6 +87,7 @@ export function gather(options, run) {
     unearned: unearnedResolutions(records, log),
     gate: gateReport(run, options.gateSupplied === true),
     reviewer: reviewer(options.reviewer),
+    decider: decider(options.decider ?? null, options.headSha),
     approvals: approvals(options.approvals),
     log,
   };
@@ -427,6 +428,50 @@ function reviewer(raw) {
       asString(raw.sha) || asString(raw.run?.sha) || asString(raw.head) || null,
     verdicts,
     risksWritten,
+  };
+}
+
+/**
+ * The fresh-eye decider's verdict. It aggregates and it may veto; it is never
+ * an authority, so only `escalate` is ever read — a `concur` reaches no rule.
+ * A `sha` that is not the head describes some other diff, so it is dropped and
+ * `notes` says so: ignored, never trusted, and never an error.
+ * @param {any} raw @param {string} headSha
+ */
+function decider(raw, headSha) {
+  /** @param {string[]} notes @param {Partial<any>} [over] */
+  const absent = (notes, over = {}) => ({
+    present: false,
+    verdict: /** @type {string | null} */ (null),
+    reason: "",
+    sha: null,
+    model: null,
+    /** @type {string[]} */ reliedOn: [],
+    /** @type {string[]} */ disputes: [],
+    notes,
+    ...over,
+  });
+  if (!raw || typeof raw !== "object") {
+    return absent(["decider: no --decider output"]);
+  }
+  const sha = asString(raw.sha) || null;
+  if (sha !== headSha) {
+    return absent(
+      [
+        `decider: ran on ${sha || "an unnamed commit"}, not the head sha, so its verdict was not read`,
+      ],
+      { sha },
+    );
+  }
+  return {
+    present: true,
+    verdict: asString(raw.verdict),
+    reason: asString(raw.reason),
+    sha,
+    model: asString(raw.model) || null,
+    reliedOn: asArray(raw.reliedOn).map(String),
+    disputes: asArray(raw.disputes).map(String),
+    /** @type {string[]} */ notes: [],
   };
 }
 

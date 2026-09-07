@@ -42,6 +42,8 @@ fix them. See [Fixing a base](#fixing-a-base).
 
 **`merge-policy`** — who reviews a range, decided from the records alone.
 
+**`merge-decide`** — see [Fresh-eye decider](#fresh-eye-decider).
+
 ## Reviewer agent
 
 `agents/kb-reviewer.md` (Claude Code only) reviews a pull request against the
@@ -95,7 +97,7 @@ failure — read it, decide whether the new page is better, then
 ## Merge policy
 
 `skills/merge-policy/scripts/merge-policy.mjs` decides who reviews a commit
-range: `auto`, `agent-review-then-auto`, or `human`. Sixteen rules settle it,
+range: `auto`, `agent-review-then-auto`, or `human`. Seventeen rules settle it,
 first match wins, and the result names the one that matched; the table is the
 header of [`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
 
@@ -108,6 +110,15 @@ lands the `decision.merge-<pr>` that `--report-out` renders as the PR's sticky
 comment. The route each
 `fixtures/companion-repo` scenario produces is pinned by that scenario's
 `expected.json`.
+
+## Fresh-eye decider
+
+`agents/kb-decider.md` reads a reviewer's output beside the hunks its records
+anchor to and answers `concur` or `escalate`. It is a veto, not an authority:
+`escalate` matches the `decider-escalate` row and routes `human`, `concur`
+matches nothing. Feed its JSON back with
+`merge-policy.mjs --decider`; when and how to spawn it, and which of the two
+diversity options a repo picks, are [`skills/merge-decide/SKILL.md`](./skills/merge-decide/SKILL.md).
 
 ## Install (unpublished)
 

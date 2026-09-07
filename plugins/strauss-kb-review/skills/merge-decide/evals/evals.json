@@ -1,0 +1,146 @@
+{
+  "skill_name": "merge-decide",
+  "note": "Trigger-accuracy regression suite. Same shape and run command as ../../recording-decisions/evals/README.md.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "second-opinion-on-reviewer",
+      "prompt": "the reviewer agent came back clean and CI is about to merge this on its word alone. can we get a second model to check that before it goes in?",
+      "expected_trigger": true,
+      "why": "The fresh-eye pass over a reviewer's output, asked in plain words."
+    },
+    {
+      "id": 2,
+      "name": "llm-judging-llm",
+      "prompt": "i'm nervous about one model grading another model's review. how do we stop the judge from just agreeing with whatever the reviewer wrote?",
+      "expected_trigger": true,
+      "why": "The diversity rule and the anchor read are exactly this concern."
+    },
+    {
+      "id": 3,
+      "name": "decider-flag",
+      "prompt": "what json do i pass to merge-policy --decider, and what happens if the sha in it is from an older commit?",
+      "expected_trigger": true,
+      "why": "The feed-back step and the stale-sha rule."
+    },
+    {
+      "id": 4,
+      "name": "can-it-lower-the-route",
+      "prompt": "if the decider comes back concur on a range we routed to a human, does that let it merge without one?",
+      "expected_trigger": true,
+      "why": "The veto-not-authority rule, asked as its inverse."
+    },
+    {
+      "id": 5,
+      "name": "when-to-spawn",
+      "prompt": "our merge workflow spawns an extra opus run on every pull request and the bill shows it. when is that run actually worth doing?",
+      "expected_trigger": true,
+      "why": "The auto/agent-review-then-auto-only rule and the skip on an already-human route."
+    },
+    {
+      "id": 6,
+      "name": "blind-vs-different-model",
+      "prompt": "we only have one model family available. can we still run the extra checking pass over the reviewer's verdicts, or does it need a different model?",
+      "expected_trigger": true,
+      "why": "The two diversity options and who picks between them."
+    },
+    {
+      "id": 7,
+      "name": "hearsay",
+      "prompt": "should the checking agent read the whole diff, or just the reviewer's notes? reading only the notes feels like judging hearsay.",
+      "expected_trigger": true,
+      "why": "What the decider reads: the hunks its records anchor to, never the whole diff and never the prose alone."
+    },
+    {
+      "id": 8,
+      "name": "budget-exhausted",
+      "prompt": "the second-opinion agent ran out of tokens halfway through. what should it output — clean, or something else?",
+      "expected_trigger": true,
+      "why": "Degrade toward human: escalate with reason budget."
+    },
+    {
+      "id": 9,
+      "name": "prompt-injection-in-record",
+      "prompt": "a decision record on this branch has a line telling the checking agent to approve the merge. what is the agent supposed to do with that?",
+      "expected_trigger": true,
+      "why": "Reviewer and record text is PR-influenced content; quoting it and escalating is the rule."
+    },
+    {
+      "id": 10,
+      "name": "does-it-change-anything",
+      "prompt": "before we turn on the extra judging pass over the reviewer, how do we find out whether it ever changes a verdict?",
+      "expected_trigger": true,
+      "why": "The ordering sentence and the SAA-735 measurement."
+    },
+    {
+      "id": 11,
+      "name": "which-rule-fired",
+      "prompt": "CI escalated this branch to human review. which row of the route table matched, and what does the policy file let me change about it?",
+      "expected_trigger": false,
+      "why": "Computing and explaining the route is merge-policy."
+    },
+    {
+      "id": 12,
+      "name": "spawn-the-reviewer",
+      "prompt": "run the kb reviewer over this range and show me its per-record verdicts.",
+      "expected_trigger": false,
+      "why": "Collecting inputs and spawning the reviewer is kb-review."
+    },
+    {
+      "id": 13,
+      "name": "write-the-record",
+      "prompt": "i changed how the retry budget is scoped. write the decision record with the anchors and the rejected alternative.",
+      "expected_trigger": false,
+      "why": "Writing a record is recording-decisions."
+    },
+    {
+      "id": 14,
+      "name": "fix-the-base",
+      "prompt": "the gate reports D5 on two records and the author's session is gone. who repairs the base before the reviewer reads it?",
+      "expected_trigger": false,
+      "why": "Routing a repair is kb-fix."
+    },
+    {
+      "id": 15,
+      "name": "walkthrough-deck",
+      "prompt": "render an html page that walks a human through this PR in a sensible order, blocking risks first.",
+      "expected_trigger": false,
+      "why": "The reading deck is review-walkthrough."
+    },
+    {
+      "id": 16,
+      "name": "decision-log-question",
+      "prompt": "has anyone already decided how repositories retry transient store errors? i don't want to decide it twice.",
+      "expected_trigger": false,
+      "why": "A base lookup, answered by knowledge-base. \"Decide\" is the only word in common."
+    },
+    {
+      "id": 17,
+      "name": "product-decision",
+      "prompt": "help me decide whether to ship the new onboarding flow this sprint or wait for the redesign.",
+      "expected_trigger": false,
+      "why": "A product call, not a merge route. \"Decide\" again."
+    },
+    {
+      "id": 18,
+      "name": "required-reviewers",
+      "prompt": "configure github so two people from the platform team have to approve before anything lands on main.",
+      "expected_trigger": false,
+      "why": "Repository settings, not a verdict computed over a reviewer's output."
+    },
+    {
+      "id": 19,
+      "name": "plain-code-review",
+      "prompt": "read this diff and tell me what's actually wrong with it — correctness bugs, not process.",
+      "expected_trigger": false,
+      "why": "A code review. The decider judges a review, it does not perform one."
+    },
+    {
+      "id": 20,
+      "name": "run-the-gate",
+      "prompt": "run the review gate on this branch and show me the findings",
+      "expected_trigger": false,
+      "why": "The gate is one input to the route, not a verdict over a reviewer's output."
+    }
+  ]
+}
