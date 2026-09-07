@@ -338,9 +338,9 @@ omitted), `repoRoot` (`string`), `offline` (`boolean`) and `includeNonCurrent`
 
 ### `kb_classify`
 
-As CLI [`classify`](./cli-reference.md#classify) minus its two CLI-side ways
-in: the diff arrives as `files`. Reach for it to decide what in a change needs
-reading; `kb_match` says what is attached to it.
+As CLI [`classify`](./cli-reference.md#classify), except that the diff always
+arrives as `files` — there is no `--git` or `--stdin` here. Reach for it to
+decide what in a change needs reading; `kb_match` says what is attached to it.
 
 Parameters: `bundlePath` and `files` required — each file
 `{ filePath, hunks: [{ startLine, endLine, side?, lines? }], renamedFrom?, similarity? }`,
