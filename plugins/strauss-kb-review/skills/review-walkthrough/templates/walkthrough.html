@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{title}}</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fbfbfa;
+        --fg: #16181d;
+        --muted: #5d6470;
+        --line: #dcdfe4;
+        --card: #ffffff;
+        --accent: #2f5bd0;
+        --blocking: #b3261e;
+        --important: #a15c00;
+        --ok: #1a7f4b;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #14161a;
+          --fg: #e7e9ee;
+          --muted: #98a0ad;
+          --line: #2c3038;
+          --card: #1b1e24;
+          --accent: #8ab0ff;
+          --blocking: #ff8a80;
+          --important: #ffc46b;
+          --ok: #7ddba4;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.55 ui-sans-serif,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      code,
+      .verify code {
+        font:
+          13px/1.5 ui-monospace,
+          "SF Mono",
+          Menlo,
+          monospace;
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+        gap: 32px;
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 24px 20px 96px;
+      }
+      header {
+        grid-column: 1 / -1;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 12px;
+      }
+      h1 {
+        font-size: 19px;
+        margin: 0 0 4px;
+      }
+      .summary,
+      .muted,
+      .nolink {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      nav {
+        position: sticky;
+        top: 24px;
+        align-self: start;
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+      }
+      nav ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border-left: 2px solid var(--line);
+      }
+      nav a {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding: 5px 10px;
+        margin-left: -2px;
+        border-left: 2px solid transparent;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 13px;
+      }
+      nav a.here {
+        color: var(--fg);
+        border-left-color: var(--accent);
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex: none;
+      }
+      .dot.risk {
+        background: var(--blocking);
+      }
+      .dot.acceptance {
+        background: var(--ok);
+      }
+      .dot.question {
+        background: var(--important);
+      }
+      .step {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin: 0 0 14px;
+        scroll-margin-top: 20px;
+      }
+      .step:focus {
+        outline: 2px solid var(--accent);
+      }
+      .step h2 {
+        font-size: 16px;
+        margin: 0 0 6px;
+        display: inline;
+      }
+      .step .n {
+        color: var(--muted);
+        margin-right: 6px;
+      }
+      .step.risk {
+        border-left: 4px solid var(--blocking);
+      }
+      .step.acceptance {
+        border-left: 4px solid var(--ok);
+      }
+      .step.question {
+        border-left: 4px solid var(--important);
+      }
+      .why {
+        margin: 6px 0 10px;
+        color: var(--muted);
+      }
+      summary {
+        cursor: pointer;
+      }
+      .detail {
+        margin: 10px 0 0;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+        gap: 10px;
+        padding: 4px 0;
+        border-top: 1px solid var(--line);
+      }
+      dt {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .badge {
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 0 5px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      a.open {
+        color: var(--accent);
+        font-size: 13px;
+      }
+      .verify {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 6px 0;
+      }
+      .verify code {
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 5px 8px;
+        overflow-x: auto;
+        flex: 1;
+      }
+      button.copy {
+        background: var(--card);
+        color: var(--fg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+      .next {
+        margin: 12px 0 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .next a {
+        color: var(--accent);
+      }
+      .also {
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+        color: var(--muted);
+      }
+      .keys {
+        grid-column: 1 / -1;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      @media (max-width: 760px) {
+        .wrap {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        nav {
+          position: static;
+          max-height: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>{{title}}</h1>
+        <p class="summary">{{summary}}</p>
+      </header>
+      <nav aria-label="Steps">
+        <ol>
+          {{rail}}
+        </ol>
+      </nav>
+      <main>{{steps}} {{also}}</main>
+      <p class="keys">
+        j / k or ↓ / ↑ move between steps. c copies the focused step's verify
+        command.
+      </p>
+    </div>
+    <script>
+      (function () {
+        var steps = Array.prototype.slice.call(
+          document.querySelectorAll(".step"),
+        );
+        var links = Array.prototype.slice.call(
+          document.querySelectorAll("nav a[data-step]"),
+        );
+        var at = 0;
+        function show(index) {
+          at = Math.max(0, Math.min(steps.length - 1, index));
+          var step = steps[at];
+          if (!step) return;
+          var open = step.querySelector("details");
+          if (open) open.open = true;
+          step.focus({ preventScroll: true });
+          step.scrollIntoView({ block: "start", behavior: "smooth" });
+          links.forEach(function (link, i) {
+            link.classList.toggle("here", i === at);
+          });
+        }
+        function copy(node) {
+          var text = node.textContent || "";
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+          } else {
+            var box = document.createElement("textarea");
+            box.value = text;
+            document.body.appendChild(box);
+            box.select();
+            document.execCommand("copy");
+            box.remove();
+          }
+        }
+        document.addEventListener("click", function (event) {
+          var button = event.target.closest && event.target.closest(".copy");
+          if (!button) return;
+          var source = document.getElementById(button.dataset.copy);
+          if (!source) return;
+          copy(source);
+          button.textContent = "Copied";
+          setTimeout(function () {
+            button.textContent = "Copy";
+          }, 1200);
+        });
+        document.addEventListener("keydown", function (event) {
+          if (event.metaKey || event.ctrlKey || event.altKey) return;
+          var tag = (event.target.tagName || "").toLowerCase();
+          if (tag === "input" || tag === "textarea") return;
+          if (event.key === "j" || event.key === "ArrowDown") {
+            event.preventDefault();
+            show(at + 1);
+          } else if (event.key === "k" || event.key === "ArrowUp") {
+            event.preventDefault();
+            show(at - 1);
+          } else if (event.key === "c") {
+            var here = steps[at] && steps[at].querySelector(".verify code");
+            if (here) copy(here);
+          }
+        });
+        links.forEach(function (link, i) {
+          link.addEventListener("click", function () {
+            at = i;
+            links.forEach(function (other, j) {
+              other.classList.toggle("here", j === i);
+            });
+          });
+        });
+        if (links[0]) links[0].classList.add("here");
+      })();
+    </script>
+  </body>
+</html>

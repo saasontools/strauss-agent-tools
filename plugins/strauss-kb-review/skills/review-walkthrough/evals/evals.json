@@ -1,0 +1,146 @@
+{
+  "skill_name": "review-walkthrough",
+  "note": "Trigger-accuracy regression suite. Same shape and run command as ../../recording-decisions/evals/README.md.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "where-do-i-start",
+      "prompt": "i've got PR 412 open and it's 40 files. the branch has a .strauss/kb with risks and flows in it. where do i start reading? can you give me something that walks me through it in a sensible order?",
+      "expected_trigger": true,
+      "why": "A human about to review a PR with a companion base, asking for reading order."
+    },
+    {
+      "id": 2,
+      "name": "html-review-guide",
+      "prompt": "make me an html page i can open in a browser that walks through this pull request step by step, with links straight to the right lines on github. the kb records are already written.",
+      "expected_trigger": true,
+      "why": "The deliverable named outright."
+    },
+    {
+      "id": 3,
+      "name": "what-to-skip",
+      "prompt": "before i review this diff — which of these files are generated or just moved around? the author tagged some records review:generated. i don't want to read 600 lines of zod schemas by eye.",
+      "expected_trigger": true,
+      "why": "The skip step is what the walkthrough builds from those tags."
+    },
+    {
+      "id": 4,
+      "name": "read-first",
+      "prompt": "i have twenty minutes before this review is due. what are the blocking risks on saa-412's branch and where exactly are they in the diff?",
+      "expected_trigger": true,
+      "why": "Blocking-first ordering deep-linked to hunks."
+    },
+    {
+      "id": 5,
+      "name": "acceptance-criteria-walk",
+      "prompt": "can you show me each acceptance criterion on this ticket next to the code that claims to satisfy it? the requirements are in the kb as ac-1, ac-2, ac-3.",
+      "expected_trigger": true,
+      "why": "The acceptance-criteria flow section."
+    },
+    {
+      "id": 6,
+      "name": "reviewer-handoff",
+      "prompt": "the implementor finished and pushed. generate the review guide for the reviewer off main..HEAD so they don't have to read the base themselves.",
+      "expected_trigger": true,
+      "why": "The handoff this skill exists for."
+    },
+    {
+      "id": 7,
+      "name": "stale-deck-worry",
+      "prompt": "if i build a walkthrough of this PR now and someone pushes another commit, does the thing i'm holding still describe the code? how do i know the anchors haven't drifted?",
+      "expected_trigger": true,
+      "why": "The staleness rule and the drift refusal."
+    },
+    {
+      "id": 8,
+      "name": "deep-links",
+      "prompt": "i want a page per PR where each risk has an 'open in PR' link that lands on the exact line on the files tab, not just the file. can we build that from the kb anchors?",
+      "expected_trigger": true,
+      "why": "The deep-link requirement."
+    },
+    {
+      "id": 9,
+      "name": "review-guide-for-teammate",
+      "prompt": "my teammate is reviewing this branch tomorrow and won't have the kb loaded. give them a self-contained artifact that says what to look at first and why.",
+      "expected_trigger": true,
+      "why": "A single self-contained page for a human consumer."
+    },
+    {
+      "id": 10,
+      "name": "open-questions-for-me",
+      "prompt": "did the author leave anything for me to decide on this PR? i want the open questions and whatever they assumed in the meantime, in the order i should hit them.",
+      "expected_trigger": true,
+      "why": "The open-question step, with its default assumption."
+    },
+    {
+      "id": 11,
+      "name": "write-a-risk",
+      "prompt": "i just found a case where a retried checkout can charge twice. how do i record that as a risk in the kb so it shows up next to the hunk?",
+      "expected_trigger": false,
+      "why": "Writing the base is review-companion."
+    },
+    {
+      "id": 12,
+      "name": "record-a-decision",
+      "prompt": "i picked exponential backoff over a fixed delay for the payment retry. should that be a kb_write_decision, and what goes in the alternative field?",
+      "expected_trigger": false,
+      "why": "recording-decisions."
+    },
+    {
+      "id": 13,
+      "name": "actually-review-the-code",
+      "prompt": "read src/checkout/pay.ts on this branch and tell me whether the idempotency key handling is correct. i want your own judgement on the code.",
+      "expected_trigger": false,
+      "why": "A code review, not a reading order over one."
+    },
+    {
+      "id": 14,
+      "name": "plain-diff-summary",
+      "prompt": "summarise what changed between main and my branch. there's no kb here, just give me the gist of the diff.",
+      "expected_trigger": false,
+      "why": "No companion base; a diff summary is git's job."
+    },
+    {
+      "id": 15,
+      "name": "pr-description",
+      "prompt": "write the pull request description for this branch — motivation, what changed, how to test.",
+      "expected_trigger": false,
+      "why": "Prose for the PR body, not a reading deck."
+    },
+    {
+      "id": 16,
+      "name": "fix-the-drift",
+      "prompt": "kb_doctor says decision.tenant-chunk-size drifted after my last commit. should i rebaseline it or supersede it?",
+      "expected_trigger": false,
+      "why": "The per-commit maintenance loop is review-companion's."
+    },
+    {
+      "id": 17,
+      "name": "generic-html-report",
+      "prompt": "build me a static html dashboard of our test coverage over the last ten releases, with a dark mode.",
+      "expected_trigger": false,
+      "why": "An HTML page unrelated to a review of a diff."
+    },
+    {
+      "id": 18,
+      "name": "ci-failure",
+      "prompt": "ci is red on this PR — the typecheck target fails in plugins/strauss-kb-review. can you fix it?",
+      "expected_trigger": false,
+      "why": "A build failure, not a review."
+    },
+    {
+      "id": 19,
+      "name": "github-api-comments",
+      "prompt": "post my review comments to PR 412 through the gh cli, one per finding, on the right lines.",
+      "expected_trigger": false,
+      "why": "Posting to GitHub; the walkthrough is read-only and links only."
+    },
+    {
+      "id": 20,
+      "name": "kb-query",
+      "prompt": "does the knowledge base already say anything about how repositories retry transient store errors? i don't want to decide it twice.",
+      "expected_trigger": false,
+      "why": "A base lookup, answered by knowledge-base."
+    }
+  ]
+}
