@@ -26,13 +26,13 @@ own `--report` runs. `strauss-kb` comes from `$STRAUSS_KB_BIN`, else `PATH`.
 `agent-review-then-auto` only when `--reviewer`'s `sha` is the head SHA, and
 `human` only on an `APPROVED` review of that SHA from an `owners` login; a bad
 flag exits 2. **A merge step reads `mode`, never the exit code** — a dry run
-exits 0 whatever it would have done. It never waives human review, never
-records a route a human signs off, never reads the policy from the head branch,
-and never reads approval from a `kb verify` under a `human:` actor.
+exits 0 whatever it would have done. It never waives human review, never reads
+the policy from the head branch, and never reads approval from a `kb verify`
+under a `human:` actor.
 
-`--write-record` lands `decision.merge-<pr>` as `agent:merge-policy`, only for
-a route no human signs off and only under `--enforce`; a rerun writes a
-numbered sibling that supersedes the last. `--report-out FILE` renders the
+`--write-record` lands the record `decision.merge-<pr>` under the actor
+`agent:merge-policy`, only for a route that needs no human and only under
+`--enforce`; a rerun writes a numbered sibling that supersedes the last. `--report-out FILE` renders the
 block behind `<!-- strauss-kb merge-policy -->`, `--summary` appends it to
 `$GITHUB_STEP_SUMMARY`, `--pr-url` links each record. No deck is built here —
 [review-walkthrough](../review-walkthrough/SKILL.md) renders one from the same
@@ -41,19 +41,21 @@ records.
 ## Dry run
 
 `enabled: dry-run`, or `--dry-run` over any policy, runs the check on every PR
-and records what it **would** have done: the JSON and the block carry
-`mode: "dry-run"` and `would`, never `route`; `--write-record` lands nothing.
+and reports what it **would** have done, enforcing nothing: the JSON and the
+block carry `mode: "dry-run"` and `would`, never `route`; `--write-record`
+lands nothing.
 
-A dry run is **blind** unless `--visible`. A verdict a reviewer reads first
+A dry run is **blind** unless `--visible`: a verdict the reviewer reads first
 anchors the review, so `would` reads `<withheld>` in the block, the table and
-the JSON until `--approvals` shows a submitted review of the head SHA — any
-state, from a person: an account of type `Bot`, a `*[bot]` login and any
-`--bot-logins a,b` name are this step's own machinery, not a read. `--blind`
-asks for the same anywhere; both flags at once exit 2.
+the JSON until a person has reviewed — `--approvals` showing a submitted review
+of the head SHA, in any state. An account of type `Bot`, a `*[bot]` login and
+any `--bot-logins a,b` name are this step's own machinery, not a person.
+`--blind` withholds the same way outside a dry run; both flags at once exit 2.
 
 `--labels` (`[{name}]`) and `--reactions` (`[{content, user}]`, on the sticky
 comment) are how a human contradicts the route: a `policy:would-not-auto` label
-or a 👎, from a login the same three rules do not exclude, is a disagreement.
+or a 👎, from a login those same three bot rules do not exclude, is a
+disagreement.
 
 The block ends in a fenced JSON verdict behind
 `<!-- strauss-kb merge-policy:verdict -->` — `would`, `rule`, `classes`,
@@ -62,54 +64,25 @@ what `--calibrate` reads back.
 
 ## Calibration
 
-`--calibrate DUMP.json` takes what one command collects:
-
-```sh
-gh pr list --state all --limit 50 --json number,labels,comments > prs.json
-```
-
-Each entry is `{ number, labels: [{name}], comments: [{ author, body,
-reactionGroups }] }`. The verdict comes from the last marker comment authored
-by a `--bot-logins` login (`github-actions[bot]` unnamed); a marker anyone else
-typed is ignored. With this dump the label is the disagreement signal —
-`reactionGroups` counts reactors without naming them, so a 👎 counts only from
-a dump that names its reactor: a REST `reactions` array, or groups carrying
-`users.nodes`. A PR whose comment names no verdict — none posted, one still
-withheld, one unreadable — is never read as agreement. Nothing is keyed on the
-head SHA: a 👎 or label left on an earlier head still counts, and the direction
-is toward `human`.
-
-It prints the false-auto rate — PRs where `would` was unattended and a human
-disagreed, over that route's total, with `n` — per class and per rule, grouped
-by `policyHash`, one group `current` and every other `stale (policy changed)`.
+Dry runs pile up to answer one question: is a class safe to flip to `auto` yet?
+`--calibrate DUMP.json` reads their verdicts back out of the PRs'
+sticky comments and prints the false-auto rate — of the PRs a route would have
+merged without a human, the share a human then contradicted, with `n` — per
+class and per rule, grouped by `policyHash`, one group `current` and every
+other `stale (policy changed)`.
 
 **Flip a class to `auto` only once its false-auto rate is at or under
 `calibration.maxFalseAuto` over at least `calibration.window` observations of
 it** — a minimum sample size, not a recency window; 0% over 20 by default.
 Only the current group's `verdict` column can read `ready` rather than `hold`.
 
-## CI
+Silence is never agreement: a PR whose comment names no verdict — none posted,
+one still withheld, one unreadable — is left out of the totals. Nothing is
+keyed on the head SHA, so a 👎 or label left on an earlier head still counts,
+and only toward `human`.
 
-Dry-run on `pull_request`, one sticky comment per PR, the JSON as an artifact:
-
-```yaml
-merge-policy:
-  runs-on: ubuntu-latest
-  permissions: { contents: read, pull-requests: write }
-  env: { PLUGIN: "${{ github.workspace }}/plugins/strauss-kb-review" }
-  steps:
-    - { uses: actions/checkout@v5, with: { fetch-depth: 0 } }
-    - run: |
-        export GH_TOKEN='${{ github.token }}' R=$GITHUB_REPOSITORY PR=${{ github.event.number }} S=${{ github.event.pull_request.head.sha }}
-        gh api --paginate "repos/$R/pulls/$PR/reviews" > reviews.json
-        gh api --paginate "repos/$R/issues/$PR/labels" > labels.json
-        id=$(gh api --paginate "repos/$R/issues/$PR/comments" --jq '.[]|select(.body|startswith("<!-- strauss-kb merge-policy -->"))|.id' | head -1)
-        if [ -z "$id" ]; then echo '[]' > reacts.json; else gh api --paginate "repos/$R/issues/comments/$id/reactions" > reacts.json; fi
-        node "$PLUGIN/skills/merge-policy/scripts/merge-policy.mjs" --range "origin/$GITHUB_BASE_REF..$S" --pr "$PR" --dry-run --approvals reviews.json --labels labels.json --reactions reacts.json --report-out c.md --json > policy.json
-        if [ -z "$id" ]; then gh api "repos/$R/issues/$PR/comments" -F body=@c.md; else gh api -X PATCH "repos/$R/issues/comments/$id" -F body=@c.md; fi
-    - uses: actions/upload-artifact@v5
-      with: { name: merge-policy, path: policy.json }
-```
+Collecting the dump, its shape, and the CI job that produces the comments:
+[references/ci.md](./references/ci.md).
 
 ## Policy file
 
