@@ -410,9 +410,9 @@ match --git <base>..<head> | --stdin [--repo-root <path>] [--offline] [--include
 ```
 
 Which records sit on each changed hunk. The diff arrives one of two ways: a
-commit range this reads itself, or the MCP object as JSON on **stdin** — where
-`files` is `[{ filePath, hunks: [{ startLine, endLine, side? }] }]`, 1-based and
-inclusive, in the line numbers of the hunk's `side` (`"old"` or `"new"`;
+commit range this reads itself, or the same JSON [`kb_match`](./mcp-reference.md#kb_match)
+takes on **stdin** — `files` is `[{ filePath, hunks: [{ startLine, endLine, side? }] }]`,
+1-based and inclusive, numbered on the hunk's `side` (`"old"` or `"new"`;
 absent means post-change). `--git` emits an old-side hunk for every hunk that
 removed lines, so a record anchored `side: "old"` surfaces on the code that
 went away.
@@ -428,8 +428,8 @@ went away.
 Symbol [anchors](./specification.md#anchors) are resolved through the same
 [chain](./specification.md#symbol-resolution) `anchor-resolve` uses, over the
 files the diff names and no others; pass `symbolRanges` on stdin to skip that.
-A symbol nothing resolved degrades to its file rather than dropping the record,
-which is what `precision` reports.
+A symbol nothing resolved degrades to its whole file rather than dropping the
+record; `precision` says which of the two happened.
 
 ```bash
 strauss-kb match --git origin/main...HEAD --repo-root /repo
