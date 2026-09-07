@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { KbAnchor } from "../kb-record.schema.js";
+import type { KbAnchor, KbAnchorSpan } from "../kb-record.schema.js";
 import type { GrammarOptions } from "../grammars/index.js";
 import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
 import type {
@@ -213,21 +213,90 @@ function captureIndentedBlock(
  * The v1 resolver
  * ---------------------------------------------------------------------- */
 
+type Tier = (name: string) => RegExp;
+
+const declarationTier: Tier = (name) =>
+  new RegExp(
+    `(?:function|class|interface|type|enum|const|let|var|def)\\s+${name}\\b`,
+  );
+
+/** `name:` or `name =` anywhere on the line. */
+const assignmentTier: Tier = (name) => new RegExp(`\\b${name}\\s*[:=]`);
+
+// Anchored to line start, past any modifiers: mid-line, `name:` is as likely
+// a parameter annotation or a destructuring rename as a definition.
+const anchoredAssignmentTier: Tier = (name) =>
+  new RegExp(
+    `^\\s*(?:export\\s+|readonly\\s+|pub\\s+|static\\s+|private\\s+|public\\s+|protected\\s+)*${name}\\s*[:=]`,
+  );
+
+/** A line that declares or assigns the name. */
+const DEFINITION_TIERS: Tier[] = [declarationTier, anchoredAssignmentTier];
+
+/** Never an answer after a parsed miss. */
+const MENTION_TIERS: Tier[] = [
+  (name) => new RegExp(`\\b${name}\\s*\\(`),
+  (name) => new RegExp(`\\b${name}\\b`),
+];
+
 /**
  * Candidate lines, best shape first. A declaration outranks an assignment,
  * which outranks a call-shaped line, which outranks a bare mention — so an
  * anchor lands on where a symbol is defined rather than the first place it is
  * used, which `findIndex` over one loose pattern used to do.
  */
-const TIERS: ((name: string) => RegExp)[] = [
-  (name) =>
-    new RegExp(
-      `(?:function|class|interface|type|enum|const|let|var|def)\\s+${name}\\b`,
-    ),
-  (name) => new RegExp(`\\b${name}\\s*[:=]`),
-  (name) => new RegExp(`\\b${name}\\s*\\(`),
-  (name) => new RegExp(`\\b${name}\\b`),
-];
+const TIERS: Tier[] = [declarationTier, assignmentTier, ...MENTION_TIERS];
+
+function resolveWith(
+  tiers: readonly Tier[],
+  source: string,
+  symbol: string,
+): ResolvedSymbol | null {
+  const segments = symbol.split(".");
+  const name = segments[segments.length - 1];
+  if (!name) return null;
+  const parent =
+    segments.length > 1 ? segments[segments.length - 2] : undefined;
+
+  const escaped = escapeRegExp(name);
+  const parentPattern = parent
+    ? new RegExp(`\\b${escapeRegExp(parent)}\\b`)
+    : null;
+  const lines = source.split("\n");
+
+  for (const tier of tiers) {
+    const pattern = tier(escaped);
+    let candidates = lines
+      .map((line, index) => ({ line, index }))
+      .filter((entry) => pattern.test(entry.line))
+      .map((entry) => entry.index);
+    if (!candidates.length) continue;
+
+    // Nearest enclosing parent wins, not merely a parent somewhere above:
+    // two classes in one file each declaring `cancel` both see the first
+    // class's name in the window, and only distance tells them apart.
+    if (parentPattern && candidates.length > 1) {
+      const distances = candidates.map((index) =>
+        distanceToParent(lines, index, parentPattern),
+      );
+      const nearest = Math.min(...distances);
+      if (Number.isFinite(nearest)) {
+        candidates = candidates.filter((_, at) => distances[at] === nearest);
+      }
+    }
+
+    // Two lines of the same shape: which one the record meant is a guess,
+    // and a guessed anchor hashes as evidence.
+    if (candidates.length !== 1) return null;
+
+    const matchLine = candidates[0] as number;
+    return PYTHON_HEADER.test(lines[matchLine] ?? "")
+      ? captureIndentedBlock(lines, matchLine)
+      : captureBraceBlock(lines, matchLine);
+  }
+
+  return null;
+}
 
 /**
  * v1 heuristic resolver. A dotted symbol like `OrderService.cancel` matches on
@@ -242,50 +311,14 @@ const TIERS: ((name: string) => RegExp)[] = [
 export const regexResolver: AnchorResolver = {
   name: "regex",
   resolve(source, symbol) {
-    const segments = symbol.split(".");
-    const name = segments[segments.length - 1];
-    if (!name) return null;
-    const parent =
-      segments.length > 1 ? segments[segments.length - 2] : undefined;
-
-    const escaped = escapeRegExp(name);
-    const parentPattern = parent
-      ? new RegExp(`\\b${escapeRegExp(parent)}\\b`)
-      : null;
-    const lines = source.split("\n");
-
-    for (const tier of TIERS) {
-      const pattern = tier(escaped);
-      let candidates = lines
-        .map((line, index) => ({ line, index }))
-        .filter((entry) => pattern.test(entry.line))
-        .map((entry) => entry.index);
-      if (!candidates.length) continue;
-
-      // Nearest enclosing parent wins, not merely a parent somewhere above:
-      // two classes in one file each declaring `cancel` both see the first
-      // class's name in the window, and only distance tells them apart.
-      if (parentPattern && candidates.length > 1) {
-        const distances = candidates.map((index) =>
-          distanceToParent(lines, index, parentPattern),
-        );
-        const nearest = Math.min(...distances);
-        if (Number.isFinite(nearest)) {
-          candidates = candidates.filter((_, at) => distances[at] === nearest);
-        }
-      }
-
-      // Two lines of the same shape: which one the record meant is a guess,
-      // and a guessed anchor hashes as evidence.
-      if (candidates.length !== 1) return null;
-
-      const matchLine = candidates[0] as number;
-      return PYTHON_HEADER.test(lines[matchLine] ?? "")
-        ? captureIndentedBlock(lines, matchLine)
-        : captureBraceBlock(lines, matchLine);
-    }
-
-    return null;
+    return resolveWith(TIERS, source, symbol);
+  },
+  attempt(source, symbol, _file, options) {
+    const tiers = options?.afterParsedMiss ? DEFINITION_TIERS : TIERS;
+    const span = resolveWith(tiers, source, symbol);
+    return span
+      ? { kind: "resolved", span }
+      : { kind: "unresolved", reason: "symbol-not-found" };
   },
 };
 
@@ -336,9 +369,9 @@ export function resolveAnchor(
  * when the anchor names no symbol.
  *
  * `symbol-not-found` falls through (a tags query defines functions and types,
- * not constants or fields) and the anchor records the resolver that answered.
- * `symbol-ambiguous` and `resolver-unavailable` end the chain: one would be
- * settled by guessing, the other would trade a precise span for a guessed one.
+ * not constants or fields), but a resolver that parsed the file and missed
+ * narrows what follows to definition-shaped candidates: never a call site or a
+ * bare mention. `symbol-ambiguous` and `resolver-unavailable` end the chain.
  */
 export function resolveAnchorSpan(
   source: string,
@@ -346,6 +379,10 @@ export function resolveAnchorSpan(
   resolvers: readonly AnchorResolver[] = [regexResolver],
 ): AnchorResolution {
   const normalized = source.replace(/\r\n/g, "\n");
+  // An explicit range outranks a symbol: the two are alternatives, and only a
+  // hand-edit puts both on one anchor. `kb_validate` faults that; here the
+  // author's literal line numbers win over a search.
+  if (anchor.span) return sliceSpan(normalized, anchor.span);
   if (!anchor.symbol) {
     const lines = normalized.split("\n");
     if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
@@ -359,13 +396,21 @@ export function resolveAnchorSpan(
     };
   }
 
+  let afterParsedMiss = false;
   for (const resolver of resolvers) {
     const attempt = resolver.attempt
-      ? resolver.attempt(normalized, anchor.symbol, anchor.file)
+      ? resolver.attempt(normalized, anchor.symbol, anchor.file, {
+          afterParsedMiss,
+        })
       : fromResolve(resolver, normalized, anchor.symbol, anchor.file);
     if (attempt.kind === "abstain") continue;
     if (attempt.kind === "unresolved") {
-      if (attempt.reason === "symbol-not-found") continue;
+      if (attempt.reason === "symbol-not-found") {
+        // Only a resolver that parsed the file narrows the ones below it; the
+        // same reason manufactured for a `resolve`-only resolver proves nothing.
+        if (resolver.attempt) afterParsedMiss = true;
+        continue;
+      }
       return { ok: false, reason: attempt.reason };
     }
     const tokens = resolver.normalize?.(attempt.span.text, anchor.file);
@@ -377,6 +422,30 @@ export function resolveAnchorSpan(
     };
   }
   return { ok: false, reason: "symbol-not-found" };
+}
+
+/**
+ * An author-given line range, taken exactly as written and hashed raw.
+ *
+ * No token stream is offered: a span is a slice, not a syntactic unit, so a
+ * parser handed half a statement would normalise an error tree. Lines past the
+ * end of the file are `span-out-of-range` — the described code is not there.
+ */
+function sliceSpan(source: string, range: KbAnchorSpan): AnchorResolution {
+  const lines = source.split("\n");
+  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+  if (range.end > lines.length) {
+    return { ok: false, reason: "span-out-of-range" };
+  }
+  return {
+    ok: true,
+    span: {
+      text: lines.slice(range.start - 1, range.end).join("\n"),
+      startLine: range.start,
+      endLine: range.end,
+    },
+    resolver: "span",
+  };
 }
 
 /** A resolver with no `attempt`: a span or a plain miss, never an abstain. */
@@ -393,7 +462,7 @@ function fromResolve(
 }
 
 function isResolverName(name: string): name is AnchorResolverName {
-  return name === "tree-sitter" || name === "regex";
+  return name === "tree-sitter" || name === "regex" || name === "span";
 }
 
 /** Loads every chained resolver's per-language assets, once. */
@@ -449,8 +518,18 @@ export function resolverChanged(
  */
 export function anchorHashOf(
   anchor: KbAnchor,
-  outcome: { span: ResolvedSymbol; normalized?: string },
+  outcome: {
+    span: ResolvedSymbol;
+    normalized?: string;
+    resolver?: AnchorResolverName;
+  },
 ): { hash: string; kind: AnchorHashKind } {
+  // A span is raw whatever the anchor stored: honouring a hand-written
+  // `hash_kind: "ast"` would compare a raw hash against a token stream for
+  // ever. `kb_validate` reports the anchor; this keeps it comparable.
+  if (outcome.resolver === "span") {
+    return { hash: hashAnchorText(outcome.span.text), kind: "raw" };
+  }
   const stored = anchor.hash ? (anchor.hash_kind ?? "raw") : undefined;
   const wanted = stored ?? (outcome.normalized ? "ast" : "raw");
   return wanted === "ast" && outcome.normalized

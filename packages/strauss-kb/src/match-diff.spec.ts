@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { matchToDiff, type SymbolRange } from "./match-diff.js";
-import type { KbRecord } from "./kb-record.schema.js";
+import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
 
 function record(
   conceptId: string,
-  anchors: { file: string; symbol?: string }[],
+  anchors: KbAnchor[],
   frontmatter: Partial<KbRecord["frontmatter"]> = {},
 ): KbRecord {
   const [type] = conceptId.split(".");
@@ -183,6 +183,131 @@ describe("matchToDiff", () => {
     );
 
     expect(matches).toHaveLength(1);
+  });
+
+  // A span is already the resolved range, so it needs no `symbolRanges` at all.
+  test("a span lands only on the lines it names, at symbol precision", () => {
+    const matches = matchToDiff(
+      [
+        {
+          filePath: SERVICE,
+          hunks: [
+            { startLine: 10, endLine: 20 },
+            { startLine: 42, endLine: 44 },
+          ],
+        },
+      ],
+      [
+        record("constraint.range", [
+          { file: SERVICE, span: { start: 40, end: 60 } },
+        ]),
+      ],
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.hunk.startLine).toBe(42);
+    expect(matches[0]?.precision).toBe("symbol");
+  });
+
+  // The two sides number different files; an old-side line 12 and a new-side
+  // line 12 are not the same place.
+  test("old-side anchors match only old-side hunks, and new only new", () => {
+    const files = [
+      {
+        filePath: SERVICE,
+        hunks: [
+          { startLine: 100, endLine: 110, side: "old" as const },
+          { startLine: 100, endLine: 110, side: "new" as const },
+        ],
+      },
+    ];
+    const deleted = record("fact.was-here", [
+      {
+        file: SERVICE,
+        side: "old",
+        ref: "abc1234",
+        span: { start: 100, end: 110 },
+      },
+    ]);
+    const current = record("decision.now", [
+      { file: SERVICE, symbol: "listOrders" },
+    ]);
+
+    const matches = matchToDiff(files, [deleted, current], {
+      symbolRanges: [{ ...listOrders, startLine: 100, endLine: 140 }],
+    });
+
+    expect(
+      matches.map((match) => [
+        match.hunk.side,
+        match.records.map((hit) => hit.record.conceptId),
+      ]),
+    ).toEqual([
+      ["old", ["fact.was-here"]],
+      ["new", ["decision.now"]],
+    ]);
+  });
+
+  // A `SymbolRange` with no `side` is indexed from the new tree, so it says
+  // nothing about where the symbol was before the change.
+  test("an old-side symbol anchor falls back to file precision", () => {
+    const matches = matchToDiff(
+      [
+        {
+          filePath: SERVICE,
+          hunks: [{ startLine: 100, endLine: 110, side: "old" as const }],
+        },
+      ],
+      [
+        record("fact.was-here", [
+          { file: SERVICE, symbol: "listOrders", side: "old", ref: "abc1234" },
+        ]),
+      ],
+      { symbolRanges: [listOrders] },
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.precision).toBe("file");
+  });
+
+  test("an old-side range places an old-side anchor at symbol precision", () => {
+    const matches = matchToDiff(
+      [
+        {
+          filePath: SERVICE,
+          hunks: [
+            { startLine: 100, endLine: 110, side: "old" as const },
+            { startLine: 300, endLine: 310, side: "old" as const },
+          ],
+        },
+      ],
+      [
+        record("fact.was-here", [
+          { file: SERVICE, symbol: "listOrders", side: "old", ref: "abc1234" },
+        ]),
+      ],
+      { symbolRanges: [{ ...listOrders, side: "old" }] },
+    );
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.hunk.startLine).toBe(100);
+    expect(matches[0]?.precision).toBe("symbol");
+  });
+
+  // Absent means the post-change side on both, so a caller that never heard of
+  // `side` keeps the behaviour it had.
+  test("a file-level anchor stays off the old side", () => {
+    const matches = matchToDiff(
+      [
+        {
+          filePath: SERVICE,
+          hunks: [{ startLine: 1, endLine: 5, side: "old" }],
+        },
+      ],
+      [record("decision.whole-file", [{ file: SERVICE }])],
+    );
+
+    expect(matches).toEqual([]);
   });
 
   test("matches across several files independently", () => {
