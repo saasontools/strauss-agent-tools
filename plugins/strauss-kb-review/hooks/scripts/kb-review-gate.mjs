@@ -15,7 +15,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as git from "./lib/git.mjs";
 import { pastDeadline, setDeadline } from "./lib/cli.mjs";
-import { render, report, runChecks } from "./lib/report.mjs";
+import { label, render, report, runChecks } from "./lib/report.mjs";
 import { buildContext } from "./lib/context.mjs";
 import { bundleStamp, readState, statePath, writeState } from "./lib/state.mjs";
 import { gateConfig } from "./lib/thresholds.mjs";
@@ -136,11 +136,6 @@ function reportMode(argv) {
     )}\n`,
   );
   return 0;
-}
-
-/** @param {import("./lib/util.mjs").Finding} item */
-function label(item) {
-  return { ...item, label: item.kind };
 }
 
 /** `--base`, `--head`, `--repo-root`, `--bundle`, `--offline`.

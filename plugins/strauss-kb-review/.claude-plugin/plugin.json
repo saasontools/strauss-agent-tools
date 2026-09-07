@@ -1,6 +1,6 @@
 {
   "name": "strauss-kb-review",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Experimental: strauss-kb as a per-PR review companion — decisions, risks, invented requirements, review focus. Not yet published.",
   "author": {
     "name": "Assaf Kamil"

@@ -46,9 +46,9 @@ problem, not a rendering one. `strauss-kb` comes from `$STRAUSS_KB_CLI`, else
 
 The renderer runs `kb_anchor_resolve` on every record anchored in the diff. If
 an anchor drifted, or nobody could check it, it refuses: exit 3, naming the
-records. Fix the base (`kb_anchor_resolve --rebaseline`, or supersede the
-record) rather than reaching for `--allow-drift`. That resolve is the only
-write: it stamps an anchor that has no hash yet, and never rebaselines.
+records. Route the repair through `kb-fix` rather than reaching for
+`--allow-drift`. That resolve is the only write this skill makes: it stamps an
+anchor that has no hash yet, and never rebaselines.
 
 ## What the CLI cannot tell it yet
 
