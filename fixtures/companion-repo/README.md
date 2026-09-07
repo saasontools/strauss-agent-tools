@@ -1,8 +1,10 @@
 # companion-repo fixture
 
-One synthetic repository, one branch per review-companion scenario. Every
-consumer — classifier (SAA-728), gate (SAA-729), reviewer (SAA-730),
-walkthrough (SAA-731), merge policy (SAA-741, SAA-743) — tests against these
+The review companion routes a change to `auto` or to a human reviewer. This
+fixture is the shared ground truth for that call: one synthetic repository, one
+branch per scenario, each branch built around a case the routing has to get
+right. Every consumer — classifier (SAA-728), gate (SAA-729), reviewer
+(SAA-730), walkthrough (SAA-731), merge policy (SAA-741, SAA-743) — tests against these
 branches, so a behaviour change in one shows up in all.
 
 Nothing here is a package and there is no build. The TypeScript exists to be

@@ -6,8 +6,7 @@ description: Route a companion knowledge base's gate findings to whoever can sti
 # Fixing a base before you read it
 
 Whoever held the why fixes the base. Every tier below can repair what the code
-settles; only the first two can say why the code changed, and each hour that
-passes takes another one away.
+settles; only the first two can still say why the code changed.
 
 ## Who is still there
 
