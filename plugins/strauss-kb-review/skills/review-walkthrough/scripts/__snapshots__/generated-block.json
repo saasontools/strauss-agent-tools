@@ -1,6 +1,6 @@
 {
   "range": "main..generated-block",
-  "headSha": "2863bdd31d9cf58169b784c4ce0640b8deb5b927",
+  "headSha": "922e0f56d8a39e9b159260c52f421208d2068258",
   "digest": "<digest>",
   "pr": "https://github.com/acme/app/pull/7",
   "classifier": "classify",
@@ -13,7 +13,7 @@
       "why": "Everything below describes this commit; a different checkout reads a different diff.",
       "detail": {
         "range": "main..generated-block",
-        "headSha": "2863bdd31d9cf58169b784c4ce0640b8deb5b927",
+        "headSha": "922e0f56d8a39e9b159260c52f421208d2068258",
         "digest": "<digest>",
         "recordCount": 5,
         "driftChecked": 1,

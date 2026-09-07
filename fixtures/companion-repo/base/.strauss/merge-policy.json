@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "enabled": true,
+  "owners": ["dana"],
+  "verifiers": ["agent:reviewer"],
+  "types": { "open-question": "human" },
+  "tags": { "review:pricing": "human", "review:generated": "auto" },
+  "floors": {
+    "review:security": "important",
+    "review:data": "important",
+    "review:compat": "important"
+  },
+  "auto": {
+    "classes": [
+      "test",
+      "config",
+      "ci",
+      "docs",
+      "lockfile",
+      "generated",
+      "boilerplate",
+      "rename"
+    ]
+  },
+  "review": {
+    "include": ["src/**", "scripts/**"],
+    "exclude": ["packages/legacy-reporting/**"],
+    "crossing": "human"
+  }
+}

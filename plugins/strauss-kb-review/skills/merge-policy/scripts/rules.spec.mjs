@@ -6,7 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_AUTO_CLASSES, DEFAULT_FLOORS } from "./lib/policy.mjs";
+import { AUTO_CLASSES, DEFAULT_FLOORS } from "./lib/policy.mjs";
 import { decide, RULES } from "./lib/rules.mjs";
 import { enforce } from "./lib/enforce.mjs";
 import { gather } from "./lib/inputs.mjs";
@@ -25,15 +25,19 @@ function input(over = {}) {
       version: 1,
       hash: "sha256:0",
       format: "json",
+      layers: ["repo"],
       data: {
         enabled: "true",
         owners: ["dana"],
         floors: { ...DEFAULT_FLOORS },
-        autoClasses: [...DEFAULT_AUTO_CLASSES],
+        autoClasses: [...AUTO_CLASSES],
+        autoPaths: [],
         include: [],
         exclude: [],
-        humanTypes: [],
-        humanTags: [],
+        crossing: "human",
+        types: {},
+        tags: {},
+        verifiers: [],
       },
       notChecked: [],
       errors: [],
@@ -288,7 +292,7 @@ test("policy-human — a type or a tag the policy names routes human", () => {
   const byType = input({
     records: [record({ id: "decision.x", type: "decision", tags: [] })],
   });
-  byType.policy.data.humanTypes = ["decision"];
+  byType.policy.data.types = { decision: "human" };
   assert.deepEqual(
     [decide(byType).route, decide(byType).rule],
     ["human", "policy-human"],
@@ -297,16 +301,105 @@ test("policy-human — a type or a tag the policy names routes human", () => {
   const byTag = input({
     records: [record({ id: "fact.x", type: "fact", tags: ["review:pricing"] })],
   });
-  byTag.policy.data.humanTags = ["review:pricing"];
+  byTag.policy.data.tags = { "review:pricing": "human" };
   assert.equal(decide(byTag).rule, "policy-human");
 
-  // Neither list names this record, so the row is silent.
+  // Neither map names this record, so the row is silent.
   const quiet = input({
     records: [record({ id: "fact.x", type: "fact", tags: ["review"] })],
   });
-  quiet.policy.data.humanTypes = ["decision"];
-  quiet.policy.data.humanTags = ["review:pricing"];
+  quiet.policy.data.types = { decision: "human" };
+  quiet.policy.data.tags = { "review:pricing": "human" };
   assert.notEqual(decide(quiet).rule, "policy-human");
+});
+
+test("policy-human — off is the unlisted behaviour, and auto never routes it", () => {
+  for (const disposition of ["off", "auto"]) {
+    const answer = input({
+      records: [record({ id: "decision.x", type: "decision", tags: [] })],
+    });
+    answer.policy.data.types = { decision: disposition };
+    assert.notEqual(decide(answer).rule, "policy-human", disposition);
+  }
+
+  // `human` on either map wins over `auto` on the other.
+  const split = input({
+    records: [
+      record({ id: "fact.x", type: "fact", tags: ["review:generated"] }),
+    ],
+  });
+  split.policy.data.types = { fact: "human" };
+  split.policy.data.tags = { "review:generated": "auto" };
+  assert.equal(decide(split).rule, "policy-human");
+});
+
+test("auto-mechanical — an allowlist, default deny: no class named, nothing auto", () => {
+  const denied = input();
+  denied.policy.data.autoClasses = [];
+  assert.equal(decide(denied).route, "human");
+  assert.equal(decide(denied).rule, "default-human");
+});
+
+test("auto-mechanical — auto.paths clears a file its class did not", () => {
+  const loud = input({
+    files: [
+      {
+        path: "vendor/bundle.js",
+        class: "source",
+        excluded: false,
+        crosses: false,
+      },
+    ],
+  });
+  assert.notEqual(decide(loud).route, "auto");
+
+  const listed = input({
+    files: [
+      {
+        path: "vendor/bundle.js",
+        class: "source",
+        excluded: false,
+        crosses: false,
+      },
+    ],
+  });
+  listed.policy.data.autoPaths = ["vendor/**"];
+  assert.deepEqual(
+    [decide(listed).route, decide(listed).rule],
+    ["auto", "auto-mechanical"],
+  );
+});
+
+test("auto-mechanical — a tag the policy marks auto makes a record quiet, a floor takes it back", () => {
+  const marked = input({
+    records: [
+      record({
+        id: "fact.protocol",
+        type: "fact",
+        status: "accepted",
+        tags: ["review:generated"],
+        verify: [],
+      }),
+    ],
+  });
+  marked.policy.data.tags = { "review:generated": "auto" };
+  assert.equal(decide(marked).route, "auto");
+
+  // `auto` is eligibility, not a waiver: the floor still decides.
+  const raised = input({
+    records: [
+      record({
+        id: "fact.protocol",
+        type: "fact",
+        status: "accepted",
+        tags: ["review:generated", "review:security"],
+        effective: "important",
+        verify: [],
+      }),
+    ],
+  });
+  raised.policy.data.tags = { "review:generated": "auto" };
+  assert.equal(decide(raised).rule, "unverified-important");
 });
 
 test("auto-mechanical — mechanical classes and a silent base", () => {
@@ -420,7 +513,7 @@ test("every route an input can reach is human, auto or agent-review-then-auto, a
   const named = input({
     records: [record({ id: "decision.x", type: "decision", tags: [] })],
   });
-  named.policy.data.humanTypes = ["decision"];
+  named.policy.data.types = { decision: "human" };
 
   for (const [label, escalated] of /** @type {[string, any][]} */ ([
     ["no policy", absent],
@@ -640,6 +733,9 @@ function gatherWith(over) {
       policyPath: null,
       reviewer: null,
       approvals: [],
+      defaults: over.defaults
+        ? { path: "/org/defaults.json", text: JSON.stringify(over.defaults) }
+        : null,
     },
     run,
   );
@@ -721,4 +817,196 @@ test("gate-unavailable — a gate that returned nothing did not answer", () => {
   const answer = gatherWith({ run: { gate: () => null } });
   assert.equal(answer.gate.answered, false);
   assert.equal(decide(answer).rule, "gate-unavailable");
+});
+
+/** A bundle record, as frontmatter. @param {Record<string, string[]|string>} over */
+function frontmatter(over) {
+  const lines = ["---"];
+  for (const [key, value] of Object.entries(over)) {
+    if (Array.isArray(value)) {
+      lines.push(`${key}:`);
+      for (const item of value) lines.push(`  - ${item}`);
+    } else lines.push(`${key}: ${value}`);
+  }
+  return [...lines, "---", ""].join("\n");
+}
+
+/** A `show` that answers one policy and one other path. @param {any} tree */
+function showing(tree) {
+  return (/** @type {string[]} */ args) => tree[args[0] ?? ""] ?? null;
+}
+
+test("verifiers — a listed verifier still may not verify its own record", () => {
+  /** @param {{ trusted: string[], by: string }} over */
+  const answer = ({ trusted, by }) =>
+    gatherWith({
+      run: {
+        show: showing({
+          "main:.strauss/merge-policy.json": JSON.stringify({
+            version: 1,
+            verifiers: trusted,
+            floors: { "review:security": "important" },
+          }),
+        }),
+      },
+      bundleFiles: [{ name: "fact.x.md", path: ".strauss/kb/fact.x.md" }],
+      bundle: frontmatter({
+        type: "fact",
+        tags: ["review:security"],
+        strauss_status: "accepted",
+      }),
+      changed: "M\t.strauss/kb/fact.x.md\n",
+      log: [
+        { operation: "write", by: "agent:reviewer", conceptId: "fact.x" },
+        { operation: "verify", by, conceptId: "fact.x" },
+      ],
+    });
+
+  // The reviewer wrote it, so its own verify is the author's word — listed or
+  // not — and the floor leaves the record unverified.
+  for (const trusted of [[], ["agent:reviewer"]]) {
+    const own = answer({ trusted, by: "agent:reviewer" });
+    assert.deepEqual(own.records[0]?.verifiedBy, []);
+    assert.equal(decide(own).rule, "unverified-important");
+  }
+
+  const other = answer({
+    trusted: ["agent:reviewer", "agent:second"],
+    by: "agent:second",
+  });
+  assert.deepEqual(other.records[0]?.verifiedBy, ["agent:second"]);
+  assert.notEqual(decide(other).rule, "unverified-important");
+});
+
+test("verifiers — named it is an allowlist, unnamed any non-author verify counts", () => {
+  /** @param {{ repo?: object, org?: object, by: string, writtenBy?: string }} over */
+  const answer = ({ repo, org, by, writtenBy = "agent:impl" }) =>
+    gatherWith({
+      run: {
+        show: showing({
+          "main:.strauss/merge-policy.json": JSON.stringify({
+            version: 1,
+            floors: { "review:security": "important" },
+            ...repo,
+          }),
+        }),
+      },
+      defaults: org,
+      bundleFiles: [{ name: "fact.x.md", path: ".strauss/kb/fact.x.md" }],
+      bundle: frontmatter({
+        type: "fact",
+        tags: ["review:security"],
+        strauss_status: "accepted",
+      }),
+      changed: "M\t.strauss/kb/fact.x.md\n",
+      log: [
+        { operation: "write", by: writtenBy, conceptId: "fact.x" },
+        { operation: "verify", by, conceptId: "fact.x" },
+      ],
+    });
+  /** @param {any} over */
+  const counted = (over) => answer(over).records[0]?.verifiedBy;
+
+  // No list: any actor that did not write the record counts.
+  const open = answer({ by: "agent:reviewer" });
+  assert.deepEqual(open.records[0]?.verifiedBy, ["agent:reviewer"]);
+  assert.notEqual(decide(open).rule, "unverified-important");
+
+  // Named: an actor off the list is not a verifier, and the floor still bites.
+  const named = { repo: { verifiers: ["human:sec"] } };
+  const off = answer({ ...named, by: "agent:reviewer" });
+  assert.deepEqual(off.records[0]?.verifiedBy, []);
+  assert.equal(decide(off).rule, "unverified-important");
+
+  const listed = answer({ ...named, by: "human:sec" });
+  assert.deepEqual(listed.records[0]?.verifiedBy, ["human:sec"]);
+  assert.notEqual(decide(listed).rule, "unverified-important");
+
+  // Listed and the writer: still the author's own word.
+  assert.deepEqual(
+    counted({ ...named, by: "human:sec", writtenBy: "human:sec" }),
+    [],
+  );
+
+  // The layers intersect, so the repo file shrinks the org list.
+  const both = {
+    org: { verifiers: ["human:sec", "human:ops"] },
+    repo: { verifiers: ["human:sec"] },
+  };
+  assert.deepEqual(counted({ ...both, by: "human:ops" }), []);
+  assert.deepEqual(counted({ ...both, by: "human:sec" }), ["human:sec"]);
+
+  // An org layer that named none is silence, not a licence: the repo list runs.
+  const repoOnly = { org: { owners: ["org-lead"] }, ...named };
+  assert.deepEqual(counted({ ...repoOnly, by: "agent:reviewer" }), []);
+  assert.deepEqual(counted({ ...repoOnly, by: "human:sec" }), ["human:sec"]);
+});
+
+test("crossing — off makes an exclusion final and says so, human reads the edges", () => {
+  /** @param {"off" | "human"} crossing */
+  const answer = (crossing) =>
+    gatherWith({
+      run: {
+        show: showing({
+          "main:.strauss/merge-policy.json": JSON.stringify({
+            version: 1,
+            review: { exclude: ["legacy/**"], crossing },
+          }),
+          "topic:legacy/report.ts": 'import { Charge } from "../src/pay";\n',
+        }),
+      },
+      changed: "M\tlegacy/report.ts\n",
+    });
+
+  const read = answer("human");
+  assert.equal(read.files[0]?.crosses, true);
+  assert.match(read.policy.notChecked.join(" | "), /inbound edges not checked/);
+
+  const final = answer("off");
+  assert.equal(final.files[0]?.crosses, false);
+  assert.match(final.policy.notChecked.join(" | "), /review\.crossing is off/);
+});
+
+test("crossing — an import edge that could not be read is named, not called clean", () => {
+  const answer = gatherWith({
+    run: {
+      show: showing({
+        "main:.strauss/merge-policy.json": JSON.stringify({
+          version: 1,
+          review: { exclude: ["legacy/**"] },
+        }),
+      }),
+    },
+    changed: "D\tlegacy/report.ts\n",
+  });
+  assert.equal(answer.files[0]?.crosses, false);
+  assert.match(
+    answer.policy.notChecked.join(" | "),
+    /import edges unreadable at head: legacy\/report\.ts/,
+  );
+});
+
+test("CODEOWNERS — a base file with no owner on the policy warns, and routes nothing", () => {
+  /** @param {string} owners */
+  const answer = (owners) =>
+    gatherWith({
+      run: {
+        show: showing({
+          "main:.strauss/merge-policy.json": JSON.stringify({
+            version: 1,
+            auto: { classes: ["docs"] },
+          }),
+          "main:CODEOWNERS": owners,
+        }),
+      },
+      changed: "M\tdocs/README.md\n",
+    });
+
+  const bare = answer("/src/ @acme/engineering\n");
+  assert.match(bare.policy.notChecked.join(" | "), /no owner on/);
+  // A warning only: the range still routes on its own inputs.
+  assert.equal(decide(bare).route, "auto");
+
+  const covered = answer("# owners\n/.strauss/ @acme/platform\n");
+  assert.doesNotMatch(covered.policy.notChecked.join(" | "), /no owner on/);
 });

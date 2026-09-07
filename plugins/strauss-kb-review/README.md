@@ -100,8 +100,12 @@ first match wins, and the result names the one that matched; the table is the
 header of [`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
 
 `--enforce` turns the route into the exit code, and approval comes from the
-GitHub reviews API. The route each `fixtures/companion-repo` scenario produces
-is pinned by that scenario's `expected.json`.
+GitHub reviews API. What `.strauss/merge-policy.json` may hold — dispositions
+per record type and tag, materiality floors, auto-eligible paths and classes,
+and the layers that may only escalate them — is
+[`SKILL.md`](./skills/merge-policy/SKILL.md). The route each
+`fixtures/companion-repo` scenario produces is pinned by that scenario's
+`expected.json`.
 
 ## Install (unpublished)
 
