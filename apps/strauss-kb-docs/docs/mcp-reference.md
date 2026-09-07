@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-two tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-three tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.
@@ -330,6 +330,32 @@ omitted), `repoRoot` (`string`), `offline` (`boolean`) and `includeNonCurrent`
     {
       "filePath": "src/order.service.ts",
       "hunks": [{ "startLine": 118, "endLine": 131 }]
+    }
+  ],
+  "repoRoot": "/repo"
+}
+```
+
+### `kb_classify`
+
+As CLI [`classify`](./cli-reference.md#classify), except that the diff always
+arrives as `files` — there is no `--git` or `--stdin` here. Reach for it to
+decide what in a change needs reading; `kb_match` says what is attached to it.
+
+Parameters: `bundlePath` and `files` required — each file
+`{ filePath, hunks: [{ startLine, endLine, side?, lines? }], renamedFrom?, similarity? }`,
+where `lines` are the hunk's changed lines and feed the boilerplate and banner
+rules; `repoRoot` (`string`) optional, and the file's first lines and any
+symbol-scoped override are resolved from it; `offline` (`boolean`) optional,
+which keeps that resolution off the network.
+
+```json
+{
+  "bundlePath": "…/kb",
+  "files": [
+    {
+      "filePath": "src/protocol/generated/index.ts",
+      "hunks": [{ "startLine": 4, "endLine": 4, "lines": ["// @generated"] }]
     }
   ],
   "repoRoot": "/repo"
