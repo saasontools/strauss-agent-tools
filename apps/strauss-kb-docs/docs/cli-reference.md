@@ -17,9 +17,9 @@ strauss-kb [--bundle PATH] <command> [args]
 | Flag / variable               | Effect                                                                                                                                                                                                                                                    |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--bundle PATH`               | The base to act on. Defaults to `./.strauss/kb`. Accepted before or after the verb.                                                                                                                                                                       |
-| `--json`                      | The machine shape, on commands that print a table. Accepted where the result is already JSON, so a caller need not know which verbs render; refused on `catalog`, `pack` and `index`, whose result is markdown.                                           |
+| `--json`                      | The machine shape. Accepted wherever the result is already JSON, so a caller need not know which verbs print a table; refused on `catalog`, `pack` and `index`, which print markdown.                                                                     |
 | `--actor <kind:name>`         | Who this call writes as, on the verbs that log an actor. Overrides `STRAUSS_KB_ACTOR` for that call only.                                                                                                                                                 |
-| `--`                          | Ends flag parsing; everything after it is text, for the verbs that end in free prose. It does not exempt a leading `--`.                                                                                                                                  |
+| `--`                          | Ends flag parsing; everything after it is text, for the verbs that end in free prose. The text still cannot open with `--`.                                                                                                                               |
 | `-h`, `--help`                | The usage listing, or one verb's own when it follows a verb. Also printed when no verb is given.                                                                                                                                                          |
 | `-v`, `--version`             | The installed package version — what makes plugin/CLI skew diagnosable, since neither updates the other.                                                                                                                                                  |
 | `STRAUSS_KB_ACTOR`            | Names the writer in the log and in `generated.by` / `verified[].by`. Defaults to `unknown`.                                                                                                                                                               |
@@ -42,10 +42,10 @@ check that reports a problem succeeded as a command and failed as a check.
 `context` prints nothing at all when nothing is pinned, since even a bare
 newline is noise in a fresh context.
 
-A verb whose positional is free prose — `no-decision`, `answer`, `query`, and
-`verify --note` — refuses text that opens with `--`, after a `--` as well as
-before one: it is a mistyped flag far more often than a sentence, and
-`strauss-kb no-decision --help` used to record one. Reword the sentence.
+Text opening with `--` is a mistyped flag far more often than a sentence, so
+the verbs whose positional is free prose — `no-decision`, `answer`, `query`, and
+`verify --note` — refuse it, after a `--` as well as before one. Reword the
+sentence.
 
 Every write verb refuses outright when the base is pinned `--frozen` in this
 workspace: `write`, `write-decision`, `no-decision`, `status`, `supersede`,
@@ -292,8 +292,8 @@ Refuses with counts rather than truncating when the base trips the budget
 ceiling, pointing at the next rung down in `message`. Every result carries a
 `digest` for
 [cache-stable placement](./mcp-reference.md#kb_load), and each loaded record
-[the record shape](#record-shape) plus `standing`, `supersededBy`, `warnings`
-and `body`.
+comes back in [the record shape](#record-shape) plus `standing`,
+`supersededBy`, `warnings` and `body`.
 
 ```bash
 strauss-kb load decision --budget 8000
@@ -477,9 +477,9 @@ a rename that changed no line.
 
 `--include-uncovered` returns one row per changed **symbol** instead, in diff
 order, each with a `symbol` — the innermost definition covering its lines,
-`null` where none does — and `records: []` where nothing sits on it. That is
-how a consumer enumerates the changed symbols the base does not cover.
-Uncovered rows are new-side only; a deleted symbol has no survivor to name.
+`null` where none does — and `records: []` where nothing sits on it, so a
+caller can enumerate the changed symbols the base does not cover. Uncovered
+rows are new-side only; a deleted symbol has no survivor to name.
 
 ### `classify`
 

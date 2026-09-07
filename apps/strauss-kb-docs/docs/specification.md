@@ -38,12 +38,12 @@ The default base is `.strauss/kb`, relative to the working directory;
 | Repair  | rebuilt when it disagrees | malformed lines reported            |
 | If lost | reconstructed free        | gone                                |
 
-The store excludes both from record listings, and **no read writes anything**
-beyond the two verbs that own these files — `strauss-kb index` / `kb_index`
-repairs `INDEX.md`, and the first call to append a log line writes
-`.gitattributes` — so `git status` after a read is empty. The exception is
-`query`, which materialises the derived, gitignored `.index.sqlite` when the
-optional search backend is installed.
+The store excludes both from record listings, and **no read writes anything**,
+so `git status` after a read is clean. Only the verbs that own these files
+write them: `strauss-kb index` / `kb_index` repairs `INDEX.md`, and the first
+appended log line writes `.gitattributes`. The one read that writes is `query`,
+which materialises the derived, gitignored `.index.sqlite` when the optional
+search backend is installed.
 
 ### `INDEX.md`
 

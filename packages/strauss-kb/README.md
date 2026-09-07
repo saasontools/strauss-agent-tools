@@ -351,7 +351,7 @@ strauss-kb [--bundle PATH] <command> [args]
 
 Results go to stdout as JSON; `index`, `catalog` and `pack` are markdown, and
 `doctor` prints a table unless `--json`. `--json` is accepted wherever the
-result is a shape and refused on those three; `--` ends flag parsing.
+result is already JSON and refused on those three; `--` ends flag parsing.
 Errors go to stderr with exit 1; `validate`, `anchor-resolve --strict` and
 `doctor --strict` exit 1 with findings on stdout; only
 `validate` findings with `severity: "error"` do, so warnings alone exit 0. Per-command flags:
