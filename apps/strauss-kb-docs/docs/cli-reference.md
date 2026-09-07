@@ -517,7 +517,7 @@ promote <concept-id...> --to <bundle> [--source <url>] [--force]
 promote --list
 ```
 
-Copy records into another base at the same slug: what a review base settled,
+Copy records into another base under the same ids: what a review base settled,
 lifted into the base that outlives the pull request. The originals stay where
 they are.
 
