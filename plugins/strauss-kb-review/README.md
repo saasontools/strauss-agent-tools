@@ -91,14 +91,15 @@ How to run it, the order it renders and when it refuses:
 
 ## Merge policy
 
-`skills/merge-policy/scripts/merge-policy.mjs` answers one question about a
-range: `auto`, `agent-review-then-auto`, or `human`. Sixteen rows, first match
-wins, each reporting the rule id it matched; the table is the header of
-[`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
+`skills/merge-policy/scripts/merge-policy.mjs` decides who reviews a commit
+range: `auto`, `agent-review-then-auto`, or `human`. Sixteen rules settle it,
+first match wins, and the result names the one that matched; the table is the
+header of [`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
 
-`--enforce` turns the route into the exit code, approval comes from the GitHub
-reviews API, and what `.strauss/merge-policy.json` may say — an allowlist over
-types, tags, floors, paths, classes and layers — is
+`--enforce` turns the route into the exit code, and approval comes from the
+GitHub reviews API. What `.strauss/merge-policy.json` may hold — dispositions
+per record type and tag, materiality floors, auto-eligible paths and classes,
+and the layers that may only escalate them — is
 [`SKILL.md`](./skills/merge-policy/SKILL.md). The route each
 `fixtures/companion-repo` scenario produces is pinned by that scenario's
 `expected.json`.
