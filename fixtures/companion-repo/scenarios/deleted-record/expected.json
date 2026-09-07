@@ -6,5 +6,5 @@
   },
   "gateFamilies": ["A"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
-  "notes": "`log.jsonl` still holds the commit-1 `write` for risk.checkout-refund-partial and carries no supersede or status entry, while the file is gone at HEAD. The record is absent from the classifier map because `main...deleted-record` never shows it: added in commit 1, deleted in commit 2. Policy must diff the log against the base branch, not the record set. A1 also fires at HEAD: PaymentClient.charge changed and nothing covers it any more."
+  "notes": "`log.jsonl` still holds the commit-1 `write` for risk.checkout-refund-partial and carries no supersede or status entry, while the file is gone at HEAD. The record is absent from the classifier map because `main...deleted-record` never shows it: added in commit 1, deleted in commit 2 \u2014 so SAA-741's `record-deleted` row, which is scoped to the records the base tree held, does not fire here. A1 also fires at HEAD: PaymentClient.charge changed and nothing covers it any more."
 }

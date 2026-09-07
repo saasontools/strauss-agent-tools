@@ -40,6 +40,8 @@ guide for a human.
 **`kb-fix`** — a base whose gate findings block, routed to whoever can still
 fix them. See [Fixing a base](#fixing-a-base).
 
+**`merge-policy`** — who reviews a range, decided from the records alone.
+
 ## Reviewer agent
 
 `agents/kb-reviewer.md` (Claude Code only) reviews a pull request against the
@@ -89,6 +91,17 @@ How to run it, the order it renders and when it refuses:
 `fixtures/companion-repo` scenarios produce. A snapshot diff is a review, not a
 failure — read it, decide whether the new page is better, then
 `UPDATE_SNAPSHOTS=1` to accept it.
+
+## Merge policy
+
+`skills/merge-policy/scripts/merge-policy.mjs` decides who reviews a commit
+range: `auto`, `agent-review-then-auto`, or `human`. Sixteen rules settle it,
+first match wins, and the result names the one that matched; the table is the
+header of [`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
+
+`--enforce` turns the route into the exit code, and approval comes from the
+GitHub reviews API. The route each `fixtures/companion-repo` scenario produces
+is pinned by that scenario's `expected.json`.
 
 ## Install (unpublished)
 
