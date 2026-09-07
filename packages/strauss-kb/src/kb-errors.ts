@@ -141,6 +141,78 @@ export class KbMissingFlagValueError extends BaseError {
   }
 }
 
+/** The target base already holds one of the records. Refused for the whole run. */
+export class KbPromoteCollisionError extends BaseError {
+  constructor(
+    readonly conceptId: string,
+    readonly to: string,
+  ) {
+    super({
+      message: `kb: ${to} already holds ${conceptId} — re-run with force to overwrite it`,
+      errorType: ErrorTypes.KbPromoteCollision,
+      code: 409,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { conceptId, to, action: "refused" },
+    });
+  }
+}
+
+/** Promotion carries a record's standing, so a withdrawn one may not be copied. */
+export class KbPromoteStandingError extends BaseError {
+  constructor(
+    readonly conceptId: string,
+    readonly standing: string,
+  ) {
+    super({
+      message: `kb: ${conceptId} is ${standing} — only a record that still stands can be promoted`,
+      errorType: ErrorTypes.KbPromoteStanding,
+      code: 409,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { conceptId, standing, action: "refused" },
+    });
+  }
+}
+
+/** Source and target are the same base: the run would rewrite its own records. */
+export class KbPromoteSelfError extends BaseError {
+  constructor(readonly to: string) {
+    super({
+      message: `kb: ${to} is the base being promoted from — name a different target`,
+      errorType: ErrorTypes.KbPromoteSelf,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { to, action: "refused" },
+    });
+  }
+}
+
+/** A write failed after earlier ones landed; `landed` is what the target now holds. */
+export class KbPromoteStoppedError extends BaseError {
+  constructor(
+    readonly conceptId: string,
+    readonly landed: string[],
+    readonly reason: string,
+  ) {
+    super({
+      message: `kb: promotion stopped at ${conceptId} (${reason}) — landed: ${
+        landed.length ? landed.join(", ") : "nothing"
+      }`,
+      errorType: ErrorTypes.KbPromoteStopped,
+      code: 500,
+      fault: Fault.System,
+      retriable: false,
+      reportToUser: true,
+      details: { conceptId, landed, reason, action: "stopped" },
+    });
+  }
+}
+
 export class KbInvalidConceptIdError extends BaseError {
   constructor(message: string, details: Record<string, string>) {
     super({

@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-two tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.
@@ -394,6 +394,52 @@ changed, or before trusting a `kb_load` result from earlier in the session.
 ```json
 { "bundlePath": "/repo/.strauss/kb", "since": "9f2c…" }
 ```
+
+---
+
+## Promotion and export tools
+
+### `kb_promote`
+
+As CLI [`promote`](./cli-reference.md#promote), with the flags as camelCase
+parameters. Reach for it at merge, to lift what a review base settled into the
+base that outlives the pull request.
+
+Parameters: `bundlePath` required — the base being promoted **from**;
+`conceptIds` (`string[]`) and `to` (the target base) required unless `list` is
+`true`; `source` (`string`, usually the pull request URL) and `force`
+(`boolean`, overwrite what the target already holds) optional.
+
+```json
+{
+  "bundlePath": "/repo/.strauss/review",
+  "conceptIds": ["decision.cursor-v2"],
+  "to": "/repo/.strauss/kb",
+  "source": "https://github.com/org/repo/pull/59"
+}
+```
+
+Returns `{ mode: "promote", to, promoted }` with `{ conceptId, droppedLinks }`
+per record, or `{ mode: "list", candidates }` with
+`{ conceptId, type, title, why }` per candidate. Copies land without the `review`
+tags; links to records left behind are dropped and reported. The originals stay
+put.
+
+### `kb_export`
+
+As CLI [`export`](./cli-reference.md#export). Reach for it when a repository
+keeps ADRs of its own and the base is where its decisions are actually written.
+
+Parameters: `bundlePath`, `format` (`"madr"`) and `to` (the directory) all
+required.
+
+```json
+{ "bundlePath": "/repo/.strauss/kb", "format": "madr", "to": "docs/adr" }
+```
+
+Returns `{ to, format, exported, foreign }`, each `exported` entry
+`{ conceptId, file, status }`. Numbering is keyed by slug, so a re-run rewrites
+content in place.
 
 ---
 
