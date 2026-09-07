@@ -785,6 +785,8 @@ sweep --tag <tag> --terminal [--dry-run]
 
 Deletes records carrying `--tag` that are also `resolved`, `rejected` or
 `superseded`. See [the one deletion](./specification.md#the-one-deletion).
+Run it weekly or per release as one PR, `--dry-run` first; never as a
+post-merge commit.
 
 | Flag         | Effect                                                                  |
 | ------------ | ----------------------------------------------------------------------- |
