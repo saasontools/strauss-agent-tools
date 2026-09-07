@@ -254,7 +254,8 @@ describe("stampCommand", () => {
 
     expect(stamped.recordCount).toBe(200);
     expect(stamped.drifted).toBe(0);
-    expect(elapsed).toBeLessThan(250);
+    // A smoke bound: ~15 ms measured, held wide for coverage runs on a loaded host.
+    expect(elapsed).toBeLessThan(1500);
   });
 
   test("--bundle is only passed on when the flag was given", () => {

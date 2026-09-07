@@ -9,7 +9,7 @@ import { anchorResolveCommand } from "./anchor-resolve.js";
 import { answerCommand } from "./answer.js";
 import { backlinksCommand } from "./backlinks.js";
 import { catalogCommand } from "./catalog.js";
-import { classifyCommand } from "./classify.js";
+import { classifyCommand } from "./classify/index.js";
 import { contextCommand } from "./context.js";
 import { doctorCommand } from "./doctor.js";
 import { exportCommand } from "./export.js";
