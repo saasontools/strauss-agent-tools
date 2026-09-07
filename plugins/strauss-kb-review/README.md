@@ -68,12 +68,13 @@ a block by id, or switches a check off:
 
 ## Walkthrough
 
-`scripts/__snapshots__/*.json` pin the deck two `fixtures/companion-repo`
-scenarios produce. A snapshot diff is a review, not a failure — read it, decide
-whether the new deck is better, then `UPDATE_SNAPSHOTS=1` to accept it.
-
 How to run it, the order it renders and when it refuses:
 [`skills/review-walkthrough/SKILL.md`](skills/review-walkthrough/SKILL.md).
+
+`skills/review-walkthrough/scripts/__snapshots__/*.json` pin the page two
+`fixtures/companion-repo` scenarios produce. A snapshot diff is a review, not a
+failure — read it, decide whether the new page is better, then
+`UPDATE_SNAPSHOTS=1` to accept it.
 
 ## Install (unpublished)
 
