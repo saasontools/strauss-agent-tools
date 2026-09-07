@@ -7,10 +7,11 @@ description: Decide deterministically who reviews a pull request — auto, agent
 
 **Who reviews this range, and what do they read first?** No model reads
 anything here, no input can remove `human`, and the rows that decide — first
-match wins — are the header of [`lib/rules.mjs`](./scripts/lib/rules.mjs). Four
-of them, and the approval read in
-[`lib/enforce.mjs`](./scripts/lib/enforce.mjs), exist because an actor string
-is forgeable.
+match wins — are the header of [`lib/rules.mjs`](./scripts/lib/rules.mjs).
+Three of them — an author closing their own `review`, a record gone missing, a
+change no record covers — and the approval read in
+[`lib/enforce.mjs`](./scripts/lib/enforce.mjs) refuse to take the author's word
+for who reviewed: an actor string is forgeable.
 
 ```sh
 node "$CLAUDE_PLUGIN_ROOT/skills/merge-policy/scripts/merge-policy.mjs" \
@@ -30,9 +31,9 @@ review, never records a route a human signs off, never reads the policy from
 the head branch, and never reads approval from a `kb verify` under a `human:`
 actor.
 
-`--write-record` lands `decision.merge-<pr>` as `agent:merge-policy`, only for
-a route no human signs off and only under `--enforce`; a rerun writes a
-numbered sibling that supersedes the last. `--report-out FILE` renders it
+`--write-record` lands the record `decision.merge-<pr>` under the actor
+`agent:merge-policy`, only for a route that needs no human and only under
+`--enforce`; a rerun writes a numbered sibling that supersedes the last. `--report-out FILE` renders it
 behind `<!-- strauss-kb merge-policy -->`, `--summary` appends that to
 `$GITHUB_STEP_SUMMARY`, `--pr-url` links each record. No deck is built here;
 after the fact, [review-walkthrough](../review-walkthrough/SKILL.md)'s
