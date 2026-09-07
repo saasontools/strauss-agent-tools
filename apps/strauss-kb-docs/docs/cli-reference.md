@@ -201,8 +201,8 @@ strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
 Returns `{ conceptId, results, verified }`, each result
 `{ file, symbol?, side?, state, storedHash?, currentHash?, diffSize?, reason?,
 resolver?, rebaselined?, repo?, remoteState? }`. `side` is set only for an
-anchor read at its `ref` rather than in the working tree. `resolver` names which resolver
-produced the span — see
+anchor read at its `ref` rather than in the working tree. `resolver` names
+which resolver produced the span — see
 [symbol resolution](./specification.md#symbol-resolution). A result whose
 `reason` is `resolver-changed` drifted because the resolver changed, not the
 code; `--rebaseline` is the whole fix.
@@ -483,9 +483,8 @@ Cross-record checks: supersession links that disagree between the two records,
 typed causal links whose rel is outside the closed vocabulary or whose target is
 not in the bundle, assumptions that cite sources, and anchors carrying two
 addresses (`symbol` and `span`), a malformed `span`, or a `side: "old"` with no
-`ref`. Per-record
-shape is enforced on every read, so a problem here means someone edited a file
-by hand.
+`ref`. Per-record shape is enforced on every read, so a problem here means
+someone edited a file by hand.
 An unknown rel is an **error** and a link to a record that does not exist yet is
 a **warning**: **exits 1 on an error; warnings alone exit 0.**
 
