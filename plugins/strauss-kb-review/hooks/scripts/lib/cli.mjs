@@ -68,8 +68,15 @@ export function launcher(cwd, bundle) {
   };
 }
 
-/** @param {Launcher} kb @param {string[]} args @returns {Run} */
-export function run(kb, args) {
+/**
+ * A verb, with stdin, extra environment and a longer budget where the caller
+ * needs them. The deadline still caps `timeout`: no option lengthens a run past
+ * the instant the gate degrades to silence.
+ * @param {Launcher} kb @param {string[]} args
+ * @param {{ input?: string, env?: Record<string, string>, timeout?: number }} [how]
+ * @returns {Run}
+ */
+export function run(kb, args, how = {}) {
   const command = kb.command ?? "strauss-kb";
   const argv = ["--bundle", kb.bundle, ...args];
   const left = deadline - Date.now();
@@ -89,9 +96,10 @@ export function run(kb, args) {
     {
       cwd: kb.cwd,
       encoding: "utf8",
-      timeout: Math.min(TIMEOUT_MS, left),
+      ...(how.input === undefined ? {} : { input: how.input }),
+      timeout: Math.min(how.timeout ?? TIMEOUT_MS, left),
       maxBuffer: MAX_BUFFER_BYTES,
-      env: childEnv(),
+      env: { ...childEnv(), ...how.env },
       shell: false,
     },
   );

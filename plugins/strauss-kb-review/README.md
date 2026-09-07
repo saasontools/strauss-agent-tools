@@ -103,7 +103,9 @@ header of [`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
 GitHub reviews API. What `.strauss/merge-policy.json` may hold — dispositions
 per record type and tag, materiality floors, auto-eligible paths and classes,
 and the layers that may only escalate them — is
-[`SKILL.md`](./skills/merge-policy/SKILL.md). The route each
+[`SKILL.md`](./skills/merge-policy/SKILL.md). With `--write-record` the run also
+lands the `decision.merge-<pr>` that `--report-out` renders as the PR's sticky
+comment. The route each
 `fixtures/companion-repo` scenario produces is pinned by that scenario's
 `expected.json`.
 
