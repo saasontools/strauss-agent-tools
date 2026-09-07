@@ -354,8 +354,8 @@ nobody asked for.
 | Anchor resolution | linear in the files a PR touches |
 
 `pnpm bench` runs the package's benches (`src/**/*.bench.ts`). Means on an
-M-series laptop, Node 24, 2026-09-05; the ceiling is what `src/perf.spec.ts`
-fails on, and a dash is a number the bench reports and nothing gates:
+M-series laptop, Node 24, 2026-09-05. A ceiling is what `src/perf.spec.ts`
+fails on; a dash is a number the bench reports and nothing gates:
 
 | Call                                       | Mean            | Ceiling |
 | ------------------------------------------ | --------------- | ------- |
@@ -368,8 +368,8 @@ fails on, and a dash is a number the bench reports and nothing gates:
 | log reader, 100k entries                   | 153 ms          | 1500 ms |
 | `stamp`, companion fixture base            | 0.7 ms          | 250 ms  |
 
-Cold / warm is the banner cache; the resolver's second figure is the same file
-with no braces, where a candidate walks to the end of it.
+Cold / warm is the banner cache. The resolver's second figure is the same file
+with no braces, where a candidate match finds no closing brace to stop at.
 
 ## Rejected: a format that needs a parser
 
