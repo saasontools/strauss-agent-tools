@@ -40,7 +40,7 @@ guide for a human.
 ## Reviewer agent
 
 `agents/kb-reviewer.md` (Claude Code only) reviews a pull request against the
-base the other two skills wrote, and writes its verdicts back as
+companion base the other two skills wrote, and writes its verdicts back as
 `agent:reviewer`. The procedure, the two surfaces it writes through, and the
 output shape live there. Per-scenario outcome expectations are in
 `agents/kb-reviewer.expectations.json`, for SAA-746's runner to assert against.
@@ -48,12 +48,13 @@ output shape live there. Per-scenario outcome expectations are in
 ## Gate
 
 `hooks/scripts/kb-review-gate.mjs` reads the session's diff and the companion
-base and asks one question: did this change record what it owes? Every check
-sits in the header of its [`lib/family-*.mjs`](./hooks/scripts/lib/).
+base and asks one question: did this change record what it owes? Its checks
+come in families A–F and are named by id (`B2`, `F4`); each family's checks sit
+in the header of its [`lib/family-*.mjs`](./hooks/scripts/lib/).
 
 It blocks on what a record does or does not say — an uncovered change, a
-fabricated record, an unearned status move, a `kb_validate` error, an F signal
-with no record of the type it owes — and warns on the heuristics: sizes,
+fabricated record, an unearned status move, a `kb_validate` error, a family-F
+signal with no record of the type it owes — and warns on the heuristics: sizes,
 duplicates, expiry, drift. `--report` prints the same findings and exits 0.
 
 **Arming** takes both halves: copy the entries from
