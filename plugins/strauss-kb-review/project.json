@@ -2,7 +2,29 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "name": "plugin-strauss-kb-review",
   "projectType": "library",
+  "implicitDependencies": ["companion-repo-fixture", "@saasontools/strauss-kb"],
   "targets": {
+    "lint": {
+      "command": "eslint .",
+      "options": {
+        "cwd": "plugins/strauss-kb-review"
+      }
+    },
+    "typecheck": {
+      "command": "tsc -p tsconfig.json",
+      "options": {
+        "cwd": "plugins/strauss-kb-review"
+      }
+    },
+    "test": {
+      // The fixture's records are markdown the integration test reads, so the
+      // dependency side opts back out of `noMarkdown`. See AGENTS.md.
+      "inputs": ["noMarkdown", "^default"],
+      "dependsOn": [
+        { "projects": ["@saasontools/strauss-kb"], "target": "build" }
+      ],
+      "command": "node --test \"plugins/strauss-kb-review/hooks/scripts/*.spec.mjs\""
+    },
     "validate": {
       "command": "claude plugin validate .",
       "options": {
