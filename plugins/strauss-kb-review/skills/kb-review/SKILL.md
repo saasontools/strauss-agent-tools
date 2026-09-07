@@ -5,8 +5,9 @@ description: Review a pull request against its companion knowledge base — chec
 
 # kb-aware review
 
-The `kb-reviewer` agent reviews the diff blind, then again with the base, and
-reports the delta. Your job is to hand it the inputs and print what comes back.
+The `kb-reviewer` agent reviews the diff blind, then again with the companion
+knowledge base the author wrote beside it, and reports the delta. Your job is
+to hand it the inputs and print what comes back.
 
 ## Collect
 
@@ -15,7 +16,7 @@ reports the delta. Your job is to hand it the inputs and print what comes back.
 | Diff range   | Always. `<base>..<head>`, both halves; no default           |
 | `repoRoot`   | Not the cwd                                                 |
 | `bundlePath` | Not `.strauss/kb`                                           |
-| Ticket URL   | The diff invents a requirement — otherwise it cannot settle |
+| Ticket URL   | The diff invents a requirement — nothing else settles one   |
 
 ## Spawn
 

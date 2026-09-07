@@ -2,11 +2,13 @@
 "@saasontools/strauss-kb": patch
 ---
 
-Anchors can name a line range instead of a symbol (`span: { start, end }`), for
-files no resolver can name a symbol in, and can name the committed side of a
-change (`side: "old"`, read with `git cat-file blob <ref>:<file>`), which is how
-deleted code gets anchored at all. `matchToDiff` treats a span as a resolved
-range and keeps the two sides apart. New reasons `span-out-of-range` and
-`ref-unreadable`, both classed `gone`, and `ref-unavailable` for a rev this
-clone lacks, which is unchecked rather than `gone`; `kb_doctor` counts span
-anchors in the resolver line and old-side anchors beside it.
+An anchor could only name a symbol, so a decision about a YAML block or a SQL
+migration was pinned to the whole file, and code a change deleted could not be
+anchored at all. Two new addresses fix that. `span: { start, end }` names a
+line range, hashed as written, for files no resolver can name a symbol in.
+`side: "old"` with a `ref` names code as it was at that commit, read from git
+history, so a record can point at what a refactor removed; it never drifts,
+and a commit this clone lacks reports `ref-unavailable` (unchecked) rather than
+gone. `kb_match` keeps old-side and new-side hunks apart, `kb_validate` rejects
+an anchor carrying both addresses, and `kb_doctor` counts spans and old-side
+anchors.
