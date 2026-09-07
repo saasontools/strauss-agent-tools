@@ -11,14 +11,15 @@ add `human` with a reason, and never take a route the policy set.
 
 ## When to run it
 
+Only on a `route` of `auto` or `agent-review-then-auto`, and only after the
+reviewer. `human` skips the spawn — it cannot get more human, and the run buys
+a verdict no rule would read. No reviewer output is the other skip. The route
+to check comes from:
+
 ```sh
 node "$CLAUDE_PLUGIN_ROOT/skills/merge-policy/scripts/merge-policy.mjs" \
   --range main..HEAD --reviewer reviewer.json --json > route.json
 ```
-
-Only on `auto` or `agent-review-then-auto`, and only after the reviewer. A
-`route` of `human` skips the spawn — it cannot get more human, and the run
-buys a verdict no rule would read. No reviewer output is the other skip.
 
 ## Spawn
 

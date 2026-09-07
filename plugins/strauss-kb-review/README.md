@@ -109,9 +109,9 @@ by that scenario's `expected.json`.
 ## Fresh-eye decider
 
 `agents/kb-decider.md` reads a reviewer's output beside the hunks its records
-anchor to and answers `concur` or `escalate`. It is an aggregator with a veto
-and never an authority: `escalate` matches the `decider-escalate` row and
-routes `human`, `concur` matches nothing. Feed its JSON back with
+anchor to and answers `concur` or `escalate`. It is a veto, not an authority:
+`escalate` matches the `decider-escalate` row and routes `human`, `concur`
+matches nothing. Feed its JSON back with
 `merge-policy.mjs --decider`; when and how to spawn it, and which of the two
 diversity options a repo picks, are [`skills/merge-decide/SKILL.md`](./skills/merge-decide/SKILL.md).
 
