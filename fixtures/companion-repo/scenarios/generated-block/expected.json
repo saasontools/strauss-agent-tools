@@ -1,0 +1,12 @@
+{
+  "route": "auto",
+  "classifier": {
+    "src/protocol/protocol.json": "config",
+    "src/protocol/generated/index.ts": "generated",
+    ".strauss/kb/fact.protocol-schemas-generated.md": "kb",
+    ".strauss/kb/log.jsonl": "kb"
+  },
+  "gateFamilies": [],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "fact.protocol-schemas-generated carries `review:generated` and a `strauss_verify` command \u2014 not a verification event \u2014 and anchors the generator's input, src/protocol/protocol.json, alongside its output. That is what makes `auto` defensible: the reviewer can re-run the generator and diff, and the one line a human must read is anchored. SAA-741's auto row reads \"base silent or decision.none only\"; this base is neither, so the row has to admit a verified review:generated fact or this branch routes human."
+}

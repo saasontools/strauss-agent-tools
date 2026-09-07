@@ -1,0 +1,11 @@
+{
+  "route": "human",
+  "classifier": {
+    "src/services/tenant.service.ts": "code",
+    ".strauss/kb/decision.tenant-cache-ttl.md": "kb",
+    ".strauss/kb/log.jsonl": "kb"
+  },
+  "gateFamilies": ["C"],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "C1: the decision has no `## Rejected` section at all, and its Rationale restates the title. It is anchored, typed, and passes kb_validate \u2014 coverage counting alone calls this covered, which is what the branch is for. A cache with no invalidation is also an F9 signal the record does not answer."
+}

@@ -1,0 +1,21 @@
+[
+  {
+    "message": "docs(kb): record the tenant chunk size",
+    "files": [
+      ".strauss/kb/decision.tenant-chunk-size.md",
+      {
+        "from": ".strauss/kb/log.decision.jsonl",
+        "to": ".strauss/kb/log.jsonl"
+      }
+    ]
+  },
+  {
+    "message": "refactor(tenant): move chunking into its own module and fan out",
+    "files": [
+      "src/services/chunker.ts",
+      "src/services/tenant.service.ts",
+      ".strauss/kb/fact.chunking-extracted-from-tenant-service.md",
+      ".strauss/kb/log.jsonl"
+    ]
+  }
+]
