@@ -15,8 +15,8 @@ Codex, and Agent Plugins 1.0 clients:
   the agent stays the thing it spawns. A client with no subagents (Codex) runs
   the passes inline from that file instead
 - `hooks/scripts/` — the review gate, node builtins only, `// @ts-check`ed.
-  It spawns the `strauss-kb` CLI and never imports the package, which is what
-  keeps this directory buildless
+  It spawns the `strauss-kb` CLI and never imports the package, so this
+  directory stays buildless
 - `plugin.json` / `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json`
   — one manifest per format; keep name/version/description in sync
 
