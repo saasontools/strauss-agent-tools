@@ -7,7 +7,10 @@
  *                    [--policy FILE] [--reviewer FILE|JSON] [--gate FILE|JSON]
  *                    [--approvals FILE|JSON] [--pr N] [--json] [--enforce]
  *                    [--pr-url URL] [--write-record] [--report-out FILE]
- *                    [--summary]
+ *                    [--summary] [--dry-run] [--blind|--visible]
+ *                    [--labels FILE|JSON] [--reactions FILE|JSON]
+ *                    [--bot-logins a,b]
+ *   merge-policy.mjs --calibrate DUMP.json [--bot-logins a,b] [--json]
  *
  * The route table, with the rule id each row reports, is the header of
  * [lib/rules.mjs](./lib/rules.mjs). The `decision.merge-<pr>` body always comes
@@ -15,7 +18,8 @@
  * for a route no human signs off.
  *
  * Exit codes: without `--enforce`, always 0. With it, the route is the code —
- * see SKILL.md. Exit 2 is a usage error.
+ * see SKILL.md. A dry run always exits 0, so a merge step reads `mode` and
+ * never the exit code. Exit 2 is a usage error.
  *
  * `$STRAUSS_MERGE_POLICY_DEFAULTS` names an optional org defaults JSON file,
  * the shallowest policy layer.
@@ -40,8 +44,15 @@ import { gather, makeRun } from "./lib/inputs.mjs";
 import { decide } from "./lib/rules.mjs";
 import { enforce } from "./lib/enforce.mjs";
 import { writeRecord } from "./lib/record.mjs";
-import { render, result } from "./lib/render.mjs";
-import { prRepo, report } from "./lib/report.mjs";
+import { redact, render, result, verdictOf } from "./lib/render.mjs";
+import { placeholder, prRepo, report } from "./lib/report.mjs";
+import { blindOf, modeOf } from "./lib/dry-run.mjs";
+import {
+  calibrate,
+  observations,
+  policyAt,
+  renderCalibration,
+} from "./lib/calibrate.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GATE = join(
@@ -60,7 +71,10 @@ const GATE_TIMEOUT_MS = 120_000;
 const USAGE = `merge-policy.mjs --range <base>..<head> [--repo-root DIR] [--bundle DIR]
                  [--policy FILE] [--reviewer FILE|JSON] [--gate FILE|JSON]
                  [--approvals FILE|JSON] [--pr N] [--json] [--enforce]
-                 [--pr-url URL] [--write-record] [--report-out FILE] [--summary]`;
+                 [--pr-url URL] [--write-record] [--report-out FILE] [--summary]
+                 [--dry-run] [--blind|--visible] [--labels FILE|JSON]
+                 [--reactions FILE|JSON] [--bot-logins a,b]
+merge-policy.mjs --calibrate DUMP.json [--bot-logins a,b] [--json]`;
 
 /** A bad invocation, which exits 2 rather than looking like a base problem. */
 export class UsageError extends Error {
@@ -202,9 +216,21 @@ export function main(argv) {
       "write-record": { type: "boolean", default: false },
       "report-out": { type: "string" },
       summary: { type: "boolean", default: false },
+      // The dry run, and the calibration loop it feeds.
+      "dry-run": { type: "boolean", default: false },
+      blind: { type: "boolean", default: false },
+      visible: { type: "boolean", default: false },
+      labels: { type: "string" },
+      reactions: { type: "string" },
+      "bot-logins": { type: "string" },
+      calibrate: { type: "string" },
     },
   });
   if (values.help) return { help: true, model: null, exit: 0 };
+  if (values.blind === true && values.visible === true) {
+    throw new UsageError("--blind and --visible ask for opposite things");
+  }
+  if (values.calibrate !== undefined) return calibration(values);
   if (!values.range) throw new UsageError("--range <base>..<head> is required");
   // Checked before any work: a summary with nowhere to go is a bad invocation,
   // not a run whose output quietly went nowhere.
@@ -250,20 +276,36 @@ export function main(argv) {
       kb: (args) => json(kb, args),
       gate,
     }),
-    { enforcing: values.enforce === true, pr, prUrl },
+    {
+      enforcing: values.enforce === true,
+      pr,
+      prUrl,
+      forcedDry: values["dry-run"] === true,
+      blind: values.blind === true,
+      visible: values.visible === true,
+      labels: checkSignals(readJson(values.labels, "--labels"), "--labels"),
+      reactions: checkSignals(
+        readJson(values.reactions, "--reactions"),
+        "--reactions",
+      ),
+      botLogins: botLogins(values["bot-logins"]),
+    },
   );
 
   if (values["write-record"] === true) {
     model.wrote = writeRecord({
       kb,
       body: model.record,
-      route: model.route,
+      route: verdictOf(model),
       enforcing: values.enforce === true,
       enabled: model.policy.enabled,
+      mode: model.mode,
     });
   }
 
-  const block = report(model);
+  // Blind: the answer is held back until a human has already said theirs, so
+  // the block posted before then is a placeholder with the same marker.
+  const block = model.signals.withheld ? placeholder(model) : report(model);
   if (values["report-out"]) writeReport(values["report-out"], block);
   if (values.summary === true) {
     appendFileSync(summaryPath, `${block}\n`, "utf8");
@@ -271,9 +313,77 @@ export function main(argv) {
 
   return {
     help: false,
-    model,
+    // Redacted last: a withheld run names no route in the verdict fence either.
+    model: redact(model),
+    // A dry run exits 0 for every route, so a merge step reads `mode` and
+    // never this.
     exit: values.enforce === true ? (model.enforce?.exit ?? 0) : 0,
     json: values.json === true,
+  };
+}
+
+/** `--bot-logins a,b`: logins whose review never lifts the blind and whose
+ * reaction is never a disagreement — the reviewer agent, and whoever posts the
+ * sticky comment. A `verifiers` entry of kind `agent:` maps to no login, so
+ * the caller names them. @param {string|undefined} value */
+export function botLogins(value) {
+  return (value ?? "")
+    .split(",")
+    .map((login) => login.trim())
+    .filter(Boolean);
+}
+
+/**
+ * A calibration dump is a list or it is nothing. A malformed one read as empty
+ * would say "nobody disagreed", which is the one direction that flatters the
+ * route — so it is a usage error instead.
+ * @param {unknown} value @param {"--labels"|"--reactions"} flag
+ */
+export function checkSignals(value, flag) {
+  if (value === null) return null;
+  if (!Array.isArray(value)) throw new UsageError(`${flag} must be an array`);
+  return value;
+}
+
+/**
+ * `--calibrate DUMP.json`: the false-auto rate over the sticky comments and
+ * labels a caller collected from GitHub — SKILL.md names the `gh` command that
+ * writes the dump. `calibration.window` is the minimum observations a class
+ * needs, never a recency window. No range, no route and no exit code — a
+ * table, and `--json` beside it.
+ * @param {Record<string, any>} values
+ */
+export function calibration(values) {
+  const dump = readJson(values.calibrate, "--calibrate");
+  if (!Array.isArray(dump)) {
+    throw new UsageError("--calibrate needs a JSON array of pull requests");
+  }
+  const repoRoot = resolve(values["repo-root"] ?? process.cwd());
+  const { thresholds, hash } = policyAt(
+    (args) =>
+      git(repoRoot, ["show", "--no-textconv", "--end-of-options", ...args]),
+    "HEAD",
+    values.policy ?? null,
+  );
+  const { rows, ...skipped } = observations(
+    dump,
+    botLogins(values["bot-logins"]),
+  );
+  const model = {
+    dump: values.calibrate,
+    prs: dump.length,
+    verdicts: rows.length,
+    ...skipped,
+    thresholds,
+    policyHash: hash,
+    groups: calibrate(rows, thresholds, hash),
+  };
+  return {
+    help: false,
+    model,
+    exit: /** @type {0} */ (0),
+    json: values.json === true,
+    text: renderCalibration(model),
   };
 }
 
@@ -299,18 +409,29 @@ function writeReport(path, block) {
  * The whole step, with every read behind `run`. Unit tests call this.
  * @param {Parameters<typeof gather>[0]} options
  * @param {import("./lib/inputs.mjs").Run} run
- * @param {{ enforcing: boolean, pr: string | null, prUrl?: string | null }} how
+ * @param {{ enforcing: boolean, pr: string | null, prUrl?: string | null,
+ *   forcedDry?: boolean, blind?: boolean, visible?: boolean, labels?: unknown,
+ *   reactions?: unknown, botLogins?: string[] }} how
  */
 export function evaluate(options, run, how) {
   const input = gather(options, run);
   const decision = decide(input);
   const verdict = enforce(decision, input);
+  const mode = modeOf(input.policy.data.enabled, how.forcedDry === true);
   return result(input, decision, verdict, {
     enforcing: how.enforcing,
     subject: how.pr ?? options.headSha.slice(0, 12),
     pr: how.pr,
     prUrl: how.prUrl ?? null,
     bundleDir: options.bundleDir,
+    mode,
+    blind: blindOf(mode, {
+      blind: how.blind === true,
+      visible: how.visible === true,
+    }),
+    labels: how.labels ?? null,
+    reactions: how.reactions ?? null,
+    botLogins: how.botLogins ?? [],
   });
 }
 
@@ -378,7 +499,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     } else if (answer.json) {
       process.stdout.write(`${JSON.stringify(answer.model, null, 2)}\n`);
     } else {
-      process.stdout.write(`${render(answer.model)}\n`);
+      // `--calibrate` brings its own table; every other run renders the route.
+      process.stdout.write(
+        `${/** @type {any} */ (answer).text ?? render(answer.model)}\n`,
+      );
     }
     process.exit(answer.exit);
   } catch (error) {

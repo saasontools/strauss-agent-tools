@@ -42,6 +42,7 @@ export const POLICY_KEYS = [
   "review",
   "human",
   "verifiers",
+  "calibration",
   "overrides",
 ];
 
@@ -54,7 +55,14 @@ export const ENABLED = ["dry-run", "true", "false"];
 
 /** The keys an override may narrow or raise but never introduce: seeded before
  * the override fold, so silence above is not a licence to widen. */
-const SEEDED = ["enabled", "crossing", "autoClasses", "autoPaths", "verifiers"];
+const SEEDED = [
+  "enabled",
+  "crossing",
+  "autoClasses",
+  "autoPaths",
+  "verifiers",
+  "calibration",
+];
 
 /** Least to most material. A floor raises; an author value never lowers one. */
 export const MATERIALITY = ["non-blocking", "important", "blocking"];
@@ -89,17 +97,25 @@ export const AUTO_CLASSES = [
  * a value: an exclusion that crosses and is still auto-eligible is `off`. */
 export const CROSSINGS = ["off", "human"];
 
+/** What a class has to earn before a policy may name it `auto`: no PR a human
+ * would have kept, over this many. A deeper layer widens the window and lowers
+ * the cap — both directions ask for more evidence, never less. */
+export const CALIBRATION_DEFAULTS = { window: 20, maxFalseAuto: 0 };
+
 /**
  * @typedef {"auto" | "off" | "human"} Disposition
  * @typedef {{ enabled: "true" | "false" | "dry-run", owners: string[],
  *   floors: Record<string, string>, autoClasses: string[],
  *   autoPaths: string[], include: string[], exclude: string[],
  *   crossing: "off" | "human", types: Record<string, Disposition>,
- *   tags: Record<string, Disposition>, verifiers: string[] }} PolicyData
+ *   tags: Record<string, Disposition>, verifiers: string[],
+ *   calibration: { window: number, maxFalseAuto: number } }} PolicyData
  * @typedef {{ present: boolean, path: string | null, version: unknown,
  *   hash: string | null, format: "json" | "yaml" | null, layers: string[],
  *   data: PolicyData, notChecked: string[], errors: string[] }} Policy
- * @typedef {Partial<PolicyData>} Layer one file's or one override's say
+ * @typedef {Partial<Omit<PolicyData, "calibration">> & { calibration?:
+ *   { window?: number, maxFalseAuto?: number } }} Layer one file's or one
+ *   override's say — `calibration` carries only the sub-keys it named
  */
 
 /** @returns {PolicyData} */
@@ -116,6 +132,7 @@ function defaults() {
     types: {},
     tags: {},
     verifiers: [],
+    calibration: { ...CALIBRATION_DEFAULTS },
   };
 }
 
@@ -312,6 +329,13 @@ function layerOf(policy, raw, where, allowed) {
       );
   }
 
+  const calibration = calibrationOf(
+    policy,
+    raw.calibration,
+    `${at}calibration`,
+  );
+  if (calibration) layer.calibration = calibration;
+
   const classes = pick(raw, ["auto", "classes"]);
   if (classes !== undefined) {
     layer.autoClasses = strings(classes, `${at}auto.classes`, policy).filter(
@@ -367,6 +391,47 @@ function layerOf(policy, raw, where, allowed) {
     policy.errors.push(`${at}floors must be a map of tag to materiality`);
   }
   return layer;
+}
+
+/**
+ * `calibration: { window, maxFalseAuto }` — how much evidence a class owes
+ * before a policy may name it `auto`. Checked like every other key: a value
+ * outside its range is a policy error, which routes human.
+ * @param {Policy} policy @param {unknown} raw @param {string} name
+ * @returns {{ window?: number, maxFalseAuto?: number } | null}
+ */
+function calibrationOf(policy, raw, name) {
+  if (raw === undefined) return null;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    policy.errors.push(
+      `${name} must be an object with window and maxFalseAuto`,
+    );
+    return null;
+  }
+  // Only what this layer named: a seeded default would read as a cap of 0, and
+  // a deeper layer naming a window alone would zero the one above it.
+  /** @type {{ window?: number, maxFalseAuto?: number }} */
+  const read = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (key === "window") {
+      if (typeof value === "number" && Number.isInteger(value) && value > 0)
+        read.window = value;
+      else
+        policy.errors.push(
+          `${name}.window: ${String(value)} is not a positive whole number of PRs`,
+        );
+    } else if (key === "maxFalseAuto") {
+      if (typeof value === "number" && value >= 0 && value <= 1)
+        read.maxFalseAuto = value;
+      else
+        policy.errors.push(
+          `${name}.maxFalseAuto: ${String(value)} is not a rate between 0 and 1`,
+        );
+    } else {
+      policy.errors.push(`${name}.${key} is not one of window, maxFalseAuto`);
+    }
+  }
+  return read;
 }
 
 /**
@@ -442,6 +507,25 @@ function merge(data, layers, named = new Set()) {
     }
     for (const [tag, level] of Object.entries(layer.floors ?? {}))
       data.floors[tag] = raise(MATERIALITY, data.floors[tag], level);
+
+    // The first layer to name it replaces the built-in default, as `crossing`
+    // does; a deeper one may only ask for more evidence.
+    if (layer.calibration !== undefined) {
+      const next = layer.calibration;
+      data.calibration = named.has("calibration")
+        ? {
+            window:
+              next.window === undefined
+                ? data.calibration.window
+                : Math.max(data.calibration.window, next.window),
+            maxFalseAuto:
+              next.maxFalseAuto === undefined
+                ? data.calibration.maxFalseAuto
+                : Math.min(data.calibration.maxFalseAuto, next.maxFalseAuto),
+          }
+        : { ...CALIBRATION_DEFAULTS, ...next };
+      named.add("calibration");
+    }
   }
 }
 
