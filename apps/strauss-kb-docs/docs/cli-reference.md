@@ -230,8 +230,8 @@ strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
 Returns `{ conceptId, results, verified }`, each result
 `{ file, symbol?, side?, state, storedHash?, currentHash?, diffSize?, reason?,
 resolver?, rebaselined?, repo?, remoteState? }`. `side` is set only for an
-anchor read at its `ref` rather than in the working tree. `resolver` names which resolver
-produced the span — see
+anchor read at its `ref` rather than in the working tree. `resolver` names
+which resolver produced the span — see
 [symbol resolution](./specification.md#symbol-resolution). A result whose
 `reason` is `resolver-changed` drifted because the resolver changed, not the
 code; `--rebaseline` is the whole fix.
@@ -442,9 +442,9 @@ match --git <base>..<head> | --stdin [--repo-root <path>] [--offline] [--include
 ```
 
 Which records sit on each changed hunk. The diff arrives one of two ways: a
-commit range this reads itself, or the MCP object as JSON on **stdin** — where
-`files` is `[{ filePath, hunks: [{ startLine, endLine, side? }] }]`, 1-based and
-inclusive, in the line numbers of the hunk's `side` (`"old"` or `"new"`;
+commit range this reads itself, or the same JSON [`kb_match`](./mcp-reference.md#kb_match)
+takes on **stdin** — `files` is `[{ filePath, hunks: [{ startLine, endLine, side? }] }]`,
+1-based and inclusive, numbered on the hunk's `side` (`"old"` or `"new"`;
 absent means post-change). `--git` emits an old-side hunk for every hunk that
 removed lines, so a record anchored `side: "old"` surfaces on the code that
 went away.
@@ -461,8 +461,8 @@ went away.
 Symbol [anchors](./specification.md#anchors) are resolved through the same
 [chain](./specification.md#symbol-resolution) `anchor-resolve` uses, over the
 files the diff names and no others; pass `symbolRanges` on stdin to skip that.
-A symbol nothing resolved degrades to its file rather than dropping the record,
-which is what `precision` reports.
+A symbol nothing resolved degrades to its whole file rather than dropping the
+record; `precision` says which of the two happened.
 
 ```bash
 strauss-kb match --git origin/main...HEAD --repo-root /repo
@@ -603,7 +603,7 @@ promote <concept-id...> --to <bundle> [--source <url>] [--force]
 promote --list
 ```
 
-Copy records into another base at the same slug: what a review base settled,
+Copy records into another base under the same ids: what a review base settled,
 lifted into the base that outlives the pull request. The originals stay where
 they are.
 
@@ -698,9 +698,8 @@ Cross-record checks: supersession links that disagree between the two records,
 typed causal links whose rel is outside the closed vocabulary or whose target is
 not in the bundle, assumptions that cite sources, and anchors carrying two
 addresses (`symbol` and `span`), a malformed `span`, or a `side: "old"` with no
-`ref`. Per-record
-shape is enforced on every read, so a problem here means someone edited a file
-by hand.
+`ref`. Per-record shape is enforced on every read, so a problem here means
+someone edited a file by hand.
 An unknown rel is an **error** and a link to a record that does not exist yet is
 a **warning**: **exits 1 on an error; warnings alone exit 0.**
 
