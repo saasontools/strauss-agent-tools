@@ -5,9 +5,10 @@ description: Generate a self-contained HTML review guide for a pull request that
 
 # Review walkthrough
 
-This renders the order the base already knows: what can hurt, what was asked
-for, what not to read. Every line comes from `strauss-kb`; the only prose a
-model contributes is the optional per-record note in `--reviewer`.
+One HTML page putting a pull request in reading order: what can hurt, what was
+asked for, what not to read. Every line comes from the companion `strauss-kb`
+base; the only prose a model contributes is the optional per-record note in
+`--reviewer`.
 
 ## The one command
 
@@ -20,9 +21,9 @@ node "$CLAUDE_PLUGIN_ROOT/skills/review-walkthrough/scripts/render.mjs" \
 `--bundle` defaults to `<repo-root>/.strauss/kb`. `--pr` must be a
 `https://github.com/<owner>/<repo>/pull/<n>` URL. `--reviewer <file|json>`
 takes the reviewer agent's output keyed by record id. `--json` prints the step
-model instead of the page; its `steps` count is the content deck — twelve of
-them for a three-file diff is a base problem, not a rendering one.
-`strauss-kb` comes from `$STRAUSS_KB_CLI`, else `PATH`.
+model instead of the page; twelve `steps` for a three-file diff is a base
+problem, not a rendering one. `strauss-kb` comes from `$STRAUSS_KB_CLI`, else
+`PATH`.
 
 ## What the reviewer sees first
 

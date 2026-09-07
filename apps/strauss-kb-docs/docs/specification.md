@@ -38,12 +38,12 @@ The default base is `.strauss/kb`, relative to the working directory;
 | Repair  | rebuilt when it disagrees | malformed lines reported            |
 | If lost | reconstructed free        | gone                                |
 
-The store excludes both from record listings, and **no read writes anything**
-beyond the two verbs that own these files — `strauss-kb index` / `kb_index`
-repairs `INDEX.md`, and the first call to append a log line writes
-`.gitattributes` — so `git status` after a read is empty. The exception is
-`query`, which materialises the derived, gitignored `.index.sqlite` when the
-optional search backend is installed.
+The store excludes both from record listings, and **no read writes anything**,
+so `git status` after a read is clean. Only the verbs that own these files
+write them: `strauss-kb index` / `kb_index` repairs `INDEX.md`, and the first
+appended log line writes `.gitattributes`. The one read that writes is `query`,
+which materialises the derived, gitignored `.index.sqlite` when the optional
+search backend is installed.
 
 ### `INDEX.md`
 
@@ -208,20 +208,21 @@ records `hash_kind: "ast"`, so reformatting the anchored code is not drift. A
 other. CRLF is normalized to LF before hashing, and `lines` is what lets a drift
 report say how much changed.
 
-**Prefer a symbol.** A span is for a file no resolver can name a symbol in —
-YAML, SQL, Markdown, JSON — and for code that is not there any more. It is
-hashed exactly as written, always `raw`: a slice is not a syntactic unit, so no
-parser is asked to normalise it. An anchor names a symbol or a span, never both,
-and `kb_validate` reports one carrying two addresses, a backwards range, or an
-`ast` hash over a span.
+**Prefer a symbol**: it survives reformatting and moves. Two claims have no
+symbol to hang on, and each gets its own address.
 
-**`side: "old"` needs a `ref`.** The committed side is read with `git cat-file
-blob <ref>:<file>`, never from the working tree, so without a rev there is
-nothing to read; `kb_validate` reports that too. Its hash is fixed by
-construction, so an old-side anchor reports `match` until the rev or the
-resolver changes, and `kb_doctor` counts old-side anchors beside the resolver
-buckets. A rev this clone does not carry is `ref-unavailable` — unchecked, not
-`gone`, so a shallow checkout reports nothing about the old side.
+- A **`span`** names lines in a file no resolver can name a symbol in — YAML,
+  SQL, Markdown, JSON. It is hashed exactly as written, always `raw`: a slice is
+  not a syntactic unit. An anchor names a symbol or a span, never both;
+  `kb_validate` reports two addresses, a backwards range, or an `ast` hash over
+  a span.
+- **`side: "old"`** with a `ref` names code as it was at that rev — what a
+  refactor removed — read with `git cat-file blob <ref>:<file>`, never from the
+  working tree; `kb_validate` reports a missing `ref`. Committed bytes cannot
+  drift: the anchor reports `match` until the rev changes and is never searched
+  for moves. A rev this clone lacks is `ref-unavailable` — unchecked, not
+  `gone` — so a shallow checkout says nothing about the old side. `kb_doctor`
+  counts old-side anchors on a line of their own.
 
 #### Drift
 

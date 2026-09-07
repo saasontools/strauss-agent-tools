@@ -17,9 +17,9 @@ strauss-kb [--bundle PATH] <command> [args]
 | Flag / variable               | Effect                                                                                                                                                                                                                                                    |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--bundle PATH`               | The base to act on. Defaults to `./.strauss/kb`. Accepted before or after the verb.                                                                                                                                                                       |
-| `--json`                      | The machine shape, on commands that print a table. Accepted where the result is already JSON, so a caller need not know which verbs render; refused on `catalog`, `pack` and `index`, whose result is markdown.                                           |
+| `--json`                      | The machine shape. Accepted wherever the result is already JSON, so a caller need not know which verbs print a table; refused on `catalog`, `pack` and `index`, which print markdown.                                                                     |
 | `--actor <kind:name>`         | Who this call writes as, on the verbs that log an actor. Overrides `STRAUSS_KB_ACTOR` for that call only.                                                                                                                                                 |
-| `--`                          | Ends flag parsing; everything after it is text, for the verbs that end in free prose. It does not exempt a leading `--`.                                                                                                                                  |
+| `--`                          | Ends flag parsing; everything after it is text, for the verbs that end in free prose. The text still cannot open with `--`.                                                                                                                               |
 | `-h`, `--help`                | The usage listing, or one verb's own when it follows a verb. Also printed when no verb is given.                                                                                                                                                          |
 | `-v`, `--version`             | The installed package version — what makes plugin/CLI skew diagnosable, since neither updates the other.                                                                                                                                                  |
 | `STRAUSS_KB_ACTOR`            | Names the writer in the log and in `generated.by` / `verified[].by`. Defaults to `unknown`.                                                                                                                                                               |
@@ -43,10 +43,10 @@ check that reports a problem succeeded as a command and failed as a check.
 `context` prints nothing at all when nothing is pinned, since even a bare
 newline is noise in a fresh context.
 
-A verb whose positional is free prose — `no-decision`, `answer`, `query`, and
-`verify --note` — refuses text that opens with `--`, after a `--` as well as
-before one: it is a mistyped flag far more often than a sentence, and
-`strauss-kb no-decision --help` used to record one. Reword the sentence.
+Text opening with `--` is a mistyped flag far more often than a sentence, so
+the verbs whose positional is free prose — `no-decision`, `answer`, `query`, and
+`verify --note` — refuse it, after a `--` as well as before one. Reword the
+sentence.
 
 Every write verb refuses outright when the base is pinned `--frozen` in this
 workspace: `write`, `write-decision`, `no-decision`, `status`, `supersede`,
@@ -231,8 +231,8 @@ strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
 Returns `{ conceptId, results, verified }`, each result
 `{ file, symbol?, side?, state, storedHash?, currentHash?, diffSize?, reason?,
 resolver?, rebaselined?, repo?, remoteState? }`. `side` is set only for an
-anchor read at its `ref` rather than in the working tree. `resolver` names which resolver
-produced the span — see
+anchor read at its `ref` rather than in the working tree. `resolver` names
+which resolver produced the span — see
 [symbol resolution](./specification.md#symbol-resolution). A result whose
 `reason` is `resolver-changed` drifted because the resolver changed, not the
 code; `--rebaseline` is the whole fix.
@@ -293,8 +293,8 @@ Refuses with counts rather than truncating when the base trips the budget
 ceiling, pointing at the next rung down in `message`. Every result carries a
 `digest` for
 [cache-stable placement](./mcp-reference.md#kb_load), and each loaded record
-[the record shape](#record-shape) plus `standing`, `supersededBy`, `warnings`
-and `body`.
+comes back in [the record shape](#record-shape) plus `standing`,
+`supersededBy`, `warnings` and `body`.
 
 ```bash
 strauss-kb load decision --budget 8000
@@ -443,9 +443,9 @@ match --git <base>..<head> | --stdin [--repo-root <path>] [--offline] [--include
 ```
 
 Which records sit on each changed hunk. The diff arrives one of two ways: a
-commit range this reads itself, or the MCP object as JSON on **stdin** — where
-`files` is `[{ filePath, hunks: [{ startLine, endLine, side? }] }]`, 1-based and
-inclusive, in the line numbers of the hunk's `side` (`"old"` or `"new"`;
+commit range this reads itself, or the same JSON [`kb_match`](./mcp-reference.md#kb_match)
+takes on **stdin** — `files` is `[{ filePath, hunks: [{ startLine, endLine, side? }] }]`,
+1-based and inclusive, numbered on the hunk's `side` (`"old"` or `"new"`;
 absent means post-change). `--git` emits an old-side hunk for every hunk that
 removed lines, so a record anchored `side: "old"` surfaces on the code that
 went away.
@@ -462,8 +462,8 @@ went away.
 Symbol [anchors](./specification.md#anchors) are resolved through the same
 [chain](./specification.md#symbol-resolution) `anchor-resolve` uses, over the
 files the diff names and no others; pass `symbolRanges` on stdin to skip that.
-A symbol nothing resolved degrades to its file rather than dropping the record,
-which is what `precision` reports.
+A symbol nothing resolved degrades to its whole file rather than dropping the
+record; `precision` says which of the two happened.
 
 ```bash
 strauss-kb match --git origin/main...HEAD --repo-root /repo
@@ -478,9 +478,9 @@ a rename that changed no line.
 
 `--include-uncovered` returns one row per changed **symbol** instead, in diff
 order, each with a `symbol` — the innermost definition covering its lines,
-`null` where none does — and `records: []` where nothing sits on it. That is
-how a consumer enumerates the changed symbols the base does not cover.
-Uncovered rows are new-side only; a deleted symbol has no survivor to name.
+`null` where none does — and `records: []` where nothing sits on it, so a
+caller can enumerate the changed symbols the base does not cover. Uncovered
+rows are new-side only; a deleted symbol has no survivor to name.
 
 ### `classify`
 
@@ -604,7 +604,7 @@ promote <concept-id...> --to <bundle> [--source <url>] [--force]
 promote --list
 ```
 
-Copy records into another base at the same slug: what a review base settled,
+Copy records into another base under the same ids: what a review base settled,
 lifted into the base that outlives the pull request. The originals stay where
 they are.
 
@@ -699,9 +699,8 @@ Cross-record checks: supersession links that disagree between the two records,
 typed causal links whose rel is outside the closed vocabulary or whose target is
 not in the bundle, assumptions that cite sources, and anchors carrying two
 addresses (`symbol` and `span`), a malformed `span`, or a `side: "old"` with no
-`ref`. Per-record
-shape is enforced on every read, so a problem here means someone edited a file
-by hand.
+`ref`. Per-record shape is enforced on every read, so a problem here means
+someone edited a file by hand.
 An unknown rel is an **error** and a link to a record that does not exist yet is
 a **warning**: **exits 1 on an error; warnings alone exit 0.**
 
