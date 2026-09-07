@@ -359,7 +359,9 @@ export class KbStore {
       bundlePath,
       conceptId,
       (frontmatter) => ({ ...frontmatter, strauss_status: status }),
-      { operation: `status:${status}`, by: actor },
+      // `status:<value>` is what consumers already parse, so it stays; `target`
+      // repeats the new status so a reader need not split the operation.
+      { operation: `status:${status}`, by: actor, target: status },
     );
   }
 

@@ -689,16 +689,30 @@ describe("runKbCli", () => {
         join(repo, file),
         source.replace("`${region}:orders`", "`orders`"),
       );
+      // A report is a command success: drift comes back on stdout at exit 0,
+      // and only `--strict` turns the finding into an exit code.
       const drifted = await at([
         "anchor-resolve",
         "decision.region-in-key",
         "--repo-root",
         repo,
       ]);
-      expect(drifted.exitCode).toBe(1);
+      expect(drifted.exitCode).toBeUndefined();
       expect(parsed(drifted)).toMatchObject({
         verified: false,
         results: [{ state: "drifted", diffSize: 0 }],
+      });
+
+      const strict = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+        "--strict",
+      ]);
+      expect(strict.exitCode).toBe(1);
+      expect(parsed(strict)).toMatchObject({
+        results: [{ state: "drifted" }],
       });
     } finally {
       rmSync(repo, { recursive: true, force: true });
@@ -837,12 +851,13 @@ describe("runKbCli", () => {
       ).toMatchObject([{ conceptId: "fact.free-tier-cap" }]);
     });
 
-    // A flag that silently does nothing teaches a caller that it worked.
-    test("refuses --json where the result is already the machine shape", async () => {
+    // A caller scripting the CLI should not have to know which verbs render a
+    // table: on the rest `--json` is the shape they already get.
+    test("takes --json where the result is already the machine shape", async () => {
       const run = await at(["list", "--json"]);
 
-      expect(run.stderr).toContain("list takes no --json");
-      expect(run.stdout).toBe("");
+      expect(run.stderr).toBe("");
+      expect(JSON.parse(run.stdout)).toBeInstanceOf(Array);
     });
 
     // Presence, not truthiness: a mistyped threshold is answered by the

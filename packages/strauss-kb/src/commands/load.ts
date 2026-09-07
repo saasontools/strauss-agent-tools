@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { KB_RECORD_TYPES } from "../kb-record.schema.js";
+import { recordSummary } from "../record-summary.js";
 import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
 
 export const loadCommand = define({
@@ -7,7 +8,7 @@ export const loadCommand = define({
   tool: "kb_load",
   usage: "load [type] [--budget N | --all] [--repo-root PATH]",
   description:
-    "Load the whole base, each record with its standing — call it first, at the point of use, since compaction drops it. Superseded records arrive as stubs; kb_trace has the history. Over budget it refuses: kb_catalog, then kb_pack, or narrow with `type`; `all` bypasses. Never read record files directly — only kb_* tools resolve supersession. `digest` stamps the base's content, so hooks know when to reload.",
+    "Load the whole base, each record with its standing — call it first, at the point of use, since compaction drops it. Superseded records arrive as stubs; kb_trace has the history. Over budget it refuses: kb_catalog, then kb_pack, or narrow with `type`; `all` bypasses. Never read record files directly — only kb_* tools resolve supersession.",
   input: z
     .object({
       bundlePath,
@@ -56,11 +57,10 @@ export const loadCommand = define({
       ...result,
       records: result.records.map((hit) => ({
         conceptId: hit.record.conceptId,
-        title: hit.record.frontmatter.title ?? null,
+        ...recordSummary(hit.record),
         standing: hit.standing,
         supersededBy: hit.heads.map((head) => head.conceptId),
         warnings: hit.warnings,
-        anchors: hit.record.frontmatter.strauss_anchors ?? [],
         body: hit.record.body,
       })),
     };

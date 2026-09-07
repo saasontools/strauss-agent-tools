@@ -4,7 +4,17 @@ import { reassessPacket, type KbReassessPacket } from "../drift/index.js";
 import { KbRecordNotFoundError } from "../kb-errors.js";
 import { assertBaseNotFrozen, KbBaseFrozenError } from "../kb-pins/index.js";
 import type { KbAnchor } from "../kb-record.schema.js";
-import { argvFlag, bundlePath, conceptId, define, REPO_ROOT } from "./model.js";
+import {
+  ACTOR,
+  actorOf,
+  argvActor,
+  argvFlag,
+  argvPositional,
+  bundlePath,
+  conceptId,
+  define,
+  REPO_ROOT,
+} from "./model.js";
 
 /** One anchor whose code turned up unchanged elsewhere, and where. */
 export type KbRebaselinedAnchor = {
@@ -28,12 +38,14 @@ export type KbReassessResult = {
 export const reassessCommand = define({
   name: "reassess",
   tool: "kb_reassess",
-  usage: "reassess <concept-id> [--repo-root <path>] [--with-diff]",
+  usage:
+    "reassess <concept-id> [--repo-root <path>] [--with-diff] [--actor K:N]",
   description:
     "One drifted record, as something to judge: its claim, each anchor's drift class, the old-vs-new span diff, and the records that depend on it. Formatting-only drift is dropped. Empty when there is nothing to reassess. Writes: relocates moved anchors, keeping their hash; never verifies, supersedes, or changes standing.",
   input: z.object({
     bundlePath,
     conceptId,
+    actor: ACTOR,
     repoRoot: REPO_ROOT,
     withDiff: z
       .boolean()
@@ -46,15 +58,16 @@ export const reassessCommand = define({
     const repoRoot = argvFlag(argv, "--repo-root");
     return {
       bundlePath: path,
-      conceptId: argv[1],
+      conceptId: argvPositional(argv, "--repo-root", "--actor"),
       ...(repoRoot !== undefined ? { repoRoot } : {}),
       ...(argv.includes("--with-diff") ? { withDiff: true } : {}),
+      ...argvActor(argv),
     };
   },
-  run: async (
-    { store, actor },
-    { bundlePath: path, conceptId: id, repoRoot, withDiff },
-  ): Promise<KbReassessResult> => {
+  run: async (ctx, parsed): Promise<KbReassessResult> => {
+    const { bundlePath: path, conceptId: id, repoRoot, withDiff } = parsed;
+    const { store } = ctx;
+    const actor = actorOf(ctx, parsed);
     const root = repoRoot ?? process.cwd();
     const bundle = await store.list(path);
     const record = bundle.find((entry) => entry.conceptId === id);

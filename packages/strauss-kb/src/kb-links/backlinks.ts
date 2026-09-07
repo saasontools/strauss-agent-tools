@@ -1,6 +1,7 @@
 import { adjudicate } from "../adjudicate.js";
 import { KbRecordNotFoundError } from "../kb-errors.js";
 import type { KbRecord } from "../kb-record.schema.js";
+import { recordSummary } from "../record-summary.js";
 import { inboundIndex } from "./inbound.js";
 import type { KbBacklink, KbBacklinksResult } from "./model.js";
 
@@ -27,7 +28,7 @@ export function backlinks(
     const hit = standingOf.get(edge.from);
     rows.push({
       ...edge,
-      title: record.frontmatter.title ?? null,
+      ...recordSummary(record),
       standing: hit?.standing ?? "unsettled",
       warnings: hit?.warnings ?? [],
     });

@@ -137,14 +137,15 @@ describe("anchorResolveCommand", () => {
     )) as Output;
   }
 
-  /** The exit-code gate reads the result only; the input is along for the ride. */
-  const fails = (output: Output) =>
+  /** The exit-code gate, which only `--strict` arms. */
+  const fails = (output: Output, strict = true) =>
     anchorResolveCommand.failsWhen?.(
       output,
       anchorResolveCommand.input.parse({
         bundlePath: bundle,
         conceptId: ID,
         repoRoot: repo,
+        strict,
       }),
     );
 
@@ -249,6 +250,8 @@ describe("anchorResolveCommand", () => {
     });
     expect(output.results[0]?.currentHash).not.toBe(anchor.hash);
     expect(fails(output)).toBe(true);
+    // A report is a command success — the same finding exits zero unstrict.
+    expect(fails(output, false)).toBe(false);
 
     const record = await new KbStore().read(bundle, ID);
     expect(record?.frontmatter.verified).toEqual([]);

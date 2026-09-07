@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { KB_RECORD_TYPES } from "../kb-record.schema.js";
+import { recordSummary } from "../record-summary.js";
 import {
   argvFlag,
   argvFlags,
   argvWithout,
   bundlePath,
   define,
+  OPTIONAL_FREE_TEXT,
   REPO_ROOT,
   TAGS,
 } from "./model.js";
@@ -18,7 +20,7 @@ export const queryCommand = define({
     "Search; every hit carries its standing. Flagged, never filtered: a superseded hit returns with its replacement, a rejected one is marked. Prefer kb_load when the base fits its budget — a full read beats search. Results are volatile: place them at the tail, not the cached prefix. Never read record files directly.",
   input: z.object({
     bundlePath,
-    text: z.string().optional(),
+    text: OPTIONAL_FREE_TEXT.optional(),
     type: z.enum(KB_RECORD_TYPES).optional(),
     includeNonCurrent: z.boolean().optional(),
     tags: TAGS,
@@ -50,8 +52,7 @@ export const queryCommand = define({
       })
     ).map((hit) => ({
       conceptId: hit.record.conceptId,
-      title: hit.record.frontmatter.title ?? null,
-      description: hit.record.frontmatter.description ?? null,
+      ...recordSummary(hit.record),
       standing: hit.standing,
       supersededBy: hit.heads.map((head) => head.conceptId),
       warnings: hit.warnings,
