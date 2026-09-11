@@ -5,6 +5,7 @@ import {
   argvPositional,
   bundlePath,
   define,
+  recordFields,
   TAGS,
 } from "./model.js";
 
@@ -13,7 +14,7 @@ export const listCommand = define({
   tool: "kb_list",
   usage: "list [type] [--tag T]...",
   description:
-    "Every record, optionally one type or tag. For enumerating; use kb_query for a question.",
+    "Every record, optionally one type or tag, each with its `verify` commands, `sources` and `owner`. For enumerating; use kb_query for a question.",
   input: z.object({
     bundlePath,
     type: z.enum(KB_RECORD_TYPES).optional(),
@@ -38,6 +39,7 @@ export const listCommand = define({
         description: record.frontmatter.description ?? null,
         status: record.frontmatter.strauss_status,
         anchors: record.frontmatter.strauss_anchors ?? [],
+        ...recordFields(record.frontmatter),
       }),
     ),
 });

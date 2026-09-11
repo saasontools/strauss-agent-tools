@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { KbMissingFlagValueError } from "../kb-errors.js";
+import type { KbRecordFrontmatter } from "../kb-record.schema.js";
 import type { KbStore } from "../kb-store.js";
 
 /**
@@ -200,4 +201,17 @@ export function argvPositional(
   return argvWithout(argv.slice(1), ...names).find(
     (arg) => !arg.startsWith("--"),
   );
+}
+
+/**
+ * The frontmatter every read verb hands over beside a record, so a consumer
+ * never parses `strauss_verify`, `sources` or `strauss_owner` out of the body.
+ * `owner` stays absent, not null, when the author named none.
+ */
+export function recordFields(front: KbRecordFrontmatter) {
+  return {
+    verify: front.strauss_verify ?? [],
+    sources: front.sources ?? [],
+    ...(front.strauss_owner ? { owner: front.strauss_owner } : {}),
+  };
 }
