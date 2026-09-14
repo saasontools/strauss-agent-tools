@@ -735,7 +735,7 @@ test("--report flags only the one repair the fixer may apply", () => {
   const one = (id) =>
     label({
       id,
-      family: id[0] ?? "",
+      group: id.split(".")[0] ?? "",
       severity: /** @type {const} */ ("block"),
       kind: /** @type {const} */ ("mechanical"),
       message: "x",
