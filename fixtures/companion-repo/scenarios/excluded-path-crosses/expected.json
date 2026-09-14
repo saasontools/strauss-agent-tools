@@ -1,7 +1,7 @@
 {
   "route": "human",
   "classifier": {
-    "packages/legacy-reporting/src/report.ts": "code"
+    "packages/legacy-reporting/src/report.ts": "source"
   },
   "gateFamilies": ["A"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

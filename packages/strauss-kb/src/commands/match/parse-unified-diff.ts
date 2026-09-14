@@ -9,54 +9,132 @@ import type { DiffFile, DiffHunk } from "../../match-diff.js";
 
 const FILE_HEADER = /^diff --git (.+)$/;
 const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
+const SIMILARITY = /^similarity index (\d+)%$/;
 /** What `readRangeDiff` pins. A patch from elsewhere may spell it otherwise. */
 const KNOWN_PREFIX = /^[ab]\//;
 
+export type ParseDiffOptions = {
+  /**
+   * Keep a file the patch names but gives no hunk — a rename `-M` matched
+   * whole, a binary change, a mode-only change. Off by default: a hunkless
+   * file has no line for a record to sit on.
+   */
+  keepEmpty?: boolean;
+  /** Carry each hunk's changed lines, for a caller that reads content. */
+  withLines?: boolean;
+};
+
 /**
- * Files with at least one hunk. A binary file and a rename that changed
- * nothing carry no hunks and so appear nowhere: there is no line for a record
- * to sit on.
+ * Files with at least one hunk, unless `keepEmpty` asks for the rest. A binary
+ * file, a mode-only change and a rename that changed nothing carry no hunks,
+ * so by default they appear nowhere: there is no line for a record to sit on.
+ *
+ * `rename from`/`similarity index` are always read onto the file; they are two
+ * header lines, and a caller that ignores them pays nothing.
  */
-export function parseUnifiedDiff(patch: string): DiffFile[] {
+export function parseUnifiedDiff(
+  patch: string,
+  options: ParseDiffOptions = {},
+): DiffFile[] {
   const files: DiffFile[] = [];
   let current: DiffFile | undefined;
+  let listed = false;
   let shared: string | undefined;
   let oldPath: string | undefined;
+  let rename: Pick<DiffFile, "renamedFrom" | "similarity"> = {};
   // Only between `diff --git` and the first hunk is a `---`/`+++` line a
   // header; past it, an added or removed line of source can spell one.
   let inHeader = false;
+  // The two hunks one header can emit, so a `+`/`-` line lands on its own side.
+  let added: DiffHunk | undefined;
+  let removed: DiffHunk | undefined;
+
+  const list = (): void => {
+    if (!current || listed) return;
+    files.push(current);
+    listed = true;
+  };
+  const open = (filePath: string): void => {
+    current = { filePath, hunks: [], ...rename };
+    listed = false;
+  };
+  /** Rename headers follow the `diff --git` line the file was opened on. */
+  const amend = (): void => {
+    if (current) Object.assign(current, rename);
+  };
+  const close = (): void => {
+    if (options.keepEmpty) list();
+    current = undefined;
+    listed = false;
+    added = undefined;
+    removed = undefined;
+  };
 
   for (const raw of patch.split("\n")) {
     const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
 
     const start = FILE_HEADER.exec(line);
     if (start) {
-      current = undefined;
+      close();
       oldPath = undefined;
+      rename = {};
       shared = sharedHeaderPath(start[1] as string);
       inHeader = true;
+      // Opened here rather than on `+++`: a binary or mode-only change has no
+      // `+++` line at all, and `keepEmpty` is what asks for those files.
+      if (shared) open(shared);
       continue;
     }
-    if (inHeader && line.startsWith("--- ")) {
-      oldPath = sidePath(line.slice(4), shared);
-      continue;
-    }
-    if (inHeader && line.startsWith("+++ ")) {
-      // A deletion names `/dev/null` on the new side; the record still points
-      // at the path that was removed.
-      const path = sidePath(line.slice(4), shared) ?? oldPath;
-      current = path ? { filePath: path, hunks: [] } : undefined;
-      continue;
+    if (inHeader) {
+      const similarity = SIMILARITY.exec(line);
+      if (similarity) {
+        rename.similarity = Number(similarity[1]);
+        amend();
+        continue;
+      }
+      if (line.startsWith("rename from ")) {
+        rename.renamedFrom = unquote(line.slice(12).trim());
+        amend();
+        continue;
+      }
+      // The only header naming the new path when the rename changed no line.
+      if (line.startsWith("rename to ")) {
+        open(unquote(line.slice(10).trim()));
+        continue;
+      }
+      if (line.startsWith("--- ")) {
+        oldPath = sidePath(line.slice(4), shared);
+        continue;
+      }
+      if (line.startsWith("+++ ")) {
+        // A deletion names `/dev/null` on the new side; the record still points
+        // at the path that was removed.
+        const path = sidePath(line.slice(4), shared) ?? oldPath;
+        if (path) open(path);
+        else current = undefined;
+        continue;
+      }
     }
 
     const hunk = HUNK.exec(line);
-    if (!hunk) continue;
+    if (!hunk) {
+      if (!options.withLines || inHeader) continue;
+      if (line.startsWith("+")) added?.lines?.push(line.slice(1));
+      else if (line.startsWith("-")) removed?.lines?.push(line.slice(1));
+      continue;
+    }
     inHeader = false;
+    added = undefined;
+    removed = undefined;
     if (!current) continue;
-    if (!current.hunks.length) files.push(current);
-    current.hunks.push(...hunksOf(hunk));
+    const [next, before] = hunksOf(hunk, options.withLines === true);
+    added = next;
+    removed = before;
+    list();
+    current.hunks.push(...(before ? [next, before] : [next]));
   }
 
+  close();
   return files;
 }
 
@@ -71,25 +149,30 @@ export function parseUnifiedDiff(patch: string): DiffFile[] {
  * base rev lands on the code that went away rather than on whatever replaced
  * it.
  */
-function hunksOf(hunk: RegExpExecArray): DiffHunk[] {
+function hunksOf(
+  hunk: RegExpExecArray,
+  withLines: boolean,
+): [DiffHunk, DiffHunk?] {
   const oldStart = Number(hunk[1]);
   const oldCount = hunk[2] === undefined ? 1 : Number(hunk[2]);
   const newStart = Number(hunk[3]);
   const newCount = hunk[4] === undefined ? 1 : Number(hunk[4]);
 
-  const hunks: DiffHunk[] = [
+  const lines = withLines ? { lines: [] as string[] } : {};
+  const added: DiffHunk =
     newCount === 0
-      ? point(newStart)
-      : { startLine: newStart, endLine: newStart + newCount - 1 },
-  ];
-  if (oldCount > 0) {
-    hunks.push({
+      ? { ...point(newStart), ...lines }
+      : { startLine: newStart, endLine: newStart + newCount - 1, ...lines };
+  if (oldCount === 0) return [added];
+  return [
+    added,
+    {
       startLine: oldStart,
       endLine: oldStart + oldCount - 1,
       side: "old",
-    });
-  }
-  return hunks;
+      ...(withLines ? { lines: [] } : {}),
+    },
+  ];
 }
 
 function point(start: number): DiffHunk {
