@@ -14,7 +14,7 @@
  * | 6 | `unverified-important` | human | `important` after floors, no non-author verify |
  * | 7 | `reviewer-dissent` | human | reviewer wrote a risk, or a `lies`/`disputed` verdict |
  * | 8 | `record-deleted` | human | a record the base or the log knew is gone, unsettled |
- * | 9 | `uncovered-change` | human | a gate family A block on a path review still covers |
+ * | 9 | `uncovered-change` | human | an `uncovered` gate block on a path review still covers |
  * | 10 | `gate-block` | human | any other gate block |
  * | 11 | `unreadable-record` | human | a record in the bundle that would not read |
  * | 12 | `gate-unavailable` | human | the gate crashed, timed out or printed nothing |
@@ -125,7 +125,7 @@ export const RULES = [
       const covered = new Set(reviewed(input).map((file) => file.path));
       const silent = input.gate.blocks.filter(
         (block) =>
-          block.family === "A" && (!block.file || covered.has(block.file)),
+          block.group === "uncovered" && (!block.file || covered.has(block.file)),
       );
       return silent.length > 0
         ? `changed with nothing to say why: ${silent.map((block) => block.file ?? block.id).join(", ")}`

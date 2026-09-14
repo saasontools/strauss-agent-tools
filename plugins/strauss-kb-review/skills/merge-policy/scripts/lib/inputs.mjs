@@ -299,7 +299,7 @@ function deletedRecords(run, base, bundleDir, records, log) {
  * @param {Run} run @param {boolean} supplied
  */
 function gateReport(run, supplied) {
-  /** @typedef {{ id: string, family: string, file: string | null }} Block */
+  /** @typedef {{ id: string, group: string, file: string | null }} Block */
   /** @type {{ blocks: Block[], warns: Block[], answered: boolean } | null} */
   let state = null;
   const force = () => {
@@ -311,7 +311,7 @@ function gateReport(run, supplied) {
         .filter((item) => /** @type {any} */ (item).severity === severity)
         .map((item) => ({
           id: asString(/** @type {any} */ (item).id),
-          family: asString(/** @type {any} */ (item).family),
+          group: asString(/** @type {any} */ (item).group),
           file: asString(/** @type {any} */ (item).file) || null,
         }));
     state = {

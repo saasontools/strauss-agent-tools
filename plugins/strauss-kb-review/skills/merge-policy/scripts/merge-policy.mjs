@@ -40,7 +40,7 @@ const GATE = join(
   "kb-review-gate.mjs",
 );
 
-/** The gate runs every check family, so it gets more room than a kb verb. */
+/** The gate runs every check group, so it gets more room than a kb verb. */
 const GATE_TIMEOUT_MS = 120_000;
 
 const USAGE = `merge-policy.mjs --range <base>..<head> [--repo-root DIR] [--bundle DIR]
