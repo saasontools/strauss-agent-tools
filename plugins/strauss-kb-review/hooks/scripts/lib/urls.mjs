@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * C5's link check. Cached under `$TMPDIR/strauss-kb/gate-urls.json` so a
+ * claim.dead-source's link check. Cached under `$TMPDIR/strauss-kb/gate-urls.json` so a
  * re-run costs nothing, and skipped whole when the network is unreachable —
  * an offline runner must not turn into a wall of warnings.
  */
@@ -51,7 +51,7 @@ export function isProbeable(url) {
 
 /**
  * `"missing"` only for a definite 404. Anything else — a timeout, a login
- * wall, no network — is `"unknown"`, which C5 does not report.
+ * wall, no network — is `"unknown"`, which claim.dead-source does not report.
  * @param {string} url @returns {"missing" | "present" | "unknown"}
  */
 export function checkUrl(url) {
