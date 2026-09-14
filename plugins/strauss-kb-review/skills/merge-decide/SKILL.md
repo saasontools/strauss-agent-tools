@@ -23,10 +23,13 @@ node "$CLAUDE_PLUGIN_ROOT/skills/merge-policy/scripts/merge-policy.mjs" \
 
 ## Spawn
 
-Launch `kb-decider` with the bundle path, the range, the repo root, **every**
-reviewer actor's output JSON, the classifier dump, `route.json`, the head sha,
-a budget half the reviewer's, and one diversity option — the agent escalates
-with `no-diversity` if the prompt names neither:
+Start a fresh session or subagent on a model the reviewer did not run, named
+`decider` so it writes as `agent:decider`, with
+[references/decider.md](references/decider.md) as its brief plus: the bundle
+path, the range, the repo root, **every** reviewer's `kb` block, the classifier
+dump, `route.json`, the head sha, a budget half the reviewer's, and one
+diversity option — the brief escalates with `no-diversity` if the prompt names
+neither:
 
 | Option            | Picked when                      | What the decider sees                                                                       |
 | ----------------- | -------------------------------- | ------------------------------------------------------------------------------------------- |

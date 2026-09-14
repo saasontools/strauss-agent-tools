@@ -13,13 +13,12 @@ Codex, and Agent Plugins 1.0 clients:
   `skills/merge-policy/` and `skills/merge-decide/` — the portable core every
   client reads; put the real procedure here, never only in client-specific
   files
-- `agents/kb-reviewer.md`, `agents/kb-fixer.md` and `agents/kb-decider.md` —
-  Claude Code only, so `kb-review`, `kb-fix` and `merge-decide` stay skills and
-  the agents stay the things they spawn. A client with no subagents (Codex)
-  runs the passes inline from those files instead
-- `hooks/scripts/` — the review gate, node builtins only, `// @ts-check`ed.
-  It spawns the `strauss-kb` CLI and never imports the package, so this
-  directory stays buildless
+- no `agents/` — reviewers are the consumer's agents; `kb-review` is preloaded
+  into each of them, and the roster in `.strauss/kb-pins.json` is the only
+  place a reviewer is named
+- `hooks/scripts/` — the author gate and the reviewer gate, node builtins
+  only, `// @ts-check`ed. They spawn the `strauss-kb` CLI and never import the
+  package, so this directory stays buildless
 - `plugin.json` / `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json`
   — one manifest per format; keep name/version/description in sync
 
