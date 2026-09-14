@@ -249,3 +249,44 @@ export function uncommittedPaths(cwd, dir) {
     Boolean,
   );
 }
+
+/**
+ * `.gitattributes` as they stood at `source`, for every path given: the
+ * repository's own word on what a file is. `--source` needs git 2.40; older
+ * gits fall back to the working tree, which a change on the branch could
+ * have edited, so the caller is told.
+ * @param {string} cwd @param {string | null} source @param {string[]} paths
+ * @param {string[]} attributes
+ * @returns {{ attrs: Map<string, Record<string, string>>, pinned: boolean }}
+ */
+export function checkAttr(cwd, source, paths, attributes) {
+  /** @type {Map<string, Record<string, string>>} */
+  const attrs = new Map();
+  if (paths.length === 0) return { attrs, pinned: true };
+  const run = (/** @type {string[]} */ extra) =>
+    spawnSync("git", ["--no-pager", "check-attr", ...extra, "--stdin", "-z", ...attributes], {
+      cwd,
+      encoding: "utf8",
+      timeout: TIMEOUT_MS,
+      maxBuffer: MAX_OUTPUT_BYTES,
+      env: childEnv(),
+      input: `${paths.join("\0")}\0`,
+    });
+  let pinned = Boolean(source);
+  let result = source ? run([`--source=${source}`]) : run([]);
+  if (source && (result.error || result.status !== 0)) {
+    pinned = false;
+    result = run([]);
+  }
+  if (result.error || result.status !== 0) return { attrs, pinned };
+  // -z output: path NUL attr NUL value NUL, repeated.
+  const fields = (result.stdout ?? "").split("\0");
+  for (let i = 0; i + 2 < fields.length; i += 3) {
+    const path = fields[i] ?? "";
+    const name = fields[i + 1] ?? "";
+    const value = fields[i + 2] ?? "";
+    if (!path || value === "unspecified") continue;
+    attrs.set(path, { ...(attrs.get(path) ?? {}), [name]: value });
+  }
+  return { attrs, pinned };
+}
