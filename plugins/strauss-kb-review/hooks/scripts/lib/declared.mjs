@@ -7,11 +7,13 @@
  */
 
 /**
- * @typedef {{ declared: string[], none: boolean } | null} Declaration
+ * @typedef {{ declared: string[], classes: Map<string, string>, none: boolean } | null} Declaration
  */
 
 /**
  * The last `changed` block in a turn's text, or null when there is none.
+ * Each line is `<path>` or `<path> <class>`; the class is the agent's own
+ * word for what kind of change it made there, `source` when absent.
  * @param {string | null} text @returns {Declaration}
  */
 export function declaredPaths(text) {
@@ -24,12 +26,38 @@ export function declaredPaths(text) {
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#"));
   if (lines.length === 1 && lines[0]?.toLowerCase() === "none") {
-    return { declared: [], none: true };
+    return { declared: [], classes: new Map(), none: true };
   }
-  return {
-    declared: [...new Set(lines.map(normalize))].filter(Boolean),
-    none: false,
-  };
+  /** @type {Map<string, string>} */
+  const classes = new Map();
+  /** @type {string[]} */
+  const declared = [];
+  for (const line of lines) {
+    const [rawPath, rawClass] = line.split(/\s+/);
+    const path = normalize(rawPath ?? "");
+    if (!path || declared.includes(path)) continue;
+    declared.push(path);
+    if (rawClass) classes.set(path, rawClass.toLowerCase());
+  }
+  return { declared, classes, none: false };
+}
+
+/**
+ * Declared classes the repository does not back: a class that lowers
+ * scrutiny must come from a `review:*` fact or a `.gitattributes` entry,
+ * which is what `classes` (the classifier's answer) already reflects.
+ * @param {Map<string, string>} declared @param {Map<string, string>} classes
+ * @param {Set<string>} lowering
+ * @returns {{ path: string, claimed: string, actual: string }[]}
+ */
+export function unbackedClasses(declared, classes, lowering) {
+  const out = [];
+  for (const [path, claimed] of declared) {
+    if (!lowering.has(claimed)) continue;
+    const actual = classes.get(path) ?? "source";
+    if (actual !== claimed) out.push({ path, claimed, actual });
+  }
+  return out;
 }
 
 /** Forward slashes, no leading `./`. @param {string} path */

@@ -4,7 +4,7 @@
 /**
  * @typedef {"block"|"warn"} Severity
  * @typedef {"mechanical"|"semantic"} Kind
- * @typedef {{ id: string, family: string, severity: Severity, kind: Kind,
+ * @typedef {{ id: string, group: string, severity: Severity, kind: Kind,
  *   recordId?: string, file?: string, symbol?: string, message: string }} Finding
  * @typedef {{ file: string, symbol?: string, hash?: string,
  *   resolved_at?: string, [k: string]: unknown }} Anchor
@@ -154,13 +154,13 @@ export function section(body, heading) {
 }
 
 /**
- * @param {string} id @param {string} family @param {Severity} severity
+ * @param {string} id @param {string} group @param {Severity} severity
  * @param {Kind} kind @param {string} message
  * @param {{ recordId?: string, file?: string, symbol?: string }} [where]
  * @returns {Finding}
  */
-export function finding(id, family, severity, kind, message, where = {}) {
-  return { id, family, severity, kind, message, ...where };
+export function finding(id, group, severity, kind, message, where = {}) {
+  return { id, group, severity, kind, message, ...where };
 }
 
 /**
