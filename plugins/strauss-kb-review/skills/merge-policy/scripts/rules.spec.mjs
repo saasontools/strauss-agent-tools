@@ -1077,6 +1077,13 @@ test("CODEOWNERS — a base file with no owner on the policy warns, and routes n
           }),
           "main:CODEOWNERS": owners,
         }),
+        // The class is stated by the classifier, never guessed from the path.
+        kb: (/** @type {string[]} */ args) =>
+          args[0] === "classify"
+            ? { files: [{ filePath: "docs/README.md", class: "docs" }] }
+            : args[0] === "log"
+              ? { entries: [] }
+              : { files: [] },
       },
       changed: "M\tdocs/README.md\n",
     });
