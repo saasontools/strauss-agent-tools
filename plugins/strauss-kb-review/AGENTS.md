@@ -9,16 +9,15 @@ A multi-client agent plugin served as-is (no build step) to Claude Code,
 Codex, and Agent Plugins 1.0 clients:
 
 - `skills/recording-decisions/`, `skills/review-companion/`,
-  `skills/kb-review/`, `skills/review-walkthrough/` and `skills/kb-fix/` — the
-  portable core every client reads; put the real procedure here, never only in
+  `skills/kb-review/` and `skills/review-walkthrough/` — the portable core
+  every client reads; put the real procedure here, never only in
   client-specific files
-- `agents/kb-reviewer.md` and `agents/kb-fixer.md` — Claude Code only, so
-  `kb-review` and `kb-fix` stay skills and the agents stay the things they
-  spawn. A client with no subagents (Codex) runs the passes inline from those
-  files instead
-- `hooks/scripts/` — the review gate, node builtins only, `// @ts-check`ed.
-  It spawns the `strauss-kb` CLI and never imports the package, so this
-  directory stays buildless
+- no `agents/` — reviewers are the consumer's agents; `kb-review` is preloaded
+  into each of them, and the roster in `.strauss/kb-pins.json` is the only
+  place a reviewer is named
+- `hooks/scripts/` — the author gate and the reviewer gate, node builtins
+  only, `// @ts-check`ed. They spawn the `strauss-kb` CLI and never import the
+  package, so this directory stays buildless
 - `plugin.json` / `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json`
   — one manifest per format; keep name/version/description in sync
 
