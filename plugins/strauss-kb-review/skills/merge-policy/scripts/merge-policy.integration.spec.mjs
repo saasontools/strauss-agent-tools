@@ -831,3 +831,40 @@ test("a --pr-url that is not a github pull request is a usage error", () => {
   ]);
   assert.equal(answer.status, 2);
 });
+
+test("--reviewer reads the kb-review block: verdicts under records, sha on the block", () => {
+  const repo = materialize("docs-only");
+  const block = {
+    actor: "agent:security",
+    sha: "d1135cbf0c6d4b7e9a2f1e8c3b5a7d9e0f1a2b3c",
+    records: { "risk.a": { verdict: "verified", note: "" } },
+    written: [{ op: "write", type: "risk", conceptId: "risk.b" }],
+    partial: false,
+    reason: null,
+  };
+  const { model } = route(repo, [
+    "--range",
+    "main..docs-only",
+    "--repo-root",
+    repo,
+    "--reviewer",
+    JSON.stringify(block),
+    "--json",
+  ]);
+  assert.deepEqual(model.reviewer, {
+    present: true,
+    sha: block.sha,
+    verdicts: { "risk.a": "verified" },
+  });
+  // The older top-level shape still reads.
+  const legacy = route(repo, [
+    "--range",
+    "main..docs-only",
+    "--repo-root",
+    repo,
+    "--reviewer",
+    JSON.stringify({ "risk.a": { verdict: "lies" }, written: [] }),
+    "--json",
+  ]).model;
+  assert.deepEqual(legacy.reviewer.verdicts, { "risk.a": "lies" });
+});
