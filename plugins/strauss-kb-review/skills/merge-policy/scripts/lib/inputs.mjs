@@ -345,7 +345,11 @@ function reviewer(raw) {
   }
   /** @type {Record<string, string>} */
   const verdicts = {};
-  for (const [key, value] of Object.entries(raw)) {
+  // The kb-review block nests verdicts under `records`; an older dump keyed
+  // them at the top level. Both are read.
+  const keyed =
+    raw.records && typeof raw.records === "object" ? raw.records : raw;
+  for (const [key, value] of Object.entries(keyed)) {
     const verdict = asString(/** @type {any} */ (value)?.verdict);
     if (verdict) verdicts[key] = verdict;
   }
@@ -358,7 +362,7 @@ function reviewer(raw) {
     .map((item) => asString(/** @type {any} */ (item).conceptId));
   return {
     present: true,
-    // The agent's output has no sha of its own yet; a runner adds one.
+    // The kb-review block carries `sha`; an older dump left it to the runner.
     sha:
       asString(raw.sha) || asString(raw.run?.sha) || asString(raw.head) || null,
     verdicts,

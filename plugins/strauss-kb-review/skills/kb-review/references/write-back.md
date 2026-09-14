@@ -73,6 +73,7 @@ Only when the drift is a move. Changed content is a dispute, not a rebaseline.
 ```json
 {
   "actor": "agent:security",
+  "sha": "d1135cbf0c6d4b7e9a2f1e8c3b5a7d9e0f1a2b3c",
   "records": {
     "decision.cas-not-lock": {
       "verdict": "verified",
