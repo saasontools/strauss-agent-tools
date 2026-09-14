@@ -97,6 +97,19 @@ changed, what a risk's mitigation is — belongs to whoever held the why. A
 fixer that invents it has written the one record a reviewer will trust and
 should not.
 
+## Declare what you changed
+
+A subagent sharing a worktree ends its turn with the paths it changed, one per
+line, or `none`. The gate checks the list against the worktree and reads only
+those paths for you; anything undeclared is the parent session's at its Stop.
+
+````markdown
+```changed
+src/checkout/pay.ts
+.strauss/kb/risk.checkout-retry-double-charge.md
+```
+````
+
 ## Slugs that survive the branch
 
 `<area>-<thing>`: `checkout-retry-budget`, `tenant-batch-get`. No commit
