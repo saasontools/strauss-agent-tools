@@ -14,8 +14,6 @@ One directory, three plugin formats:
 | Claude Code                                                            | `.claude-plugin/plugin.json` | `skills/` |
 | Codex                                                                  | `.codex-plugin/plugin.json`  | `skills/` |
 
-`agents/` is Claude Code only.
-
 ## Requires strauss-kb
 
 The skills call `kb_write_decision`, `kb_no_decision`, `kb_write` and friends,
@@ -31,8 +29,10 @@ honest answer.
 **`review-companion`** — risks, invented requirements, business flows, and
 review-focus marks kept current across a pull request's commits.
 
-**`kb-review`** — collect the inputs, spawn the reviewer agent, print its
-verdicts.
+**`kb-review`** — what a reviewer agent reads from the companion base before
+judging a hunk, and what it writes back under its own actor. Preload it into
+every reviewer agent; the repository's roster in `.strauss/kb-pins.json` names
+the reviewers and what each may write.
 
 **`review-walkthrough`** — the base and the diff rendered as one HTML review
 guide for a human.
@@ -42,23 +42,14 @@ fix them. See [Fixing a base](#fixing-a-base).
 
 **`merge-policy`** — who reviews a range, decided from the records alone.
 
-## Reviewer agent
-
-`agents/kb-reviewer.md` (Claude Code only) reviews a pull request against the
-companion base the other two skills wrote, and writes its verdicts back as
-`agent:reviewer`. The procedure, the two surfaces it writes through, and the
-output shape live there. Per-scenario outcome expectations are in
-`agents/kb-reviewer.expectations.json`, for SAA-746's runner to assert against.
-
 ## Fixing a base
 
 Whoever held the why fixes the base. `skills/kb-fix/` routes between the three
 tiers — the author in the blocked turn, the author's subagent in the same
-session, and a fresh `agents/kb-fixer.md` in a later one — and the gate marks
-each `--report` finding `fixable`, so the routing is data. The one repair the
-late tier may apply, and the `open-question` everything else becomes, live in
-`agents/kb-fixer.md`; per-scenario expectations are in
-`agents/kb-fixer.expectations.json`.
+session, and a later session with nobody left — and the gate marks each
+`--report` finding `fixable`, so the routing is data. The late tier's mandate,
+the one repair it may apply and the `open-question` everything else becomes,
+is [`skills/kb-fix/references/late-tier.md`](skills/kb-fix/references/late-tier.md).
 
 ## Gate
 
@@ -102,6 +93,58 @@ header of [`lib/rules.mjs`](./skills/merge-policy/scripts/lib/rules.mjs).
 `--enforce` turns the route into the exit code, and approval comes from the
 GitHub reviews API. The route each `fixtures/companion-repo` scenario produces
 is pinned by that scenario's `expected.json`.
+
+## Reviewer hooks
+
+`hooks/scripts/kb-reviewer-gate.mjs` enforces the mechanics the `kb-review`
+skill states, on the reviewers the repository's roster names. Everything else
+passes through untouched.
+
+| Event                  | What it holds                                                                                                                                                                                                                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PreToolUse`           | A base write carries `STRAUSS_KB_ACTOR=agent:<name>`; is a reviewer's kind of write (no decisions, no settling another actor's record, `blocking` only with `mayBlock`); lands on a base `validate` and `doctor --strict` accept, checked once per base state. MCP write tools are denied: they land as actor `mcp`. |
+| `Stop`, `SubagentStop` | The turn ends with the skill's fenced `kb` report block.                                                                                                                                                                                                                                                             |
+
+**Who it applies to.** The reviewer's name is the agent's own name, which
+both Claude Code and Codex hand a subagent's hooks as `agent_type`. The gate
+acts only when that name is under `reviewers` in `.strauss/kb-pins.json`:
+
+```json
+{
+  "reviewers": {
+    "security": { "tags": ["review:security"], "mayBlock": true },
+    "perf": { "tags": ["review:performance"] }
+  }
+}
+```
+
+Author sessions, non-roster subagents, and a repository without the key see
+no gate. A client that hands hooks no agent name can set
+`STRAUSS_KB_REVIEWER=<name>` in the reviewer's environment instead.
+
+**Wiring.** Unwired on purpose: the plugin ships the script and
+[`hooks/example-reviewer-hooks.json`](./hooks/example-reviewer-hooks.json), and
+the consumer decides which sessions run it.
+
+- _Claude Code_ — copy the entries into `.claude/settings.json` (project) or
+  `~/.claude/settings.json`; `${CLAUDE_PLUGIN_ROOT}` resolves inside a
+  plugin-installed session, else write the absolute path. Subagent hooks run
+  from the same settings; a reviewer agent needs only
+  `skills: [kb-review]` in its frontmatter.
+- _Codex_ — same JSON into `<repo>/.codex/hooks.json` or `~/.codex/hooks.json`
+  (inline `[hooks]` in `config.toml` takes the same shape). Codex refuses a
+  non-managed hook until it is trusted through `/hooks`; `exec_command`
+  matches as `Bash`, and `transcript_path` may be `null`, in which case the
+  Stop check reports itself unchecked and passes.
+- _Other clients_ — any harness that passes a Claude-shaped payload on stdin
+  (`hook_event_name`, `tool_name`, `tool_input.command`, `cwd`, `agent_type`)
+  and reads `hookSpecificOutput.permissionDecision` or `{"decision":"block"}`
+  works as is; set `STRAUSS_KB_REVIEWER` when it has no `agent_type`.
+  Antigravity's `.agents/hooks.json` is one; see the strauss-kb plugin's
+  [adapters](../strauss-kb/adapters/) for that file's shape.
+
+Windows: the commands are `node "<path>"`, no shell built-ins, so they run
+under `cmd.exe` unchanged.
 
 ## Install (unpublished)
 
