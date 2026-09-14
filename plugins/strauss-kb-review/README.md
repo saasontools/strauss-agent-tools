@@ -67,6 +67,14 @@ fabricated record, an unearned status move, a `kb_validate` error, a family-F
 signal with no record of the type it owes — and warns on the heuristics: sizes,
 duplicates, expiry, drift. `--report` prints the same findings and exits 0.
 
+**Whose diff.** The gate reads the worktree's diff since the session's base
+commit: everything changed there, whoever changed it. Parallel subagents in
+one worktree therefore share one diff. On `SubagentStop` a subagent's fenced
+`changed` block (see `review-companion`) scopes the gate to the paths it
+declares, after the worktree confirms they changed; undeclared paths fall to
+the parent session at its Stop. For clean attribution run parallel subagents
+in their own worktrees.
+
 **Arming** takes both halves: copy the entries from
 [`hooks/example-hooks.json`](./hooks/example-hooks.json) into
 `.claude/settings.json`, and add a `gate` key to `.strauss/kb-pins.json` (or set

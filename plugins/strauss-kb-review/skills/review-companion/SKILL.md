@@ -99,6 +99,19 @@ record a reviewer will trust and should not.
 
 Which tier is left, and how to reach it: `kb-fix`.
 
+## Declare what you changed
+
+A subagent sharing a worktree ends its turn with the paths it changed, one per
+line, or `none`. The gate checks the list against the worktree and reads only
+those paths for you; anything undeclared is the parent session's at its Stop.
+
+````markdown
+```changed
+src/checkout/pay.ts
+.strauss/kb/risk.checkout-retry-double-charge.md
+```
+````
+
 ## Slugs that survive the branch
 
 `<area>-<thing>`: `checkout-retry-budget`, `tenant-batch-get`. No commit
