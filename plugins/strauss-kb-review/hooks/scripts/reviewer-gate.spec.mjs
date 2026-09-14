@@ -59,6 +59,18 @@ test("kbCalls: verb, args and the actor on the same segment", () => {
   );
   assert.equal(heredoc.length, 1);
   assert.deepEqual(heredoc[0]?.args, ["risk"]);
+  assert.equal(
+    kbCalls("export STRAUSS_KB_ACTOR=agent:security; strauss-kb verify risk.a --note ok")[0]?.actor,
+    "agent:security",
+  );
+  assert.equal(
+    kbCalls("STRAUSS_KB_ACTOR=agent:author\nstrauss-kb verify risk.a --note ok")[0]?.actor,
+    "agent:author",
+  );
+  assert.equal(
+    kbCalls("echo STRAUSS_KB_ACTOR=agent:security && strauss-kb verify risk.a")[0]?.actor,
+    null,
+  );
   assert.equal(kbCalls("strauss-kb query --tag review").length, 1);
   assert.equal(kbCalls("git status").length, 0);
   assert.equal(
