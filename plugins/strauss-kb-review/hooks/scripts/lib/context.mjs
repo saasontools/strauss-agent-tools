@@ -37,7 +37,7 @@ export function buildContext(options) {
   const files = git
     .changedFiles(repoRoot, range)
     .filter((file) => !scope || scope.has(file.path));
-  const { classifier, classes } = classify(kb, range, files);
+  const { classifier, classes } = classify(kb, range, files, options.base);
   const hunks = git
     .hunks(repoRoot, range)
     .filter((hunk) => !scope || scope.has(hunk.file));
