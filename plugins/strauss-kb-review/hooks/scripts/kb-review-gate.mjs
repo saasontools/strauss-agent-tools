@@ -17,7 +17,8 @@ import * as git from "./lib/git.mjs";
 import { pastDeadline, setDeadline } from "./lib/cli.mjs";
 import { label, render, report, runChecks } from "./lib/report.mjs";
 import { buildContext } from "./lib/context.mjs";
-import { declaredPaths, undeclarable } from "./lib/declared.mjs";
+import { LOWERING } from "./lib/classify.mjs";
+import { declaredPaths, unbackedClasses, undeclarable } from "./lib/declared.mjs";
 import { lastAssistantText } from "./lib/reviewer.mjs";
 import { bundleStamp, readState, statePath, writeState } from "./lib/state.mjs";
 import { gateConfig } from "./lib/thresholds.mjs";
@@ -107,6 +108,17 @@ function gate(input) {
     base: state.base,
     paths: scope.paths,
   });
+  // A declared class that lowers scrutiny is a claim; the repository backs it
+  // with a fact or an attribute, or the turn is asked to write that down.
+  const unbacked = unbackedClasses(scope.classes, ctx.classes, LOWERING);
+  if (unbacked.length > 0) {
+    process.stderr.write(
+      `strauss-kb gate: the changed block classes ${unbacked
+        .map((item) => `${item.path} as ${item.claimed} (repository says ${item.actual})`)
+        .join(", ")}. Declare it in the base — a review:* fact on the hunk or a .gitattributes entry — not only in the block.\n`,
+    );
+    return 2;
+  }
   const findings = runChecks(ctx);
   if (pastDeadline()) {
     warn(
@@ -142,11 +154,11 @@ function gate(input) {
  * worktree and no block is asked for one, and a block naming a path the
  * worktree does not show as changed is refused.
  * @param {any} input @param {string} cwd @param {string[]} range
- * @returns {{ paths: string[] | null, block: string | null }}
+ * @returns {{ paths: string[] | null, classes: Map<string, string>, block: string | null }}
  */
 function declaredScope(input, cwd, range) {
   if (input?.hook_event_name !== "SubagentStop") {
-    return { paths: null, block: null };
+    return { paths: null, classes: new Map(), block: null };
   }
   const dirty = new Set([
     ...git.changedFiles(cwd, range).map((file) => file.path),
@@ -157,21 +169,25 @@ function declaredScope(input, cwd, range) {
   );
   const declaration = declaredPaths(text);
   if (!declaration) {
-    if (dirty.size === 0 || text === null) return { paths: [], block: null };
+    if (dirty.size === 0 || text === null) {
+      return { paths: [], classes: new Map(), block: null };
+    }
     return {
       paths: null,
+      classes: new Map(),
       block:
-        "strauss-kb gate: end the turn with a fenced ```changed block listing the repository paths you changed, one per line, or the word none.",
+        "strauss-kb gate: end the turn with a fenced ```changed block listing the repository paths you changed, one per line (`<path> [<class>]`), or the word none.",
     };
   }
   const missing = undeclarable(declaration.declared, dirty);
   if (missing.length > 0) {
     return {
       paths: null,
+      classes: new Map(),
       block: `strauss-kb gate: the changed block names paths the worktree does not show as changed: ${missing.join(", ")}. Declare only what you changed.`,
     };
   }
-  return { paths: declaration.declared, block: null };
+  return { paths: declaration.declared, classes: declaration.classes, block: null };
 }
 
 /** @param {string[]} argv */

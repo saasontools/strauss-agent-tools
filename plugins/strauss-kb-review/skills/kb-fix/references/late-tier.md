@@ -24,16 +24,16 @@ command; MCP writes land as actor `mcp`. Never borrow the author's actor.
 
 ## What you may apply
 
-`fixable: true` is `D5` alone:
+`fixable: true` is `anchor.drifted` alone:
 
-| Finding                  | The op                                                    |
-| ------------------------ | --------------------------------------------------------- |
-| `D5` — an anchor drifted | `anchor-resolve <id> --repo-root <repoRoot> --rebaseline` |
+| Finding                              | The op                                                    |
+| ------------------------------------ | --------------------------------------------------------- |
+| `anchor.drifted` — an anchor drifted | `anchor-resolve <id> --repo-root <repoRoot> --rebaseline` |
 
 `status <id> <resolved|rejected>` is the second op, and never a gate finding's:
 run it only on the ids a consumer passed in an explicit `--resolve <id>` list.
 
-Everything else is a question, `B1`, `E2` and `E3` included: no op you hold
+Everything else is a question, `anchor.file-only`, `store.expired` and `store.dangling-link` included: no op you hold
 narrows an anchor, clears an expiry, or removes a link. Re-read the finding
 after each run; what it does not clear is not applied.
 
@@ -68,7 +68,7 @@ folds into that question's `alsoNames`.
 
 - Write a `decision`. You did not make one.
 - Edit a record you did not write, beyond the two ops above. `reassess` is
-  whole-record and relocates a moved anchor: that is the B5 question you
+  whole-record and relocates a moved anchor: that is the anchor.missing-symbol question you
   withhold.
 - Run `verify`, under any actor. `anchor-resolve --rebaseline` writes an
   auto-verify event on a clean run; that event is mechanical and settles no
@@ -83,19 +83,19 @@ folds into that question's `alsoNames`.
   "applied": [
     {
       "id": "decision.tenant-chunk-size",
-      "finding": "D5",
+      "finding": "anchor.drifted",
       "op": "anchor-resolve --rebaseline"
     }
   ],
   "questions": [
     {
       "id": "open-question.tenant-findmany-dedupe-why",
-      "finding": "B5",
-      "alsoNames": ["D2"]
+      "finding": "anchor.missing-symbol",
+      "alsoNames": ["standing.resolved-unmoved"]
     }
   ],
-  "skipped": [{ "finding": "B2", "why": "warn" }],
-  "reran": { "block": 0, "warn": 1, "remaining": ["B2"] }
+  "skipped": [{ "finding": "anchor.outside-diff", "why": "warn" }],
+  "reran": { "block": 0, "warn": 1, "remaining": ["anchor.outside-diff"] }
 }
 ```
 
