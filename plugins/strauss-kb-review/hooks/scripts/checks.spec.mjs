@@ -729,13 +729,10 @@ test("a block demotes to a warning by id", () => {
   );
 });
 
-test("the builtin classifier names the classes uncovered skips", () => {
-  assert.equal(builtinClass("src/a.spec.ts"), "test");
-  assert.equal(builtinClass("src/protocol/generated/index.ts"), "generated");
-  assert.equal(builtinClass("pnpm-lock.yaml"), "lockfile");
-  assert.equal(builtinClass("docs/README.md"), "docs");
-  assert.equal(builtinClass(".github/workflows/ci.yml"), "ci");
-  assert.equal(builtinClass("src/services/tenant.service.ts"), "code");
+test("without a classifier the hook states, never guesses: bundle or source", () => {
+  assert.equal(builtinClass("src/a.spec.ts"), "source");
+  assert.equal(builtinClass("pnpm-lock.yaml"), "source");
+  assert.equal(builtinClass("docs/README.md"), "source");
   assert.equal(builtinClass(".strauss/kb/decision.x.md"), "kb");
 });
 
