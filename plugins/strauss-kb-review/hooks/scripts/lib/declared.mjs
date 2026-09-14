@@ -38,6 +38,22 @@ function normalize(path) {
 }
 
 /**
+ * The paths whose records count as written this turn: the diff's own, plus
+ * the bundle paths a declaration names (or, for the parent, the bundle's
+ * uncommitted files). Paths outside the bundle are not records and are
+ * dropped here.
+ * @param {Set<string>} changedPaths @param {string[]} bundlePaths
+ * @param {string} bundleDir
+ */
+export function writtenScope(changedPaths, bundlePaths, bundleDir) {
+  const prefix = `${bundleDir.replace(/\/$/, "")}/`;
+  return new Set([
+    ...changedPaths,
+    ...bundlePaths.map(normalize).filter((path) => path.startsWith(prefix)),
+  ]);
+}
+
+/**
  * Declared paths the worktree does not show as changed: work claimed that
  * was not done, or a path spelled wrong.
  * @param {string[]} declared @param {Iterable<string>} dirty
