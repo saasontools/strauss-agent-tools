@@ -88,29 +88,41 @@ export function rosterOf(repoRoot) {
 }
 
 /**
- * Every `strauss-kb <verb>` in a shell command, with the actor set on its
- * segment. Segments split on `&&`, `||`, `;`, `|` and newlines; a heredoc's
- * body never names the CLI, so splitting through it is harmless.
+ * Every `strauss-kb <verb>` in a shell command, with the actor in force on
+ * it: the assignment on its own segment, else the last `export` or bare
+ * assignment on an earlier one. Segments split on `&&`, `||`, `;`, `|` and
+ * newlines; a heredoc's body never names the CLI, so splitting through it is
+ * harmless.
  * @param {string} command @returns {KbCall[]}
  */
 export function kbCalls(command) {
   /** @type {KbCall[]} */
   const calls = [];
+  /** @type {string | null} */
+  let exported = null;
   for (const segment of command.split(/&&|\|\||;|\||\r?\n/)) {
+    const actorMatch = /STRAUSS_KB_ACTOR=(?:"([^"]*)"|'([^']*)'|([^\s]+))/.exec(
+      segment,
+    );
+    const here = actorMatch
+      ? (actorMatch[1] ?? actorMatch[2] ?? actorMatch[3] ?? null)
+      : null;
     const match =
       /(?:^|\s)(?:strauss-kb|[^\s]*cli-main\.js|[^\s]*\/\.bin\/strauss-kb)\s+([a-z-]+)((?:\s+[^\s<]+)*)/.exec(
         segment,
       );
-    if (!match) continue;
-    const actorMatch = /STRAUSS_KB_ACTOR=(?:"([^"]*)"|'([^']*)'|([^\s]+))/.exec(
-      segment,
-    );
+    if (!match) {
+      // `export STRAUSS_KB_ACTOR=x` or `STRAUSS_KB_ACTOR=x` alone: in force
+      // for what follows.
+      if (here && /^\s*(?:export\s+)?STRAUSS_KB_ACTOR=/.test(segment)) {
+        exported = here;
+      }
+      continue;
+    }
     calls.push({
       verb: match[1] ?? "",
       args: (match[2] ?? "").trim().split(/\s+/).filter(Boolean),
-      actor: actorMatch
-        ? (actorMatch[1] ?? actorMatch[2] ?? actorMatch[3] ?? null)
-        : null,
+      actor: here ?? exported,
       text: segment,
     });
   }
