@@ -1,12 +1,13 @@
 // @ts-check
 /**
  * File classes. `strauss-kb classify --git` owns them when the build on PATH
- * has the verb; otherwise a path-pattern list stands in and `--report` says
- * `classifier: "builtin"` so a consumer knows which answer it got.
+ * has the verb; without it `--report` says `classifier: "builtin"` and the
+ * answer is only what the repository states — a base-commit `.gitattributes`
+ * entry, a git rename, the bundle — and `source` for everything else. The
+ * hook never guesses a class from a path.
  */
 import { json } from "./cli.mjs";
 import { checkAttr } from "./git.mjs";
-import { extensionOf, isCodePath } from "./util.mjs";
 
 /** Classes `uncovered` skips: nothing here needs a why. */
 export const SKIPPED = new Set([
@@ -20,44 +21,10 @@ export const SKIPPED = new Set([
   "kb",
 ]);
 
-const PATTERNS = [
-  [/(^|\/)\.strauss\//, "kb"],
-  [
-    /(^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock|Cargo\.lock|go\.sum|poetry\.lock)$/,
-    "lockfile",
-  ],
-  [/(^|\/)(__tests__|__mocks__|tests?|e2e|fixtures?)\//, "test"],
-  [/\.(spec|test)\.[cm]?[jt]sx?$/, "test"],
-  [/(^|\/)(test_|conftest)[^/]*\.py$/, "test"],
-  [/(^|\/)generated\//, "generated"],
-  [/\.(gen|generated)\.[^/]+$/, "generated"],
-  [/(^|\/)\.github\//, "ci"],
-  [/(^|\/)(Dockerfile|docker-compose[^/]*|\.dockerignore)$/, "ci"],
-  [/(^|\/)(ci|deploy|infra|k8s|helm|terraform)\//, "ci"],
-  [/\.(tf|tfvars)$/, "ci"],
-  [/(^|\/)\.env(\.|$)/, "ci"],
-  [
-    /(^|\/)(nx|tsconfig[^/]*|\.eslintrc[^/]*|\.npmrc|pnpm-workspace\.yaml)$/,
-    "config",
-  ],
-  [/(^|\/)tsconfig[^/]*\.json$/, "config"],
-  [/\.config\.[cm]?[jt]s$/, "config"],
-  [/\.(md|mdx|rst|txt|adoc)$/, "docs"],
-];
-
-/**
- * @param {string} path @returns {string}
- */
+/** What a path is with no classifier and no attribute: the bundle, or source.
+ * @param {string} path @returns {string} */
 export function builtinClass(path) {
-  for (const [pattern, name] of PATTERNS) {
-    if (/** @type {RegExp} */ (pattern).test(path)) return String(name);
-  }
-  if (isCodePath(path)) return "code";
-  return ["json", "yaml", "yml", "toml", "ini", "xml"].includes(
-    extensionOf(path),
-  )
-    ? "config"
-    : "other";
+  return /(^|\/)\.strauss\//.test(path) ? "kb" : "source";
 }
 
 /**
