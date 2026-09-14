@@ -8,6 +8,7 @@ import { join, relative } from "node:path";
 import { json, launcher, run } from "./cli.mjs";
 import { SKIPPED, classify } from "./classify.mjs";
 import * as git from "./git.mjs";
+import { writtenScope } from "./declared.mjs";
 import { readThresholds } from "./thresholds.mjs";
 import { asArray, asString, isCodePath, parseFrontmatter } from "./util.mjs";
 
@@ -43,11 +44,13 @@ export function buildContext(options) {
   const changedPaths = new Set(files.map((file) => file.path));
   const bundleDir = relative(repoRoot, bundle).split("\\").join("/");
   // A record written this turn is untracked or unstaged, and a range diff
-  // lists neither — it would read as a change nothing covers.
-  const writtenPaths = new Set([
-    ...changedPaths,
-    ...git.uncommittedPaths(repoRoot, bundleDir),
-  ]);
+  // lists neither — it would read as a change nothing covers. A subagent
+  // names its records in the `changed` block; the parent's are scraped.
+  const writtenPaths = writtenScope(
+    changedPaths,
+    scope ? [...scope] : git.uncommittedPaths(repoRoot, bundleDir),
+    bundleDir,
+  );
 
   const records = readRecords(bundle, repoRoot, writtenPaths, kb);
   const matchRange = git.matchRange(options.base, options.head ?? null);
