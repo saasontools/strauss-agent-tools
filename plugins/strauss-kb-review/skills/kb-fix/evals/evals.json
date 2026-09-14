@@ -5,7 +5,7 @@
     {
       "id": 1,
       "name": "gate-blocked-the-turn",
-      "prompt": "the strauss kb review gate just blocked my stop hook with a D5 and an A1. who's supposed to fix these — me right now, or does something else pick them up later?",
+      "prompt": "the strauss kb review gate just blocked my stop hook with a anchor.drifted and an uncovered.symbol. who's supposed to fix these — me right now, or does something else pick them up later?",
       "expected_trigger": true,
       "why": "The tier-1 route, asked as the question this skill answers."
     },
@@ -110,7 +110,7 @@
     {
       "id": 16,
       "name": "arm-the-gate",
-      "prompt": "how do i turn the kb review gate on for this workspace, and how do i demote F4 to a warning?",
+      "prompt": "how do i turn the kb review gate on for this workspace, and how do i demote owed.suppression to a warning?",
       "expected_trigger": false,
       "why": "Arming and thresholds are the plugin README's."
     },

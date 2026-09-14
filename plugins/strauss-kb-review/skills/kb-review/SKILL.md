@@ -45,13 +45,23 @@ evidence.
 
 For each record on a hunk in your scope:
 
-| Ask                                 | Fails when                                              |
-| ----------------------------------- | ------------------------------------------------------- |
-| Is the rejected alternative real?   | No `## Rejected`, or the rationale restates the title   |
-| Does the mitigation exist?          | It names code the anchor does not contain               |
-| Does an invented requirement hold?  | No ticket, no `source`, and no `assumption: true`       |
-| Does the ignored standard say that? | `kb_trace` the standard; it says something else         |
-| Do the verify commands pass?        | Any `strauss_verify` or `## Verification` command fails |
+| Ask                                 | Fails when                                                                              |
+| ----------------------------------- | --------------------------------------------------------------------------------------- |
+| Is the rejected alternative real?   | No `## Rejected`, or the rationale restates the title                                   |
+| Does the mitigation exist?          | It names code the anchor does not contain                                               |
+| Does an invented requirement hold?  | No ticket, no `source`, and no `assumption: true`                                       |
+| Does the ignored standard say that? | `kb_trace` the standard; it says something else                                         |
+| Do the verify commands pass?        | Any `strauss_verify` or `## Verification` command fails                                 |
+| Is `decision.none` honest?          | Its reason is a formality, or names none of the changed files                           |
+| Does the record say something?      | The body is the diff retyped, or every record is a stub written at the end              |
+| Is the base graded?                 | Every risk is `non-blocking`, or every record claims high confidence                    |
+| Are two records one?                | Two records on this diff say the same thing                                             |
+| Is one record carrying the change?  | One record anchors most of the changed symbols, or only the tests                       |
+| Is a big change explained?          | A new file or a long hunk, or a wide change under one symbol, covered by a `fact` alone |
+| Is timing or state reasoned about?  | Retry, cache, lock or fan-out logic changed with no risk or decision on it              |
+
+The gate holds the mechanical checks; the rows from `decision.none` down are
+yours, since only a reader can make them.
 
 Verdict per record: `verified`, `disputed` (claim may hold, reasoning does
 not), `lies` (anchor contradicts the record), `unverified` (nothing ran).
