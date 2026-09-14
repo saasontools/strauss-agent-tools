@@ -17,6 +17,8 @@ import * as git from "./lib/git.mjs";
 import { pastDeadline, setDeadline } from "./lib/cli.mjs";
 import { render, report, runChecks } from "./lib/report.mjs";
 import { buildContext } from "./lib/context.mjs";
+import { declaredPaths, undeclarable } from "./lib/declared.mjs";
+import { lastAssistantText } from "./lib/reviewer.mjs";
 import { bundleStamp, readState, statePath, writeState } from "./lib/state.mjs";
 import { gateConfig } from "./lib/thresholds.mjs";
 
@@ -90,8 +92,21 @@ function gate(input) {
     return 0;
   }
 
+  // A subagent in a shared worktree declares what it changed; the gate
+  // verifies the declaration against the worktree and scopes itself to it.
+  const scope = declaredScope(input, cwd, range);
+  if (scope.block) {
+    process.stderr.write(`${scope.block}\n`);
+    return 2;
+  }
+
   setDeadline(Date.now() + WALL_MS);
-  const ctx = buildContext({ repoRoot: cwd, bundle, base: state.base });
+  const ctx = buildContext({
+    repoRoot: cwd,
+    bundle,
+    base: state.base,
+    paths: scope.paths,
+  });
   const findings = runChecks(ctx);
   if (pastDeadline()) {
     warn(
@@ -119,6 +134,44 @@ function gate(input) {
   }
   process.stderr.write(`${render(blocks)}\nload review-companion\n`);
   return 2;
+}
+
+/**
+ * A subagent's `changed` block, checked against the worktree. The parent
+ * session declares nothing and owns the whole diff; a subagent with a dirty
+ * worktree and no block is asked for one, and a block naming a path the
+ * worktree does not show as changed is refused.
+ * @param {any} input @param {string} cwd @param {string[]} range
+ * @returns {{ paths: string[] | null, block: string | null }}
+ */
+function declaredScope(input, cwd, range) {
+  if (input?.hook_event_name !== "SubagentStop") {
+    return { paths: null, block: null };
+  }
+  const dirty = new Set([
+    ...git.changedFiles(cwd, range).map((file) => file.path),
+    ...git.uncommittedPaths(cwd, "."),
+  ]);
+  const text = lastAssistantText(
+    input?.agent_transcript_path ?? input?.transcript_path,
+  );
+  const declaration = declaredPaths(text);
+  if (!declaration) {
+    if (dirty.size === 0 || text === null) return { paths: [], block: null };
+    return {
+      paths: null,
+      block:
+        "strauss-kb gate: end the turn with a fenced ```changed block listing the repository paths you changed, one per line, or the word none.",
+    };
+  }
+  const missing = undeclarable(declaration.declared, dirty);
+  if (missing.length > 0) {
+    return {
+      paths: null,
+      block: `strauss-kb gate: the changed block names paths the worktree does not show as changed: ${missing.join(", ")}. Declare only what you changed.`,
+    };
+  }
+  return { paths: declaration.declared, block: null };
 }
 
 /** @param {string[]} argv */

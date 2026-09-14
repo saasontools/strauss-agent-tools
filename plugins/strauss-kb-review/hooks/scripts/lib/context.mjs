@@ -20,7 +20,8 @@ import { asArray, asString, isCodePath, parseFrontmatter } from "./util.mjs";
  * `offline` defaults on: the hook path runs at Stop and must not fetch a
  * grammar. `--report` passes its own flag either way.
  * @param {{ repoRoot: string, bundle?: string, base: string | null,
- *   head?: string | null, offline?: boolean, report?: boolean }} options
+ *   head?: string | null, offline?: boolean, report?: boolean,
+ *   paths?: string[] | null }} options
  */
 export function buildContext(options) {
   const repoRoot = options.repoRoot;
@@ -29,9 +30,16 @@ export function buildContext(options) {
   const kb = launcher(repoRoot, bundle);
   const offline = options.offline ?? true;
 
-  const files = git.changedFiles(repoRoot, range);
+  // A subagent's declared paths scope the diff to its own work; without
+  // them the whole worktree is the session's.
+  const scope = options.paths ? new Set(options.paths) : null;
+  const files = git
+    .changedFiles(repoRoot, range)
+    .filter((file) => !scope || scope.has(file.path));
   const { classifier, classes } = classify(kb, range, files);
-  const hunks = git.hunks(repoRoot, range);
+  const hunks = git
+    .hunks(repoRoot, range)
+    .filter((hunk) => !scope || scope.has(hunk.file));
   const changedPaths = new Set(files.map((file) => file.path));
   const bundleDir = relative(repoRoot, bundle).split("\\").join("/");
   // A record written this turn is untracked or unstaged, and a range diff
