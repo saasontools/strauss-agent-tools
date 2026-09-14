@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main } from "./kb-review-gate.mjs";
-import { declaredPaths, undeclarable } from "./lib/declared.mjs";
+import { declaredPaths, undeclarable, writtenScope } from "./lib/declared.mjs";
 import { statePath, writeState } from "./lib/state.mjs";
 
 test("declaredPaths: the last changed block, normalised, or none", () => {
@@ -18,6 +18,14 @@ test("declaredPaths: the last changed block, normalised, or none", () => {
     declaredPaths("first\n```changed\nold.ts\n```\nthen\n```changed\n./src/a.ts\nsrc\\b.ts\n# comment\n\nsrc/a.ts\n```\n"),
     { declared: ["src/a.ts", "src/b.ts"], none: false },
   );
+});
+
+test("writtenScope: the diff's paths plus the declared or scraped bundle files", () => {
+  assert.deepEqual(
+    [...writtenScope(new Set(["src/a.ts"]), [".strauss/kb/risk.a.md", "src/b.ts", "./.strauss/kb/decision.b.md"], ".strauss/kb")].sort(),
+    [".strauss/kb/decision.b.md", ".strauss/kb/risk.a.md", "src/a.ts"],
+  );
+  assert.deepEqual([...writtenScope(new Set(), [], ".strauss/kb")], []);
 });
 
 test("undeclarable: declared paths the worktree does not show as changed", () => {
