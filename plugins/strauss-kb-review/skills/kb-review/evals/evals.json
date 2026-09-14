@@ -1,146 +1,69 @@
 {
   "skill_name": "kb-review",
-  "note": "Trigger-accuracy regression suite. Same shape and run command as ../../recording-decisions/evals/README.md.",
+  "note": "Trigger-accuracy regression suite. Same shape and run command as ../../recording-decisions/evals/README.md. The skill is meant to be preloaded into reviewer agents; these prompts cover the cases where a session has to pick it up itself.",
   "evals": [
     {
       "id": 1,
-      "name": "review-pr-with-the-kb",
-      "prompt": "review this PR with the kb — branch is feat/tenant-cache, base is main. i want to know whether the records actually hold up against the code.",
+      "name": "reviewer-with-a-base",
+      "prompt": "you're the security reviewer for this PR. the branch has a .strauss/kb — read what's on the hunks first and write back what you find.",
       "expected_trigger": true,
-      "why": "The plain request, both halves of the range given."
+      "why": "A reviewer, a companion base, and a write-back ask."
     },
     {
       "id": 2,
-      "name": "kb-aware-review",
-      "prompt": "do a kb-aware review of main..HEAD in this worktree",
-      "expected_trigger": true,
-      "why": "The short form."
-    },
-    {
-      "id": 3,
       "name": "check-the-claims",
       "prompt": "the companion base on this branch claims a mitigation exists in PaymentClient.charge. can you check the claims in .strauss/kb against what the diff actually does?",
       "expected_trigger": true,
-      "why": "Checking base claims against code is the whole job."
+      "why": "Checking base claims against code is the check table."
     },
     {
-      "id": 4,
+      "id": 3,
       "name": "does-the-record-lie",
       "prompt": "decision.tenant-cache-ttl says the cache is invalidated on write. read the anchor and tell me if that's true, and do the same for every other record on this diff.",
       "expected_trigger": true,
       "why": "Per-record anchor reading across a diff."
     },
     {
-      "id": 5,
-      "name": "persuasion-risk",
-      "prompt": "i'm worried the kb records are talking the reviewer out of real findings — same model wrote both. is there a way to review the diff without the base first and then compare?",
+      "id": 4,
+      "name": "what-do-i-write-as-reviewer",
+      "prompt": "i found a risk the author didn't record while reviewing perf. how do i put it in the kb without it looking like the author wrote it?",
       "expected_trigger": true,
-      "why": "The two-pass rationale, stated by the user."
+      "why": "The write table and the actor rule."
+    },
+    {
+      "id": 5,
+      "name": "reviewer-report-block",
+      "prompt": "finishing my review of main..HEAD — what's the kb block i'm supposed to end with, and what goes in partial?",
+      "expected_trigger": true,
+      "why": "The report section."
     },
     {
       "id": 6,
-      "name": "run-the-verify-commands",
-      "prompt": "before i merge, run the verify command on every record anchored in this diff and tell me which ones fail",
-      "expected_trigger": true,
-      "why": "Verify-command execution is pass 2."
+      "name": "plain-review-no-base",
+      "prompt": "review this diff for bugs. there's no .strauss directory in this repo.",
+      "expected_trigger": false,
+      "why": "No companion base: a plain review."
     },
     {
       "id": 7,
-      "name": "rejected-alternative-real",
-      "prompt": "half these decisions list a rejected alternative that reads like it was invented to justify the choice. can you go through the ones on this PR and say which rejections are real?",
-      "expected_trigger": true,
-      "why": "The convenient-alternative check."
+      "name": "author-writing-records",
+      "prompt": "i'm implementing the retry change — which risks and decisions should i record in .strauss/kb as i go?",
+      "expected_trigger": false,
+      "why": "The author's side: review-companion."
     },
     {
       "id": 8,
-      "name": "verdicts-per-record",
-      "prompt": "give me a verdict per record on this branch — verified, disputed or not checkable — so i can put it next to the hunks in the walkthrough",
-      "expected_trigger": true,
-      "why": "The output shape, asked for by name."
+      "name": "merge-decision",
+      "prompt": "given the reviewer's kb block, does this PR merge on its own or does it need a human?",
+      "expected_trigger": false,
+      "why": "Merge policy, not review."
     },
     {
       "id": 9,
-      "name": "reviewer-actor",
-      "prompt": "i want an agent to review this diff against .strauss/kb and write its own risks back under agent:reviewer, not under the author",
-      "expected_trigger": true,
-      "why": "The actor rule plus write-back."
-    },
-    {
-      "id": 10,
-      "name": "casual-do-the-records-hold",
-      "prompt": "do the records on this diff hold?",
-      "expected_trigger": true,
-      "why": "Casual phrasing, still unambiguously this."
-    },
-    {
-      "id": 11,
-      "name": "plain-code-review",
-      "prompt": "review this diff for bugs and tell me what's wrong with the retry logic",
+      "name": "broken-base",
+      "prompt": "strauss-kb validate fails on this branch with two broken links. fix the base so the reviewers can run.",
       "expected_trigger": false,
-      "why": "A plain code review with no base in play."
-    },
-    {
-      "id": 12,
-      "name": "write-the-records",
-      "prompt": "i just pushed commit 4 on this PR — which risks and flows should i put in .strauss/kb so the reviewer sees them?",
-      "expected_trigger": false,
-      "why": "Writing the base is review-companion."
-    },
-    {
-      "id": 13,
-      "name": "record-a-decision",
-      "prompt": "i picked a heap over a sorted array for the top-k. is that worth a kb_write_decision, and what goes in it?",
-      "expected_trigger": false,
-      "why": "recording-decisions."
-    },
-    {
-      "id": 14,
-      "name": "read-the-base",
-      "prompt": "what did we decide about the repository retry policy? check the knowledge base.",
-      "expected_trigger": false,
-      "why": "Reading the base; the knowledge-base skill."
-    },
-    {
-      "id": 15,
-      "name": "review-paths-ingest",
-      "prompt": "build the acceptance-criteria review paths for compound c-12 and call strauss_ingest_review_paths",
-      "expected_trigger": false,
-      "why": "review-path-planner, a different consumer of the same diff."
-    },
-    {
-      "id": 16,
-      "name": "doctor-only",
-      "prompt": "run kb_doctor --strict on .strauss/kb and tell me what needs repairing",
-      "expected_trigger": false,
-      "why": "Base housekeeping on its own, no diff and no review."
-    },
-    {
-      "id": 17,
-      "name": "run-the-gate",
-      "prompt": "run the gate on this base and tell me which findings it routes auto",
-      "expected_trigger": false,
-      "why": "The review gate is a hook script over one base; running it is not the two-pass review."
-    },
-    {
-      "id": 18,
-      "name": "query-before-a-change",
-      "prompt": "kb_query anything about pagination before I change the page size",
-      "expected_trigger": false,
-      "why": "Reading the base ahead of a change, with no diff to review; the knowledge-base skill."
-    },
-    {
-      "id": 19,
-      "name": "answer-the-open-question",
-      "prompt": "open-question.retry-budget-per-tenant-or-global is addressed to me — answer it with kb_answer saying global for now",
-      "expected_trigger": false,
-      "why": "Answering one question the reviewer already settled."
-    },
-    {
-      "id": 20,
-      "name": "resolve-merge-conflict-in-kb",
-      "prompt": "the rebase left a conflict in .strauss/kb/log.jsonl — how do i resolve it without corrupting the base?",
-      "expected_trigger": false,
-      "why": "Git plumbing over base files."
+      "why": "Repair is kb-fix."
     }
   ]
 }

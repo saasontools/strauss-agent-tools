@@ -12,12 +12,12 @@ Codex, and Agent Plugins 1.0 clients:
   `skills/kb-review/` and `skills/review-walkthrough/` — the portable core
   every client reads; put the real procedure here, never only in
   client-specific files
-- `agents/kb-reviewer.md` — Claude Code only, so `kb-review` stays a skill and
-  the agent stays the thing it spawns. A client with no subagents (Codex) runs
-  the passes inline from that file instead
-- `hooks/scripts/` — the review gate, node builtins only, `// @ts-check`ed.
-  It spawns the `strauss-kb` CLI and never imports the package, so this
-  directory stays buildless
+- no `agents/` — reviewers are the consumer's agents; `kb-review` is preloaded
+  into each of them, and the roster in `.strauss/kb-pins.json` is the only
+  place a reviewer is named
+- `hooks/scripts/` — the author gate and the reviewer gate, node builtins
+  only, `// @ts-check`ed. They spawn the `strauss-kb` CLI and never import the
+  package, so this directory stays buildless
 - `plugin.json` / `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json`
   — one manifest per format; keep name/version/description in sync
 
