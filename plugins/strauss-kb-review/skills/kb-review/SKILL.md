@@ -90,6 +90,7 @@ End your review with one fenced `kb` block, then your usual summary:
 ```kb
 {
   "actor": "agent:security",
+  "sha": "<head sha you reviewed>",
   "records": { "risk.checkout-retry-double-charge": { "verdict": "verified", "note": "" } },
   "written": [{ "op": "write", "type": "risk", "conceptId": "risk.token-reuse" }],
   "partial": false,
@@ -98,6 +99,7 @@ End your review with one fenced `kb` block, then your usual summary:
 ```
 ````
 
+`sha` is the head you read; merge-policy drops a block on any other commit.
 `reason` is `budget` or `unvalidated-base`. Out of budget: write one
 `open-question` — "review incomplete: <what was not covered>" — and set
 `partial: true`. Degrade toward "needs human", never toward "clean".
