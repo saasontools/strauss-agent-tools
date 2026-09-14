@@ -7,16 +7,18 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main } from "./kb-review-gate.mjs";
-import { declaredPaths, undeclarable, writtenScope } from "./lib/declared.mjs";
+import { attributeClass, attributeClasses } from "./lib/classify.mjs";
+import { declaredPaths, unbackedClasses, undeclarable, writtenScope } from "./lib/declared.mjs";
+import { checkAttr } from "./lib/git.mjs";
 import { statePath, writeState } from "./lib/state.mjs";
 
 test("declaredPaths: the last changed block, normalised, or none", () => {
   assert.equal(declaredPaths(null), null);
   assert.equal(declaredPaths("no block here"), null);
-  assert.deepEqual(declaredPaths("```changed\nnone\n```"), { declared: [], none: true });
+  assert.deepEqual(declaredPaths("```changed\nnone\n```"), { declared: [], classes: new Map(), none: true });
   assert.deepEqual(
-    declaredPaths("first\n```changed\nold.ts\n```\nthen\n```changed\n./src/a.ts\nsrc\\b.ts\n# comment\n\nsrc/a.ts\n```\n"),
-    { declared: ["src/a.ts", "src/b.ts"], none: false },
+    declaredPaths("first\n```changed\nold.ts\n```\nthen\n```changed\n./src/a.ts\nsrc\\b.ts generated\n# comment\n\nsrc/a.ts\n```\n"),
+    { declared: ["src/a.ts", "src/b.ts"], classes: new Map([["src/b.ts", "generated"]]), none: false },
   );
 });
 
@@ -104,6 +106,59 @@ test("SubagentStop: no block with a dirty worktree blocks; a false path blocks; 
     void parent;
   } finally {
     process.stderr.write = write;
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("unbackedClasses: a lowering class the repository does not back, and nothing else", () => {
+  const lowering = new Set(["generated", "docs", "test"]);
+  const declared = new Map([
+    ["src/gen/api.ts", "generated"],
+    ["src/a.ts", "source"],
+    ["docs/guide.md", "docs"],
+    ["src/b.ts", "test"],
+  ]);
+  const classes = new Map([
+    ["src/gen/api.ts", "source"],
+    ["docs/guide.md", "docs"],
+    ["src/b.ts", "source"],
+  ]);
+  assert.deepEqual(unbackedClasses(declared, classes, lowering), [
+    { path: "src/gen/api.ts", claimed: "generated", actual: "source" },
+    { path: "src/b.ts", claimed: "test", actual: "source" },
+  ]);
+});
+
+test("attributeClass: linguist and strauss-class attributes map to classes", () => {
+  assert.equal(attributeClass({ "linguist-generated": "set" }), "generated");
+  assert.equal(attributeClass({ "linguist-vendored": "true" }), "generated");
+  assert.equal(attributeClass({ "linguist-documentation": "set" }), "docs");
+  assert.equal(attributeClass({ "strauss-class": "test" }), "test");
+  assert.equal(attributeClass({ "strauss-class": "kernel" }), null);
+  assert.equal(attributeClass({ "linguist-generated": "unset" }), null);
+});
+
+test("checkAttr reads .gitattributes at the base commit, not the branch", () => {
+  const { repo, base } = repoWithChange();
+  const git = (/** @type {string[]} */ args) =>
+    execFileSync("git", ["-c", "commit.gpgsign=false", "-C", repo, ...args], {
+      encoding: "utf8",
+      env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.invalid" },
+    });
+  try {
+    writeFileSync(join(repo, ".gitattributes"), "src/a.ts linguist-generated\n");
+    git(["add", ".gitattributes"]);
+    git(["commit", "--quiet", "-m", "attrs"]);
+    const withAttrs = git(["rev-parse", "HEAD"]).trim();
+    // At `base` the file was not marked; on the branch it is.
+    const before = checkAttr(repo, base, ["src/a.ts"], ["linguist-generated"]);
+    const after = checkAttr(repo, withAttrs, ["src/a.ts"], ["linguist-generated"]);
+    if (before.pinned) {
+      assert.equal(before.attrs.get("src/a.ts"), undefined);
+    }
+    assert.equal(after.attrs.get("src/a.ts")?.["linguist-generated"], "set");
+    assert.deepEqual(attributeClasses(repo, withAttrs, ["src/a.ts", "src/none.ts"]), new Map([["src/a.ts", "generated"]]));
+  } finally {
     rmSync(repo, { recursive: true, force: true });
   }
 });

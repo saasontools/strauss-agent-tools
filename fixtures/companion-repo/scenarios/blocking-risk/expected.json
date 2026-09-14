@@ -7,7 +7,7 @@
     ".strauss/kb/test-obligation.checkout-single-charge.md": "docs",
     ".strauss/kb/log.jsonl": "config"
   },
-  "gateFamilies": [],
+  "gateGroups": [],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
   "notes": "The well-formed case: a `blocking` risk anchored to the changed symbol, mitigation naming real code, verified_by a test-obligation whose test exists. Nothing for the gate to fire on, and `human` anyway \u2014 a blocking record never routes auto. The walkthrough puts this risk first."
 }

@@ -81,16 +81,16 @@ test(
             assert.ok(["mechanical", "semantic"].includes(item.label));
           }
 
-          const expected = readExpected(scenario).gateFamilies;
+          const expected = readExpected(scenario).gateGroups;
           const blocked = [
             ...new Set(
               result.findings
                 .filter((/** @type {any} */ item) => item.severity === "block")
-                .map((/** @type {any} */ item) => item.family),
+                .map((/** @type {any} */ item) => item.group),
             ),
           ].sort();
 
-          // This scenario's families come from `anchor-resolve` alone, which
+          // This scenario's groups come from `anchor-resolve` alone, which
           // needs a cached tree-sitter grammar; a cold runner has none.
           if (scenario === "drift-after-commit" && blocked.length === 0) {
             sub.skip("the anchor resolver is unavailable on this runner");
