@@ -29,6 +29,13 @@ honest answer.
 **`review-companion`** — risks, invented requirements, business flows, and
 review-focus marks kept current across a pull request's commits.
 
+**`kb-review`** — what a reviewer agent reads from the companion base before
+judging a hunk, and what it writes back under its own actor. Preload it into
+every reviewer agent; the repository's roster in `.strauss/kb-pins.json` names
+the reviewers and what each may write.
+`skills/kb-review/expectations.json` says what a reviewer that preloaded it
+writes per fixture scenario; a preloaded skill has no trigger to evaluate.
+
 ## Install (unpublished)
 
 Local session, from a checkout of this repo:
