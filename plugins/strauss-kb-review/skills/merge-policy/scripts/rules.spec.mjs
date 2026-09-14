@@ -235,14 +235,14 @@ test("record-deleted — gone from the tree with nothing settling it", () => {
   assert.deepEqual([answer.route, answer.rule], ["human", "record-deleted"]);
 });
 
-test("uncovered-change — a family A block on a path review still covers", () => {
+test("uncovered-change — an uncovered block on a path review still covers", () => {
   const answer = decide(
     input({
       files: [
         { path: "src/a.ts", class: "source", excluded: false, crosses: false },
       ],
       gate: {
-        blocks: [{ id: "A1", family: "A", file: "src/a.ts" }],
+        blocks: [{ id: "uncovered.symbol", group: "uncovered", file: "src/a.ts" }],
         warns: [],
       },
     }),
@@ -262,7 +262,7 @@ test("uncovered-change — an exclusion that holds silences the row, a crossing 
         },
       ],
       gate: {
-        blocks: [{ id: "A1", family: "A", file: "legacy/a.ts" }],
+        blocks: [{ id: "uncovered.symbol", group: "uncovered", file: "legacy/a.ts" }],
         warns: [],
       },
     }),
@@ -275,7 +275,7 @@ test("uncovered-change — an exclusion that holds silences the row, a crossing 
         { path: "legacy/a.ts", class: "source", excluded: true, crosses: true },
       ],
       gate: {
-        blocks: [{ id: "A1", family: "A", file: "legacy/a.ts" }],
+        blocks: [{ id: "uncovered.symbol", group: "uncovered", file: "legacy/a.ts" }],
         warns: [],
       },
     }),
@@ -286,14 +286,14 @@ test("uncovered-change — an exclusion that holds silences the row, a crossing 
 test("gate-block — any other block routes human, a warn does not", () => {
   const blocked = decide(
     input({
-      gate: { blocks: [{ id: "C1", family: "C", file: null }], warns: [] },
+      gate: { blocks: [{ id: "claim.no-rejection", group: "claim", file: null }], warns: [] },
     }),
   );
   assert.deepEqual([blocked.route, blocked.rule], ["human", "gate-block"]);
 
   const warned = decide(
     input({
-      gate: { blocks: [], warns: [{ id: "E2", family: "E", file: null }] },
+      gate: { blocks: [], warns: [{ id: "store.expired", group: "store", file: null }] },
     }),
   );
   assert.equal(warned.route, "auto");
@@ -609,10 +609,10 @@ test("every route an input can reach is human, auto or agent-review-then-auto, a
       }),
     ],
     [
-      "a family A block on a covered path",
+      "an uncovered block on a covered path",
       input({
         gate: {
-          blocks: [{ id: "A1", family: "A", file: "docs/README.md" }],
+          blocks: [{ id: "uncovered.symbol", group: "uncovered", file: "docs/README.md" }],
           warns: [],
           answered: true,
         },
@@ -622,7 +622,7 @@ test("every route an input can reach is human, auto or agent-review-then-auto, a
       "any other gate block",
       input({
         gate: {
-          blocks: [{ id: "C1", family: "C", file: null }],
+          blocks: [{ id: "claim.no-rejection", group: "claim", file: null }],
           warns: [],
           answered: true,
         },

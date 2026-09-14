@@ -180,7 +180,7 @@ test("a bundle path with a shell metacharacter stays one argv token", () => {
 test("the blocked block is sanitised, bounded and capped", () => {
   const findings = Array.from({ length: 200 }, (_, index) => ({
     id: `A${index}`,
-    family: index % 2 === 0 ? "A" : "C",
+    group: index % 2 === 0 ? "uncovered" : "claim",
     severity: /** @type {const} */ ("block"),
     kind: /** @type {const} */ ("semantic"),
     message: `decision.x\u0000\u001b[2J\r\n${"very long ".repeat(60)}${index}`,
@@ -258,8 +258,8 @@ test("a block writes findings and the companion line to stderr", async () => {
     );
     assert.equal(await main([], () => payload(repo, session)), 2);
     const text = captured.join("");
-    assert.match(text, /^A\. Silence/m);
-    assert.match(text, /\[A1\]/);
+    assert.match(text, /^uncovered: a change no record covers/m);
+    assert.match(text, /\[uncovered\.symbol\]/);
     assert.match(text, /load review-companion\n$/);
   } finally {
     process.stderr.write = write;
@@ -310,7 +310,7 @@ test("a record written this turn and never committed counts as coverage", async 
       true
     );
     const code = await main([], () => payload(repo, session));
-    assert.doesNotMatch(captured.join(""), /\[A1\]/);
+    assert.doesNotMatch(captured.join(""), /\[uncovered\.symbol\]/);
     assert.equal(code, 0, captured.join(""));
   } finally {
     process.stderr.write = write;
