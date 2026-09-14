@@ -39,22 +39,38 @@ writes per fixture scenario; a preloaded skill has no trigger to evaluate.
 ## Gate
 
 `hooks/scripts/kb-review-gate.mjs` reads the session's diff and the companion
-base and asks one question: did this change record what it owes? Its checks
-come in families A–F and are named by id (`B2`, `F4`); each family's checks sit
-in the header of its [`lib/family-*.mjs`](./hooks/scripts/lib/).
+base and asks one question: did this change record what it owes? Every check
+is a fact of the store or the diff, never a judgment, and its id says what the
+finding means; the group is the id's prefix.
 
-It blocks on what a record does or does not say — an uncovered change, a
-fabricated record, an unearned status move, a `kb_validate` error, a family-F
-signal with no record of the type it owes — and warns on the heuristics: sizes,
-duplicates, expiry, drift. `--report` prints the same findings and exits 0.
+| Group       | The finding says                               | Ids                                                                                                                    |
+| ----------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `uncovered` | a change no record covers                      | `symbol`, `signal`                                                                                                     |
+| `anchor`    | the record does not point at this change       | `file-only`, `outside-diff`, `missing-symbol`, `drifted`                                                               |
+| `claim`     | the record asserts what the code does not show | `no-rejection`, `mitigation-absent`, `no-mitigation`, `dead-source`, `unsourced`, `self-verified`                      |
+| `standing`  | status moved without the work                  | `closed-same-turn`, `resolved-unmoved`, `self-owned-question`, `supersede-chain`                                       |
+| `store`     | the base itself is broken                      | `validate`, `expired`, `dangling-link`                                                                                 |
+| `owed`      | the diff carries a signal that owes a record   | `dependency`, `test-silenced`, `suppression`, `build-config`, `contract`, `permissions`, `requirement`, `verification` |
+
+Each check's one-line meaning sits above its function in
+[`lib/checks/<group>.mjs`](./hooks/scripts/lib/checks/). Judgments a reader
+would make — is this reason too short, are these two records the same, is this
+function big enough to ask about — are not here; they are rows in the
+`kb-review` skill's check table, where a reviewer answers them. `--report`
+prints the same findings and exits 0.
 
 **Whose diff.** The gate reads the worktree's diff since the session's base
 commit: everything changed there, whoever changed it. Parallel subagents in
 one worktree therefore share one diff. On `SubagentStop` a subagent's fenced
 `changed` block (see `review-companion`) scopes the gate to the paths it
 declares, after the worktree confirms they changed; undeclared paths fall to
-the parent session at its Stop. For clean attribution run parallel subagents
-in their own worktrees.
+the parent session at its Stop. A line may carry the agent's class for the
+change (`src/gen/api.ts generated`); a class that lowers scrutiny is checked
+against what the repository says — a `review:*` fact on the hunk or a
+`.gitattributes` entry at the base commit (`linguist-generated`,
+`linguist-vendored`, `linguist-documentation`, `strauss-class=test|ci|config|lockfile`)
+— and blocks until it is written there. For clean attribution run parallel
+subagents in their own worktrees.
 
 **Arming** takes both halves: copy the entries from
 [`hooks/example-hooks.json`](./hooks/example-hooks.json) into
@@ -63,8 +79,15 @@ in their own worktrees.
 a block by id, or switches a check off:
 
 ```json
-{ "gate": { "warn": ["F4", "C6"], "off": ["B2"], "factOnlyLines": 40 } }
+{
+  "gate": {
+    "warn": ["owed.suppression", "claim.unsourced"],
+    "off": ["anchor.outside-diff"]
+  }
+}
 ```
+
+A group name in either list covers every id under it.
 
 ## Reviewer hooks
 

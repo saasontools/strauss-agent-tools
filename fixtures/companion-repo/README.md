@@ -36,13 +36,13 @@ dates are fixed, so a given tree always produces the same commit hashes.
 
 ## Layout
 
-| Path                             | What it is                                                                    |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `base/`                          | The main-branch tree, including a committed `.strauss/kb`                     |
-| `scenarios/<name>/head/`         | Files overlaid on base; `<path>.deleted` marks a deletion                     |
-| `scenarios/<name>/commits.json`  | Ordered `{ message, files }`, replayed as real commits                        |
-| `scenarios/<name>/expected.json` | `{ route, classifier, gateFamilies, doctorArgs, notes }` — the golden answers |
-| `recorded/`                      | Recorded agent output, per [recorded/README.md](recorded/README.md)           |
+| Path                             | What it is                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------- |
+| `base/`                          | The main-branch tree, including a committed `.strauss/kb`                   |
+| `scenarios/<name>/head/`         | Files overlaid on base; `<path>.deleted` marks a deletion                   |
+| `scenarios/<name>/commits.json`  | Ordered `{ message, files }`, replayed as real commits                      |
+| `scenarios/<name>/expected.json` | `{ route, classifier, gateGroups, doctorArgs, notes }` — the golden answers |
+| `recorded/`                      | Recorded agent output, per [recorded/README.md](recorded/README.md)         |
 
 A `files` entry is a path under `head/`, or `{ "from", "to" }` when one repo
 path needs two states across commits and each needs its own name in `head/`
@@ -50,21 +50,21 @@ path needs two states across commits and each needs its own name in `head/`
 
 ## Golden answers
 
-| Branch                   | Route   | Gate families | The trap                                             |
-| ------------------------ | ------- | ------------- | ---------------------------------------------------- |
-| `docs-only`              | `auto`  | —             | Base silence is correct, not a hole                  |
-| `generated-block`        | `auto`  | —             | A `review:generated` fact beats the path heuristic   |
-| `silent-code-change`     | `human` | A             | Changed symbol, nothing written, no `decision.none`  |
-| `blocking-risk`          | `human` | —             | Well-formed base; `blocking` still never routes auto |
-| `author-resolved-risk`   | `human` | D             | `resolved` by the author, no non-author verify       |
-| `deleted-record`         | `human` | A             | The risk is in `log.jsonl` and gone from the tree    |
-| `policy-file-change`     | `human` | —             | Everything else says auto; the policy row wins       |
-| `excluded-path-crosses`  | `human` | A             | The excluded hunk imports an included symbol         |
-| `drift-after-commit`     | `human` | B, D          | One anchor wants `--rebaseline`, one must not get it |
-| `review-thread-decision` | `human` | —             | `kb_verify` is audit, not approval                   |
-| `fabricated-decision`    | `human` | C             | Anchored, typed, validates, and says nothing         |
+| Branch                   | Route   | Gate groups | The trap                                             |
+| ------------------------ | ------- | ----------- | ---------------------------------------------------- |
+| `docs-only`              | `auto`  | —           | Base silence is correct, not a hole                  |
+| `generated-block`        | `auto`  | —           | A `review:generated` fact beats the path heuristic   |
+| `silent-code-change`     | `human` | uncovered   | Changed symbol, nothing written, no `decision.none`  |
+| `blocking-risk`          | `human` | —           | Well-formed base; `blocking` still never routes auto |
+| `author-resolved-risk`   | `human` | standing    | `resolved` by the author, no non-author verify       |
+| `deleted-record`         | `human` | uncovered   | The risk is in `log.jsonl` and gone from the tree    |
+| `policy-file-change`     | `human` | —           | Everything else says auto; the policy row wins       |
+| `excluded-path-crosses`  | `human` | uncovered   | The excluded hunk imports an included symbol         |
+| `drift-after-commit`     | `human` | anchor      | One anchor wants `--rebaseline`, one must not get it |
+| `review-thread-decision` | `human` | —           | `kb_verify` is audit, not approval                   |
+| `fabricated-decision`    | `human` | claim       | Anchored, typed, validates, and says nothing         |
 
-Families are SAA-729's A–F; each `expected.json` names the individual checks.
+Groups are the gate's finding-id prefixes (`uncovered`, `anchor`, `claim`, `standing`, `store`, `owed`); each `expected.json` names the individual ids.
 
 `classifier` maps the three-dot diff `git diff --name-only main...<branch>`,
 so a path added and deleted across the branch is absent from it;

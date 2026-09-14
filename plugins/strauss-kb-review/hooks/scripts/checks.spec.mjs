@@ -2,12 +2,12 @@
 /** One test per check, over hand-built `ctx` objects — no repository, no CLI. */
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as familyA from "./lib/family-a.mjs";
-import * as familyB from "./lib/family-b.mjs";
-import * as familyC from "./lib/family-c.mjs";
-import * as familyD from "./lib/family-d.mjs";
-import * as familyE from "./lib/family-e.mjs";
-import * as familyF from "./lib/family-f.mjs";
+import * as anchor from "./lib/checks/anchor.mjs";
+import * as claim from "./lib/checks/claim.mjs";
+import * as owed from "./lib/checks/owed.mjs";
+import * as standing from "./lib/checks/standing.mjs";
+import * as store from "./lib/checks/store.mjs";
+import * as uncovered from "./lib/checks/uncovered.mjs";
 import { builtinClass } from "./lib/classify.mjs";
 import { isProbeable } from "./lib/urls.mjs";
 import { DEFAULTS, applyPolicy } from "./lib/thresholds.mjs";
@@ -80,17 +80,17 @@ function record(fields = {}) {
 /** @param {any[]} findings */
 const ids = (findings) => findings.map((item) => item.id);
 
-test("A1 fires on a changed symbol nothing written covers", () => {
-  const found = familyA.check(
+test("uncovered.symbol fires on a changed symbol nothing written covers", () => {
+  const found = uncovered.check(
     ctx({ changedSymbols: [{ file: "src/a.ts", symbol: "Alpha", hunks: [] }] }),
   );
-  assert.deepEqual(ids(found), ["A1"]);
+  assert.deepEqual(ids(found), ["uncovered.symbol"]);
   assert.equal(found[0]?.severity, "block");
   assert.equal(found[0]?.kind, "semantic");
 });
 
-test("A1 stays quiet when a record written in the diff anchors the file", () => {
-  const found = familyA.check(
+test("uncovered.symbol stays quiet when a record written in the diff anchors the file", () => {
+  const found = uncovered.check(
     ctx({
       changedSymbols: [{ file: "src/a.ts", symbol: "Alpha", hunks: [] }],
       records: [record({ anchors: [{ file: "src/a.ts", symbol: "Alpha" }] })],
@@ -99,45 +99,8 @@ test("A1 stays quiet when a record written in the diff anchors the file", () => 
   assert.deepEqual(ids(found), []);
 });
 
-test("A2 fires on a decision.none reason too short to be one", () => {
-  const found = familyA.check(
-    ctx({
-      changedSymbols: [{ file: "src/a.ts", symbol: "Alpha", hunks: [] }],
-      records: [
-        record({
-          conceptId: "decision.none",
-          touched: true,
-          writtenAt: "2030-01-01T00:00:00.000Z",
-          body: "## Decision\n\nNothing to say.",
-        }),
-      ],
-    }),
-  );
-  assert.ok(ids(found).includes("A2"));
-});
-
-test("A2 fires when the reason names none of the uncovered files", () => {
-  const found = familyA.check(
-    ctx({
-      changedSymbols: [{ file: "src/alpha.ts", symbol: "Alpha", hunks: [] }],
-      records: [
-        record({
-          conceptId: "decision.none",
-          writtenAt: "2030-01-01T00:00:00.000Z",
-          body: "## Decision\n\nRenamed a private helper and moved one import; the diff answers all of it.",
-        }),
-      ],
-    }),
-  );
-  assert.ok(ids(found).includes("A2"));
-  assert.match(
-    String(found.find((item) => item.id === "A2")?.message),
-    /alpha\.ts/,
-  );
-});
-
-test("A3 fires when decision.none stands beside an F signal", () => {
-  const found = familyA.check(
+test("uncovered.signal fires when decision.none stands beside an F signal", () => {
+  const found = uncovered.check(
     ctx({
       files: [{ path: ".github/workflows/ci.yml", status: "M" }],
       classes: new Map([[".github/workflows/ci.yml", "ci"]]),
@@ -150,32 +113,22 @@ test("A3 fires when decision.none stands beside an F signal", () => {
       ],
     }),
   );
-  assert.ok(ids(found).includes("A3"));
+  assert.ok(ids(found).includes("uncovered.signal"));
 });
 
-test("A4 warns when every record is a stub written at the buzzer", () => {
-  const found = familyA.check(
-    ctx({
-      records: [record({ writtenAt: new Date().toISOString(), body: "short" })],
-    }),
-  );
-  assert.deepEqual(ids(found), ["A4"]);
-  assert.equal(found[0]?.severity, "warn");
-});
-
-test("B1 fires on a file-only anchor over a file full of symbols", () => {
-  const found = familyB.check(
+test("anchor.file-only fires on a file-only anchor over a file full of symbols", () => {
+  const found = anchor.check(
     ctx({
       records: [record({ anchors: [{ file: "src/a.ts" }] })],
       classes: new Map([["src/a.ts", "code"]]),
       fileAtHead: () => "export class Alpha {\n  run() {}\n}\n",
     }),
   );
-  assert.deepEqual(ids(found), ["B1"]);
+  assert.deepEqual(ids(found), ["anchor.file-only"]);
 });
 
-test("B1 leaves a test file's file-only anchor alone", () => {
-  const found = familyB.check(
+test("anchor.file-only leaves a test file's file-only anchor alone", () => {
+  const found = anchor.check(
     ctx({
       records: [record({ anchors: [{ file: "src/a.spec.ts" }] })],
       classes: new Map([["src/a.spec.ts", "test"]]),
@@ -185,8 +138,8 @@ test("B1 leaves a test file's file-only anchor alone", () => {
   assert.deepEqual(ids(found), []);
 });
 
-test("B2 warns when the anchor symbol is not among the changed ones", () => {
-  const found = familyB.check(
+test("anchor.outside-diff warns when the anchor symbol is not among the changed ones", () => {
+  const found = anchor.check(
     ctx({
       changedPaths: new Set(["src/a.ts"]),
       changedSymbols: [{ file: "src/a.ts", symbol: "Beta", hunks: [] }],
@@ -195,33 +148,12 @@ test("B2 warns when the anchor symbol is not among the changed ones", () => {
       ],
     }),
   );
-  assert.deepEqual(ids(found), ["B2"]);
+  assert.deepEqual(ids(found), ["anchor.outside-diff"]);
   assert.equal(found[0]?.severity, "warn");
 });
 
-test("B3 fires when only the tests are anchored", () => {
-  const found = familyB.check(
-    ctx({
-      records: [record({ anchors: [{ file: "src/a.spec.ts" }] })],
-      classes: new Map([["src/a.spec.ts", "test"]]),
-      codeFiles: [{ path: "src/a.ts", status: "M" }],
-      fileAtHead: () => "",
-    }),
-  );
-  assert.ok(ids(found).includes("B3"));
-});
-
-test("B4 warns on one record spread over the whole change", () => {
-  const anchors = Array.from({ length: 7 }, (_, index) => ({
-    file: `src/f${index % 4}.ts`,
-    symbol: `S${index}`,
-  }));
-  const found = familyB.check(ctx({ records: [record({ anchors })] }));
-  assert.deepEqual(ids(found), ["B4"]);
-});
-
-test("B5 fires when an anchor resolves symbol-not-found", () => {
-  const found = familyB.check(
+test("anchor.missing-symbol fires when an anchor resolves symbol-not-found", () => {
+  const found = anchor.check(
     ctx({
       anchorState: new Map([
         [
@@ -235,20 +167,20 @@ test("B5 fires when an anchor resolves symbol-not-found", () => {
       ]),
     }),
   );
-  assert.deepEqual(ids(found), ["B5"]);
+  assert.deepEqual(ids(found), ["anchor.missing-symbol"]);
 });
 
-test("C1 fires on a decision with no Rejected section", () => {
-  const found = familyC.check(
+test("claim.no-rejection fires on a decision with no Rejected section", () => {
+  const found = claim.check(
     ctx({
       records: [record({ body: "## Decision\n\nCache for a minute.\n" })],
     }),
   );
-  assert.ok(ids(found).includes("C1"));
+  assert.ok(ids(found).includes("claim.no-rejection"));
 });
 
-test("C1 fires on a strawman rejection naming nothing from the diff", () => {
-  const found = familyC.check(
+test("claim.no-rejection fires on a strawman rejection naming nothing from the diff", () => {
+  const found = claim.check(
     ctx({
       hunks: [
         {
@@ -263,26 +195,11 @@ test("C1 fires on a strawman rejection naming nothing from the diff", () => {
       ],
     }),
   );
-  assert.ok(ids(found).includes("C1"));
+  assert.ok(ids(found).includes("claim.no-rejection"));
 });
 
-test("C2 warns when the body is the added lines, retyped", () => {
-  const added = [
-    "const cacheTtl = sixtyThousand;",
-    "const coldKeys = ids.filter(missing);",
-    "this.store.write(chunk, batchGet(rows));",
-  ];
-  const found = familyC.check(
-    ctx({
-      hunks: [{ file: "src/a.ts", added, removed: [], newLines: 3 }],
-      records: [record({ body: `## Decision\n\n${added.join(" ")}\n` })],
-    }),
-  );
-  assert.ok(ids(found).includes("C2"));
-});
-
-test("C3 fires when a mitigation names code that is nowhere", () => {
-  const found = familyC.check(
+test("claim.mitigation-absent fires when a mitigation names code that is nowhere", () => {
+  const found = claim.check(
     ctx({
       repoHas: () => false,
       records: [
@@ -294,19 +211,19 @@ test("C3 fires when a mitigation names code that is nowhere", () => {
       ],
     }),
   );
-  assert.ok(ids(found).includes("C3"));
+  assert.ok(ids(found).includes("claim.mitigation-absent"));
 });
 
-test("C4 fires on an empty mitigation and leaves a short one to A4", () => {
-  const empty = familyC.check(
+test("claim.no-mitigation fires on an empty mitigation ", () => {
+  const empty = claim.check(
     ctx({
       records: [
         record({ type: "risk", conceptId: "risk.x", body: "## Risk\n\nx\n" }),
       ],
     }),
   );
-  assert.ok(ids(empty).includes("C4"));
-  const blank = familyC.check(
+  assert.ok(ids(empty).includes("claim.no-mitigation"));
+  const blank = claim.check(
     ctx({
       records: [
         record({
@@ -317,8 +234,8 @@ test("C4 fires on an empty mitigation and leaves a short one to A4", () => {
       ],
     }),
   );
-  assert.ok(ids(blank).includes("C4"));
-  const stated = familyC.check(
+  assert.ok(ids(blank).includes("claim.no-mitigation"));
+  const stated = claim.check(
     ctx({
       records: [
         record({
@@ -329,22 +246,22 @@ test("C4 fires on an empty mitigation and leaves a short one to A4", () => {
       ],
     }),
   );
-  assert.ok(!ids(stated).includes("C4"));
+  assert.ok(!ids(stated).includes("claim.no-mitigation"));
 });
 
-test("C5 is skipped offline and on the hook path", () => {
+test("claim.dead-source is skipped offline and on the hook path", () => {
   const sources = [{ id: "x", resource: "https://github.com/o/r/pull/1" }];
-  const offline = familyC.check(
+  const offline = claim.check(
     ctx({ offline: true, report: true, records: [record({ sources })] }),
   );
-  assert.ok(!ids(offline).includes("C5"));
-  const hook = familyC.check(
+  assert.ok(!ids(offline).includes("claim.dead-source"));
+  const hook = claim.check(
     ctx({ offline: false, report: false, records: [record({ sources })] }),
   );
-  assert.ok(!ids(hook).includes("C5"));
+  assert.ok(!ids(hook).includes("claim.dead-source"));
 });
 
-test("the C5 allowlist is anchored at the authority", () => {
+test("the claim.dead-source allowlist is anchored at the authority", () => {
   for (const url of [
     "http://127.0.0.1:8080/x.atlassian.net/",
     "https://127.0.0.1/o/r",
@@ -359,16 +276,16 @@ test("the C5 allowlist is anchored at the authority", () => {
   assert.ok(isProbeable("https://acme.atlassian.net/browse/SAA-1"));
 });
 
-test("C6 fires on an unsourced fact, and not on one with a verify command", () => {
-  const bare = familyC.check(
+test("claim.unsourced fires on an unsourced fact, and not on one with a verify command", () => {
+  const bare = claim.check(
     ctx({
       records: [
         record({ type: "fact", conceptId: "fact.x", body: "## Claim\n\nx\n" }),
       ],
     }),
   );
-  assert.ok(ids(bare).includes("C6"));
-  const verified = familyC.check(
+  assert.ok(ids(bare).includes("claim.unsourced"));
+  const verified = claim.check(
     ctx({
       records: [
         record({
@@ -380,55 +297,18 @@ test("C6 fires on an unsourced fact, and not on one with a verify command", () =
       ],
     }),
   );
-  assert.ok(!ids(verified).includes("C6"));
+  assert.ok(!ids(verified).includes("claim.unsourced"));
 });
 
-test("C7 warns on two records saying the same thing", () => {
-  const body =
-    "## Decision\n\nBatch tenant lookups through the repository in chunks of a hundred identifiers.\n\n## Rejected\n\nOne round trip per identifier.\n";
-  const found = familyC.check(
-    ctx({
-      records: [
-        record({ conceptId: "decision.a", body }),
-        record({ conceptId: "decision.b", body }),
-      ],
-    }),
-  );
-  assert.ok(ids(found).includes("C7"));
-});
-
-test("C8 warns when nothing blocks and everything is certain", () => {
-  const found = familyC.check(
-    ctx({
-      records: [
-        record({
-          conceptId: "risk.a",
-          type: "risk",
-          materiality: "non-blocking",
-          confidence: "high",
-        }),
-        record({
-          conceptId: "risk.b",
-          type: "risk",
-          materiality: "non-blocking",
-          confidence: "high",
-        }),
-        record({ conceptId: "decision.c", confidence: "high" }),
-      ],
-    }),
-  );
-  assert.equal(ids(found).filter((id) => id === "C8").length, 2);
-});
-
-test("C9 warns when the store refused a verification this session", () => {
-  const found = familyC.check(
+test("claim.self-verified warns when the store refused a verification this session", () => {
+  const found = claim.check(
     ctx({ logAdded: [{ operation: "verify:refused", conceptId: "risk.x" }] }),
   );
-  assert.ok(ids(found).includes("C9"));
+  assert.ok(ids(found).includes("claim.self-verified"));
 });
 
-test("D1 fires on a record written and closed with no commit between", () => {
-  const found = familyD.check(
+test("standing.closed-same-turn fires on a record written and closed with no commit between", () => {
+  const found = standing.check(
     ctx({
       records: [
         record({
@@ -450,13 +330,13 @@ test("D1 fires on a record written and closed with no commit between", () => {
       ],
     }),
   );
-  assert.ok(ids(found).includes("D1"));
+  assert.ok(ids(found).includes("standing.closed-same-turn"));
 });
 
-test("D2 reads the anchor hash, not the paths in this diff", () => {
+test("standing.resolved-unmoved reads the anchor hash, not the paths in this diff", () => {
   /** @param {string} state */
   const resolved = (state) =>
-    familyD.check(
+    standing.check(
       ctx({
         records: [
           record({
@@ -488,13 +368,13 @@ test("D2 reads the anchor hash, not the paths in this diff", () => {
       }),
     );
   // Unchanged since it was written: the risk closed on nothing.
-  assert.ok(ids(resolved("match")).includes("D2"));
+  assert.ok(ids(resolved("match")).includes("standing.resolved-unmoved"));
   // The code did move — that is D5's finding, not D2's.
-  assert.ok(!ids(resolved("drifted")).includes("D2"));
+  assert.ok(!ids(resolved("drifted")).includes("standing.resolved-unmoved"));
 });
 
-test("D3 fires when the author owns their own question", () => {
-  const found = familyD.check(
+test("standing.self-owned-question fires when the author owns their own question", () => {
+  const found = standing.check(
     ctx({
       records: [
         record({
@@ -506,11 +386,11 @@ test("D3 fires when the author owns their own question", () => {
       ],
     }),
   );
-  assert.deepEqual(ids(found), ["D3"]);
+  assert.deepEqual(ids(found), ["standing.self-owned-question"]);
 });
 
-test("D4 warns on a supersede chain over two", () => {
-  const found = familyD.check(
+test("standing.supersede-chain warns on a supersede chain over two", () => {
+  const found = standing.check(
     ctx({
       logAdded: [
         { operation: "supersede", conceptId: "a" },
@@ -519,11 +399,11 @@ test("D4 warns on a supersede chain over two", () => {
       ],
     }),
   );
-  assert.deepEqual(ids(found), ["D4"]);
+  assert.deepEqual(ids(found), ["standing.supersede-chain"]);
 });
 
-test("D5 fires on a drifted anchor", () => {
-  const found = familyD.check(
+test("anchor.drifted fires on a drifted anchor", () => {
+  const found = anchor.check(
     ctx({
       anchorState: new Map([
         [
@@ -535,13 +415,13 @@ test("D5 fires on a drifted anchor", () => {
       ]),
     }),
   );
-  assert.deepEqual(ids(found), ["D5"]);
+  assert.deepEqual(ids(found), ["anchor.drifted"]);
 });
 
-test("E1 blocks on a validate error and E2 warns on an expiry", () => {
+test("store.validate blocks on a validate error and store.expired warns on an expiry", () => {
   // Both shapes are the CLI's own: `validate` problems and a `doctor --json`
   // report.
-  const found = familyE.check(
+  const found = store.check(
     ctx({
       validate: [
         {
@@ -587,24 +467,24 @@ test("E1 blocks on a validate error and E2 warns on an expiry", () => {
       },
     }),
   );
-  assert.deepEqual(ids(found), ["E1", "E2"]);
+  assert.deepEqual(ids(found), ["store.validate", "store.expired"]);
   assert.match(String(found[0]?.message), /target fact\.gone is missing/);
   assert.equal(found[0]?.severity, "block");
   assert.equal(found[1]?.severity, "warn");
 });
 
-test("E3 fires on a link whose target is not in the base", () => {
-  const found = familyE.check(
+test("store.dangling-link fires on a link whose target is not in the base", () => {
+  const found = store.check(
     ctx({
       records: [
         record({ links: [{ target: "fact.missing", rel: "depends_on" }] }),
       ],
     }),
   );
-  assert.deepEqual(ids(found), ["E3"]);
+  assert.deepEqual(ids(found), ["store.dangling-link"]);
 });
 
-test("F1 fires on a dependency, not on a bump or an ordinary key", () => {
+test("owed.dependency fires on a dependency, not on a bump or an ordinary key", () => {
   const before = {
     name: "app",
     license: "MIT",
@@ -629,13 +509,13 @@ test("F1 fires on a dependency, not on a bump or an ordinary key", () => {
     fileAtHead: () => JSON.stringify(after, null, 2),
   };
 
-  const found = familyF.check(ctx({ ...shape, hunks: [hunk] }));
-  assert.deepEqual(ids(found), ["F1"]);
+  const found = owed.check(ctx({ ...shape, hunks: [hunk] }));
+  assert.deepEqual(ids(found), ["owed.dependency"]);
   // The bumped dependency and the changed licence are not new dependencies.
   assert.match(String(found[0]?.message), /vitest added to dependencies/);
   assert.doesNotMatch(String(found[0]?.message), /zod|license/);
 
-  const bumpOnly = familyF.check(
+  const bumpOnly = owed.check(
     ctx({
       ...shape,
       fileAtHead: () => JSON.stringify(before, null, 2),
@@ -657,8 +537,8 @@ function lines(value) {
   return JSON.stringify(value, null, 2).split("\n");
 }
 
-test("F3 fires when a test is skipped", () => {
-  const found = familyF.check(
+test("owed.test-silenced fires when a test is skipped", () => {
+  const found = owed.check(
     ctx({
       files: [{ path: "src/a.spec.ts", status: "M" }],
       classes: new Map([["src/a.spec.ts", "test"]]),
@@ -672,10 +552,10 @@ test("F3 fires when a test is skipped", () => {
       ],
     }),
   );
-  assert.deepEqual(ids(found), ["F3"]);
+  assert.deepEqual(ids(found), ["owed.test-silenced"]);
 });
 
-test("F4 fires on a ts-ignore, and an anchored decision answers it", () => {
+test("owed.suppression fires on a ts-ignore, and an anchored decision answers it", () => {
   const shape = {
     codeFiles: [{ path: "src/a.ts", status: "M" }],
     classes: new Map([["src/a.ts", "code"]]),
@@ -683,25 +563,25 @@ test("F4 fires on a ts-ignore, and an anchored decision answers it", () => {
       { file: "src/a.ts", added: ["// @ts-ignore"], removed: [], newLines: 1 },
     ],
   };
-  assert.deepEqual(ids(familyF.check(ctx(shape))), ["F4"]);
-  const answered = familyF.check(
+  assert.deepEqual(ids(owed.check(ctx(shape))), ["owed.suppression"]);
+  const answered = owed.check(
     ctx({ ...shape, records: [record({ anchors: [{ file: "src/a.ts" }] })] }),
   );
   assert.deepEqual(ids(answered), []);
 });
 
-test("F5 fires on CI config and leaves .strauss policy alone", () => {
+test("owed.build-config fires on CI config and leaves .strauss policy alone", () => {
   assert.deepEqual(
     ids(
-      familyF.check(
+      owed.check(
         ctx({ files: [{ path: ".github/workflows/ci.yml", status: "M" }] }),
       ),
     ),
-    ["F5"],
+    ["owed.build-config"],
   );
   assert.deepEqual(
     ids(
-      familyF.check(
+      owed.check(
         ctx({ files: [{ path: ".strauss/merge-policy.yaml", status: "M" }] }),
       ),
     ),
@@ -709,17 +589,17 @@ test("F5 fires on CI config and leaves .strauss policy alone", () => {
   );
 });
 
-test("F6 fires on a migration and wants a contract", () => {
-  const found = familyF.check(
+test("owed.contract fires on a migration and wants a contract", () => {
+  const found = owed.check(
     ctx({
       files: [{ path: "db/migrations/0004_add_tenant.sql", status: "A" }],
     }),
   );
-  assert.deepEqual(ids(found), ["F6"]);
+  assert.deepEqual(ids(found), ["owed.contract"]);
   assert.match(String(found[0]?.message), /contract/);
 });
 
-test("F8 fires on security identifiers and wants a review:security risk", () => {
+test("owed.permissions fires on security identifiers and wants a review:security risk", () => {
   const shape = {
     codeFiles: [{ path: "src/a.ts", status: "M" }],
     classes: new Map([["src/a.ts", "code"]]),
@@ -732,8 +612,8 @@ test("F8 fires on security identifiers and wants a review:security risk", () => 
       },
     ],
   };
-  assert.deepEqual(ids(familyF.check(ctx(shape))), ["F8"]);
-  const answered = familyF.check(
+  assert.deepEqual(ids(owed.check(ctx(shape))), ["owed.permissions"]);
+  const answered = owed.check(
     ctx({
       ...shape,
       records: [
@@ -749,8 +629,8 @@ test("F8 fires on security identifiers and wants a review:security risk", () => 
   assert.deepEqual(ids(answered), []);
 });
 
-test("F8 ignores an author, and every identifier is word-bounded", () => {
-  const found = familyF.check(
+test("owed.permissions ignores an author, and every identifier is word-bounded", () => {
+  const found = owed.check(
     ctx({
       codeFiles: [{ path: "src/a.ts", status: "M" }],
       classes: new Map([["src/a.ts", "code"]]),
@@ -764,8 +644,8 @@ test("F8 ignores an author, and every identifier is word-bounded", () => {
       ],
     }),
   );
-  assert.ok(!ids(found).includes("F8"));
-  const authn = familyF.check(
+  assert.ok(!ids(found).includes("owed.permissions"));
+  const authn = owed.check(
     ctx({
       codeFiles: [{ path: "src/a.ts", status: "M" }],
       classes: new Map([["src/a.ts", "code"]]),
@@ -779,11 +659,11 @@ test("F8 ignores an author, and every identifier is word-bounded", () => {
       ],
     }),
   );
-  assert.ok(ids(authn).includes("F8"));
+  assert.ok(ids(authn).includes("owed.permissions"));
 });
 
-test("F8 ignores an ordinary multi-tenant identifier", () => {
-  const found = familyF.check(
+test("owed.permissions ignores an ordinary multi-tenant identifier", () => {
+  const found = owed.check(
     ctx({
       codeFiles: [{ path: "src/a.ts", status: "M" }],
       classes: new Map([["src/a.ts", "code"]]),
@@ -797,30 +677,11 @@ test("F8 ignores an ordinary multi-tenant identifier", () => {
       ],
     }),
   );
-  assert.ok(!ids(found).includes("F8"));
+  assert.ok(!ids(found).includes("owed.permissions"));
 });
 
-test("F9 warns rather than blocks", () => {
-  const found = familyF.check(
-    ctx({
-      codeFiles: [{ path: "src/a.ts", status: "M" }],
-      classes: new Map([["src/a.ts", "code"]]),
-      hunks: [
-        {
-          file: "src/a.ts",
-          added: ["await Promise.all(chunks);"],
-          removed: [],
-          newLines: 1,
-        },
-      ],
-    }),
-  );
-  assert.deepEqual(ids(found), ["F9"]);
-  assert.equal(found[0]?.severity, "warn");
-});
-
-test("F10 fires on a sourced requirement nothing satisfies", () => {
-  const found = familyF.check(
+test("owed.requirement fires on a sourced requirement nothing satisfies", () => {
+  const found = owed.check(
     ctx({
       records: [
         record({
@@ -834,10 +695,10 @@ test("F10 fires on a sourced requirement nothing satisfies", () => {
       ],
     }),
   );
-  assert.ok(ids(found).includes("F10"));
+  assert.ok(ids(found).includes("owed.requirement"));
 });
 
-test("F11 fires on an open blocking risk nothing verifies", () => {
+test("owed.verification fires on an open blocking risk nothing verifies", () => {
   const open = record({
     conceptId: "risk.x",
     type: "risk",
@@ -845,65 +706,25 @@ test("F11 fires on an open blocking risk nothing verifies", () => {
     materiality: "blocking",
     anchors: [{ file: "src/a.ts" }],
   });
-  assert.ok(ids(familyF.check(ctx({ records: [open] }))).includes("F11"));
+  assert.ok(ids(owed.check(ctx({ records: [open] }))).includes("owed.verification"));
   const resolved = { ...open, status: "resolved" };
-  assert.ok(!ids(familyF.check(ctx({ records: [resolved] }))).includes("F11"));
-});
-
-test("F12 fires on a wide change carried by a fact alone", () => {
-  const found = familyF.check(
-    ctx({
-      changedSymbols: [
-        {
-          file: "src/a.ts",
-          symbol: "Alpha",
-          hunks: [{ added: Array(31).fill("x"), removed: [] }],
-        },
-      ],
-      records: [
-        record({
-          type: "fact",
-          conceptId: "fact.x",
-          anchors: [{ file: "src/a.ts" }],
-        }),
-      ],
-    }),
-  );
-  assert.ok(ids(found).includes("F12"));
-});
-
-test("F7 is not implemented without a codegraph", () => {
-  const found = familyF.check(
-    ctx({
-      codeFiles: [{ path: "src/a.ts", status: "M" }],
-      classes: new Map([["src/a.ts", "code"]]),
-      hunks: [
-        {
-          file: "src/a.ts",
-          added: ["export function alpha() {}"],
-          removed: [],
-          newLines: 1,
-        },
-      ],
-    }),
-  );
-  assert.ok(!ids(found).includes("F7"));
+  assert.ok(!ids(owed.check(ctx({ records: [resolved] }))).includes("owed.verification"));
 });
 
 test("a block demotes to a warning by id", () => {
   const findings = [
     {
-      id: "A1",
-      family: "A",
+      id: "uncovered.symbol",
+      group: "uncovered",
       severity: /** @type {const} */ ("block"),
       kind: /** @type {const} */ ("semantic"),
       message: "x",
     },
   ];
-  const [only] = applyPolicy(findings, { ...DEFAULTS, warn: ["A1"], off: [] });
+  const [only] = applyPolicy(findings, { ...DEFAULTS, warn: ["uncovered.symbol"], off: [] });
   assert.equal(only?.severity, "warn");
   assert.deepEqual(
-    applyPolicy(findings, { ...DEFAULTS, warn: [], off: ["A1"] }),
+    applyPolicy(findings, { ...DEFAULTS, warn: [], off: ["uncovered.symbol"] }),
     [],
   );
 });
@@ -992,7 +813,7 @@ test("frontmatter reads an empty flow collection as one", () => {
   assert.deepEqual(data.strauss_anchors, []);
   // Family B walks anchors: a string here is what threw.
   assert.deepEqual(
-    familyB.check(ctx({ records: [record({ anchors: [] })] })),
+    anchor.check(ctx({ records: [record({ anchors: [] })] })),
     [],
   );
 });
