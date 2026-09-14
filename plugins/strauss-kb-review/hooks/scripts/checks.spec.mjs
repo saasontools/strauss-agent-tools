@@ -752,7 +752,7 @@ test("--report flags only the one repair the fixer may apply", () => {
   assert.equal(one("anchor.drifted").label, "mechanical");
 });
 
-test("the builtin classifier names the classes family A skips", () => {
+test("the builtin classifier names the classes uncovered skips", () => {
   assert.equal(builtinClass("src/a.spec.ts"), "test");
   assert.equal(builtinClass("src/protocol/generated/index.ts"), "generated");
   assert.equal(builtinClass("pnpm-lock.yaml"), "lockfile");

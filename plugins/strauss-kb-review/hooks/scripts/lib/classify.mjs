@@ -8,7 +8,7 @@ import { json } from "./cli.mjs";
 import { checkAttr } from "./git.mjs";
 import { extensionOf, isCodePath } from "./util.mjs";
 
-/** Classes family A skips: nothing here needs a why. */
+/** Classes `uncovered` skips: nothing here needs a why. */
 export const SKIPPED = new Set([
   "test",
   "config",
