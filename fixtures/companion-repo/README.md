@@ -65,7 +65,7 @@ path needs two states across commits and each needs its own name in `head/`
 | `fabricated-decision`    | `human` | C             | Anchored, typed, validates, and says nothing         |
 
 Families are SAA-729's A–F; each `expected.json` names the individual checks.
-`fixable` names the findings a late fixer (`agents/kb-fixer.md`) may apply;
+`fixable` names the findings the late tier (`skills/kb-fix/references/late-tier.md`) may apply;
 absent means none.
 
 `classifier` maps the three-dot diff `git diff --name-only main...<branch>`,
