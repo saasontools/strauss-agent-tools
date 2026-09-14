@@ -22,7 +22,8 @@ node "$CLAUDE_PLUGIN_ROOT/skills/merge-policy/scripts/merge-policy.mjs" \
 
 `--repo-root` defaults to the cwd, `--bundle` to `<repo-root>/.strauss/kb`, and
 `--policy` to `.strauss/merge-policy.json` then `.yaml`. `--reviewer`, `--gate`,
-`--approvals` and `--decider` take a path or the JSON itself; without `--gate`
+`--approvals` and `--decider` take a path or the JSON itself; `--reviewer` is a
+reviewer's `kb` report block from the `kb-review` skill, and without `--gate`
 the gate's own `--report` runs. `strauss-kb` comes from `$STRAUSS_KB_BIN`, else
 `PATH`. `--decider` takes a second agent's verdict on the reviewer's work,
 which may only add `human`: `escalate` matches `decider-escalate`, `concur`
