@@ -54,6 +54,12 @@ overrides:
   # means shipping known-vulnerable versions — protobufjs at a high severity —
   # in the meantime.
   "protobufjs@>=8.0.0 <8.6.6": "8.6.6"
+  # CVE mitigation: js-yaml merge-key CPU exhaustion (GHSA-2883-xcg3-v3hh),
+  # transitive via jest, cosmiconfig and gray-matter; smol-toml DoS on malformed
+  # documents (GHSA-7w5x-hrqm-74c2), transitive via nx.
+  "js-yaml@>=3.0.0 <3.15.2": "3.15.2"
+  "js-yaml@>=4.0.0 <4.3.2": "4.3.2"
+  "smol-toml@<=1.7.0": "1.7.1"
   "@opentelemetry/propagator-jaeger@<2.9.0": "2.9.0"
   # CVE mitigation, both transitive via copy-webpack-plugin and
   # terser-webpack-plugin under Docusaurus: RCE below 7.0.3, and a DoS below
