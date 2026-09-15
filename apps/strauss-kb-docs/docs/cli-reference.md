@@ -251,7 +251,8 @@ load [type] [--budget N] [--all] [--repo-root PATH]
 ```
 
 Hand over the whole base, each record with its standing; the optional positional
-narrows to one record type.
+narrows to one record type. Each record carries `verify`, `sources` and `owner`
+beside its body, as a `query` hit does.
 
 | Flag               | Default | Effect                                                                                        |
 | ------------------ | ------- | --------------------------------------------------------------------------------------------- |
@@ -492,8 +493,8 @@ list [type] [--tag T]...
 ```
 
 Every record, optionally narrowed to one type or tag — for enumerating, where
-`query` is for a question. Returns concept id, title, description, status, and
-anchors per record.
+`query` is for a question. Returns concept id, title, description, status,
+anchors, `verify`, `sources` and `owner` per record.
 
 ```bash
 strauss-kb list open-question
