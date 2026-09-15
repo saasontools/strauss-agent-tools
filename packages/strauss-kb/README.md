@@ -222,9 +222,9 @@ end of it. Six optional fields extend it:
 them; `repo` and `ref` are **author-owned identity** and a resolution pass
 never writes them.
 
-`anchor-resolve <concept-id>` (`kb_anchor_resolve`) is `verify`'s mechanical
-counterpart: it checks the anchored code against the working tree
-(`--repo-root` when the base is not inside it). Per anchor:
+`anchor-resolve <concept-id>` (`kb_anchor_resolve`) checks the anchored code
+against the working tree (`--repo-root` when the base is not inside it) and
+never writes `verified[]`; `--check` writes nothing at all. Per anchor:
 
 - **stamped** — no hash yet; hash, line count, and timestamp are written.
 - **match** — unchanged; nothing written. `--restamp` re-dates on purpose.
