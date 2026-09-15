@@ -26,7 +26,14 @@ import {
 
 const FIXTURE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(FIXTURE, "../../packages/strauss-kb/dist/cli-main.js");
-const GATE_FAMILIES = new Set(["A", "B", "C", "D", "E", "F"]);
+const GATE_GROUPS = new Set([
+  "uncovered",
+  "anchor",
+  "claim",
+  "standing",
+  "store",
+  "owed",
+]);
 const TEMP_PREFIX = "companion-repo-";
 
 let repo;
@@ -219,10 +226,10 @@ for (const scenario of scenarioNames()) {
         `${scenario}: classifier names ${path}, which main...${scenario} does not change`,
       );
     }
-    for (const family of expected.gateFamilies) {
+    for (const group of expected.gateGroups) {
       assert.ok(
-        GATE_FAMILIES.has(family),
-        `${scenario}: ${family} is not one of A–F`,
+        GATE_GROUPS.has(group),
+        `${scenario}: ${group} is not a gate group`,
       );
     }
 
