@@ -61,6 +61,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:49.727Z"
     note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:35.895Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:35:44.969Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/changed-files.ts
     symbol: changedFiles

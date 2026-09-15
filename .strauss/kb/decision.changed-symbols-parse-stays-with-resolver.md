@@ -76,6 +76,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:46.156Z"
     note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:32.472Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:35:41.587Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols

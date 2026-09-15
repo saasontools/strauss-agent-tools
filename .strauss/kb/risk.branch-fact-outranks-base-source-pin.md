@@ -14,6 +14,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:50.982Z"
     note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:37.128Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:35:46.662Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.ts
     symbol: classifyFile

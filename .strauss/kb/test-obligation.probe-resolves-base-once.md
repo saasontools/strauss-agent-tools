@@ -18,6 +18,18 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:55.972Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:41.630Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T16:34:55.310Z"
+    note: >-
+      Re-read declaresClasses: one rev-parse --verify <base>^{tree}, id checked
+      as 40-64 hex, every cat-file --batch line is <tree>:<dir>/.gitattributes;
+      attributes.spec passes. Not re-timed.
+  - by: unknown
+    at: "2026-09-15T16:35:51.821Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

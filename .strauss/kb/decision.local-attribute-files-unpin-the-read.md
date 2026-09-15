@@ -20,6 +20,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:48.055Z"
     note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:34.335Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:35:43.396Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr

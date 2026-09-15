@@ -31,6 +31,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:51.703Z"
     note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:37.542Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:35:47.100Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

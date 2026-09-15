@@ -79,6 +79,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:49.455Z"
     note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:35.675Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:35:44.750Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/diff.ts
     symbol: readRangeDiff

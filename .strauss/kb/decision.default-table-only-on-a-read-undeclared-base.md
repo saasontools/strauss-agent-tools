@@ -47,6 +47,19 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:46.586Z"
     note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:32.878Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T16:34:55.620Z"
+    note: >-
+      readAttributes returns repoDeclares true when unpinned or the probe is
+      null; classifyFile applies pathRule only when !repoDeclares;
+      draftGitattributesFrom proposes test dirs, docs/, lock files, CI, suffixes
+      and build output, never *.md; -t 'repoDeclares|attributeFiles' passes 9.
+  - by: unknown
+    at: "2026-09-15T16:35:42.012Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

@@ -35,6 +35,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:53.723Z"
     note: "anchor-resolve: 2/2 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:25:39.431Z"
+    note: "anchor-resolve: 2/2 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:35:49.410Z"
+    note: "anchor-resolve: 2/2 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/classify.ts
     hash: "sha256:be2c00ceee697ef18b37251ffcc985360cab0f0b6e958a95148c125e5fa037b1"

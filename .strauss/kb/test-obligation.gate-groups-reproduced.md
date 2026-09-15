@@ -65,6 +65,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:55.199Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:25:40.863Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:35:51.091Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: plugins/strauss-kb-review/hooks/scripts/fixture.spec.mjs
     symbol: reportOn

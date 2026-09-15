@@ -16,6 +16,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:55.602Z"
     note: "anchor-resolve: 2/2 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:25:41.261Z"
+    note: "anchor-resolve: 2/2 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:35:51.463Z"
+    note: "anchor-resolve: 2/2 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.spec.ts
     hash: "sha256:1891ae5362e883d0b8c2f857c8789c87acbf54165809dde04467543427f5262b"

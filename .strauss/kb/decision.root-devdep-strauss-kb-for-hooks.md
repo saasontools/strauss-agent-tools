@@ -65,6 +65,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:22:48.875Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:25:35.097Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:35:44.205Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: package.json
     hash: "sha256:c4ffa90943581fc1e277786e86e3dd9072d57477ef56bacbaf8e086e188c3686"
