@@ -99,21 +99,26 @@ should not.
 
 ## Declare what you changed
 
-A subagent sharing a worktree ends its turn with the paths it changed, one per
-line, or `none`. A line may add what kind of change it was — `generated`,
-`test`, `docs`, `config`, `ci`, `lockfile`, `boilerplate`, or `source`, the
-default. A class that lowers scrutiny must already be written in the
-repository: a `review:*` fact on the hunk, or a `.gitattributes` entry; the
-gate blocks a class the repository does not back. Records you wrote are files too: list them, since the gate
-takes your records from this list rather than scraping the bundle. It checks
-the list against the worktree and reads only those paths for you; anything
-undeclared is the parent session's at its Stop.
+A subagent sharing a worktree ends its turn with a fenced `changed` block, a
+JSON object listing the repository paths it changed. Records you wrote are
+files too: list them, since the gate takes your records from this list rather
+than scraping the bundle. `class` is optional — `generated`, `test`, `docs`,
+`config`, `ci`, `lockfile`, `boilerplate`; `source` when absent — and a class
+that lowers scrutiny must already be written in the repository (a `review:*`
+fact on the hunk, or a `.gitattributes` entry), or the gate blocks it. The
+gate checks the list against the worktree and reads only those paths for you;
+anything undeclared is the parent session's at its Stop. Nothing changed:
+`{ "paths": [] }`.
 
 ````markdown
 ```changed
-src/checkout/pay.ts
-src/generated/api.ts generated
-.strauss/kb/risk.checkout-retry-double-charge.md
+{
+  "paths": [
+    { "path": "src/checkout/pay.ts" },
+    { "path": "src/generated/api.ts", "class": "generated" },
+    { "path": ".strauss/kb/risk.checkout-retry-double-charge.md" }
+  ]
+}
 ```
 ````
 
