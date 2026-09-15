@@ -58,9 +58,14 @@ carries the file classes the gate reads at the base commit.
   `changed` block. The gate blocks a Stop that records nothing for what the
   diff owes; fix the base, never the gate.
 - Reviewing: the agents in `.claude/agents/` and `.codex/agents/`
-  (`correctness`, `security`, `prose`) preload `kb-review` and write as
-  `agent:<name>`. Reviewers never write decisions or settle another actor's
-  record.
+  (`correctness`, `security`, `prose`, `performance`) preload `kb-review` and
+  write as `agent:<name>`; each dimension's checklist is
+  `.agents/review/<name>.md`. Reviewers never write decisions or settle
+  another actor's record.
+- A task end to end: the `implement-review` skill takes a Linear issue or a
+  prompt, implements on a branch, then runs the roster in parallel and settles
+  the findings. Codex finds it through `.agents/skills/implement-review`, a
+  link into the plugin.
 - A finding about the companion itself goes to SAA-735, not into a workaround.
 
 ## Rules that are load-bearing

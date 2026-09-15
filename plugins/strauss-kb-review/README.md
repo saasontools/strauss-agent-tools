@@ -64,6 +64,10 @@ wire the second only. Both ship unwired.
 The author gate also needs the `gate` key (below); the reviewer gate needs the
 roster (below that).
 
+**`implement-review`** — implement a task from a Linear issue or a prompt on a
+branch, then run every reviewer on the roster in parallel over the range and
+settle what they wrote; Claude Code and Codex.
+
 ## Gate
 
 `hooks/scripts/kb-review-gate.mjs` reads the session's diff and the companion

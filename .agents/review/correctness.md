@@ -1,0 +1,15 @@
+# Correctness review: what to check in this repository
+
+| Area                | Check                                                                                                                       | Where to look                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Store writes        | Compare-and-swap on `status` and `answer`; a stale digest must refuse, never overwrite                                      | `packages/strauss-kb/src/kb-store.ts`, `commands/status.ts`, `commands/answer.ts`                |
+| Log                 | Every write appends one `log.jsonl` line; malformed lines are reported, never rewritten; reads sorted by `at`, deduplicated | `packages/strauss-kb/src/kb-log.ts`                                                              |
+| Supersession        | Chain resolution on read; a cycle or a fork is a warning, not a crash                                                       | `packages/strauss-kb/src/adjudicate.ts`                                                          |
+| Anchors             | Resolver chain tree-sitter → regex → span; `symbol-not-found` after a parsed miss offers definition tiers only              | `packages/strauss-kb/src/anchor-resolver/resolver.ts`                                            |
+| Diff                | Hunk parsing keeps old-side hunks only when matched; renames carry `oldPath`                                                | `packages/strauss-kb/src/commands/match/`, `plugins/strauss-kb-review/hooks/scripts/lib/git.mjs` |
+| CLI and MCP surface | A verb's JSON keys are added, never renamed; `--json` where the result is JSON; `--help` writes nothing                     | `packages/strauss-kb/src/cli.ts`, `src/mcp.ts`, `apps/strauss-kb-docs/docs/*-reference.md`       |
+| Gate                | A check is a fact of the store or the diff; a finding names the record and the file; `warn`/`off` by id or group            | `plugins/strauss-kb-review/hooks/scripts/lib/checks/*.mjs`                                       |
+| Fixture             | A scenario's `expected.json` still describes its branch; goldens change only with a named reason                            | `fixtures/companion-repo/scenarios/*/expected.json`                                              |
+| Tests               | A test that stopped asserting, a skipped test, a snapshot accepted without a reason                                         | `*.spec.ts`, `*.spec.mjs`, `__snapshots__`                                                       |
+
+Examples of findings this repository has had: an `owed.verification` that read only the risk's own links (PR 91); a NUL byte in a template string that made a file binary (PR 74); `strauss-kb <verb> --help` writing a record titled `--help` (PR 78).
