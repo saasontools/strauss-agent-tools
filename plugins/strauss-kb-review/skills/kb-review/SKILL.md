@@ -29,14 +29,17 @@ that name may do:
 `tags` are the record tags in your scope; `mayBlock` is whether you may write
 a `blocking` risk. Not on the roster: read, write nothing, say so.
 
-## Load
+## Load, then query
 
-1. `kb_load` — the digest. Refused over budget: take the index and `kb_query`
-   what you need.
-2. `strauss-kb match --git <base>..<head>` — the records on each hunk. Keep
+`kb_load` is your first call on the base, before any hunk is judged. The
+reviewer gate denies a write, and blocks the turn, until it has seen one
+(`kb_load`, or `strauss-kb load`). Refused over budget: take the index and
+`kb_query` what you need. Then, for the range:
+
+1. `strauss-kb match --git <base>..<head>` — the records on each hunk. Keep
    the files in your scope.
-3. `kb_query` by your `tags` — records in your dimension that sit on no hunk.
-4. `kb_trace` / `kb_backlinks` — only on a record you are about to dispute.
+2. `kb_query` by your `tags` — records in your dimension that sit on no hunk.
+3. `kb_trace` / `kb_backlinks` — only on a record you are about to dispute.
 
 Read the anchor before trusting a record. A record is a claim about code, not
 evidence.
