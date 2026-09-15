@@ -12,14 +12,27 @@ import { declaredPaths, unbackedClasses, undeclarable, writtenScope } from "./li
 import { checkAttr } from "./lib/git.mjs";
 import { statePath, writeState } from "./lib/state.mjs";
 
-test("declaredPaths: the last changed block, normalised, or none", () => {
+test("declaredPaths: the last changed block, JSON body, normalised paths, or none", () => {
   assert.equal(declaredPaths(null), null);
   assert.equal(declaredPaths("no block here"), null);
-  assert.deepEqual(declaredPaths("```changed\nnone\n```"), { declared: [], classes: new Map(), none: true });
-  assert.deepEqual(
-    declaredPaths("first\n```changed\nold.ts\n```\nthen\n```changed\n./src/a.ts\nsrc\\b.ts generated\n# comment\n\nsrc/a.ts\n```\n"),
-    { declared: ["src/a.ts", "src/b.ts"], classes: new Map([["src/b.ts", "generated"]]), none: false },
-  );
+  assert.equal(declaredPaths("```changed\nnot json\n```"), null);
+  assert.equal(declaredPaths("```changed\n{ \"files\": [] }\n```"), null);
+  assert.deepEqual(declaredPaths("```changed\n{ \"paths\": [] }\n```"), { declared: [], classes: new Map(), none: true });
+  const text = [
+    "first",
+    "```changed",
+    '{ "paths": [ { "path": "old.ts" } ] }',
+    "```",
+    "then",
+    "```changed",
+    '{ "paths": [ { "path": "./src/a.ts" }, { "path": "src\\\\b.ts", "class": "Generated" }, "src/a.ts" ] }',
+    "```",
+  ].join("\n");
+  assert.deepEqual(declaredPaths(text), {
+    declared: ["src/a.ts", "src/b.ts"],
+    classes: new Map([["src/b.ts", "generated"]]),
+    none: false,
+  });
 });
 
 test("writtenScope: the diff's paths plus the declared or scraped bundle files", () => {
@@ -94,8 +107,8 @@ test("SubagentStop: no block with a dirty worktree blocks; a false path blocks; 
     );
   try {
     assert.equal(await stop("done, no block"), 2);
-    assert.match(errors.at(-1) ?? "", /fenced ```changed block/);
-    assert.equal(await stop("```changed\nsrc/a.ts\nsrc/nope.ts\n```"), 2);
+    assert.match(errors.at(-1) ?? "", /fenced ```changed block whose body is JSON/);
+    assert.equal(await stop('```changed\n{ "paths": [ { "path": "src/a.ts" }, { "path": "src/nope.ts" } ] }\n```'), 2);
     assert.match(errors.at(-1) ?? "", /src\/nope\.ts/);
     // The parent's Stop never asks for a declaration.
     errors.length = 0;
