@@ -62,10 +62,10 @@ carries the file classes the gate reads at the base commit.
   write as `agent:<name>`; each dimension's checklist is
   `.agents/review/<name>.md`. Reviewers never write decisions or settle
   another actor's record.
-- A task end to end: the `implement-review` skill takes a Linear issue or a
-  prompt, implements on a branch, then runs the roster in parallel and settles
-  the findings. Codex finds it through `.agents/skills/implement-review`, a
-  link into the plugin.
+- A task end to end: the `implement-review` skill in `.claude/skills/` takes
+  a Linear issue or a prompt, implements on a branch, then runs the roster in
+  parallel and settles the findings. Codex finds it through
+  `.agents/skills/implement-review`, a link to the same directory.
 - A finding about the companion itself goes to SAA-735, not into a workaround.
 
 ## Rules that are load-bearing

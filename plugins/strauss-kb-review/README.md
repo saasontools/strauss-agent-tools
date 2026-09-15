@@ -64,10 +64,6 @@ wire the second only. Both ship unwired.
 The author gate also needs the `gate` key (below); the reviewer gate needs the
 roster (below that).
 
-**`implement-review`** — implement a task from a Linear issue or a prompt on a
-branch, then run every reviewer on the roster in parallel over the range and
-settle what they wrote; Claude Code and Codex.
-
 ## Gate
 
 `hooks/scripts/kb-review-gate.mjs` reads the session's diff and the companion
@@ -127,10 +123,10 @@ A group name in either list covers every id under it.
 skill states, on the reviewers the repository's roster names. Everything else
 passes through untouched.
 
-| Event                  | What it holds                                                                                                                                                                                                                                                                                                        |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PreToolUse`           | A base write carries `STRAUSS_KB_ACTOR=agent:<name>`; is a reviewer's kind of write (no decisions, no settling another actor's record, `blocking` only with `mayBlock`); lands on a base `validate` and `doctor --strict` accept, checked once per base state. MCP write tools are denied: they land as actor `mcp`. |
-| `Stop`, `SubagentStop` | The turn ends with the skill's fenced `kb` report block.                                                                                                                                                                                                                                                             |
+| Event                  | What it holds                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PreToolUse`           | A base write carries `STRAUSS_KB_ACTOR=agent:<name>`; follows a load of the base (`kb_load`, or `strauss-kb load`) by this reviewer; is a reviewer's kind of write (no decisions, no settling another actor's record, `blocking` only with `mayBlock`); lands on a base `validate` and `doctor --strict` accept, checked once per base state. MCP write tools are denied: they land as actor `mcp`. |
+| `Stop`, `SubagentStop` | The base was loaded, and the turn ends with the skill's fenced `kb` report block.                                                                                                                                                                                                                                                                                                                   |
 
 **Who it applies to.** The reviewer's name is the agent's own name: Claude
 Code hands a subagent's hooks `agent_type`, Codex `name` (or `agent_name`);

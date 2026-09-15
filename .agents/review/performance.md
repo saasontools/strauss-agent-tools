@@ -1,13 +1,18 @@
-# Performance review: what to check in this repository
+# Performance review: dimensions
 
-| Area              | Check                                                                                                                                                    | Where to look                                                               |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Stop hook path    | Idle path spawns nothing; the digest-and-stamp short circuit stays first; every CLI spawn sits behind the 45 s wall budget and the 10 s per-call timeout | `plugins/strauss-kb-review/hooks/scripts/kb-review-gate.mjs`, `lib/cli.mjs` |
-| Spawn count       | One spawn per verb per Stop, memoised per record where a check asks per record (`backlinks`); no spawn inside a loop over hunks                          | `lib/context.mjs`                                                           |
-| Anchor resolution | A resolver is prepared only for anchors that can resolve; grammar load once per process; `stamp` ~15 ms on the fixture base                              | `packages/strauss-kb/src/anchor-resolver/`, `commands/stamp.ts`             |
-| Diff size         | `-U0` hunks; `maxBuffer` bounded; a pathological diff degrades to a warning, not a hang                                                                  | `lib/git.mjs`                                                               |
-| Ceilings in tests | `perf.spec.ts` ceilings (classify 4 s, gate idle 2 s) are smoke checks; a change that moves them needs a number in the PR, not a raised ceiling          | `packages/strauss-kb/src/perf.spec.ts`, `hooks/scripts/hook.spec.mjs`       |
-| Bundle and index  | `.index.sqlite` rebuilt only when a record is newer; `load` refuses over the token budget rather than truncating                                         | `packages/strauss-kb/src/kb-store.ts`                                       |
-| Reviewer gate     | Pre-flight (`validate`, `doctor --strict`) once per base state, cached in the session state                                                              | `kb-reviewer-gate.mjs` `preflight`                                          |
+One check per dimension, applied to every hunk in the range. What the code
+does today is not the checklist; the dimension is.
 
-A performance finding carries a measurement or the missing one: "this adds a spawn per hunk" is a finding; "this looks slow" is not.
+| Dimension             | Check                                                                                                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Parallelism           | Independent work runs concurrently: subagents spawned in one message, independent processes and reads not awaited in sequence; a sequence only where a result feeds the next |
+| Process and I/O count | One process per verb per event; nothing spawned or read inside a loop over hunks, records or files; a result asked for twice is memoised                                     |
+| Hot paths             | The path that runs every turn or every commit (hooks, stamps, lookups) does the cheapest check first and short-circuits when nothing changed                                 |
+| Bounds                | Every spawn sits under a timeout and a wall budget; buffers are bounded; a pathological input degrades to a warning, not a hang                                              |
+| Caching and indexes   | A cache or index is keyed on its input and rebuilt only when that input changed; a budget refuses, never truncates silently                                                  |
+| Complexity            | Nothing quadratic over records, hunks or files where the count grows with the repository                                                                                     |
+| Startup               | A hook or CLI entry loads only what its branch needs: grammars, indexes and modules on demand                                                                                |
+| Measurement           | A change on a hot path carries a number; a ceiling in a test is a smoke check and moves only with a measurement, never to make a test pass                                   |
+
+A finding carries a measurement or names the missing one: "this adds a spawn
+per hunk" is a finding; "this looks slow" is not.

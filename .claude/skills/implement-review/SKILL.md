@@ -21,20 +21,12 @@ only.
 
 ## 2. Implement with the base
 
-Load `review-companion` and keep it loaded: decisions with their rejected
-alternative, risks with materiality, invented requirements, flows, `review:*`
-facts on generated or boilerplate hunks. A subagent you delegate to ends its
-turn with the `changed` block. When the author gate blocks a Stop, fix the
-base, never the gate.
-
-Before review, the gate's own report must carry no block:
-
-```sh
-node "$CLAUDE_PLUGIN_ROOT/hooks/scripts/kb-review-gate.mjs" --report \
-  --repo-root . --base "$(git merge-base main HEAD)" --head HEAD
-```
-
-and the repository's own checks pass.
+Load `review-companion` and keep it loaded: it says what to record while you
+work, how a subagent declares what it changed, and the gate report to run
+before anyone reviews. In this repository the gate script is
+`plugins/strauss-kb-review/hooks/scripts/kb-review-gate.mjs`. When the author
+gate blocks a Stop, fix the base, never the gate. Review starts once the
+report carries no block and the repository's own checks pass.
 
 ## 3. Run the reviewers, all at once
 

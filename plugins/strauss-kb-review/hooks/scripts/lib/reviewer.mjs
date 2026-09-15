@@ -47,6 +47,15 @@ const SETTLING = new Set(["accepted", "resolved", "rejected"]);
 const MCP_WRITE =
   /^mcp__.*strauss[-_]kb.*__kb_(write|write_decision|no_decision|status|supersede|answer|verify|anchor_resolve|reassess|stamp|pin|unpin|promote|sweep)$/;
 
+const MCP_LOAD = /^mcp__.*strauss[-_]kb.*__kb_load$/;
+
+/** Whether this tool call loads the base: the MCP `kb_load`, or the CLI verb.
+ * @param {string} toolName @param {string | null} command */
+export function isLoad(toolName, command) {
+  if (MCP_LOAD.test(toolName)) return true;
+  return !!command && kbCalls(command).some((call) => call.verb === "load");
+}
+
 /**
  * @typedef {{ tags?: string[], paths?: string[], mayBlock?: boolean }} RosterEntry
  * @typedef {{ name: string, actor: string, entry: RosterEntry }} Reviewer
@@ -70,7 +79,11 @@ export function reviewerOf(input, roster, env = process.env) {
   if (!name || !roster) return null;
   const entry = roster[name];
   if (!entry || typeof entry !== "object") return null;
-  return { name, actor: `agent:${name}`, entry: /** @type {RosterEntry} */ (entry) };
+  return {
+    name,
+    actor: `agent:${name}`,
+    entry: /** @type {RosterEntry} */ (entry),
+  };
 }
 
 /** `reviewers` from `.strauss/kb-pins.json`, or null.
@@ -150,14 +163,16 @@ export function recordAuthor(bundle, conceptId) {
  *   reviewer: Reviewer,
  *   toolName: string,
  *   command: string | null,
+ *   loaded: boolean,
  *   authorOf: (conceptId: string) => string | null,
  *   preflight: () => string | null,
  * }} Decision
  */
 
 /**
- * The reason to deny this tool call, or null to let it through. `preflight`
- * runs only once a write is about to be allowed, so reads never pay for it.
+ * The reason to deny this tool call, or null to let it through. `loaded` is
+ * whether this reviewer has loaded the base; `preflight` runs only once a
+ * write is about to be allowed, so reads never pay for it.
  * @param {Decision} d @returns {string | null}
  */
 export function denyReason(d) {
@@ -171,6 +186,9 @@ export function denyReason(d) {
   for (const call of writes) {
     const reason = ruleFor(call, d);
     if (reason) return `strauss-kb reviewer gate: ${reason}`;
+  }
+  if (!d.loaded) {
+    return "strauss-kb reviewer gate: load the base before writing to it: kb_load, or strauss-kb load.";
   }
   const failed = d.preflight();
   return failed

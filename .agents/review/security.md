@@ -1,14 +1,18 @@
-# Security review: what to check in this repository
+# Security review: dimensions
 
-| Area                     | Check                                                                                                                                                                                | Where to look                                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| Process spawning         | `spawnSync`/`execFile` only, never `shell: true`; the binary is a fixed name or a resolved path                                                                                      | `plugins/strauss-kb-review/hooks/scripts/lib/cli.mjs`, `lib/git.mjs`, `packages/strauss-kb/src/remote-repo/` |
-| Git arguments            | Every positional that comes from a record, a hook payload or config sits after `--end-of-options`; diffs run with `--no-ext-diff --no-textconv`; `GIT_*` stripped from the child env | `lib/git.mjs`, `packages/strauss-kb/src/kb-gitattributes.ts`                                                 |
-| Paths                    | A path from a record, a payload or a declaration stays under the repository or bundle root; no `..` escape; bundle ids match `<type>.<slug>`                                         | `lib/declared.mjs`, `lib/reviewer.mjs` `recordAuthor`, `packages/strauss-kb/src/kb-pins/`                    |
-| Hook payloads            | `stdin` JSON is untrusted: unknown shape passes or denies safely, never throws into the harness; text quoted back to the model is bounded and stripped of control characters         | `kb-review-gate.mjs`, `kb-reviewer-gate.mjs`, `lib/util.mjs` `oneLine`                                       |
-| MCP inputs               | zod on every tool input; free text never reaches a shell; `describe()` says the constraint                                                                                           | `packages/strauss-kb/src/mcp.ts`, `src/commands/model.ts`                                                    |
-| Network                  | The only outbound call is the `claim.dead-source` probe: https only, allowlisted authority, `--report` only                                                                          | `plugins/strauss-kb-review/hooks/scripts/lib/urls.mjs`                                                       |
-| Secrets and supply chain | No token in code, logs or fixtures; a new dependency or build script is named in a decision and in `allowBuilds` if it builds; every GitHub Action pinned to a full SHA              | `package.json`, `pnpm-workspace.yaml`, `.github/workflows/`                                                  |
-| Actor forgery            | A `human:` actor is honour-system locally; nothing in the hook trusts it for a decision that lowers scrutiny                                                                         | `lib/reviewer.mjs`, merge-policy `inputs.mjs`                                                                |
+One check per dimension, applied to every hunk in the range. What the code
+does today is not the checklist; the dimension is.
 
-Examples of findings this repository has had: git positionals not behind `--end-of-options` (PR 74's review); a fixture URL probe that had to be authority-anchored (`urls.mjs`).
+| Dimension                | Check                                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Untrusted input          | Hook payloads, records, config, declarations and transcripts are data: an unknown shape passes or denies safely, never throws into the harness; text quoted back is bounded |
+| Process spawning         | Argument arrays, never a shell string; a fixed binary name or a resolved path; the child's environment carries only what it needs                                           |
+| Argument injection       | A positional that comes from data cannot become an option (`--end-of-options`, `--`); git runs without external diff, textconv or hooks                                     |
+| Paths                    | A path from data stays under the root it belongs to: no `..`, no absolute escape, no symlink out; an id is validated against its grammar before it becomes a filename       |
+| Network                  | Every outbound call is enumerated and off by default; https only; a host allowlist, not a denylist                                                                          |
+| Secrets and supply chain | No token in code, logs or fixtures; a new dependency or build script is named in a decision and allowlisted; every workflow action pinned to a full commit SHA              |
+| Identity and trust       | Who wrote a record decides what may be done with it; a self-declared identity (actor, agent name, environment variable) never lowers scrutiny on its own                    |
+| Least privilege          | An agent, hook or tool holds the tools and permissions its job needs and no more; a widened grant is named in the PR                                                        |
+
+A finding names the file, the symbol, the input that reaches it and what an
+attacker gets.

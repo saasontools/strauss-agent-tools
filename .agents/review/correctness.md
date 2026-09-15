@@ -1,15 +1,18 @@
-# Correctness review: what to check in this repository
+# Correctness review: dimensions
 
-| Area                | Check                                                                                                                       | Where to look                                                                                    |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Store writes        | Compare-and-swap on `status` and `answer`; a stale digest must refuse, never overwrite                                      | `packages/strauss-kb/src/kb-store.ts`, `commands/status.ts`, `commands/answer.ts`                |
-| Log                 | Every write appends one `log.jsonl` line; malformed lines are reported, never rewritten; reads sorted by `at`, deduplicated | `packages/strauss-kb/src/kb-log.ts`                                                              |
-| Supersession        | Chain resolution on read; a cycle or a fork is a warning, not a crash                                                       | `packages/strauss-kb/src/adjudicate.ts`                                                          |
-| Anchors             | Resolver chain tree-sitter → regex → span; `symbol-not-found` after a parsed miss offers definition tiers only              | `packages/strauss-kb/src/anchor-resolver/resolver.ts`                                            |
-| Diff                | Hunk parsing keeps old-side hunks only when matched; renames carry `oldPath`                                                | `packages/strauss-kb/src/commands/match/`, `plugins/strauss-kb-review/hooks/scripts/lib/git.mjs` |
-| CLI and MCP surface | A verb's JSON keys are added, never renamed; `--json` where the result is JSON; `--help` writes nothing                     | `packages/strauss-kb/src/cli.ts`, `src/mcp.ts`, `apps/strauss-kb-docs/docs/*-reference.md`       |
-| Gate                | A check is a fact of the store or the diff; a finding names the record and the file; `warn`/`off` by id or group            | `plugins/strauss-kb-review/hooks/scripts/lib/checks/*.mjs`                                       |
-| Fixture             | A scenario's `expected.json` still describes its branch; goldens change only with a named reason                            | `fixtures/companion-repo/scenarios/*/expected.json`                                              |
-| Tests               | A test that stopped asserting, a skipped test, a snapshot accepted without a reason                                         | `*.spec.ts`, `*.spec.mjs`, `__snapshots__`                                                       |
+One check per dimension, applied to every hunk in the range. What the code
+does today is not the checklist; the dimension is.
 
-Examples of findings this repository has had: an `owed.verification` that read only the risk's own links (PR 91); a NUL byte in a template string that made a file binary (PR 74); `strauss-kb <verb> --help` writing a record titled `--help` (PR 78).
+| Dimension                 | Check                                                                                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| State and concurrency     | A write that can race reads its version first and refuses on a stale one; a retry is idempotent; nothing another reader depends on is rewritten in place              |
+| Failure handling          | Every failure reaches the caller or the log, never swallowed; an unreadable input degrades to a warning, not a crash and not a silent pass                            |
+| Boundaries                | An external shape (CLI flags, JSON keys, MCP inputs, hook payloads) gains fields and never loses or renames one; a read verb writes nothing                           |
+| Parsing and serialisation | Malformed input is reported with its location; a round trip through the format is lossless; ordering and deduplication are stated, not accidental                     |
+| Edge cases                | Empty, one, many; a missing file or key; a cycle or a fork in a chain; the first and last element of a range                                                          |
+| Attribution               | A hunk, a rename or a moved symbol is credited to the path and symbol it lives on after the change, and the old location is still findable                            |
+| Tests                     | A test asserts what its name says; a skipped or silenced test is named in the PR; a golden or fixture changes only with a stated reason                               |
+| Claim against code        | The PR description, the companion's decisions and risks, and the code agree; a claim the code does not show is a finding, and so is a change no record or PR explains |
+
+A finding names the file, the symbol, the input that breaks it and what the
+code then does.
