@@ -11,6 +11,7 @@ import * as uncovered from "./lib/checks/uncovered.mjs";
 import { builtinClass } from "./lib/classify.mjs";
 import { isProbeable } from "./lib/urls.mjs";
 import { DEFAULTS, applyPolicy } from "./lib/thresholds.mjs";
+import { label } from "./lib/report.mjs";
 import { parseFrontmatter, section } from "./lib/util.mjs";
 
 /** @param {Partial<any>} overrides @returns {any} */
@@ -369,7 +370,7 @@ test("standing.resolved-unmoved reads the anchor hash, not the paths in this dif
     );
   // Unchanged since it was written: the risk closed on nothing.
   assert.ok(ids(resolved("match")).includes("standing.resolved-unmoved"));
-  // The code did move — that is D5's finding, not D2's.
+  // The code did move — that is anchor.drifted's finding, not standing.resolved-unmoved's.
   assert.ok(!ids(resolved("drifted")).includes("standing.resolved-unmoved"));
 });
 
@@ -734,6 +735,28 @@ test("a block demotes to a warning by id", () => {
     applyPolicy(findings, { ...DEFAULTS, warn: [], off: ["uncovered.symbol"] }),
     [],
   );
+});
+
+test("--report flags only the one repair the fixer may apply", () => {
+  /** @param {string} id */
+  const one = (id) =>
+    label({
+      id,
+      group: id.split(".")[0] ?? "",
+      severity: /** @type {const} */ ("block"),
+      kind: /** @type {const} */ ("mechanical"),
+      message: "x",
+    });
+  assert.equal(one("anchor.drifted").fixable, true);
+  // anchor.file-only, store.expired and store.dangling-link are mechanical in the tiers that may edit a record, and
+  // still not the fixer's: no op it is granted performs them.
+  assert.deepEqual(
+    ["uncovered.symbol", "anchor.file-only", "anchor.missing-symbol", "claim.no-rejection", "standing.closed-same-turn", "store.validate", "store.expired", "store.dangling-link", "owed.dependency"].map(
+      (id) => one(id).fixable,
+    ),
+    [false, false, false, false, false, false, false, false, false],
+  );
+  assert.equal(one("anchor.drifted").label, "mechanical");
 });
 
 test("without a classifier the hook states, never guesses: bundle or source", () => {
