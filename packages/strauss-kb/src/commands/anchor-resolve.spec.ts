@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -63,8 +71,6 @@ type Output = {
     repo?: string;
     remoteState?: string;
   }[];
-  verified: boolean;
-  verifyRefused?: string;
   note?: string;
   frozen?: boolean;
 };
@@ -148,6 +154,16 @@ describe("anchorResolveCommand", () => {
       }),
     );
 
+  /** Every file under `dir` by relative path, to check a run wrote nothing. */
+  function snapshot(dir: string): Record<string, string> {
+    const files = readdirSync(dir, { recursive: true, encoding: "utf8" })
+      .filter((path) => statSync(join(dir, path)).isFile())
+      .sort();
+    return Object.fromEntries(
+      files.map((path) => [path, readFileSync(join(dir, path), "utf8")]),
+    );
+  }
+
   // Six anchors over three files used to be six reads; the prefetch pass
   // collapses them to one per file.
   test("reads each distinct anchor file once", async () => {
@@ -166,10 +182,11 @@ describe("anchorResolveCommand", () => {
     expect(readerCalls).toEqual(files);
   });
 
-  test("an unchanged fixture matches every anchor and appends one verified event", async () => {
+  test("an unchanged fixture matches every anchor and writes nothing", async () => {
     writeSource(SOURCE);
     const anchor = stamped("totals", SOURCE);
     await seed([anchor]);
+    const before = snapshot(bundle);
 
     const output = await run({});
 
@@ -186,24 +203,49 @@ describe("anchorResolveCommand", () => {
           resolver: "tree-sitter",
         },
       ],
-      verified: true,
     });
     expect(fails(output)).toBe(false);
+    // verified[] holds judgments, and a matching hash is not one; re-dating
+    // the anchor would be a write saying only that a check ran.
+    expect(snapshot(bundle)).toEqual(before);
+  });
 
-    const record = await new KbStore().read(bundle, ID);
-    expect(record?.frontmatter.verified).toEqual([
-      {
-        by: "agent:resolver",
-        at: NOW,
-        note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)",
-      },
+  // The gate runs this on every Stop, where any write dirties the base.
+  test("--check leaves the bundle byte-identical", async () => {
+    writeSource([SOURCE, "export const LIMIT = 25;", ""].join("\n"));
+    const { resolved_at: _dropped, ...undated } = stamped("totals", SOURCE);
+    await seed([undated, { file: FILE, symbol: "LIMIT" }]);
+    const before = snapshot(bundle);
+
+    const output = await run({ check: true });
+
+    expect(output.results).toMatchObject([
+      { symbol: "totals", state: "match" },
+      { symbol: "LIMIT", state: "unstamped" },
     ]);
-    // Left exactly as it was: a matching anchor is unchanged, and re-dating it
-    // on every green run would write a record, a log line, and a git diff
-    // saying only that a check ran.
-    expect(record?.frontmatter.strauss_anchors?.[0]?.resolved_at).toBe(
-      anchor.resolved_at,
-    );
+    expect(snapshot(bundle)).toEqual(before);
+  });
+
+  test("--check still reports drift and fails the gate", async () => {
+    await seed([stamped("totals", SOURCE)]);
+    writeSource(SOURCE.replace("orders.length", "orders.length + 1"));
+    const before = snapshot(bundle);
+
+    const output = await run({ check: true });
+
+    expect(output.results[0]?.state).toBe("drifted");
+    expect(fails(output)).toBe(true);
+    expect(snapshot(bundle)).toEqual(before);
+  });
+
+  test("--check refuses --rebaseline and --restamp", async () => {
+    await seed([stamped("totals", SOURCE)]);
+
+    for (const flag of ["rebaseline", "restamp"]) {
+      await expect(run({ check: true, [flag]: true })).rejects.toMatchObject({
+        name: "KbFlagConflictError",
+      });
+    }
   });
 
   test("--restamp is what refreshes resolved_at on a match", async () => {
@@ -241,7 +283,6 @@ describe("anchorResolveCommand", () => {
 
     const output = await run({});
 
-    expect(output.verified).toBe(false);
     expect(output.results[0]).toMatchObject({
       state: "drifted",
       storedHash: anchor.hash,
@@ -298,7 +339,6 @@ describe("anchorResolveCommand", () => {
     const output = await run({});
 
     expect(output).toMatchObject({
-      verified: false,
       results: [
         {
           state: "unresolved",
@@ -349,9 +389,9 @@ describe("anchorResolveCommand", () => {
   });
 
   // An anchor nothing could reach never fails CI — the run did not check it,
-  // so it cannot accuse it — and never verifies the record either: "could not
-  // look" is not "matches".
-  test("an unreachable foreign anchor neither fails the gate nor verifies", async () => {
+  // so it cannot accuse it — and is counted apart: "could not look" is not
+  // "matches".
+  test("an unreachable foreign anchor does not fail the gate", async () => {
     writeSource(SOURCE);
     const local = stamped("totals", SOURCE);
     await seed([
@@ -368,12 +408,10 @@ describe("anchorResolveCommand", () => {
     });
     expect(fails(output)).toBe(false);
     expect(output).toMatchObject({
-      verified: false,
       note: "1/1 anchors match, 1 unreachable",
     });
 
     const record = await new KbStore().read(bundle, ID);
-    expect(record?.frontmatter.verified ?? []).toEqual([]);
     expect(record?.frontmatter.strauss_anchors?.[1]?.repo).toBe(
       "org/somewhere-else",
     );
@@ -439,8 +477,6 @@ describe("anchorResolveCommand", () => {
         resolver: "tree-sitter",
       },
     ]);
-    // A stamping run has no prior hash to confirm, so it verifies nothing.
-    expect(output.verified).toBe(false);
 
     const record = await new KbStore().read(bundle, ID);
     expect(record?.frontmatter.strauss_anchors?.[0]).toEqual({
@@ -471,17 +507,17 @@ describe("anchorResolveCommand", () => {
     ]);
   });
 
-  test("the record's own generator gets the drift report but a refused verify", async () => {
+  // `claim.self-verified` reads refusals from the log; a resolve by the
+  // record's generator must not leave one.
+  test("the record's own generator gets the report and no refusal", async () => {
     writeSource(SOURCE);
     await seed([stamped("totals", SOURCE)], "agent:writer");
+    const before = snapshot(bundle);
 
     const output = await run({}, "agent:writer");
 
-    expect(output).toMatchObject({
-      verified: false,
-      verifyRefused: "self-verification",
-      results: [{ state: "match" }],
-    });
+    expect(output.results).toMatchObject([{ state: "match" }]);
+    expect(snapshot(bundle)).toEqual(before);
   });
 
   test("a record without anchors resolves to an empty report", async () => {
@@ -492,7 +528,6 @@ describe("anchorResolveCommand", () => {
     expect(output).toEqual({
       conceptId: ID,
       results: [],
-      verified: false,
       note: "record has no anchors",
     });
   });
@@ -519,7 +554,6 @@ describe("anchorResolveCommand", () => {
       state: "unresolved",
       reason: "outside-repo",
     });
-    expect(output.verified).toBe(false);
   });
 
   test("an unknown record is a not-found error", async () => {
@@ -588,7 +622,7 @@ describe("anchorResolveCommand", () => {
       rmSync(remotes, { recursive: true, force: true });
     });
 
-    test("verifies from the remote, and reads no local file at all", async () => {
+    test("matches from the remote, and reads no local file at all", async () => {
       const remote = publish();
       await seed([
         { ...stamped("totals", V2), repo: remote.url, ref: remote.head },
@@ -602,10 +636,6 @@ describe("anchorResolveCommand", () => {
         repo: remote.url,
       });
       expect(readerCalls).toEqual([]);
-      const record = await new KbStore().read(bundle, ID);
-      expect(record?.frontmatter.verified?.[0]?.note).toBe(
-        "anchor-resolve: 1/1 anchors match (tree-sitter resolver)",
-      );
     });
 
     // The record is honest at its own commit and the branch has moved past it.

@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -166,16 +172,42 @@ describe("runKbCli", () => {
   });
 
   test("verifies a record through --note", async () => {
-    expect(
-      parsed(
-        await at([
-          "verify",
-          "fact.cache-key-includes-region",
-          "--note",
-          "Re-checked the claim against the cache module.",
-        ]),
-      ),
-    ).toEqual({ conceptId: "fact.cache-key-includes-region", verified: 1 });
+    vi.stubEnv("STRAUSS_KB_ACTOR", "human:assaf");
+    try {
+      expect(
+        parsed(
+          await at([
+            "verify",
+            "fact.cache-key-includes-region",
+            "--note",
+            "Re-checked the claim against the cache module.",
+          ]),
+        ),
+      ).toEqual({ conceptId: "fact.cache-key-includes-region", verified: 1 });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  test("refuses a verify as unknown or as a malformed actor, naming why", async () => {
+    for (const [actor, reason] of [
+      ["unknown", /cannot verify/],
+      ['"agent:correctness"', /is not kind or kind:name/],
+    ] as const) {
+      vi.stubEnv("STRAUSS_KB_ACTOR", actor);
+      try {
+        await expect(
+          at([
+            "verify",
+            "fact.cache-key-includes-region",
+            "--note",
+            "Checked.",
+          ]),
+        ).rejects.toThrow(reason);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    }
   });
 
   // A verification without findings is a rubber stamp; the note is required
@@ -680,15 +712,27 @@ describe("runKbCli", () => {
         repo,
       ]);
       expect(clean.exitCode).toBeUndefined();
-      expect(parsed(clean)).toMatchObject({
-        verified: true,
-        results: [{ state: "match" }],
-      });
+      expect(parsed(clean)).toMatchObject({ results: [{ state: "match" }] });
 
       writeFileSync(
         join(repo, file),
         source.replace("`${region}:orders`", "`orders`"),
       );
+      const recordFile = join(bundle, "decision.region-in-key.md");
+      const before = readFileSync(recordFile, "utf8");
+      const checked = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+        "--check",
+      ]);
+      expect(checked.exitCode).toBe(1);
+      expect(parsed(checked)).toMatchObject({
+        results: [{ state: "drifted" }],
+      });
+      expect(readFileSync(recordFile, "utf8")).toBe(before);
+
       const drifted = await at([
         "anchor-resolve",
         "decision.region-in-key",
@@ -697,7 +741,6 @@ describe("runKbCli", () => {
       ]);
       expect(drifted.exitCode).toBe(1);
       expect(parsed(drifted)).toMatchObject({
-        verified: false,
         results: [{ state: "drifted", diffSize: 0 }],
       });
     } finally {
