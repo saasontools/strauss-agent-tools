@@ -65,13 +65,13 @@ One JSON object per line, appended with `O_APPEND`:
 }
 ```
 
-| Field       | Required | Meaning                                    |
-| ----------- | -------- | ------------------------------------------ |
-| `at`        | yes      | ISO timestamp                              |
-| `by`        | yes      | the actor, from `STRAUSS_KB_ACTOR`         |
-| `operation` | yes      | e.g. `write`, `verify:refused`             |
-| `conceptId` | yes      | the record acted on                        |
-| `target`    | no       | the second id, when an operation pairs two |
+| Field       | Required | Meaning                                                                                                                |
+| ----------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `at`        | yes      | ISO timestamp                                                                                                          |
+| `by`        | yes      | the actor, from `STRAUSS_KB_ACTOR`                                                                                     |
+| `operation` | yes      | e.g. `write`, `verify:refused`                                                                                         |
+| `conceptId` | yes      | the record acted on                                                                                                    |
+| `target`    | no       | the operation's other end: a second id for supersession, the other base's absolute path for `promote-in`/`promote-out` |
 
 The schema is `.strict()`: unknown keys are a malformed line, and `at` must be
 an ISO-8601 UTC datetime. Malformed lines are reported with their 1-based
@@ -81,20 +81,28 @@ exact equality** over the whole parsed entry.
 ### `.gitattributes` and cross-worktree writes
 
 Git's line-level merge is wrong for a file both sides only append to, so the
-first call that appends a log line writes a merge driver:
+first call that appends a log line writes a merge driver, and marks every
+store-owned file generated so a review of a committed base is a review of its
+records:
 
 ```
-log.jsonl text eol=lf merge=union
+log.jsonl text eol=lf merge=union linguist-generated=true
+INDEX.md linguist-generated=true
+.index.sqlite linguist-generated=true
 ```
 
 `union` is built in, so the attribute alone is enough, and `eol=lf` pins line
-endings regardless of `core.autocrlf`. A `.gitattributes` that already gives
-`log.jsonl` any strategy is left alone; the step is best-effort and never fails
-the mutation that triggered it.
+endings regardless of `core.autocrlf`. Each attribute is checked separately, so
+a base written before this block grew gains only the lines it lacks and a value
+already set — `merge=ours`, `-linguist-generated` — is left alone. The step is
+best-effort and never fails the mutation that triggered it.
 
 :::warning This applies to a local `git merge`, not to GitHub
 GitHub computes pull request merges through its own service, which does not read
-`.gitattributes` merge-driver declarations.
+`.gitattributes` merge-driver declarations, so its merge button can leave
+conflict markers in `log.jsonl`. Reads skip every marker line — `<<<<<<<`,
+`=======`, `>>>>>>>`, and diff3's `|||||||` base section — keep both sides'
+entries, and warn once for the file.
 :::
 
 ## Records
@@ -172,27 +180,45 @@ strauss_anchors:
 
 `strict()` — `file` is required and nothing outside this table is accepted:
 
-| Field         | Required | Meaning                                         |
-| ------------- | -------- | ----------------------------------------------- |
-| `file`        | yes      | the repo-relative path the concept names        |
-| `symbol`      | no       | a symbol within it; absent means the file       |
-| `hash`        | no       | `sha256:<64 hex>` over the anchored text        |
-| `hash_kind`   | no       | `raw` or `ast`; absent reads as `raw`           |
-| `lines`       | no       | the **line count** that hash was taken over     |
-| `resolved_at` | no       | ISO timestamp of the last resolution            |
-| `resolver`    | no       | `tree-sitter` or `regex`; absent reads as regex |
-| `repo`        | no       | which repository; absent means the base's own   |
-| `ref`         | no       | git rev the evidence was taken at               |
+| Field         | Required | Meaning                                                 |
+| ------------- | -------- | ------------------------------------------------------- |
+| `file`        | yes      | the repo-relative path the concept names                |
+| `symbol`      | no       | a symbol within it; absent means the file               |
+| `span`        | no       | `{ start, end }`, 1-based and inclusive                 |
+| `side`        | no       | `old` or `new`; absent reads as `new`                   |
+| `hash`        | no       | `sha256:<64 hex>` over the anchored text                |
+| `hash_kind`   | no       | `raw` or `ast`; absent reads as `raw`                   |
+| `lines`       | no       | the **line count** that hash was taken over             |
+| `resolved_at` | no       | ISO timestamp of the last resolution                    |
+| `resolver`    | no       | `tree-sitter`, `regex` or `span`; absent reads as regex |
+| `repo`        | no       | which repository; absent means the base's own           |
+| `ref`         | no       | git rev the evidence was taken at                       |
 
 Anchors stay symbolic because they are written while the code is still moving;
 once it settles, a resolution pass stamps `hash`, `hash_kind`, `lines`,
-`resolved_at`, and `resolver`. Those five are measured; `repo` and `ref` are
-author-owned and never stamped. A tree-sitter stamp hashes the span's normalised
-token stream — comments dropped, whitespace collapsed — and records
-`hash_kind: "ast"`, so reformatting the anchored code is not drift. A `raw` hash
-keeps comparing raw text; the two kinds are never compared to each other.
-CRLF is normalized to LF before hashing, and `lines` is what lets a drift report
-say how much changed.
+`resolved_at`, and `resolver`. Those five are measured; `repo`, `ref`, `span`
+and `side` are author-owned and never stamped. A tree-sitter stamp hashes the
+span's normalised token stream — comments dropped, whitespace collapsed — and
+records `hash_kind: "ast"`, so reformatting the anchored code is not drift. A
+`raw` hash keeps comparing raw text; the two kinds are never compared to each
+other. CRLF is normalized to LF before hashing, and `lines` is what lets a drift
+report say how much changed.
+
+**Prefer a symbol**: it survives reformatting and moves. Two claims have no
+symbol to hang on, and each gets its own address.
+
+- A **`span`** names lines in a file no resolver can name a symbol in — YAML,
+  SQL, Markdown, JSON. It is hashed exactly as written, always `raw`: a slice is
+  not a syntactic unit. An anchor names a symbol or a span, never both;
+  `kb_validate` reports two addresses, a backwards range, or an `ast` hash over
+  a span.
+- **`side: "old"`** with a `ref` names code as it was at that rev — what a
+  refactor removed — read with `git cat-file blob <ref>:<file>`, never from the
+  working tree; `kb_validate` reports a missing `ref`. Committed bytes cannot
+  drift: the anchor reports `match` until the rev changes and is never searched
+  for moves. A rev this clone lacks is `ref-unavailable` — unchecked, not
+  `gone` — so a shallow checkout says nothing about the old side. `kb_doctor`
+  counts old-side anchors on a line of their own.
 
 #### Drift
 
@@ -206,8 +232,9 @@ An anchor carrying a hash can be re-resolved and compared. Four states:
 | `unresolved` | it no longer resolves at all               |
 
 `unresolved` carries a reason: `file-missing`, `symbol-not-found`,
-`symbol-ambiguous`, `resolver-unavailable`, `outside-repo`, `file-too-large`,
-`file-unreadable`, `remote-unreachable`, `ref-not-found`, `repo-unauthorized`,
+`symbol-ambiguous`, `span-out-of-range`, `ref-unreadable`, `ref-unavailable`,
+`resolver-unavailable`, `outside-repo`, `file-too-large`, `file-unreadable`,
+`remote-unreachable`, `ref-not-found`, `repo-unauthorized`,
 `default-branch-unknown`, `ref-invalid`, or `repo-invalid`. `drifted` carries
 `resolver-changed` when the resolver changed and the code did not.
 
@@ -219,7 +246,7 @@ Drift is also classified, so a reader only sees what a machine cannot settle:
 | ---------- | --------------------------------------------------------------- |
 | `moved`    | the stored hash resolves at another file or symbol — same code  |
 | `cosmetic` | old and new spans are one token stream; only formatting changed |
-| `gone`     | the file or symbol no longer exists                             |
+| `gone`     | the file, symbol, span or `ref` is no longer there to read      |
 | `changed`  | everything else                                                 |
 
 `gone` and `changed` are settled by the hash comparison itself and appear on
@@ -227,7 +254,10 @@ every read path. `moved` needs a repository-wide search and `cosmetic` needs the
 committed text, so both are computed on demand by
 [`reassess`](./cli-reference.md#reassess) and
 [`doctor --drifted`](./cli-reference.md#doctor). `cosmetic` needs a grammar, so
-the regex resolver never reports it — there the class is `changed`.
+the regex resolver never reports it — there the class is `changed`. A span is
+searched for `moved` by sliding its recorded line count over its own file, since
+it names no definition to look for elsewhere. An old-side anchor is neither
+searched nor diffed: committed bytes cannot move or be reformatted.
 
 #### The reassessment packet
 
@@ -499,6 +529,15 @@ own id is a no-op, duplicates mark once, and the array is capped at **32**. The
 write returns `{ conceptId, action, supersededIds }`, where `supersededIds`
 holds only the ids **actually** marked, so a crash mid-way is reported by
 `validate` rather than silent.
+
+### The one deletion
+
+[`sweep`](./cli-reference.md#sweep) is the single exception: review-tagged
+records in a terminal status are never traced, so git history is their archive.
+It deletes only records carrying the tag it was given **and** sitting in
+`resolved`, `rejected` or `superseded`, refuses without a tag, keeps any record
+a surviving record still points at — by typed link or by supersession — and logs
+each deletion as `sweep`.
 
 ### Chain resolution happens on read
 

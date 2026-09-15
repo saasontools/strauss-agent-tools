@@ -1,0 +1,20 @@
+[
+  {
+    "message": "perf(repositories): raise the retry budget to five attempts",
+    "files": [
+      "src/repositories/base.repository.ts",
+      {
+        "from": ".strauss/kb/risk.repository-retry-storm.open.md",
+        "to": ".strauss/kb/risk.repository-retry-storm.md"
+      },
+      { "from": ".strauss/kb/log.open.jsonl", "to": ".strauss/kb/log.jsonl" }
+    ]
+  },
+  {
+    "message": "chore(kb): close the retry-storm risk",
+    "files": [
+      ".strauss/kb/risk.repository-retry-storm.md",
+      ".strauss/kb/log.jsonl"
+    ]
+  }
+]

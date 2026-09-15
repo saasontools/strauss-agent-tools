@@ -96,6 +96,10 @@ export function movedSearch(
       const stored = anchor.hash;
       if (!stored) return undefined;
 
+      // A span is an arbitrary range, not a definition, so the definition
+      // search has nothing to compare it against — only the window can find it.
+      if (anchor.span) return sameFileWindow(anchor, read, stored);
+
       const language = languageForFile(anchor.file);
       // No grammar means no token stream, and an `ast` hash can only be
       // compared against one. Comparing it to a raw hash would be comparing

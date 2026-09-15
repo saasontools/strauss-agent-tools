@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  kbAnchorSchema,
+  kbAnchorWriteSchema,
   kbConceptIdSchema,
   kbSourceSchema,
   KB_CONFIDENCES,
@@ -36,7 +36,7 @@ export const composeInputSchema = z
     why: z.string().min(1),
     /** Keyed by section heading from the type's spec. Unknown keys rejected. */
     sections: z.record(z.string(), z.string().min(1)).optional(),
-    anchors: z.array(kbAnchorSchema).optional(),
+    anchors: z.array(kbAnchorWriteSchema).optional(),
     sources: z.array(kbSourceSchema).optional(),
     /** No source exists, as a claim rather than a sentinel in `sources`. */
     assumption: z.boolean().optional(),

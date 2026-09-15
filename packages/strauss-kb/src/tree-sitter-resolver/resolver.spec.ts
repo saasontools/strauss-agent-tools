@@ -298,15 +298,32 @@ describe("the resolver chain", () => {
     );
   });
 
-  // The price of the fall-through: a name that only ever appears in a call is
-  // indistinguishable, to the chain, from a constant no tags query defines.
-  test("tree-sitter's miss falls through, and regex may land on a call site", async () => {
+  // After a parsed miss the definition is gone; an import and a call site are
+  // not a stand-in for it.
+  test("tree-sitter's miss does not fall through to a call site", async () => {
     const chain = defaultAnchorResolvers();
     await prepareResolvers(chain, ["a.ts"]);
-    const source = "export function run() {\n  return cancel(1);\n}\n";
+    const source = [
+      'import { chunkIds } from "./chunker.ts";',
+      "",
+      "export function run() {",
+      "  return chunkIds([], 10);",
+      "}",
+      "",
+    ].join("\n");
+    expect(
+      resolveAnchorSpan(source, { file: "a.ts", symbol: "chunkIds" }, chain),
+    ).toEqual({ ok: false, reason: "symbol-not-found" });
+  });
+
+  // A tags query defines functions and types, not constants, so a
+  // definition-shaped regex hit still answers after the parser missed.
+  test("tree-sitter's miss falls through to a constant's declaration", async () => {
+    const chain = defaultAnchorResolvers();
+    await prepareResolvers(chain, ["a.ts"]);
     const outcome = resolveAnchorSpan(
-      source,
-      { file: "a.ts", symbol: "cancel" },
+      "const CHUNK_SIZE = 100;\n",
+      { file: "a.ts", symbol: "CHUNK_SIZE" },
       chain,
     );
     expect(outcome.ok).toBe(true);

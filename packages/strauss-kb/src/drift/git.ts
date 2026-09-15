@@ -1,6 +1,11 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { filePathIsSafe, refShapeIsSafe } from "../remote-repo/validate.js";
+import type { AnchorRead } from "../anchor-resolver/model.js";
+import {
+  filePathIsSafe,
+  localRevShapeIsSafe,
+  refShapeIsSafe,
+} from "../remote-repo/validate.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -22,30 +27,91 @@ const execFileAsync = promisify(execFile);
 /** Output cap. A recovered file is source, and source this large is not. */
 export const MAX_GIT_OUTPUT_BYTES = 1_048_576;
 
-const GIT_TIMEOUT_MS = 5_000;
+/** A range diff is a whole change rather than one file, so it gets its own. */
+export const MAX_RANGE_DIFF_BYTES = 8 * 1_048_576;
 
-type GitResult = { ok: true; stdout: string } | { ok: false };
+const GIT_TIMEOUT_MS = 5_000;
+const RANGE_DIFF_TIMEOUT_MS = 20_000;
+
+/** `failed` is git's own non-zero exit; the other three are the run itself. */
+type GitFailure = "failed" | "too-large" | "timeout" | "git-missing";
+
+type GitResult =
+  { ok: true; stdout: string } | { ok: false; reason: GitFailure };
+
+type GitLimits = { maxBytes?: number; timeoutMs?: number };
 
 /**
  * `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` are stripped from the child:
  * a caller's environment must not be able to redirect a read that `-C` already
  * addressed.
  */
-async function git(cwd: string, args: string[]): Promise<GitResult> {
+async function git(
+  cwd: string,
+  args: string[],
+  limits: GitLimits = {},
+): Promise<GitResult> {
   const env = { ...process.env };
   delete env["GIT_DIR"];
   delete env["GIT_WORK_TREE"];
   delete env["GIT_INDEX_FILE"];
   try {
     const { stdout } = await execFileAsync("git", ["-C", cwd, ...args], {
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: MAX_GIT_OUTPUT_BYTES,
+      timeout: limits.timeoutMs ?? GIT_TIMEOUT_MS,
+      maxBuffer: limits.maxBytes ?? MAX_GIT_OUTPUT_BYTES,
       env,
     });
     return { ok: true, stdout };
-  } catch {
-    return { ok: false };
+  } catch (error) {
+    return { ok: false, reason: failureOf(error) };
   }
+}
+
+/** A killed child is over the cap before it is over time: the cap kills too. */
+function failureOf(error: unknown): GitFailure {
+  const { code, killed } = error as { code?: unknown; killed?: boolean };
+  if (code === "ENOENT") return "git-missing";
+  if (code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return "too-large";
+  if (killed === true) return "timeout";
+  return "failed";
+}
+
+/**
+ * The committed file an old-side anchor names, at its own `ref` and nowhere
+ * else. No history fallback: `side: "old"` asserts one exact tree, so guessing
+ * a nearby commit would answer a question the anchor did not ask.
+ *
+ * A rev this clone does not carry is `ref-unavailable` — unchecked, not
+ * `gone`: a shallow checkout is no evidence the code went away.
+ */
+export async function readFileAtRef(
+  repoRoot: string,
+  anchor: { file: string; ref?: string },
+): Promise<AnchorRead> {
+  if (!filePathIsSafe(anchor.file))
+    return { ok: false, reason: "outside-repo" };
+  if (!anchor.ref || !refShapeIsSafe(anchor.ref)) {
+    return { ok: false, reason: "ref-unreadable" };
+  }
+  const blob = await catBlob(repoRoot, anchor.ref, anchor.file);
+  if (blob !== null) return { ok: true, source: blob };
+  return {
+    ok: false,
+    reason: (await hasCommit(repoRoot, anchor.ref))
+      ? "ref-unreadable"
+      : "ref-unavailable",
+  };
+}
+
+/** Whether the rev resolves to a commit here. `^{commit}` is ours, not bundle data. */
+async function hasCommit(repoRoot: string, ref: string): Promise<boolean> {
+  const found = await git(repoRoot, [
+    "cat-file",
+    "-e",
+    "--end-of-options",
+    `${ref}^{commit}`,
+  ]);
+  return found.ok;
 }
 
 /** Repository-relative paths, for the `moved` search. Empty when git fails. */
@@ -55,9 +121,71 @@ export async function listRepoFiles(repoRoot: string): Promise<string[]> {
   return result.stdout.split("\0").filter(Boolean);
 }
 
+/**
+ * `<base>..<head>` or `<base>...<head>`, both halves spelled out. git reads
+ * `..head` and `base..` as ranges against `HEAD`; a shape-checked half is the
+ * only kind that reaches argv, so the omitted one is refused instead.
+ */
+const DIFF_RANGE = /^(.+?)(\.{2,3})(.+)$/;
+
+/**
+ * A commit range as a zero-context patch, for a caller turning a change into
+ * hunks.
+ *
+ * The reason travels with the refusal: a range git would not take, a patch past
+ * the cap, a run that timed out, and no git at all are four different things to
+ * tell a caller. External diff drivers and textconv filters are off — both run
+ * a command the repository configured — and the prefixes and `core.quotePath`
+ * are pinned so the parser reads one spelling rather than the repo's.
+ */
+export type RangeDiff =
+  | { ok: true; text: string }
+  | {
+      ok: false;
+      reason: "bad-range" | "too-large" | "timeout" | "git-missing";
+    };
+
+export async function readRangeDiff(
+  repoRoot: string,
+  range: string,
+  maxBytes: number = MAX_RANGE_DIFF_BYTES,
+): Promise<RangeDiff> {
+  const parts = DIFF_RANGE.exec(range);
+  if (!parts) return { ok: false, reason: "bad-range" };
+  const [, base = "", dots = "", head = ""] = parts;
+  if (!localRevShapeIsSafe(base) || !localRevShapeIsSafe(head)) {
+    return { ok: false, reason: "bad-range" };
+  }
+
+  const result = await git(
+    repoRoot,
+    [
+      "-c",
+      "core.quotePath=false",
+      "diff",
+      "--unified=0",
+      "--no-color",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--find-renames",
+      "--src-prefix=a/",
+      "--dst-prefix=b/",
+      "--end-of-options",
+      `${base}${dots}${head}`,
+      "--",
+    ],
+    { maxBytes, timeoutMs: RANGE_DIFF_TIMEOUT_MS },
+  );
+  if (result.ok) return { ok: true, text: result.stdout };
+  return {
+    ok: false,
+    reason: result.reason === "failed" ? "bad-range" : result.reason,
+  };
+}
+
 /** Where a recovered file came from, so a packet can say how far back it looked. */
 export type OldSourceOrigin =
-  /** `git show <anchor.ref>:<file>` — the rev the record itself named. */
+  /** `git cat-file blob <anchor.ref>:<file>` — the rev the record named. */
   | { kind: "ref"; ref: string }
   /** The last commit touching the path before `resolved_at`. */
   | { kind: "history"; ref: string };
@@ -88,7 +216,7 @@ export async function readOldSource(
     return { ok: false, reason: "unrecoverable" };
 
   if (anchor.ref && refShapeIsSafe(anchor.ref)) {
-    const shown = await showFile(repoRoot, anchor.ref, anchor.file);
+    const shown = await catBlob(repoRoot, anchor.ref, anchor.file);
     if (shown !== null) {
       return {
         ok: true,
@@ -118,20 +246,25 @@ export async function readOldSource(
   if (!sha || !refShapeIsSafe(sha))
     return { ok: false, reason: "unrecoverable" };
 
-  const shown = await showFile(repoRoot, sha, anchor.file);
+  const shown = await catBlob(repoRoot, sha, anchor.file);
   if (shown === null) return { ok: false, reason: "unrecoverable" };
   return { ok: true, source: shown, origin: { kind: "history", ref: sha } };
 }
 
-/** `<rev>:<path>` is one positional, so both halves are validated together. */
-async function showFile(
+/**
+ * `<rev>:<path>` is one positional, so both halves are validated together.
+ * `cat-file blob` rather than `show`: a path naming a directory must fail, and
+ * `show` would hand back a tree listing to be hashed as if it were source.
+ */
+async function catBlob(
   repoRoot: string,
   ref: string,
   file: string,
 ): Promise<string | null> {
   const path = file.replace(/^\.\//, "");
   const result = await git(repoRoot, [
-    "show",
+    "cat-file",
+    "blob",
     "--end-of-options",
     `${ref}:${path}`,
   ]);

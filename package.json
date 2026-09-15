@@ -21,6 +21,8 @@
     "typecheck": "nx run-many -t typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "fixtures:companion": "node fixtures/companion-repo/materialize.mjs",
+    "test:fixtures": "node --test fixtures/companion-repo/materialize.spec.mjs",
     "prepare": "husky"
   },
   "lint-staged": {

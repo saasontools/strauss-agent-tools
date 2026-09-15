@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Twenty-three tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-three tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.
@@ -307,6 +307,61 @@ result.
 `via` holds each edge as `{ source, target, rel }` — the edge as **written**,
 not as walked. For one flat hop of every rel, use `kb_backlinks`.
 
+### `kb_match`
+
+As CLI [`match`](./cli-reference.md#match), except that the diff always arrives
+as `files` — there is no `--git` or `--stdin` here. Reach for it when you have
+code in hand and want what is attached to it; use `kb_answer` when you have a
+question and want whatever addresses it.
+
+Parameters: `bundlePath` and `files`
+(`[{ filePath, hunks: [{ startLine, endLine, side? }] }]`, where a hunk's
+optional `side` is `"old"` or `"new"` and picks which half of the change its
+lines number — only an anchor on the same side lands on it) required;
+`symbolRanges`
+(`[{ file, symbol, startLine, endLine }]`, resolved from `repoRoot` when
+omitted), `repoRoot` (`string`), `offline` (`boolean`) and `includeNonCurrent`
+(`boolean`) optional.
+
+```json
+{
+  "bundlePath": "…/kb",
+  "files": [
+    {
+      "filePath": "src/order.service.ts",
+      "hunks": [{ "startLine": 118, "endLine": 131 }]
+    }
+  ],
+  "repoRoot": "/repo"
+}
+```
+
+### `kb_classify`
+
+As CLI [`classify`](./cli-reference.md#classify), except that the diff always
+arrives as `files` — there is no `--git` or `--stdin` here. Reach for it to
+decide what in a change needs reading; `kb_match` says what is attached to it.
+
+Parameters: `bundlePath` and `files` required — each file
+`{ filePath, hunks: [{ startLine, endLine, side?, lines? }], renamedFrom?, similarity? }`,
+where `lines` are the hunk's changed lines and feed the boilerplate and banner
+rules; `repoRoot` (`string`) optional, and the file's first lines and any
+symbol-scoped override are resolved from it; `offline` (`boolean`) optional,
+which keeps that resolution off the network.
+
+```json
+{
+  "bundlePath": "…/kb",
+  "files": [
+    {
+      "filePath": "src/protocol/generated/index.ts",
+      "hunks": [{ "startLine": 4, "endLine": 4, "lines": ["// @generated"] }]
+    }
+  ],
+  "repoRoot": "/repo"
+}
+```
+
 ### `kb_backlinks`
 
 As CLI [`backlinks`](./cli-reference.md#backlinks): every inbound typed
@@ -342,8 +397,9 @@ Parameter: `bundlePath`.
 
 ### `kb_log`
 
-As CLI [`log`](./cli-reference.md#log): what touched what, and when.
-Malformed lines are reported rather than repaired. Parameter: `bundlePath`.
+As CLI [`log`](./cli-reference.md#log): what touched what, and when. Malformed
+lines are reported rather than repaired, and `conflicted` says the log still
+carries merge markers, which the read skips past. Parameter: `bundlePath`.
 
 ```json
 { "bundlePath": "/repo/.strauss/kb" }
@@ -364,6 +420,52 @@ changed, or before trusting a `kb_load` result from earlier in the session.
 ```json
 { "bundlePath": "/repo/.strauss/kb", "since": "9f2c…" }
 ```
+
+---
+
+## Promotion and export tools
+
+### `kb_promote`
+
+As CLI [`promote`](./cli-reference.md#promote), with the flags as camelCase
+parameters. Reach for it at merge, to lift what a review base settled into the
+base that outlives the pull request.
+
+Parameters: `bundlePath` required — the base being promoted **from**;
+`conceptIds` (`string[]`) and `to` (the target base) required unless `list` is
+`true`; `source` (`string`, usually the pull request URL) and `force`
+(`boolean`, overwrite what the target already holds) optional.
+
+```json
+{
+  "bundlePath": "/repo/.strauss/review",
+  "conceptIds": ["decision.cursor-v2"],
+  "to": "/repo/.strauss/kb",
+  "source": "https://github.com/org/repo/pull/59"
+}
+```
+
+Returns `{ mode: "promote", to, promoted }` with `{ conceptId, droppedLinks }`
+per record, or `{ mode: "list", candidates }` with
+`{ conceptId, type, title, why }` per candidate. Copies land without the `review`
+tags; links to records left behind are dropped and reported. The originals stay
+put.
+
+### `kb_export`
+
+As CLI [`export`](./cli-reference.md#export). Reach for it when a repository
+keeps ADRs of its own and the base is where its decisions are actually written.
+
+Parameters: `bundlePath`, `format` (`"madr"`) and `to` (the directory) all
+required.
+
+```json
+{ "bundlePath": "/repo/.strauss/kb", "format": "madr", "to": "docs/adr" }
+```
+
+Returns `{ to, format, exported, foreign }`, each `exported` entry
+`{ conceptId, file, status }`. Numbering is keyed by slug, so a re-run rewrites
+content in place.
 
 ---
 
@@ -409,6 +511,22 @@ findingCount, healthy }`, where each group is
 `{ check, headline, count, findings }` and each finding is
 `{ conceptId, title, status, note }`. Under `drifted` it also carries `packets`
 and `rebaselinable`.
+
+### `kb_sweep`
+
+As CLI [`sweep`](./cli-reference.md#sweep): deletes records carrying `tag` that
+are also `resolved`, `rejected` or `superseded` — see
+[the one deletion](./specification.md#the-one-deletion). Parameters:
+`bundlePath` and `tag` required, `terminal` (must be `true`, naming the only
+scope it deletes) required, `dryRun` (`boolean`) optional.
+
+```json
+{ "bundlePath": "/repo/.strauss/kb", "tag": "review", "terminal": true }
+```
+
+Returns `{ tag, dryRun, deleted, candidates, skipped, failed }`, where
+`skipped` is `{ conceptId, heldBy }` per record a surviving record still points
+at, and `failed` is `{ conceptId, reason }` per id the run could not remove.
 
 ### `kb_schema`
 

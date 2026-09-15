@@ -62,6 +62,7 @@ public surface. Importers point at the barrel.
 | `src/commands/` | `model.ts` (the `KbCommand` type and shared Zod pieces), one file per command, `index.ts` assembling `KB_COMMANDS`              |
 | `src/kb-pins/`  | `model.ts` (manifest schemas), `layers.ts`, `budgets.ts`, `frozen.ts`, `errors.ts`, `pin.ts`, `unpin.ts`, `list.ts`, `index.ts` |
 | `src/kb-links/` | `model.ts` (the inbound-edge types), `inbound.ts` (the index), `impact.ts`, `backlinks.ts`, `index.ts`                          |
+| `src/classify/` | `model.ts` (the class set and options), `rules.ts` (the path table and shapes), `classify.ts`, `index.ts`                       |
 
 `index.ts`'s command order is the CLI usage listing's order: the write path, the
 read path, base housekeeping, the format, then the workspace pin verbs.
@@ -270,6 +271,14 @@ accumulates every edge that reached it.
 the most dangerous thing retrievable, and in a history it is the content. It
 orders by `generated.at` rather than by rank.
 
+## Classes are derived, never stored
+
+`classify` reads a class off the diff and the base never holds one, because a
+stored class is a second copy of an answer the patch already gives and the two
+disagree the first time a rule changes. The one input no script can derive —
+"this output is generated, read its input instead" — is a `review:*` fact, and
+that is the only part of the answer a record carries.
+
 ## Read for a question, not for a session
 
 A base loaded at the start of a long conversation is summarised away by the end
@@ -280,6 +289,11 @@ of it, so no consumer loads it that way:
 | Diff annotation                 | `matchToDiff` — deterministic, no context involved                           |
 | "Has this been decided?"        | a fresh short-lived reader, given the base and the question, discarded after |
 | An implementor writing a record | a point query at the moment of writing, not a load an hour earlier           |
+
+`kb_match` is that first row as a tool, so a reviewer, a gate, or a desktop
+client gets the same answer without importing the package. It takes hunks
+rather than a patch; the unified-diff parser the CLI's `--git` needs lives on
+the command, not in the library.
 
 Where a base must stay resident it will drift; the mitigation is that reloading
 costs about three thousand tokens.

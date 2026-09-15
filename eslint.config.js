@@ -17,6 +17,11 @@ export default tseslint.config(
       // an ENOENT that has nothing to do with the code being linted, and
       // that only shows up when the two happen to overlap.
       "**/tsup.config.bundled_*.mjs",
+      // Fixture trees are diff material: synthetic sources that exist to be
+      // changed and anchored to, never built. See
+      // fixtures/companion-repo/README.md.
+      "fixtures/**/base/",
+      "fixtures/**/head/",
     ],
   },
   js.configs.recommended,

@@ -1,26 +1,72 @@
 import { describe, expect, test } from "vitest";
 import {
-  appendUnionMergeLine,
+  appendGitattributesLines,
+  GITATTRIBUTES_BLOCK,
   hasMergeDeclaration,
+  missingGitattributesLines,
   UNION_MERGE_LINE,
 } from "./kb-gitattributes.js";
 
-describe("appendUnionMergeLine", () => {
+/** The file this store writes from nothing, spelled out rather than derived. */
+const FRESH = [
+  "log.jsonl text eol=lf merge=union linguist-generated=true",
+  "INDEX.md linguist-generated=true",
+  ".index.sqlite linguist-generated=true",
+].join("\n");
+
+describe("missingGitattributesLines", () => {
+  test("declares the merge driver and marks every store-owned file generated", () => {
+    expect(missingGitattributesLines("").join("\n")).toBe(FRESH);
+    expect(GITATTRIBUTES_BLOCK).toBe(`${FRESH}\n`);
+  });
+
+  test("asks for nothing once the block is present", () => {
+    expect(missingGitattributesLines(GITATTRIBUTES_BLOCK)).toEqual([]);
+  });
+
+  // The upgrade path: a base written before `linguist-generated` existed
+  // carries only the old merge line. It gains the three missing attributes
+  // and keeps its merge strategy — including the log's, which the new
+  // union-merge line would otherwise restate.
+  test("adds only the missing attributes to a base carrying the old merge line", () => {
+    expect(
+      missingGitattributesLines("log.jsonl text eol=lf merge=union\n"),
+    ).toEqual([
+      "INDEX.md linguist-generated=true",
+      "log.jsonl linguist-generated=true",
+      ".index.sqlite linguist-generated=true",
+    ]);
+  });
+
+  test("leaves a hand-set value for one file alone and adds the rest", () => {
+    expect(missingGitattributesLines("INDEX.md -linguist-generated\n")).toEqual(
+      [UNION_MERGE_LINE, ".index.sqlite linguist-generated=true"],
+    );
+  });
+});
+
+describe("appendGitattributesLines", () => {
   test("adds no leading separator to an empty file", () => {
-    expect(appendUnionMergeLine("")).toBe(`${UNION_MERGE_LINE}\n`);
+    expect(appendGitattributesLines("")).toBe(GITATTRIBUTES_BLOCK);
   });
 
   // The function returns only the bytes to append, not the full file — a
-  // caller does `existing + appendUnionMergeLine(existing)`.
+  // caller does `existing + appendGitattributesLines(existing)`.
   test("adds no separator when the existing content already ends in a newline", () => {
-    expect(appendUnionMergeLine("* text=auto\n")).toBe(`${UNION_MERGE_LINE}\n`);
+    expect(appendGitattributesLines("* text=auto\n")).toBe(GITATTRIBUTES_BLOCK);
   });
 
   // The branch this guards: a hand-edited file with no trailing newline
-  // would otherwise get the union-merge line tacked onto the end of the
-  // file's last line instead of landing on a line of its own.
+  // would otherwise get the first line tacked onto the end of the file's
+  // last line instead of landing on a line of its own.
   test("adds a separating newline when the existing content does not end in one", () => {
-    expect(appendUnionMergeLine("*.md text")).toBe(`\n${UNION_MERGE_LINE}\n`);
+    expect(appendGitattributesLines("*.md text")).toBe(
+      `\n${GITATTRIBUTES_BLOCK}`,
+    );
+  });
+
+  test("returns nothing to append when every attribute is already declared", () => {
+    expect(appendGitattributesLines(GITATTRIBUTES_BLOCK)).toBe("");
   });
 });
 

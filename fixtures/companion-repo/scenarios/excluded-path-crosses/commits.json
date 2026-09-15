@@ -1,0 +1,6 @@
+[
+  {
+    "message": "feat(legacy-reporting): build a row from a charge result",
+    "files": ["packages/legacy-reporting/src/report.ts"]
+  }
+]

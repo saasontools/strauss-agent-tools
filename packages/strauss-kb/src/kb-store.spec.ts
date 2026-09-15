@@ -29,7 +29,7 @@ import {
   KbSelfVerificationError,
   KbWriteConflictError,
 } from "./kb-errors.js";
-import { GITATTRIBUTES_FILE, UNION_MERGE_LINE } from "./kb-gitattributes.js";
+import { GITATTRIBUTES_BLOCK, GITATTRIBUTES_FILE } from "./kb-gitattributes.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
 import type { KbRecord } from "./kb-record.schema.js";
@@ -807,6 +807,62 @@ describe("INDEX.md", () => {
   });
 });
 
+describe("deleteRecord", () => {
+  const SWEEPABLE = {
+    tag: "review",
+    statuses: ["resolved", "rejected", "superseded"],
+  } as const;
+
+  test("removes the record and logs it as sweep", async ({ store, bundle }) => {
+    await store.write(bundle, fact("one", { tags: ["review"] }));
+    await store.setStatus(bundle, "fact.one", "resolved");
+
+    const outcome = await store.deleteRecord(
+      bundle,
+      "fact.one",
+      SWEEPABLE,
+      "agent:sweeper",
+    );
+
+    expect(outcome).toBe("deleted");
+    expect(readdirSync(bundle)).not.toContain("fact.one.md");
+    expect((await store.readLog(bundle)).entries).toContainEqual(
+      expect.objectContaining({ operation: "sweep", conceptId: "fact.one" }),
+    );
+  });
+
+  // The compare-and-swap: a listing is a claim about the past, and a record
+  // retagged or reopened since is not the one the caller asked to delete.
+  test("leaves a record that no longer matches the expectation", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one", { tags: ["review"] }));
+    await store.setStatus(bundle, "fact.one", "resolved");
+
+    const retagged = await store.deleteRecord(bundle, "fact.one", {
+      ...SWEEPABLE,
+      tag: "gone-since",
+    });
+    const reopened = await store.deleteRecord(bundle, "fact.one", {
+      tag: "review",
+      statuses: ["open"],
+    });
+
+    expect([retagged, reopened]).toEqual([
+      "changed-since-listing",
+      "changed-since-listing",
+    ]);
+    expect(readdirSync(bundle)).toContain("fact.one.md");
+  });
+
+  test("reports a record that is already gone", async ({ store, bundle }) => {
+    await expect(
+      store.deleteRecord(bundle, "fact.missing", SWEEPABLE),
+    ).rejects.toThrow(KbRecordNotFoundError);
+  });
+});
+
 describe("log.jsonl", () => {
   test("appends one line per mutation", async ({ store, bundle }) => {
     await store.write(bundle, fact("one"));
@@ -841,6 +897,39 @@ describe("log.jsonl", () => {
     expect(readFileSync(join(bundle, LOG_FILE), "utf8")).toContain(
       "garbage line",
     );
+  });
+
+  // A log GitHub's merge button left conflicted still reads, and says so
+  // once for the file rather than once per marker.
+  test("warns once for a log carrying conflict markers, and keeps both sides", async ({
+    bundle,
+  }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+    await quiet.write(bundle, fact("one"));
+    await quiet.write(bundle, fact("two"));
+    const [ours, theirs] = readFileSync(join(bundle, LOG_FILE), "utf8")
+      .split("\n")
+      .filter(Boolean);
+    writeFileSync(
+      join(bundle, LOG_FILE),
+      `<<<<<<< HEAD\n${ours}\n=======\n${theirs}\n>>>>>>> feature/b\n`,
+    );
+    warnings.length = 0;
+
+    const { entries, malformed } = await quiet.readLog(bundle);
+
+    expect(malformed).toEqual([]);
+    expect(entries.map((entry) => entry.conceptId)).toEqual([
+      "fact.one",
+      "fact.two",
+    ]);
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        operation: "kb.log.parse",
+        outcome: "conflicted",
+      }),
+    ]);
   });
 
   // Well-formed JSON that is not a log entry is malformed too — otherwise the
@@ -883,22 +972,22 @@ describe("log.jsonl", () => {
 });
 
 describe(".gitattributes", () => {
-  test("is created on first write, declaring union merge for the log", async ({
+  test("is created on first write, declaring union merge and the generated files", async ({
     store,
     bundle,
   }) => {
     await store.write(bundle, fact("one"));
 
     const contents = readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8");
-    expect(contents).toBe(`${UNION_MERGE_LINE}\n`);
+    expect(contents).toBe(GITATTRIBUTES_BLOCK);
   });
 
-  test("does not clobber a user's .gitattributes that already carries the line", async ({
+  test("does not clobber a user's .gitattributes that already carries the lines", async ({
     store,
     bundle,
   }) => {
     mkdirSync(bundle, { recursive: true });
-    const userContent = `* text=auto\n${UNION_MERGE_LINE}\n`;
+    const userContent = `* text=auto\n${GITATTRIBUTES_BLOCK}`;
     writeFileSync(join(bundle, GITATTRIBUTES_FILE), userContent);
 
     await store.write(bundle, fact("one"));
@@ -908,7 +997,7 @@ describe(".gitattributes", () => {
     );
   });
 
-  test("appends the line to a user's .gitattributes that lacks it, without touching what's already there", async ({
+  test("appends the lines to a user's .gitattributes that lacks them, without touching what's already there", async ({
     store,
     bundle,
   }) => {
@@ -918,7 +1007,32 @@ describe(".gitattributes", () => {
     await store.write(bundle, fact("one"));
 
     expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
-      `*.md text\n${UNION_MERGE_LINE}\n`,
+      `*.md text\n${GITATTRIBUTES_BLOCK}`,
+    );
+  });
+
+  // A base written before `linguist-generated` was in the block gains only
+  // the attributes it lacks — its merge line stays exactly as written.
+  test("upgrades a base carrying only the old union-merge line", async ({
+    store,
+    bundle,
+  }) => {
+    mkdirSync(bundle, { recursive: true });
+    writeFileSync(
+      join(bundle, GITATTRIBUTES_FILE),
+      "log.jsonl text eol=lf merge=union\n",
+    );
+
+    await store.write(bundle, fact("one"));
+
+    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
+      [
+        "log.jsonl text eol=lf merge=union",
+        "INDEX.md linguist-generated=true",
+        "log.jsonl linguist-generated=true",
+        ".index.sqlite linguist-generated=true",
+        "",
+      ].join("\n"),
     );
   });
 
@@ -945,14 +1059,13 @@ describe(".gitattributes", () => {
     bundle,
   }) => {
     mkdirSync(bundle, { recursive: true });
-    const userContent = "log.jsonl merge=ours\n";
-    writeFileSync(join(bundle, GITATTRIBUTES_FILE), userContent);
+    writeFileSync(join(bundle, GITATTRIBUTES_FILE), "log.jsonl merge=ours\n");
 
     await store.write(bundle, fact("one"));
 
-    expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
-      userContent,
-    );
+    expect(
+      readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8"),
+    ).not.toContain("merge=union");
   });
 
   // A transient read failure (permissions, EMFILE, a directory sitting where
@@ -999,7 +1112,7 @@ describe(".gitattributes", () => {
     await store.setStatus(bundle, "fact.one", "rejected");
 
     expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
-      `${UNION_MERGE_LINE}\n`,
+      GITATTRIBUTES_BLOCK,
     );
   });
 
@@ -1021,7 +1134,7 @@ describe(".gitattributes", () => {
     ]);
 
     expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
-      `${UNION_MERGE_LINE}\n`,
+      GITATTRIBUTES_BLOCK,
     );
     expect(warnings).toEqual([]);
   });

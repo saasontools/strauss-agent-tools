@@ -1,9 +1,12 @@
+import { STORE_OWNED_FILES } from "./kb-files.js";
 import { LOG_FILE } from "./kb-log.js";
 
 export const GITATTRIBUTES_FILE = ".gitattributes";
 
+const GENERATED = "linguist-generated";
+
 /**
- * Declares the log's merge driver, plus line endings.
+ * Declares the log's merge driver, its line endings, and that it is derived.
  *
  * `merge=union` interleaves both sides' lines instead of the ordinary
  * line-level merge, which can drop one side's appends outright. The log is
@@ -19,7 +22,7 @@ export const GITATTRIBUTES_FILE = ".gitattributes";
  * `\n`) keeps writing LF — a file with mixed endings, which is exactly the
  * kind of divergence a merge driver can't paper over.
  */
-export const UNION_MERGE_LINE = `${LOG_FILE} text eol=lf merge=union`;
+export const UNION_MERGE_LINE = `${LOG_FILE} text eol=lf merge=union ${GENERATED}=true`;
 
 /**
  * One parsed `.gitattributes` line: the pattern and its whitespace-separated
@@ -55,24 +58,57 @@ function parseLine(line: string): { pattern: string; attrs: string[] } | null {
  * opposite of respecting what they set.
  */
 export function hasMergeDeclaration(contents: string): boolean {
+  return declares(contents, LOG_FILE, "merge");
+}
+
+/** Whether some line already assigns `attribute` to `pattern`, at any value. */
+function declares(
+  contents: string,
+  pattern: string,
+  attribute: string,
+): boolean {
   return contents.split("\n").some((line) => {
     const parsed = parseLine(line);
-    if (!parsed || parsed.pattern !== LOG_FILE) return false;
+    if (!parsed || parsed.pattern !== pattern) return false;
     return parsed.attrs.some(
       (attr) =>
-        attr === "merge" || attr === "-merge" || attr.startsWith("merge="),
+        attr === attribute ||
+        attr === `-${attribute}` ||
+        attr.startsWith(`${attribute}=`),
     );
   });
 }
 
 /**
- * The bytes to append to a `.gitattributes` that does not yet declare a
- * merge strategy for the log — a newline first, unless `contents` already
- * ends in one, so the line lands on its own rather than tacked onto the
- * file's last line.
+ * The lines `contents` still lacks, in file order. Each attribute is asked
+ * for separately, so a base written before this list grew gains only what it
+ * is missing and a hand-set value is never layered over.
  */
-export function appendUnionMergeLine(contents: string): string {
+export function missingGitattributesLines(contents: string): string[] {
+  const needsMerge = !hasMergeDeclaration(contents);
+  const generated = STORE_OWNED_FILES.filter(
+    // The union-merge line carries the log's `linguist-generated` too, so the
+    // log needs its own line only where that line is already there without it.
+    (file) => !(needsMerge && file === LOG_FILE),
+  )
+    .filter((file) => !declares(contents, file, GENERATED))
+    .map((file) => `${file} ${GENERATED}=true`);
+
+  return needsMerge ? [UNION_MERGE_LINE, ...generated] : generated;
+}
+
+/** What a `.gitattributes` this store creates from nothing contains. */
+export const GITATTRIBUTES_BLOCK = `${missingGitattributesLines("").join("\n")}\n`;
+
+/**
+ * The bytes to append to bring `contents` up to date — a newline first unless
+ * it already ends in one, so the first line lands on its own rather than
+ * tacked onto the file's last. Empty when nothing is missing.
+ */
+export function appendGitattributesLines(contents: string): string {
+  const lines = missingGitattributesLines(contents);
+  if (lines.length === 0) return "";
   const separator =
     contents.length === 0 || contents.endsWith("\n") ? "" : "\n";
-  return `${separator}${UNION_MERGE_LINE}\n`;
+  return `${separator}${lines.join("\n")}\n`;
 }

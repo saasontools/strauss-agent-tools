@@ -22,9 +22,15 @@ export enum Fault {
 /** Machine-readable discriminant, stable across message rewording. */
 export enum ErrorTypes {
   KbRecordAlreadyExists = "KbRecordAlreadyExists",
+  KbClassifyInput = "KbClassifyInput",
   KbInvalidConceptId = "KbInvalidConceptId",
+  KbMatchInput = "KbMatchInput",
   KbMissingFlagValue = "KbMissingFlagValue",
   KbPackBudgetExceeded = "KbPackBudgetExceeded",
+  KbPromoteCollision = "KbPromoteCollision",
+  KbPromoteSelf = "KbPromoteSelf",
+  KbPromoteStanding = "KbPromoteStanding",
+  KbPromoteStopped = "KbPromoteStopped",
   KbRecordNotFound = "KbRecordNotFound",
   KbSelfVerification = "KbSelfVerification",
   KbStampBaselineUnreadable = "KbStampBaselineUnreadable",

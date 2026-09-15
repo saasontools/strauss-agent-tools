@@ -1,0 +1,11 @@
+[
+  {
+    "message": "feat(protocol): add the refund message and a tenant id on charge",
+    "files": [
+      "src/protocol/protocol.json",
+      "src/protocol/generated/index.ts",
+      ".strauss/kb/fact.protocol-schemas-generated.md",
+      ".strauss/kb/log.jsonl"
+    ]
+  }
+]

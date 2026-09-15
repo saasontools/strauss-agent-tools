@@ -140,6 +140,9 @@ export function looksLikeWrongRepoRoot(
       // make a correct root look wrong, and as a hit it would keep a
       // genuinely wrong root from being spotted.
       if (entry.repo !== undefined) continue;
+      // An old-side anchor is read from git, not from this root's files, so it
+      // can neither vouch for the root nor argue against it.
+      if (entry.side === "old") continue;
       checked += 1;
       if (entry.state !== "unresolved" || entry.reason !== "file-missing") {
         return false;

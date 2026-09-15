@@ -14,9 +14,14 @@ export {
   type KbCatalogResult,
 } from "./catalog.js";
 export {
+  KbClassifyInputError,
   KbInvalidConceptIdError,
   KbMissingFlagValueError,
   KbPackBudgetExceededError,
+  KbPromoteCollisionError,
+  KbPromoteSelfError,
+  KbPromoteStandingError,
+  KbPromoteStoppedError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
   KbSelfVerificationError,
@@ -25,6 +30,8 @@ export {
 } from "./kb-errors.js";
 export {
   kbAnchorSchema,
+  kbAnchorSpanSchema,
+  kbAnchorWriteSchema,
   kbActorStampSchema,
   kbConceptIdSchema,
   kbLinkSchema,
@@ -39,6 +46,7 @@ export {
   KB_SLUG_PATTERN,
   type KbActorStamp,
   type KbAnchor,
+  type KbAnchorSpan,
   type KbLink,
   type KbRecord,
   type KbRecordFrontmatter,
@@ -64,6 +72,7 @@ export {
   type RemoteAnchorState,
   type ResolvedSymbol,
   type ResolverAttempt,
+  type ResolverAttemptOptions,
 } from "./anchor-resolver/index.js";
 export {
   readRemoteAnchors,
@@ -157,13 +166,32 @@ export {
 export { matchesTags, type KbTagFilter } from "./kb-tags.js";
 export { kbJsonSchemas } from "./json-schema.js";
 export {
+  anchorOnHunk,
   matchToDiff,
+  symbolRangeIndex,
   type DiffFile,
   type DiffHunk,
   type DiffMatch,
   type MatchOptions,
   type SymbolRange,
+  type SymbolRangeIndex,
 } from "./match-diff.js";
+export type { KbMatch, KbMatchRecord } from "./commands/match/index.js";
+// The rule tables and their helpers stay behind `classify/index.js`: they are
+// how the verdict is reached, not part of it.
+export {
+  classifyDiff,
+  DEFAULT_THRESHOLDS,
+  KB_CLASSES,
+  type KbClass,
+  type KbClassifiedFile,
+  type KbClassifiedHunk,
+  type KbClassifyFile,
+  type KbClassifyOptions,
+  type KbClassifyResult,
+  type KbClassifyThresholds,
+  type KbVerdict,
+} from "./classify/index.js";
 export {
   adjudicate,
   resolveHeads,
@@ -240,6 +268,22 @@ export {
   type KbCommand,
   type KbCommandContext,
 } from "./commands/index.js";
+export {
+  carry,
+  isReviewTag,
+  promoteCandidates,
+  promoteInputSchema,
+  PROMOTION_SOURCE_ID,
+  type KbDroppedLink,
+  type KbPromoteCandidate,
+  type KbPromoteResult,
+  type KbPromotedRecord,
+} from "./commands/promote/index.js";
+export type {
+  KbExportForeignFile,
+  KbExportResult,
+  KbExportedDecision,
+} from "./commands/export.js";
 export {
   classifyDrift,
   reassessPacket,

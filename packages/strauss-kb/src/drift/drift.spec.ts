@@ -22,7 +22,9 @@ import {
   reassessCommand,
   type KbReassessResult,
 } from "../commands/reassess.js";
+import { anchorResolveCommand } from "../commands/anchor-resolve.js";
 import { classifyDrift } from "./classify.js";
+import { readFileAtRef } from "./git.js";
 
 /**
  * Counts repository listings. Only the `moved` search makes one, so this is
@@ -568,5 +570,192 @@ describe("drift classification", () => {
     // And the baseline itself is untouched: accepting an edit nobody read is
     // exactly the write this command must never make.
     expect(after?.frontmatter.strauss_anchors?.[0]?.hash).toBe(anchor.hash);
+  });
+
+  /* ---- the old side -------------------------------------------------- */
+
+  /** Seeds `totals`, then deletes it. The anchor's whole point is the deletion. */
+  async function deletedAtRef(): Promise<KbAnchor> {
+    write(V1);
+    const anchor = await astAnchor(V1);
+    const sha = commit("seed");
+    rmSync(join(repo, FILE));
+    commit("drop totals");
+    return { ...anchor, ref: sha, side: "old" };
+  }
+
+  test("an old-side anchor still matches after its file is deleted", async () => {
+    const anchor = await deletedAtRef();
+
+    const [entry] = await drift(record([anchor]));
+
+    expect(entry).toMatchObject({ state: "match", side: "old" });
+  });
+
+  test("kb_anchor_resolve reports match, and the gate stays green", async () => {
+    const anchor = await deletedAtRef();
+    await seed([anchor]);
+
+    const output = (await anchorResolveCommand.run(
+      { store: new KbStore(), actor: "agent:resolver", now: () => NOW },
+      anchorResolveCommand.input.parse({
+        bundlePath: bundle,
+        conceptId: ID,
+        repoRoot: repo,
+      }),
+    )) as { results: { state: string; side?: string }[] };
+
+    expect(output.results[0]).toMatchObject({ state: "match", side: "old" });
+    expect(
+      anchorResolveCommand.failsWhen?.(
+        output,
+        anchorResolveCommand.input.parse({ bundlePath: bundle, conceptId: ID }),
+      ),
+    ).toBe(false);
+  });
+
+  // The only drift an old-side anchor can have: the rev carries the path no
+  // more, so there is nothing to re-read.
+  test("a path the ref does not carry is gone, and costs no moved search", async () => {
+    write("export const rate = 1;\n", "src/rates.ts");
+    const before = commit("rates only");
+    write(V1);
+    const anchor = await astAnchor(V1);
+    commit("add totals");
+
+    const [found] = await classify(
+      record([{ ...anchor, ref: before, side: "old" }]),
+    );
+
+    expect(found?.class).toBe("gone");
+    expect(found?.entry.reason).toBe("ref-unreadable");
+    expect(listings).toEqual([]);
+  });
+
+  // A shallow CI checkout is the case: no evidence either way, so the anchor
+  // is unchecked rather than reported as deleted code.
+  test("a rev this clone does not carry is unchecked, not gone", async () => {
+    write(V1);
+    const anchor = await astAnchor(V1);
+    commit("seed");
+    const entry = record([{ ...anchor, ref: "0".repeat(40), side: "old" }]);
+
+    const entries = await drift(entry);
+
+    expect(entries[0]).toMatchObject({
+      state: "unresolved",
+      reason: "ref-unavailable",
+    });
+    expect(entries[0]?.class).toBeUndefined();
+    expect(await classifyDrift(repo, entry, entries, {})).toEqual([]);
+    expect(listings).toEqual([]);
+  });
+
+  test("a directory at the ref is unreadable, never a tree listing", async () => {
+    write(V1);
+    const ref = commit("seed");
+
+    expect(await readFileAtRef(repo, { file: "src", ref })).toEqual({
+      ok: false,
+      reason: "ref-unreadable",
+    });
+  });
+
+  test("kb_doctor counts old-side anchors beside the resolver buckets", async () => {
+    const anchor = await deletedAtRef();
+    await seed([anchor]);
+
+    const report = (await doctorCommand.run(
+      { store: new KbStore(), actor: "agent:reader", now: () => NOW },
+      doctorCommand.input.parse({ bundlePath: bundle, repoRoot: repo }),
+    )) as KbDoctorCommandResult;
+
+    expect(report.anchorResolvers).toMatchObject({
+      total: 1,
+      treeSitter: 1,
+      oldSide: 1,
+    });
+    expect(report.counts.drifted).toBe(0);
+  });
+
+  /* ---- spans --------------------------------------------------------- */
+
+  // The window search is the only one a span has, and relocating it means
+  // moving the range: the bytes are the same, so the hash must not move.
+  test("kb_reassess moves a span that slid down its own file", async () => {
+    const text = V1.split("\n").slice(0, 4).join("\n");
+    const anchor: KbAnchor = {
+      file: FILE,
+      span: { start: 1, end: 4 },
+      hash: hashAnchorText(text),
+      hash_kind: "raw",
+      resolver: "span",
+      lines: 4,
+      resolved_at: STAMPED_AT,
+    };
+    write(V1);
+    commit("seed");
+    write(`// header\n// header\n${V1}`);
+    commit("push totals down");
+    await seed([anchor]);
+
+    const result = await run();
+
+    expect(result.rebaselined).toEqual([{ file: FILE, toFile: FILE }]);
+    const after = (await new KbStore().read(bundle, ID))?.frontmatter
+      .strauss_anchors?.[0];
+    expect(after).toMatchObject({
+      span: { start: 3, end: 6 },
+      hash: anchor.hash,
+    });
+  });
+});
+
+describe("readFileAtRef guards", () => {
+  let outside: string;
+
+  beforeEach(() => {
+    outside = mkdtempSync(join(tmpdir(), "strauss-kb-nogit-"));
+  });
+
+  afterEach(() => {
+    rmSync(outside, { recursive: true, force: true });
+  });
+
+  // Outside a repository every git call fails, so a reached git would answer
+  // `ref-unavailable`. `ref-unreadable` is proof the guard returned first.
+  test.each(["--upload-pack=x", "a..b"])(
+    "refuses the ref shape %s before git",
+    async (ref) => {
+      expect(await readFileAtRef(outside, { file: FILE, ref })).toEqual({
+        ok: false,
+        reason: "ref-unreadable",
+      });
+    },
+  );
+
+  test("a path climbing out of the tree never reaches git", async () => {
+    expect(
+      await readFileAtRef(outside, { file: "../secrets.env", ref: "main" }),
+    ).toEqual({ ok: false, reason: "outside-repo" });
+  });
+
+  test("a rev this clone does not carry is unavailable", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "strauss-kb-shallow-"));
+    const git = (...args: string[]) =>
+      execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+    git("init", "-q");
+    git("config", "user.email", "test@example.com");
+    git("config", "user.name", "Test");
+    mkdirSync(dirname(join(repo, FILE)), { recursive: true });
+    writeFileSync(join(repo, FILE), V1, "utf8");
+    git("add", "-A");
+    git("commit", "-qm", "seed");
+
+    expect(
+      await readFileAtRef(repo, { file: FILE, ref: "0".repeat(40) }),
+    ).toEqual({ ok: false, reason: "ref-unavailable" });
+
+    rmSync(repo, { recursive: true, force: true });
   });
 });
