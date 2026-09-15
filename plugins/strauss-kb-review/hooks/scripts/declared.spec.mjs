@@ -15,9 +15,11 @@ import { statePath, writeState } from "./lib/state.mjs";
 test("declaredPaths: the last changed block, JSON body, normalised paths, or none", () => {
   assert.equal(declaredPaths(null), null);
   assert.equal(declaredPaths("no block here"), null);
-  assert.equal(declaredPaths("```changed\nnot json\n```"), null);
-  assert.equal(declaredPaths("```changed\n{ \"files\": [] }\n```"), null);
-  assert.deepEqual(declaredPaths("```changed\n{ \"paths\": [] }\n```"), { declared: [], classes: new Map(), none: true });
+  assert.match(String(declaredPaths("```changed\nnot json\n```")?.error), /not JSON/);
+  assert.match(String(declaredPaths("```changed\n{ \"files\": [] }\n```")?.error), /`paths` array/);
+  assert.match(String(declaredPaths("```changed\n{ \"paths\": [ { \"class\": \"docs\" } ] }\n```")?.error), /paths\[0\] has no/);
+  assert.match(String(declaredPaths("```changed\n{ \"paths\": [ { \"path\": \"a\", \"class\": 3 } ] }\n```")?.error), /class must be/);
+  assert.deepEqual(declaredPaths("```changed\n{ \"paths\": [] }\n```"), { declared: [], classes: new Map(), none: true, error: null });
   const text = [
     "first",
     "```changed",
@@ -32,6 +34,7 @@ test("declaredPaths: the last changed block, JSON body, normalised paths, or non
     declared: ["src/a.ts", "src/b.ts"],
     classes: new Map([["src/b.ts", "generated"]]),
     none: false,
+    error: null,
   });
 });
 
@@ -108,6 +111,8 @@ test("SubagentStop: no block with a dirty worktree blocks; a false path blocks; 
   try {
     assert.equal(await stop("done, no block"), 2);
     assert.match(errors.at(-1) ?? "", /fenced ```changed block whose body is JSON/);
+    assert.equal(await stop("```changed\nnot json\n```"), 2);
+    assert.match(errors.at(-1) ?? "", /present but invalid: the body is not JSON/);
     assert.equal(await stop('```changed\n{ "paths": [ { "path": "src/a.ts" }, { "path": "src/nope.ts" } ] }\n```'), 2);
     assert.match(errors.at(-1) ?? "", /src\/nope\.ts/);
     // The parent's Stop never asks for a declaration.
