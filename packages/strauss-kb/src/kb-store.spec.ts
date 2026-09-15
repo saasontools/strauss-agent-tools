@@ -799,8 +799,7 @@ describe("actor", () => {
     expect(readFileSync(join(bundle, LOG_FILE), "utf8")).toBe(log);
   });
 
-  // `'"agent:correctness"'`, quotes included, is how a malformed actor
-  // reached a committed base.
+  // A guard: an actor lands verbatim in the log and in frontmatter.
   test("every write refuses a malformed actor and writes nothing", async ({
     store,
     bundle,
@@ -813,7 +812,7 @@ describe("actor", () => {
     const record = readFileSync(join(bundle, `${conceptId}.md`), "utf8");
     const log = readFileSync(join(bundle, LOG_FILE), "utf8");
 
-    for (const actor of ['"agent:correctness"', "agent: x", "", "agent:x\n"]) {
+    for (const actor of ['"agent:reviewer"', "agent: x", "", "agent:x\n"]) {
       const writes = [
         store.write(bundle, fact("other"), actor),
         store.setStatus(bundle, conceptId, "rejected", actor),

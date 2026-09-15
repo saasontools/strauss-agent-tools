@@ -192,7 +192,7 @@ describe("runKbCli", () => {
   test("refuses a verify as unknown or as a malformed actor, naming why", async () => {
     for (const [actor, reason] of [
       ["unknown", /cannot verify/],
-      ['"agent:correctness"', /is not kind or kind:name/],
+      ['"agent:reviewer"', /is not kind or kind:name/],
     ] as const) {
       vi.stubEnv("STRAUSS_KB_ACTOR", actor);
       try {
