@@ -21,7 +21,7 @@ strauss-kb [--bundle PATH] <command> [args]
 | `--`                          | Ends flag parsing; everything after it is text, for the verbs that end in free prose.                                                                                                                                                                     |
 | `-h`, `--help`                | The usage listing. Also printed when no verb is given.                                                                                                                                                                                                    |
 | `-v`, `--version`             | The installed package version — what makes plugin/CLI skew diagnosable, since neither updates the other.                                                                                                                                                  |
-| `STRAUSS_KB_ACTOR`            | Names the writer in the log and in `generated.by` / `verified[].by`: `kind` or `kind:name`, else every write refuses. Defaults to `unknown`, which `verify` refuses.                                                                                      |
+| `STRAUSS_KB_ACTOR`            | Names the writer in the log and in `generated.by` / `verified[].by`: `kind` or `kind:name`, else every write refuses. Defaults to `unknown`.                                                                                                              |
 | `STRAUSS_KB_GRAMMARS_DIR`     | Where downloaded language packs — grammar and tags query alike — are cached. Defaults to `~/.strauss/grammars`. Usually unset. For CI or air-gapped hosts, set it in the MCP server's `env` block (`.mcp.json` / plugin `mcp.json`) or the shell profile. |
 | `STRAUSS_KB_GRAMMARS`         | `off` never downloads a grammar; the cache is still read. Same effect as `--offline`.                                                                                                                                                                     |
 | `STRAUSS_KB_GRAMMARS_URL`     | Replaces the scheme and host of every grammar URL `grammars/manifest.json` pins, for a mirror. Usually unset.                                                                                                                                             |
@@ -191,7 +191,7 @@ else from the working tree. An unreadable file or unreachable remote is a
 
 **Exits 1** when an anchor drifted, or when one carrying a hash no longer
 resolves, so a CI gate can run it; an anchor nothing could reach does not fail
-it. Never writes `verified[]`: the hash is the mechanical evidence, and a
+it. Never writes `verified[]` ([why](./specification.md#verification)); a
 judgment is [`verify`](#verify). `--check` refuses `--rebaseline` and
 `--restamp`.
 

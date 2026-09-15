@@ -226,7 +226,8 @@ never writes them.
 against the working tree (`--repo-root` when the base is not inside it) and
 never writes `verified[]`; `--check` writes nothing at all. Per anchor:
 
-- **stamped** — no hash yet; hash, line count, and timestamp are written.
+- **stamped** — no hash yet; hash, line count, and timestamp are written
+  (`unstamped` under `--check`, which writes none).
 - **match** — unchanged; nothing written. `--restamp` re-dates on purpose.
 - **drifted** — hash changed. Baseline kept unless `--rebaseline`.
 - **unresolved** — not comparable, with a reason. A finding, not an error.
@@ -244,9 +245,6 @@ and again on the real path after symlinks.
 
 Exit code is non-zero on **drifted**, or on **unresolved** for an anchor that
 carries a hash; unstamped anchors and unreachable remotes never fail.
-
-A fully clean run — every anchor checked and `match`, none stamped this run —
-appends a `verified[]` event.
 
 Symbols resolve tree-sitter first — the 20 language packs that have both a
 grammar and a definitions query, pinned together by `pnpm grammars pin` from

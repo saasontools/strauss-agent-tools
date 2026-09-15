@@ -320,11 +320,9 @@ function stampDigest(kb) {
 }
 
 /**
- * `anchor-resolve` for every record anchored in the diff, and for every record
- * the diff wrote — the second is how standing.resolved-unmoved asks whether the code a closed risk
- * feared ever moved. `--check` keeps it from writing to the base. It exits
- * non-zero when an anchor is drifted or unresolved and still prints its JSON,
- * so the result is read from stdout, not the status.
+ * `anchor-resolve --check` for every record anchored in or written by the diff
+ * (standing.resolved-unmoved reads the second). Exits non-zero on drift but
+ * still prints its JSON, so the result is read from stdout.
  * @param {import("./cli.mjs").Launcher} kb @param {KbRecord[]} records
  * @param {Set<string>} changed @param {boolean} offline
  * @returns {Map<string, any>}

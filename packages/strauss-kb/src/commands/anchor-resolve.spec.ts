@@ -205,8 +205,6 @@ describe("anchorResolveCommand", () => {
       ],
     });
     expect(fails(output)).toBe(false);
-    // verified[] holds judgments, and a matching hash is not one; re-dating
-    // the anchor would be a write saying only that a check ran.
     expect(snapshot(bundle)).toEqual(before);
   });
 

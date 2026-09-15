@@ -64,7 +64,7 @@ export const anchorResolveCommand = define({
   usage:
     "anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp] [--check]",
   description:
-    "Resolve a record's anchors: stamp a hash onto anchors that lack one, report drift where the code moved. An anchor naming another repository is read from that remote through a bare cache; --offline uses the cache only. `check` reports and writes nothing. Never writes verified[]; a judgment is kb_verify. Exits non-zero on drift.",
+    "Resolve a record's anchors: stamp a hash onto anchors that lack one, report drift where the code moved. An anchor naming another repository is read from that remote through a bare cache; --offline uses the cache only. Never writes verified[]; a judgment is kb_verify. Exits non-zero on drift.",
   input: z.object({
     bundlePath,
     conceptId,
@@ -117,8 +117,8 @@ export const anchorResolveCommand = define({
   ) => {
     if (check && (rebaseline || restamp)) {
       throw new KbFlagConflictError([
-        "--check",
-        rebaseline ? "--rebaseline" : "--restamp",
+        "check",
+        rebaseline ? "rebaseline" : "restamp",
       ]);
     }
     const root = repoRoot ?? process.cwd();
@@ -278,7 +278,6 @@ export const anchorResolveCommand = define({
     // legitimate on a concluded base, so the report is computed first and the
     // freeze only costs the mutation. Reported rather than thrown — a caller
     // asking a concluded base whether its code moved deserves the answer.
-    // `check` writes nothing at all: no hash, no `resolved_at`, no log line.
     let frozen = false;
     if (dirty && !check) {
       try {

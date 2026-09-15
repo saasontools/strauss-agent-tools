@@ -554,7 +554,7 @@ spread forward untouched, and the schema still reads the noteless OKF shape.
 
 It holds judgments only. `anchor-resolve` never writes it: an anchor's `hash`
 and `resolved_at` are the mechanical evidence. `verify` refuses the actor
-`unknown`, and every write refuses an actor that is not `kind` or `kind:name`.
+`unknown`.
 
 A verifier whose actor equals the record's `generated.by`, compared
 case-insensitively, is refused unless the actor is `human:`-prefixed: a
