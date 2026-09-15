@@ -1,0 +1,60 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node plugins/strauss-kb-review/hooks/scripts/kb-review-gate.mjs --session-start",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__.*strauss[-_]kb.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node plugins/strauss-kb-review/hooks/scripts/kb-reviewer-gate.mjs",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node plugins/strauss-kb-review/hooks/scripts/kb-review-gate.mjs",
+            "timeout": 50
+          },
+          {
+            "type": "command",
+            "command": "node plugins/strauss-kb-review/hooks/scripts/kb-reviewer-gate.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node plugins/strauss-kb-review/hooks/scripts/kb-review-gate.mjs",
+            "timeout": 50
+          },
+          {
+            "type": "command",
+            "command": "node plugins/strauss-kb-review/hooks/scripts/kb-reviewer-gate.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -5,3 +5,18 @@
 *.mcpb binary
 *.png binary
 *.jpg binary
+
+# strauss-kb-review classes, read at the base commit by the review gate.
+# linguist-* are what GitHub already honours; strauss-class covers the rest.
+pnpm-lock.yaml linguist-generated
+**/dist/** linguist-generated
+**/__snapshots__/** linguist-generated
+**/*.spec.* strauss-class=test
+**/*.spec.mjs strauss-class=test
+fixtures/** strauss-class=test
+.github/** strauss-class=ci
+**/tsconfig*.json strauss-class=config
+**/eslint.config.* strauss-class=config
+**/*.config.* strauss-class=config
+docs/** linguist-documentation
+apps/strauss-kb-docs/docs/** linguist-documentation
