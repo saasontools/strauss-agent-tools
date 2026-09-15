@@ -1,3 +1,61 @@
+## 0.1.20 (2026-09-15)
+
+### 🩹 Fixes
+
+- Git hygiene for a base that is committed and reviewed on GitHub: `.gitattributes` ([5dc9a6c](https://github.com/saasontools/strauss-agent-tools/commit/5dc9a6c))
+  marks `INDEX.md`, `log.jsonl` and `.index.sqlite` `linguist-generated`, so a pull
+  request collapses them and shows the records; the log reader reads past the
+  conflict markers GitHub's merge button leaves, keeping both sides' entries. New
+  `sweep` / `kb_sweep` deletes tagged records in a terminal status — the one verb
+  that removes rather than supersedes.
+
+- In a diff a lockfile bump and a change worth reading look the same, so a ([3a22b4b](https://github.com/saasontools/strauss-agent-tools/commit/3a22b4b))
+  reviewer has to open both. `classify --git <base>..<head>` / `--stdin` and
+  `kb_classify` label every changed file with one of `test`, `config`, `ci`,
+  `docs`, `lockfile`, `generated`, `boilerplate`, `rename` or `source`, and name
+  the rule that decided it. The rules are a fixed table — a generator's banner,
+  then paths, then rename, then the share of changed lines that is import/export
+  shape — and a `fact` tagged `review:generated`, `review:boilerplate` or
+  `review:move`, anchored on a file, overrides all of them. No class is stored:
+  the patch already says it. `parseUnifiedDiff` gains `keepEmpty` and `withLines`
+  and now reads `rename from` / `similarity index` onto every file.
+
+- A knowledge base written during review dies with the branch, and nothing ([b68c22d](https://github.com/saasontools/strauss-agent-tools/commit/b68c22d))
+  carried the records worth keeping into the base that outlives it.
+  `kb_promote` / `strauss-kb promote` copies chosen records across: they land
+  `accepted`, the review tags stripped, the pull request recorded as a source,
+  and both bases logged. `promote --list` names the records usually worth taking.
+  Separately, `kb_export --format madr` writes a base's decisions out as numbered
+  MADR files, for a repository that keeps ADRs in-tree; a decision keeps the
+  number it was first exported under.
+
+- Asking which records sit on a change meant importing the package, so a ([9d49190](https://github.com/saasontools/strauss-agent-tools/commit/9d49190))
+  reviewer, a CI gate or a desktop client could not ask at all. `kb_match` and
+  `strauss-kb match` answer it from outside: give them changed files with line
+  ranges and they return the records anchored to each hunk, current first, with
+  each record's standing and the anchor that matched. A hunk marked
+  `side: "old"` numbers the lines the change removed, so records anchored to
+  deleted code surface too. Symbols are resolved through the package's own
+  tree-sitter chain unless the caller supplies ranges. The CLI can read a commit
+  range itself — `match --git <base>..<head>` — or take the same JSON on
+  `--stdin`.
+
+- An anchor could only name a symbol, so a decision about a YAML block or a SQL ([cfa63fc](https://github.com/saasontools/strauss-agent-tools/commit/cfa63fc))
+  migration was pinned to the whole file, and code a change deleted could not be
+  anchored at all. Two new addresses fix that. `span: { start, end }` names a
+  line range, hashed as written, for files no resolver can name a symbol in.
+  `side: "old"` with a `ref` names code as it was at that commit, read from git
+  history, so a record can point at what a refactor removed; it never drifts,
+  and a commit this clone lacks reports `ref-unavailable` (unchecked) rather than
+  gone. `kb_match` keeps old-side and new-side hunks apart, `kb_validate` rejects
+  an anchor carrying both addresses, and `kb_doctor` counts spans and old-side
+  anchors.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5.1
+
 ## 0.1.19 (2026-09-06)
 
 ### 🩹 Fixes

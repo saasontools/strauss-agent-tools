@@ -148,7 +148,7 @@ function memoFile(repoRoot) {
   };
 }
 
-/** `backlinks` is per record and only owed.requirement asks: spawn on demand, once each.
+/** `backlinks` is per record and only owed.requirement and owed.verification ask: spawn on demand, once each.
  * @param {import("./cli.mjs").Launcher} kb */
 function memoBacklinks(kb) {
   /** @type {Map<string, any>} */

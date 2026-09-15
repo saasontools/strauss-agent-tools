@@ -710,6 +710,13 @@ test("owed.verification fires on an open blocking risk nothing verifies", () => 
   assert.ok(ids(owed.check(ctx({ records: [open] }))).includes("owed.verification"));
   const resolved = { ...open, status: "resolved" };
   assert.ok(!ids(owed.check(ctx({ records: [resolved] }))).includes("owed.verification"));
+  // A test-obligation pointing at the risk verifies it as well as a link the
+  // risk carries.
+  const verified = ctx({
+    records: [open],
+    backlinks: () => ({ backlinks: [{ source: "test-obligation.x", rel: "satisfies" }] }),
+  });
+  assert.ok(!ids(owed.check(verified)).includes("owed.verification"));
 });
 
 test("a block demotes to a warning by id", () => {
