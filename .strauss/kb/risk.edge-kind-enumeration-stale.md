@@ -19,6 +19,12 @@ verified:
   - by: unknown
     at: "2026-09-15T07:48:16.804Z"
     note: "anchor-resolve: 1/1 anchors match (regex resolver)"
+  - by: unknown
+    at: "2026-09-15T15:23:45.818Z"
+    note: "anchor-resolve: 1/1 anchors match (regex resolver)"
+  - by: unknown
+    at: "2026-09-15T15:24:12.193Z"
+    note: "anchor-resolve: 1/1 anchors match (regex resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS

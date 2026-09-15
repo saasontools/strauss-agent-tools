@@ -1,0 +1,66 @@
+---
+type: flow
+title: >-
+  classify --git reads attributes at the range's base, banners at head, and
+  review:* facts from the base
+description: >-
+  Where each input is read from is what makes a class unforgeable by the change
+  it classifies.
+tags:
+  - review
+generated:
+  by: mcp
+  at: "2026-09-15T15:32:01.766Z"
+verified: []
+strauss_anchors:
+  - file: packages/code-diff/src/classify/read.ts
+    symbol: classifyFiles
+    hash: "sha256:4702d9288510f371e929013864abd6f24c4a77b1f113d623a9aa8181da351b74"
+    hash_kind: ast
+    resolved_at: "2026-09-15T15:32:38.804Z"
+    lines: 34
+    resolver: tree-sitter
+  - file: packages/code-diff/src/classify/classify.ts
+    symbol: classifyDiff
+    hash: "sha256:1bc230be8ea484a13f11d3efac1bdcab10904795605392b88af821958185b23c"
+    hash_kind: ast
+    resolved_at: "2026-09-15T15:32:38.807Z"
+    lines: 6
+    resolver: tree-sitter
+  - file: packages/strauss-kb/src/commands/classify.ts
+    symbol: renderClassify
+    hash: "sha256:719e6410684462020db31bd58f2521e4f011afb0f982c95eb03683df05d94367"
+    hash_kind: ast
+    resolved_at: "2026-09-15T15:32:38.810Z"
+    lines: 13
+    resolver: tree-sitter
+  - file: packages/strauss-kb/src/classify/classify.ts
+    symbol: classifyDiff
+    hash: "sha256:73bc01a95b3ccb7748c4e657df4812c87095671e15778b5bc92784a4f9415587"
+    hash_kind: ast
+    resolved_at: "2026-09-15T15:32:38.813Z"
+    lines: 16
+    resolver: tree-sitter
+strauss_links:
+  - target: requirement.classify-attributes-read-at-base
+    rel: satisfies
+strauss_status: accepted
+---
+
+## Flow
+
+A range becomes one class per file, with what declared it.
+
+## Trigger
+
+strauss-kb classify --git <base>..<head> (or --stdin with --base), kb_classify with base.
+
+## Steps
+
+readRangeDiff → parseUnifiedDiff(keepEmpty, withLines) → base is --base or the range's left half → resolveSymbolRanges for the review:* facts → classifyFiles: toplevel, then in parallel one check-attr --source=<base> over every path, one git grep over .gitattributes at the base, bounded banner reads from the working tree → kbDeclared → code-diff's classifyDiff → render, notes last.
+
+## Failure modes
+
+git before 2.40 or a base check-attr cannot read: the working tree answers and a note says so. An unsafe base: no attribute is read and nothing is declared. Not a repository: the default table applies. An unreadable file: the diff's added lines stand in for its banner.
+
+Satisfies [requirement.classify-attributes-read-at-base](requirement.classify-attributes-read-at-base.md).
