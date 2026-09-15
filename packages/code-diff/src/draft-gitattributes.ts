@@ -10,6 +10,8 @@ const LOCKFILES = [
 
 const CI_DIRS = [".github", ".circleci", ".buildkite"];
 
+const TEST_DIRS = ["__tests__", "__mocks__", "test", "tests"];
+
 const BUILT: readonly [dir: string, attribute: string][] = [
   ["dist", "linguist-generated"],
   ["build", "linguist-generated"],
@@ -31,7 +33,10 @@ export async function draftGitattributes(
   return draftGitattributesFrom(listed.stdout.split("\0").filter(Boolean));
 }
 
-/** The same draft over a path list. `node_modules` is never proposed. */
+/**
+ * The same draft over a path list. `node_modules` is never proposed, and
+ * neither is `*.md`: in an agent plugin, markdown is often a prompt.
+ */
 export function draftGitattributesFrom(paths: readonly string[]): string {
   const kept = paths.filter(
     (path) => !path.split("/").includes("node_modules"),
@@ -52,12 +57,15 @@ export function draftGitattributesFrom(paths: readonly string[]): string {
   if (kept.includes(".gitlab-ci.yml")) {
     lines.push(".gitlab-ci.yml strauss-class=ci");
   }
-  if (dirs.has("__tests__")) lines.push("**/__tests__/** strauss-class=test");
+  for (const dir of TEST_DIRS) {
+    if (dirs.has(dir)) lines.push(`**/${dir}/** strauss-class=test`);
+  }
   for (const kind of ["spec", "test"]) {
     if ([...names].some((name) => name.includes(`.${kind}.`))) {
       lines.push(`*.${kind}.* strauss-class=test`);
     }
   }
+  if (top.has("docs")) lines.push("docs/** linguist-documentation");
   for (const [dir, attribute] of BUILT) {
     if (dirs.has(dir)) lines.push(`**/${dir}/** ${attribute}`);
   }

@@ -6,7 +6,14 @@ export type GitFailure = "failed" | "too-large" | "timeout" | "git-missing";
 
 export type GitRun =
   | { ok: true; stdout: string; stderr: string }
-  | { ok: false; reason: GitFailure; stdout: string; stderr: string };
+  | {
+      ok: false;
+      reason: GitFailure;
+      stdout: string;
+      stderr: string;
+      /** git's exit status, when it ran and exited non-zero. */
+      exitCode?: number;
+    };
 
 export type GitOptions = {
   cwd?: string;
@@ -46,11 +53,13 @@ export function runGit(
           resolve({ ok: true, stdout, stderr });
           return;
         }
+        const { code } = error as { code?: unknown };
         resolve({
           ok: false,
           reason: failureOf(error),
           stdout: stdout ?? "",
           stderr: stderr ?? "",
+          ...(typeof code === "number" ? { exitCode: code } : {}),
         });
       },
     );

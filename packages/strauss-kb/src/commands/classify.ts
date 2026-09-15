@@ -25,7 +25,6 @@ const classifyFileSchema = diffFileSchema.extend({
     .min(1)
     .optional()
     .describe("Where `git diff -M` says the path came from."),
-  similarity: z.number().min(0).max(100).optional(),
 });
 
 export const classifyCommand = define({
@@ -34,7 +33,7 @@ export const classifyCommand = define({
   usage:
     "classify --git <base>..<head> | --stdin [--base <rev>] [--repo-root <path>] [--offline]",
   description:
-    "Deprecated: moving to strauss-kb-review. What kind of change each file carries — test, config, ci, docs, lockfile, generated, boilerplate, rename or source — and what declared it: a `review:*` fact, a `.gitattributes` entry at the base, a generator banner, else source. kb_match says what sits on a hunk; this says whether to read it.",
+    "Deprecated: moving to strauss-kb-review. What kind of change each file carries — test, config, ci, docs, lockfile, generated, boilerplate, rename or source — and what declared it: a `review:*` fact, a `.gitattributes` entry at the base, a generator banner, a default path table where none is declared, else source. kb_match says what sits on a hunk; this says whether to read it.",
   input: z.object({
     bundlePath,
     files: z
@@ -45,7 +44,7 @@ export const classifyCommand = define({
       .min(1)
       .optional()
       .describe(
-        "Commit whose `.gitattributes` decide. Omitted, the working tree does.",
+        "Commit whose `.gitattributes` decide. Omitted, only `strauss-class=source` applies.",
       ),
     repoRoot: REPO_ROOT,
     offline: z

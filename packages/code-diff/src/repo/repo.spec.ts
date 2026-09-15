@@ -69,16 +69,24 @@ describe("repository reads", () => {
     expect(await commits(repo.root, "--all")).toBeNull();
   });
 
-  test("uncommittedPaths holds untracked and modified files under the dir", async () => {
+  test("uncommittedPaths holds untracked, staged and modified files under the dir", async () => {
     repo.write(".strauss/kb/new.md", "new\n");
     repo.write(".strauss/kb/tracked.md", "two\n");
+    repo.write(".strauss/kb/staged.md", "staged\n");
+    repo.git("add", ".strauss/kb/staged.md");
     repo.write("outside.md", "not under the dir\n");
     try {
       expect(
         (await uncommittedPaths(repo.root, ".strauss/kb"))?.sort(),
-      ).toEqual([".strauss/kb/new.md", ".strauss/kb/tracked.md"]);
+      ).toEqual([
+        ".strauss/kb/new.md",
+        ".strauss/kb/staged.md",
+        ".strauss/kb/tracked.md",
+      ]);
       expect(await uncommittedPaths(repo.root, "../x")).toBeNull();
     } finally {
+      repo.git("rm", "-q", "--cached", ".strauss/kb/staged.md");
+      rmSync(join(repo.root, ".strauss/kb/staged.md"));
       repo.git("checkout", "--", ".strauss/kb/tracked.md");
       rmSync(join(repo.root, ".strauss/kb/new.md"));
       rmSync(join(repo.root, "outside.md"));

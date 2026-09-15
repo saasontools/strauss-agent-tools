@@ -347,7 +347,7 @@ Parameters: `bundlePath` and `files` required — each file
 `{ filePath, hunks: [{ startLine, endLine, side?, lines? }], renamedFrom? }`,
 where `lines` are the hunk's changed lines and stand in for the banner when
 `repoRoot` does not hold the file; `base` (`string`) optional, the commit whose
-`.gitattributes` decide — omitted, the working tree does; `repoRoot` (`string`)
+`.gitattributes` decide — omitted, only `strauss-class=source` applies; `repoRoot` (`string`)
 optional, and the file's first lines, its attributes and any symbol-scoped
 override are resolved from it; `offline` (`boolean`) optional, which keeps that
 resolution off the network.

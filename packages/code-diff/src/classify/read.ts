@@ -1,10 +1,11 @@
 import { Buffer } from "node:buffer";
+import { constants } from "node:fs";
 import { open, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { filePathIsSafe } from "@saasontools/git-guard";
 import type { DiffFile } from "../model.js";
 import { toplevel } from "../repo/head.js";
-import { readAttributes } from "./attributes.js";
+import { readAttributes, type Attributes } from "./attributes.js";
 import { classifyDiff } from "./classify.js";
 import type { ClassifyResult, Declared } from "./model.js";
 import { HEADER_LINES } from "./rules.js";
@@ -37,14 +38,7 @@ export async function classifyFiles(
       files.map((file) => file.filePath),
     ),
   ]);
-  const notes =
-    attributes.pinned || !files.length
-      ? []
-      : [
-          base === null
-            ? ".gitattributes read from the working tree: no base was given"
-            : `.gitattributes read from the working tree: git could not read them at ${base} (check-attr --source needs git 2.40)`,
-        ];
+  const notes = files.length ? notesFor(attributes, base) : [];
   return {
     files: classifyDiff(withHeaders, {
       ...(declared ? { declared } : {}),
@@ -55,11 +49,31 @@ export async function classifyFiles(
   };
 }
 
+/** Where the answer is weaker than asked, in the words a caller reads. */
+function notesFor(attributes: Attributes, base: string | null): string[] {
+  const fallback =
+    "only strauss-class=source applies, and the default path table is off";
+  if (base === null) return [`no base was given: ${fallback}`];
+  if (!attributes.pinned) {
+    return [`.gitattributes could not be read at ${base}: ${fallback}`];
+  }
+  if (attributes.probeFailed) {
+    return [
+      `could not read .gitattributes at ${base} to find declared classes: the default path table is off`,
+    ];
+  }
+  return [];
+}
+
 /** More than the banner window can need, and less than a lockfile costs. */
 const HEADER_BYTES = 65_536;
 
 /** How many files are open at once, whatever the diff's size. */
 const READERS = 16;
+
+/** POSIX open flags; Windows has neither, and no FIFO to block on. */
+const NO_FOLLOW = (constants as { O_NOFOLLOW?: number }).O_NOFOLLOW ?? 0;
+const NON_BLOCK = (constants as { O_NONBLOCK?: number }).O_NONBLOCK ?? 0;
 
 /**
  * The file's first lines from the working tree, or nothing — a deletion, or a
@@ -69,12 +83,16 @@ async function header(
   root: string,
   filePath: string,
 ): Promise<string[] | undefined> {
-  // Lexical only: a committed symlink can still point outside the root, and
-  // what leaks is one bit — whether the target's head carries a banner.
   if (!filePathIsSafe(filePath)) return undefined;
   let handle: FileHandle | undefined;
   try {
-    handle = await open(join(root, filePath), "r");
+    // A committed symlink is not followed and a FIFO does not block the open:
+    // only a regular file is read.
+    handle = await open(
+      join(root, filePath),
+      constants.O_RDONLY | NO_FOLLOW | NON_BLOCK,
+    );
+    if (!(await handle.stat()).isFile()) return undefined;
     const buffer = Buffer.alloc(HEADER_BYTES);
     const { bytesRead } = await handle.read(buffer, 0, HEADER_BYTES, 0);
     return buffer

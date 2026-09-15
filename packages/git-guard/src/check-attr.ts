@@ -16,7 +16,8 @@ const DEFAULT_ATTR_TIMEOUT_MS = 10_000;
 /**
  * `.gitattributes` as they stood at `source`, for every path, in one batched
  * call. git before 2.40 has no `--source`; the working tree answers then and
- * `pinned` says so. An unsafe `source` reads nothing at all.
+ * `pinned` says so. A `source` git cannot resolve, or an unsafe one, reads
+ * nothing at all.
  */
 export async function checkAttr(
   cwd: string,
@@ -47,7 +48,9 @@ export async function checkAttr(
 
   let pinned = source !== null;
   let result = await run(source !== null ? [`--source=${source}`] : []);
-  if (source !== null && !result.ok && result.reason === "failed") {
+  // Only git rejecting the option itself falls back: an unresolvable rev must
+  // not let the working tree answer for the base.
+  if (source !== null && !result.ok && /unknown option/i.test(result.stderr)) {
     pinned = false;
     result = await run([]);
   }

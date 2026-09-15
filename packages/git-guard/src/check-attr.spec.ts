@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { tempRepo, type TempRepo } from "../test/repo.js";
+import { fakeGit, tempRepo, type TempRepo } from "../test/repo.js";
 import { checkAttr } from "./check-attr.js";
 
 const ATTRS = ["linguist-generated", "linguist-documentation", "strauss-class"];
@@ -43,7 +43,7 @@ describe("checkAttr", () => {
     expect(attrs.get("src/y.ts")).toEqual({ "linguist-generated": "set" });
   });
 
-  test("a source git cannot read falls back to the working tree", async () => {
+  test("a source git cannot resolve reads nothing", async () => {
     const { attrs, pinned } = await checkAttr(
       repo.root,
       "no-such-branch",
@@ -51,8 +51,27 @@ describe("checkAttr", () => {
       ATTRS,
     );
     expect(pinned).toBe(false);
-    expect(attrs.get("src/y.ts")).toEqual({ "linguist-generated": "set" });
+    expect(attrs.size).toBe(0);
   });
+
+  test.skipIf(process.platform === "win32")(
+    "git without --source falls back to the working tree",
+    async () => {
+      const restore = fakeGit("--source=", "error: unknown option 'source'");
+      try {
+        const { attrs, pinned } = await checkAttr(
+          repo.root,
+          base,
+          ["src/y.ts"],
+          ATTRS,
+        );
+        expect(pinned).toBe(false);
+        expect(attrs.get("src/y.ts")).toEqual({ "linguist-generated": "set" });
+      } finally {
+        restore();
+      }
+    },
+  );
 
   test("an unsafe source reads nothing", async () => {
     const { attrs, pinned } = await checkAttr(repo.root, "--all", PATHS, ATTRS);

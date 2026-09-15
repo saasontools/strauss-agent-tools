@@ -1,6 +1,3 @@
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { tempRepo, type TempRepo } from "../../test/repo.js";
 import {
@@ -71,7 +68,7 @@ describe("readRangeDiff", () => {
 
   test("no git on PATH is its own reason", async () => {
     const path = process.env["PATH"];
-    process.env["PATH"] = mkdtempSync(join(tmpdir(), "code-diff-nopath-"));
+    process.env["PATH"] = "";
     try {
       expect(await readRangeDiff(repo.root, "HEAD~1..HEAD")).toEqual({
         ok: false,
