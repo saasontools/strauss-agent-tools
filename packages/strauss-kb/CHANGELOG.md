@@ -1,3 +1,33 @@
+## 0.1.19 (2026-09-06)
+
+### 🩹 Fixes
+
+- Select records by frontmatter `tags`: `kb_list`, `kb_query` and `kb_catalog` ([1da3cf3](https://github.com/saasontools/strauss-agent-tools/commit/1da3cf3))
+  take a `tags` array (CLI `--tag`, repeatable) and return the records carrying
+  every tag in it, and a `kb_context` profile takes `excludeTags` to keep tagged
+  records out of the injected block without unpinning the base. Selection runs
+  after adjudication, so standing and supersession are unchanged, and the
+  vocabulary is not enforced.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5.1
+
+## 0.1.18 (2026-09-06)
+
+### 🩹 Fixes
+
+- Classify anchor drift as moved, cosmetic, gone or changed, and hand what is ([0d4115d](https://github.com/saasontools/strauss-agent-tools/commit/0d4115d))
+  left to a reader as a packet: the record's claim, an old-vs-new span diff, and
+  its impact set. `kb_reassess`, `kb_doctor --drifted`, a `drifted` count on
+  `kb_stamp`.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Fable 5.1
+
 ## 0.1.17 (2026-09-05)
 
 ### 🩹 Fixes
