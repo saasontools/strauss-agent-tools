@@ -181,9 +181,7 @@ export function denyReason(d) {
     return `strauss-kb reviewer gate: MCP writes land as actor "mcp". Run the CLI with STRAUSS_KB_ACTOR=${reviewer.actor} instead.`;
   }
   if (!command) return null;
-  const writes = kbCalls(command).filter(
-    (call) => WRITE_VERBS.has(call.verb) && !isCheckOnly(call),
-  );
+  const writes = kbCalls(command).filter((call) => WRITE_VERBS.has(call.verb));
   if (writes.length === 0) return null;
   for (const call of writes) {
     const reason = ruleFor(call, d);
@@ -196,12 +194,6 @@ export function denyReason(d) {
   return failed
     ? `strauss-kb reviewer gate: unvalidated-base — write nothing, report it, route to kb-fix.\n${failed}`
     : null;
-}
-
-/** `anchor-resolve --check` writes nothing, so it is a read.
- * @param {KbCall} call */
-function isCheckOnly(call) {
-  return call.verb === "anchor-resolve" && call.args.includes("--check");
 }
 
 /** @param {KbCall} call @param {Decision} d */
