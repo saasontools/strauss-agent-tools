@@ -1,0 +1,20 @@
+{
+  "gate": {},
+  "reviewers": {
+    "correctness": {
+      "tags": ["review:correctness"],
+      "mayBlock": true
+    },
+    "security": {
+      "tags": ["review:security"],
+      "mayBlock": true
+    },
+    "prose": {
+      "tags": ["review:docs"]
+    },
+    "performance": {
+      "tags": ["review:performance"],
+      "mayBlock": true
+    }
+  }
+}

@@ -23,7 +23,7 @@ import { dirname, join } from "node:path";
 
 /**
  * @typedef {{ base: string | null, digest: string | null, stamp: string | null,
- *   blocked: number }} State
+ *   blocked: number, loaded?: boolean }} State
  */
 
 /** @param {string} sessionId */
@@ -41,9 +41,10 @@ export function readState(path) {
       digest: typeof parsed?.digest === "string" ? parsed.digest : null,
       stamp: typeof parsed?.stamp === "string" ? parsed.stamp : null,
       blocked: Number.isInteger(parsed?.blocked) ? parsed.blocked : 0,
+      loaded: parsed?.loaded === true,
     };
   } catch {
-    return { base: null, digest: null, stamp: null, blocked: 0 };
+    return { base: null, digest: null, stamp: null, blocked: 0, loaded: false };
   }
 }
 
