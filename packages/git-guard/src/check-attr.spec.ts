@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -132,4 +133,37 @@ describe("checkAttr", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("any attribute set in info/attributes unpins, macro or not", async () => {
+    const file = join(repo.root, ".git/info/attributes");
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, "# a comment\n*.png binary\n");
+    try {
+      const { local } = await checkAttr(repo.root, base, ["src/y.ts"], ATTRS);
+      expect(local).toBe(true);
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+
+  test.skipIf(process.platform === "win32")(
+    "a FIFO at info/attributes neither blocks nor pins",
+    async () => {
+      const file = join(repo.root, ".git/info/attributes");
+      mkdirSync(dirname(file), { recursive: true });
+      execFileSync("mkfifo", [file]);
+      try {
+        const { pinned, local } = await checkAttr(
+          repo.root,
+          base,
+          ["src/y.ts"],
+          ATTRS,
+        );
+        expect({ pinned, local }).toEqual({ pinned: false, local: true });
+      } finally {
+        rmSync(file, { force: true });
+      }
+    },
+    5_000,
+  );
 });

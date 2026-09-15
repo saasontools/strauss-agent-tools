@@ -58,9 +58,14 @@ function innermost(declarations: readonly Declaration[], span: Span) {
   return best?.name ?? null;
 }
 
-/** Blank lines at a hunk's edges belong to no declaration. */
+/**
+ * Blank lines at a hunk's edges belong to no declaration. A pure deletion —
+ * kept lines, none of them — sits between its line and the next, so both
+ * must be inside the declaration that takes it.
+ */
 function trimmed(hunk: DiffHunk): Span {
   const { startLine, endLine, lines } = hunk;
+  if (lines?.length === 0) return { startLine, endLine: startLine + 1 };
   if (!lines || lines.length !== endLine - startLine + 1) {
     return { startLine, endLine };
   }

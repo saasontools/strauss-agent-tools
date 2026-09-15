@@ -474,10 +474,10 @@ class attribute. Anything left is `source`.
 | `strauss-class=test\|ci\|config\|lockfile\|source` | that class  |
 
 Attributes are read at the base, so a change cannot reclassify its own files.
-With no base, one git cannot read attributes at — a rev it lacks, git before
-2.40 — or a class attribute in the clone's `.git/info/attributes`, only
-`strauss-class=source` applies, the table is off, and a `note:` line says so.
-The global and system attribute files are never read.
+With no base, or one git cannot read attributes at — a rev it lacks, git before
+2.40 — only `strauss-class=source` applies, the table is off, and a `note:`
+line says so. Any attribute the clone's `.git/info/attributes` sets makes every
+file `source`; the global and system attribute files are never read.
 [code-diff's README](https://github.com/saasontools/strauss-agent-tools/tree/main/packages/code-diff#starter-gitattributes)
 has a starter block to paste.
 

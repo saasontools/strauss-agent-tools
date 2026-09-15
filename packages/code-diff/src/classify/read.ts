@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { constants } from "node:fs";
 import { open, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
-import { filePathIsSafe } from "@saasontools/git-guard";
+import { filePathIsSafe, localRevShapeIsSafe } from "@saasontools/git-guard";
 import type { DiffFile } from "../model.js";
 import { toplevel } from "../repo/head.js";
 import { readAttributes, type Attributes } from "./attributes.js";
@@ -39,6 +39,17 @@ export async function classifyFiles(
     ),
   ]);
   const notes = files.length ? notesFor(attributes, base) : [];
+  // A local attributes file can unset even a base pin: nothing lowers.
+  if (attributes.local) {
+    return {
+      files: files.map((file) => ({
+        filePath: file.filePath,
+        ...SOURCE,
+        ...(file.renamedFrom ? { renamedFrom: file.renamedFrom } : {}),
+      })),
+      ...(notes.length ? { notes } : {}),
+    };
+  }
   return {
     files: classifyDiff(withHeaders, {
       ...(declared ? { declared } : {}),
@@ -54,21 +65,25 @@ function notesFor(attributes: Attributes, base: string | null): string[] {
   const fallback =
     "only strauss-class=source applies, and the default path table is off";
   if (base === null) return [`no base was given: ${fallback}`];
+  // A base is echoed only in a shape git could have taken.
+  const at = localRevShapeIsSafe(base) ? base : "the given base";
   if (attributes.local) {
     return [
-      `this clone's .git/info/attributes names a class attribute: ${fallback}`,
+      "this clone's .git/info/attributes sets attributes: every file is source",
     ];
   }
   if (!attributes.pinned) {
-    return [`.gitattributes could not be read at ${base}: ${fallback}`];
+    return [`.gitattributes could not be read at ${at}: ${fallback}`];
   }
   if (attributes.probeFailed) {
     return [
-      `could not read .gitattributes at ${base} to find declared classes: the default path table is off`,
+      `could not read .gitattributes at ${at} to find declared classes: the default path table is off`,
     ];
   }
   return [];
 }
+
+const SOURCE = { class: "source", reason: "default" } as const;
 
 /** More than the banner window can need, and less than a lockfile costs. */
 const HEADER_BYTES = 65_536;

@@ -79,6 +79,20 @@ describe("changedSymbols from declarations", () => {
     expect(hit?.symbol).toBe("ReportBuilder.fromCharge");
   });
 
+  test("a pure deletion is taken only by a declaration around both sides of the cut", () => {
+    const [afterBrace, afterClass] = changedSymbols(
+      file([
+        // Lines removed after line 22, findMany's closing brace.
+        { startLine: 22, endLine: 22, lines: [] },
+        // Lines removed after line 23, TenantService's closing brace.
+        { startLine: 23, endLine: 23, lines: [] },
+      ]),
+      TENANT,
+    );
+    expect(afterBrace?.symbol).toBe("TenantService");
+    expect(afterClass?.symbol).toBeNull();
+  });
+
   test("old-side hunks name nothing: the declarations are the new tree's", () => {
     expect(
       changedSymbols(

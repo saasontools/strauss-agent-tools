@@ -89,7 +89,8 @@ describe("readAttributes", () => {
   test("the clone's info/attributes lowers nothing, and the note says why", async () => {
     const file = join(repo.root, ".git/info/attributes");
     mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, "* linguist-generated\n");
+    // An unset lowers as surely as a named class: it can drop a base pin.
+    writeFileSync(file, "* !strauss-class\n");
     try {
       const attributes = await readAttributes(repo.root, base, PATHS);
       expect(attributes).toMatchObject({
@@ -101,7 +102,13 @@ describe("readAttributes", () => {
       const result = await classifyFiles(
         repo.root,
         [{ filePath: "src/x.ts", hunks: [] }],
-        { base },
+        {
+          base,
+          declared: {
+            file: () => ({ class: "generated", reason: "kb-override fact.x" }),
+            hunk: () => undefined,
+          },
+        },
       );
       expect(result.files[0]?.class).toBe("source");
       expect(result.notes?.[0]).toMatch(/\.git\/info\/attributes/);
@@ -264,6 +271,15 @@ describe("classifyFiles", () => {
     expect(result.notes).toEqual([
       "no base was given: only strauss-class=source applies, and the default path table is off",
     ]);
+  });
+
+  test("a base in an unsafe shape is never echoed", async () => {
+    const result = await classifyFiles(repo.root, files, {
+      base: "--output=/tmp/x",
+    });
+    expect(result.notes?.[0]).toMatch(
+      /^\.gitattributes could not be read at the given base:/,
+    );
   });
 
   test("a base git cannot read is named in the note", async () => {
