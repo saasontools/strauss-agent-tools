@@ -40,7 +40,7 @@
     {
       "id": 6,
       "name": "merge-policy-file",
-      "prompt": "what goes in .strauss/merge-policy.yaml, and does a change to it on my own branch take effect for that branch's own check?",
+      "prompt": "what goes in .strauss/merge-policy.json, and does a change to it on my own branch take effect for that branch's own check?",
       "expected_trigger": true,
       "why": "The policy schema and the base-rev read."
     },

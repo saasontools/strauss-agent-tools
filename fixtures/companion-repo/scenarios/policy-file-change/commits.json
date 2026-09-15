@@ -1,6 +1,6 @@
 [
   {
     "message": "chore(policy): exclude docs from review",
-    "files": [".strauss/merge-policy.yaml"]
+    "files": [".strauss/merge-policy.json"]
   }
 ]
