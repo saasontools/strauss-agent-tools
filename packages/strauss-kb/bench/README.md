@@ -1,0 +1,150 @@
+# Standing-fields control-arm benchmark
+
+Does a machine-readable standing field change what an agent does, or would an
+untyped note plus a "some of this is stale" warning get to the same place?
+
+Research code: never imported from `src/`, no `tsup.config.ts` entry, outside
+the `files` list that builds the published tarball.
+
+## The four arms
+
+Every arm renders the same records in the same order under the same system
+prompt. Only the header fields differ.
+
+| Arm | Condition                                                                 |
+| --- | ------------------------------------------------------------------------- |
+| A   | Standing fields, supersession links, superseded bodies stubbed            |
+| B   | Standing stripped, plus "some of these are stale or reversed. Be careful" |
+| C   | Standing stripped, no instruction                                         |
+| D   | Standing fields kept, supersession links removed                          |
+
+The transforms are pure functions in `src/arms.ts`, asserted deterministic in
+`src/arms.spec.ts`.
+
+## The questions
+
+Thirty-one, in `src/tasks.ts`, cut two ways. **By what they probe:**
+
+- **current-state** (8) -- acting on the superseded record is the failure
+  standing claims to prevent.
+- **rejected-alternative** (8) -- answered from a standing record's
+  `## Rejected`. Standing should not help here: this family is the floor
+  showing the arms are otherwise comparable.
+- **open-question** (7) -- five must be refused, two settled controls must not
+  be, so refusing everything cannot win.
+- **aggregation** (8) -- counting or listing across the bundle.
+
+**By comparability across arms** (`TaskFamily` in `src/model.ts`): **core**
+(26) feed the headline A-B comparison, **standing-only** (5) get their own row.
+
+### Rubric audit, after the 2026-09-03 run
+
+Every miss in that run, classified from the answers in the result JSON. Only
+the first four rows changed anything; the rest are the models' own errors, or
+the deletion the arm is there to measure.
+
+| question                                                           | classification                                                                                                                                     | change                                                                                                  |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `ag-open-question-count`                                           | fixture defect -- "questions rather than statements of what was settled" conflated the record type with its standing, and drew 5, 6 and 7          | split: this one counts the type, the new `ag-unresolved-question-count` counts what is still unanswered |
+| `ag-superseded-ids`                                                | rubric too strict -- the standing instruction says `concept_ids` are the notes the answer rests on, so the controls cited both halves of each pair | the question now pins `concept_ids` to the stale ids alone                                              |
+| `ag-blocking-ids`                                                  | same conflict                                                                                                                                      | same fix                                                                                                |
+| `ag-aws-services`                                                  | question ambiguity -- correct lists were marked not actionable because the notes name no service for Postgres or Redis                             | the question now says to ignore what the notes do not name                                              |
+| `ag-decision-count`, `ag-standing-decision-count`, `ag-risk-count` | model error -- each miss listed the right ids and then reported a count one off, or dropped a record from the list                                 | none                                                                                                    |
+| `cs-payload-cap`, `cs-access-tokens`, `cs-tenant-isolation`        | the effect under test -- hedging between the stale and current record, or answering from the stale one, only with standing stripped                | none                                                                                                    |
+
+The 3-repeat run that followed these fixes is read in
+`results/full-claude-x3-2026-09-05-analysis.md`; `ag-aws-services` is the one
+row the rewording did not rescue.
+
+## The rubric is code, not a judge
+
+Each call is forced to return `{answer, value, actionable, concept_ids}`,
+scored structurally in `src/rubric.ts`. An LLM judge would be a fifth condition
+in a four-condition experiment.
+
+## What gets reported
+
+Per-arm accuracy, and **paired A-minus-X differences with bootstrap intervals**
+(`src/stats.ts`). The paired interval is the headline: resampling _questions_
+cancels the between-question difficulty that dominates a thirty-item set, so it
+can exclude zero while per-arm intervals overlap. Both bootstraps are seeded.
+Calls the transport could not complete get their own count.
+
+## Repeats
+
+`--repeats=N` asks every (arm, model, question) cell N times, each repeat
+recorded with its own seed. A cell scores the **mean** of its repeats, and the
+bootstrap still resamples questions, so intervals tighten with N without three
+answers to one question counting as three questions. Neither the API nor the
+CLI takes a sampling seed, so the seed labels the repeat rather than pinning
+the model's draw.
+
+The report then carries a **stability** column -- the fraction of repeats that
+agreed, per arm -- and lists every cell whose repeats disagreed. A question at
+50% stability is noise; a question wrong three times out of three is a finding.
+
+## The bundle is a fixture
+
+The issue named `blogs/okf-strauss-kb/.kb`, absent here, as is any other `.kb`
+or `.strauss/kb` directory. So `bench/bundle/` is a synthesized
+51-record bundle about a fictional multi-tenant scheduling platform: eight
+supersession chains (one three links long), 24 decision records carrying
+`## Rejected` of which 16 are standing, five open questions plus one resolved
+control, and enough other records to give the aggregation questions an answer.
+
+### The invariants
+
+A record narrating its own history leaks standing into arms B and C in prose,
+so `src/bundle.spec.ts` asserts three checks against `src/chains.ts`: no
+narration phrase in any body, no replacement naming what it replaced, and every
+`staleTokens` entry really present in the record it came from. Nor does an id
+encode an ordinal -- `decision.queue-backend` is replaced by
+`decision.jetstream-queue-backend`, not `-v2`.
+
+The same suite recomputes each aggregation count and id set from the bundle
+rather than transcribing it, so a new record fails until the ground truth
+follows.
+
+## Caching
+
+The bundle gets its own user content block carrying the `cache_control`
+breakpoint; question and answer instructions follow, uncached. The
+~60-token system prompt is under every model's `minCacheableTokens`
+(`src/models.ts`), so a breakpoint there would silently cache nothing. Jobs run
+arm-major, so an arm's thirty questions hit a warm prefix.
+
+`src/models.ts` prices the three input classes separately; only the uncached
+figure is a bound.
+
+## Running it
+
+The dry run needs no credentials and no network; `pnpm test` includes it:
+
+```bash
+cd packages/strauss-kb
+pnpm exec vitest run bench       # the bench suite alone
+pnpm bench -- --help             # every flag
+pnpm bench -- --full --estimate  # price it before spending
+pnpm bench                       # smoke: arms A+B, 4 questions, Sonnet 5
+pnpm bench -- --full             # 31 questions x 4 arms x 2 models
+pnpm bench -- --full --repeats=3 # the same matrix, three times per cell
+```
+
+A real run needs `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`. Unknown arms,
+models, and out-of-range numbers are rejected before any call. Results land in
+`results/`, described in `results/README.md`.
+
+### Running on a Claude Code subscription
+
+`--transport=claude` sends each cell through the local `claude` CLI on its own
+login, no API key, spending quota rather than dollars; the reported bill is list
+price for the same tokens. Claude Code adds ~900 tokens of scaffolding per call,
+so it is a second condition, not a cheaper API. `MAX_THINKING_TOKENS=0` turns
+thinking off -- `--effort low` alone does not -- and the run records the total.
+
+The two transports place the bundle differently -- a cached user block on the
+API, a `--system-prompt-file` on the CLI -- so cells are comparable within a
+transport, never across the two. The CLI has no max-tokens flag either, so
+output is uncapped there and those cells record `maxTokens: null`. POSIX only:
+on Windows the binary is `claude.cmd`, which will not spawn without a shell, and
+preflight says so rather than erroring 248 cells.
