@@ -28,6 +28,12 @@ verified:
       (kb-errors.ts:78-92) carries excluded in details. cli.spec.ts:463-537 pins
       the packed: line, byte-identical body after it, and the thrown error name
       plus details.excluded.
+  - by: unknown
+    at: "2026-09-15T07:46:42.289Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T07:48:16.097Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/pack.ts
     symbol: render

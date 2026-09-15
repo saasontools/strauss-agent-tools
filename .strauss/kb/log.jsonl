@@ -18,3 +18,15 @@
 {"at":"2026-09-15T07:45:35.078Z","by":"agent:author","operation":"write","conceptId":"test-obligation.kb-companion-tracked"}
 {"at":"2026-09-15T07:45:57.386Z","by":"agent:author","operation":"verify","conceptId":"decision.kb-edges-fold-related-into-body-link"}
 {"at":"2026-09-15T07:46:30.000Z","by":"agent:author","operation":"write","conceptId":"decision.root-devdep-strauss-kb-for-hooks"}
+{"at":"2026-09-15T07:46:41.940Z","by":"unknown","operation":"verify","conceptId":"decision.kb-edges-fold-related-into-body-link"}
+{"at":"2026-09-15T07:46:42.306Z","by":"unknown","operation":"verify","conceptId":"decision.pack-command-markdown-header-and-error-surfacing"}
+{"at":"2026-09-15T07:46:42.573Z","by":"unknown","operation":"verify","conceptId":"decision.pack-full-walk-named-exclusions-shared-stub-cost"}
+{"at":"2026-09-15T07:46:42.714Z","by":"unknown","operation":"anchor-resolve","conceptId":"decision.root-devdep-strauss-kb-for-hooks"}
+{"at":"2026-09-15T07:46:42.935Z","by":"unknown","operation":"verify","conceptId":"risk.edge-kind-enumeration-stale"}
+{"at":"2026-09-15T07:46:43.076Z","by":"unknown","operation":"anchor-resolve","conceptId":"test-obligation.kb-companion-tracked"}
+{"at":"2026-09-15T07:48:15.820Z","by":"unknown","operation":"verify","conceptId":"decision.kb-edges-fold-related-into-body-link"}
+{"at":"2026-09-15T07:48:16.103Z","by":"unknown","operation":"verify","conceptId":"decision.pack-command-markdown-header-and-error-surfacing"}
+{"at":"2026-09-15T07:48:16.388Z","by":"unknown","operation":"verify","conceptId":"decision.pack-full-walk-named-exclusions-shared-stub-cost"}
+{"at":"2026-09-15T07:48:16.534Z","by":"unknown","operation":"verify","conceptId":"decision.root-devdep-strauss-kb-for-hooks"}
+{"at":"2026-09-15T07:48:16.809Z","by":"unknown","operation":"verify","conceptId":"risk.edge-kind-enumeration-stale"}
+{"at":"2026-09-15T07:48:16.978Z","by":"unknown","operation":"verify","conceptId":"test-obligation.kb-companion-tracked"}

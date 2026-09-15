@@ -34,6 +34,12 @@ verified:
       pack.ts:18 imports
       stub/estimateTokens/estimateStubTokens/DEFAULT_LOAD_BUDGET from kb-store:
       cycle present, call-time only. KbPackResult carries no timestamp.
+  - by: unknown
+    at: "2026-09-15T07:46:42.567Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T07:48:16.382Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/pack.ts
     symbol: pack
