@@ -20,6 +20,7 @@ import {
   MAX_LINES,
   prRepo,
   report,
+  VERDICT_MARKER,
 } from "./lib/report.mjs";
 import { result } from "./lib/render.mjs";
 
@@ -266,6 +267,11 @@ test("the docs-only report is one capped block behind a stable marker", () => {
 **Not checked**
 - reviewer: no --reviewer output
 - approvals: no --approvals dump
+
+${VERDICT_MARKER}
+\`\`\`json
+{"mode":"enforce","route":"auto","rule":"auto-mechanical","classes":{"docs":1},"policyHash":"sha256:abc","headSha":"d1135cbf7b0cbbeecece9700f4bff6910590084b"}
+\`\`\`
 `,
   );
 });
@@ -346,6 +352,11 @@ test("the block stays inside its line cap however loud the range is", () => {
   );
   assert.ok(block.trimEnd().split("\n").length <= MAX_LINES, block);
   assert.match(block, /and 52 more\./);
+  // The rows are what gets trimmed; the fenced verdict outlives them.
+  const at = block.indexOf(VERDICT_MARKER);
+  assert.ok(at >= 0, block);
+  const fence = /```json\n(.*)\n```/.exec(block.slice(at));
+  assert.equal(JSON.parse(fence?.[1] ?? "").route, "human");
 });
 
 test("a cell is one line, and a pipe in it never opens a column", () => {

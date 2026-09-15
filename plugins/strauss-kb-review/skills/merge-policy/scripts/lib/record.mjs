@@ -13,8 +13,9 @@ import { asString, oneLine } from "../../../../hooks/scripts/lib/util.mjs";
 /** Who this record is written as. Never a human: the route is not a read. */
 export const ACTOR = "agent:merge-policy";
 
-/** The routes that merge without a human, and so owe a trail. */
-const UNATTENDED = ["auto", "agent-review-then-auto"];
+/** The routes that merge without a human: they owe a trail, and they are what
+ * calibration measures a false-auto rate over. */
+export const UNATTENDED = ["auto", "agent-review-then-auto"];
 
 /** One write, so its budget is a kb verb's rather than the gate's. */
 const WRITE_TIMEOUT_MS = 30_000;
@@ -220,7 +221,7 @@ function sendWrite(kb, input) {
  * route under `--enforce` earns one: a dry run, a `dry-run` policy and a human
  * route leave the body in the JSON and touch nothing.
  * @param {{ kb: Launcher, body: ReturnType<typeof buildRecord>, route: string,
- *   enforcing: boolean, enabled?: string }} how
+ *   enforcing: boolean, enabled?: string, mode?: string }} how
  * @param {Hooks} [hooks]
  * @returns {{ written: boolean, why: string, conceptId: string | null,
  *   action?: string, supersededIds?: string[] }}
@@ -233,13 +234,19 @@ export function writeRecord(how, hooks = {}) {
       conceptId: null,
     };
   }
-  if (!UNATTENDED.includes(how.route) || how.enabled === "dry-run") {
+  if (
+    !UNATTENDED.includes(how.route) ||
+    how.enabled === "dry-run" ||
+    how.mode === "dry-run"
+  ) {
     return {
       written: false,
       why:
         how.enabled === "dry-run"
           ? "policy is enabled: dry-run, so the route is reported and nothing lands"
-          : `route is ${how.route}, which a human signs off; nothing to record`,
+          : how.mode === "dry-run"
+            ? "--dry-run, so the route is reported and nothing lands"
+            : `route is ${how.route}, which a human signs off; nothing to record`,
       conceptId: null,
     };
   }

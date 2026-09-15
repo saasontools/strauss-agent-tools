@@ -61,11 +61,7 @@ function route(repo, args, extra) {
       cwd: repo,
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
-      env: {
-        ...process.env,
-        STRAUSS_KB_BIN: KB_CLI,
-        ...extra,
-      },
+      env: { ...process.env, STRAUSS_KB_BIN: KB_CLI, ...extra },
     });
     return { status: 0, model: JSON.parse(stdout), stderr: "" };
   } catch (error) {
@@ -530,6 +526,15 @@ test("--report-out writes the sticky block, and --summary appends the same one",
   assert.ok(readFileSync(summary, "utf8").includes(block), "summary differs");
 });
 
+/** The fenced verdict out of one sticky comment. @param {string} block */
+function verdictOf(block) {
+  const at = block.indexOf("<!-- strauss-kb merge-policy:verdict -->");
+  assert.ok(at >= 0, block);
+  const fence = /```json\n(.*)\n```/.exec(block.slice(at));
+  assert.ok(fence, block);
+  return JSON.parse(fence[1] ?? "");
+}
+
 test("a report with nowhere to go is a usage error, never a silent no-op", () => {
   const repo = materialize("docs-only");
   const base = ["--range", "main..docs-only", "--repo-root", repo, "--json"];
@@ -548,7 +553,7 @@ test("a report with nowhere to go is a usage error, never a silent no-op", () =>
   assert.ok(!existsSync(out));
 });
 
-test("a dry-run policy routes and writes nothing", () => {
+test("a dry-run policy reports `would` and writes no record", () => {
   const { repo } = ownedRepo({
     // Default deny: the docs class is auto only because this policy names it.
     policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
@@ -568,13 +573,249 @@ test("a dry-run policy routes and writes nothing", () => {
     '{"findings":[]}',
   ]);
 
-  assert.equal(model.route, "auto", model.reason);
+  assert.equal(model.mode, "dry-run");
+  // Blind by default, so the caller's JSON is withheld too.
+  assert.equal(model.would, "<withheld>");
+  assert.equal(model.withheld, true);
+  assert.equal(model.route, undefined);
   assert.equal(status, 0);
   // The config branch keeps strings: a boolean here is a regression.
   assert.strictEqual(model.policy.enabled, "dry-run");
   assert.equal(model.wrote.written, false);
   assert.match(model.wrote.why, /dry-run/);
   assert.ok(!existsSync(join(repo, ".strauss", "kb")));
+});
+
+test("--dry-run overrides an enabled policy, and never fails the build", () => {
+  const repo = materialize("blocking-risk");
+  const { status, model } = route(repo, [
+    "--range",
+    "main..blocking-risk",
+    "--repo-root",
+    repo,
+    "--json",
+    "--enforce",
+    "--write-record",
+    "--dry-run",
+  ]);
+
+  assert.equal(status, 0);
+  assert.equal(model.mode, "dry-run");
+  assert.equal(model.would, "<withheld>");
+  assert.equal(model.enforce.exit, 0);
+  assert.match(model.enforce.why, /dry run/);
+  assert.equal(model.wrote.written, false);
+  assert.match(model.wrote.why, /--dry-run/);
+});
+
+test("docs-only under a dry run would auto, and writes the would block", () => {
+  const repo = materialize("docs-only");
+  const out = join(repo, "report.md");
+  const { model } = route(repo, [
+    "--range",
+    "main..docs-only",
+    "--repo-root",
+    repo,
+    "--json",
+    "--dry-run",
+    "--visible",
+    "--report-out",
+    out,
+  ]);
+
+  assert.equal(model.mode, "dry-run");
+  assert.equal(model.would, "auto", model.reason);
+  assert.equal(model.rule, "auto-mechanical");
+
+  const block = readFileSync(out, "utf8");
+  assert.ok(block.startsWith("<!-- strauss-kb merge-policy -->\n"), block);
+  assert.match(block, /### Merge policy \(dry run\): would auto/);
+  assert.match(block, /\| would \| `auto` via `auto-mechanical` \|/);
+
+  // The fenced verdict is what `--calibrate` reads back off the PR.
+  assert.deepEqual(verdictOf(block), {
+    mode: "dry-run",
+    would: "auto",
+    rule: "auto-mechanical",
+    classes: { docs: 1 },
+    policyHash: model.policy.hash,
+    headSha: model.headSha,
+  });
+});
+
+test("blind holds the block back until the head has been reviewed", () => {
+  const { repo, sha } = ownedRepo({
+    policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
+    change: ["docs/guide.md", "# guide\n"],
+  });
+  const out = join(repo, "report.md");
+  /** @param {string[]} extra */
+  const run = (extra) =>
+    route(repo, [
+      "--range",
+      "main..topic",
+      "--repo-root",
+      repo,
+      "--json",
+      "--gate",
+      '{"findings":[]}',
+      "--report-out",
+      out,
+      ...extra,
+    ]);
+
+  const held = run([]);
+  assert.equal(held.model.signals.withheld, true);
+  const placeholder = readFileSync(out, "utf8");
+  assert.ok(placeholder.startsWith("<!-- strauss-kb merge-policy -->\n"));
+  assert.match(
+    placeholder,
+    new RegExp(
+      `verdict is withheld until the first human review on \`${sha}\``,
+    ),
+  );
+  assert.ok(!placeholder.includes("auto-mechanical"), placeholder);
+  // The fence a calibration read parses names no route while it is withheld.
+  assert.equal(verdictOf(placeholder).would, undefined);
+  assert.equal(verdictOf(placeholder).withheld, true);
+
+  // A comment on the head commit is a read, and the verdict lands.
+  const approvals = join(repo, "approvals.json");
+  writeFileSync(
+    approvals,
+    JSON.stringify([{ user: "eve", state: "COMMENTED", commit_id: sha }]),
+  );
+  const released = run(["--approvals", approvals]);
+  assert.equal(released.model.signals.withheld, false);
+  const shown = readFileSync(out, "utf8");
+  assert.match(shown, /### Merge policy \(dry run\): would auto/);
+  assert.equal(verdictOf(shown).would, "auto");
+});
+
+test("a label and a 👎 are each a disagreement on the block", () => {
+  const { repo } = ownedRepo({
+    policy: { enabled: "dry-run", auto: { classes: ["docs"] } },
+    change: ["docs/guide.md", "# guide\n"],
+  });
+  /** @param {string[]} extra */
+  const run = (extra) =>
+    route(repo, [
+      "--range",
+      "main..topic",
+      "--repo-root",
+      repo,
+      "--json",
+      "--visible",
+      "--gate",
+      '{"findings":[]}',
+      ...extra,
+    ]);
+
+  const quiet = run(["--labels", '[{"name":"chore"}]']);
+  assert.equal(quiet.model.signals.disagreement, false);
+
+  const labelled = run(["--labels", '[{"name":"policy:would-not-auto"}]']);
+  assert.equal(labelled.model.signals.disagreement, true);
+
+  const reacted = run(["--reactions", '[{"content":"-1","user":"dana"}]']);
+  assert.equal(reacted.model.signals.disagreement, true);
+  assert.deepEqual(reacted.model.signals.signals, ["reaction:-1 by dana"]);
+});
+
+test("--calibrate reports the false-auto rate over blocks this step wrote", () => {
+  const { repo } = ownedRepo({
+    policy: {
+      enabled: "dry-run",
+      auto: { classes: ["docs"] },
+      calibration: { window: 2, maxFalseAuto: 0 },
+    },
+    change: ["docs/guide.md", "# guide\n"],
+  });
+  /** One PR's sticky comment, as a CI step would have upserted it.
+   * @param {number} number @param {string[]} labels */
+  const pr = (number, labels) => {
+    const out = join(repo, `report-${number}.md`);
+    route(repo, [
+      "--range",
+      "main..topic",
+      "--repo-root",
+      repo,
+      "--json",
+      "--visible",
+      "--gate",
+      '{"findings":[]}',
+      "--pr",
+      String(number),
+      "--report-out",
+      out,
+    ]);
+    return {
+      number,
+      labels: labels.map((name) => ({ name })),
+      comments: [
+        {
+          author: { login: "github-actions[bot]" },
+          body: readFileSync(out, "utf8"),
+          reactionGroups: [],
+        },
+      ],
+    };
+  };
+
+  const dump = join(repo, "prs.json");
+  writeFileSync(
+    dump,
+    JSON.stringify([pr(1, []), pr(2, ["policy:would-not-auto"])]),
+  );
+  const { model } = route(repo, [
+    "--calibrate",
+    dump,
+    "--repo-root",
+    repo,
+    "--json",
+  ]);
+
+  assert.equal(model.prs, 2);
+  assert.equal(model.verdicts, 2);
+  assert.equal(model.noComment, 0);
+  assert.deepEqual(model.thresholds, { window: 2, maxFalseAuto: 0 });
+  assert.equal(model.groups.length, 1);
+  // The blocks were written under the policy at HEAD, so the group is current.
+  assert.equal(model.groups[0].policyHash, model.policyHash);
+  assert.equal(model.groups[0].current, true);
+  const [auto] = model.groups[0].routes;
+  assert.equal(auto.would, "auto");
+  assert.equal(auto.n, 2);
+  assert.equal(auto.disagreed, 1);
+  assert.deepEqual(
+    auto.byClass.map((/** @type {any} */ row) => [row.name, row.n, row.rate]),
+    [["docs", 2, 0.5]],
+  );
+  assert.deepEqual(
+    auto.byRule.map((/** @type {any} */ row) => [row.name, row.n]),
+    [["auto-mechanical", 2]],
+  );
+  // Half the window disagreed, so the class is not ready to be flipped.
+  assert.equal(auto.byClass[0].ready, false);
+});
+
+test("the dry run's own flags are checked before anything is read", () => {
+  const { repo } = ownedRepo();
+  const base = ["--range", "main..topic", "--repo-root", repo, "--json"];
+  /** @param {string[]} extra */
+  const bad = (extra) => route(repo, [...base, ...extra]);
+
+  assert.match(bad(["--blind", "--visible"]).stderr, /--blind and --visible/);
+  for (const [why, extra] of /** @type {[string, string[]][]} */ ([
+    ["opposite instructions", ["--blind", "--visible"]],
+    // A dump read as empty would say nobody disagreed, which flatters the route.
+    ["a labels dump that is an object", ["--labels", "{}"]],
+    ["a reactions dump that is an object", ["--reactions", '{"content":"-1"}']],
+    ["a calibration dump that is not an array", ["--calibrate", "{}"]],
+    ["a calibration dump that is not there", ["--calibrate", "nope.json"]],
+  ])) {
+    assert.equal(bad(extra).status, 2, why);
+  }
 });
 
 test("a --pr-url that is not a github pull request is a usage error", () => {

@@ -9,6 +9,9 @@ import { oneLine } from "../../../../hooks/scripts/lib/util.mjs";
 /** What a CI step matches on to find its own comment. Never change it. */
 export const MARKER = "<!-- strauss-kb merge-policy -->";
 
+/** The fence `--calibrate` parses the verdict back out of. Never change it. */
+export const VERDICT_MARKER = "<!-- strauss-kb merge-policy:verdict -->";
+
 /** A sticky comment a person scrolls past is not read. */
 export const MAX_LINES = 40;
 
@@ -63,13 +66,17 @@ export function bundleHref(dir) {
 export function report(model) {
   const bundle = bundleHref(model.bundle);
   const link = bundle ? prRepo(model.prUrl) : null;
+  const dry = model.mode === "dry-run";
+  const route = dry ? model.would : model.route;
   const lines = [
     MARKER,
-    `### Merge policy: ${model.route}`,
+    dry
+      ? `### Merge policy (dry run): would ${route}`
+      : `### Merge policy: ${route}`,
     "",
     "| | |",
     "| --- | --- |",
-    `| route | \`${model.route}\` via \`${model.rule}\` |`,
+    `| ${dry ? "would" : "route"} | \`${route}\` via \`${model.rule}\` |`,
     `| why | ${cell(model.reason)} |`,
     `| policy | ${policy(model)} |`,
     `| head | \`${cell(model.headSha)}\` |`,
@@ -83,13 +90,75 @@ export function report(model) {
           `| record | ${model.wrote.written ? `\`${cell(model.wrote.conceptId)}\`` : `not written — ${cell(model.wrote.why)}`} |`,
         ]
       : []),
+    ...(model.signals?.disagreement
+      ? [`| disagreement | ${cell(model.signals.signals.join(", "))} |`]
+      : []),
     "",
     ...records(model, link, bundle),
     "",
     ...facts(model),
     ...notChecked(model),
   ];
-  return `${trim(lines).join("\n")}\n`;
+  const verdict = verdictBlock(model);
+  return `${[...trim(lines, MAX_LINES - verdict.length), ...verdict].join("\n")}\n`;
+}
+
+/**
+ * The machine-readable copy of the verdict a `--calibrate` read parses back
+ * out. A withheld run names no route here either.
+ * @param {any} model @returns {string[]}
+ */
+function verdictBlock(model) {
+  const dry = model.mode === "dry-run";
+  const body = model.signals?.withheld
+    ? { mode: model.mode, withheld: true }
+    : {
+        mode: model.mode,
+        ...(dry ? { would: model.would } : { route: model.route }),
+        rule: model.rule,
+        classes: classCounts(model.classifier),
+      };
+  return [
+    "",
+    VERDICT_MARKER,
+    "```json",
+    JSON.stringify({
+      ...body,
+      policyHash: model.policy.hash,
+      headSha: model.headSha,
+    }),
+    "```",
+  ];
+}
+
+/** How many changed files of each class. @param {Record<string, unknown>} classifier */
+export function classCounts(classifier) {
+  /** @type {Record<string, number>} */
+  const counts = {};
+  for (const name of Object.values(classifier ?? {})) {
+    counts[String(name)] = (counts[String(name)] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * The block a blind dry run posts instead of its answer: the same marker, so
+ * the sticky comment this run owns is the one the verdict later replaces.
+ * @param {any} model @returns {string}
+ */
+export function placeholder(model) {
+  return `${[
+    MARKER,
+    "### Merge policy (dry run): verdict withheld",
+    "",
+    `The check ran. Its verdict is withheld until the first human review on \`${cell(model.headSha)}\`, so it cannot anchor the review it is being measured against.`,
+    "",
+    `| | |`,
+    "| --- | --- |",
+    `| policy | ${policy(model)} |`,
+    `| head | \`${cell(model.headSha)}\` |`,
+    ...verdictBlock(model),
+  ].join("\n")}\n`;
 }
 
 /** Which file decided this, at which version and digest. @param {any} model */
@@ -132,12 +201,7 @@ function records(model, link, bundle) {
 
 /** Classifier, gate and reviewer, one line each. @param {any} model */
 function facts(model) {
-  /** @type {Record<string, number>} */
-  const counts = {};
-  for (const name of Object.values(model.classifier)) {
-    counts[String(name)] = (counts[String(name)] ?? 0) + 1;
-  }
-  const classes = Object.entries(counts)
+  const classes = Object.entries(classCounts(model.classifier))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, count]) => `${name} ${count}`);
   const verdicts = Object.values(model.reviewer.verdicts).reduce(
@@ -188,9 +252,10 @@ export function cell(value) {
   return oneLine(value, 120).split("|").join("\\|");
 }
 
-/** The cap, applied last so the marker and the route always survive it.
- * @param {string[]} lines */
-function trim(lines) {
-  if (lines.length <= MAX_LINES) return lines;
-  return [...lines.slice(0, MAX_LINES - 1), "_…truncated_"];
+/** The cap, applied last so the marker and the route always survive it. The
+ * verdict block is appended after it, so its room is reserved here.
+ * @param {string[]} lines @param {number} cap */
+function trim(lines, cap) {
+  if (lines.length <= cap) return lines;
+  return [...lines.slice(0, cap - 1), "_…truncated_"];
 }

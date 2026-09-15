@@ -1,18 +1,37 @@
 // @ts-check
 /** The two shapes this step prints: the JSON a caller reads, and one table. */
 import { oneLine } from "../../../../hooks/scripts/lib/util.mjs";
+import { signals } from "./dry-run.mjs";
 import { buildRecord } from "./record.mjs";
 
 /** @typedef {import("./inputs.mjs").Input} Input */
+
+/** The route, whichever mode named it. @param {any} model */
+export function verdictOf(model) {
+  return model.route ?? model.would;
+}
 
 /**
  * @param {Input} input
  * @param {{ route: string, rule: string, reason: string }} decision
  * @param {{ exit: 0 | 1, why: string, approvedBy: string[] }} verdict
  * @param {{ enforcing: boolean, subject: string, pr: string | null,
- *   prUrl: string | null, bundleDir: string }} options
+ *   prUrl: string | null, bundleDir: string, mode?: "dry-run" | "enforce",
+ *   blind?: boolean, labels?: unknown, reactions?: unknown,
+ *   botLogins?: string[] }} options
  */
 export function result(input, decision, verdict, options) {
+  const mode = options.mode ?? "enforce";
+  const dry = mode === "dry-run";
+  // `enforce` reads the policy's own `enabled`; a `--dry-run` flag is the other
+  // way into the same mode, and a dry run never fails a build.
+  const said = dry
+    ? {
+        ...verdict,
+        exit: /** @type {0} */ (0),
+        why: "dry run: the route is advice",
+      }
+    : verdict;
   // Read `pending` first: touching the findings is what spawns the gate.
   const gate = input.gate.pending
     ? { blocks: [], warns: [] }
@@ -22,7 +41,19 @@ export function result(input, decision, verdict, options) {
       };
   const notes = notChecked(input);
   return {
-    route: decision.route,
+    mode,
+    // A dry run reports what it *would* have done; `route` is the verdict a
+    // run stands behind, so the two names never share a key.
+    ...(dry ? { would: decision.route } : { route: decision.route }),
+    signals: signals({
+      mode,
+      blind: options.blind === true,
+      headSha: input.headSha,
+      approvals: input.approvals,
+      labels: options.labels,
+      reactions: options.reactions,
+      botLogins: options.botLogins,
+    }),
     rule: decision.rule,
     reason: decision.reason,
     headSha: input.headSha,
@@ -55,10 +86,10 @@ export function result(input, decision, verdict, options) {
       enabled: input.policy.data.enabled,
     },
     enforce: options.enforcing
-      ? { exit: verdict.exit, why: verdict.why, approvedBy: verdict.approvedBy }
+      ? { exit: said.exit, why: said.why, approvedBy: said.approvedBy }
       : null,
     notChecked: notes,
-    record: buildRecord(input, decision, verdict, {
+    record: buildRecord(input, decision, said, {
       subject: options.subject,
       pr: options.pr,
       prUrl: options.prUrl,
@@ -102,9 +133,34 @@ function gateNotes(gate) {
   return notes;
 }
 
+/**
+ * The model a withheld run may show: the verdict is replaced rather than
+ * printed, so the blind holds for a log and an artifact as well as the block.
+ * @param {any} model
+ */
+export function redact(model) {
+  if (model?.signals?.withheld !== true) return model;
+  return { ...model, would: "<withheld>", withheld: true };
+}
+
 /** One line, then the records the route turned on. @param {any} model */
 export function render(model) {
-  const lines = [`route: ${model.route} (${model.rule})`, `  ${model.reason}`];
+  const dry = model.mode === "dry-run";
+  const signal = model.signals;
+  const lines = signal?.withheld
+    ? [
+        "dry run: would <withheld>",
+        `  withheld until the first human review on ${model.headSha}`,
+      ]
+    : [
+        dry
+          ? `dry run: would ${model.would} (${model.rule})`
+          : `route: ${model.route} (${model.rule})`,
+        `  ${model.reason}`,
+      ];
+  if (signal?.disagreement) {
+    lines.push(`  a human disagreed: ${signal.signals.join(", ")}`);
+  }
   if (model.records.length > 0) {
     lines.push(
       "",
