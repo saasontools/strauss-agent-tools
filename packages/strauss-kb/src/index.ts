@@ -173,7 +173,13 @@ export {
   type MatchOptions,
   type SymbolRangeIndex,
 } from "./match-diff.js";
-export type { DiffFile, DiffHunk, SymbolRange } from "@saasontools/code-diff";
+export type {
+  ChangedSymbol,
+  DiffFile,
+  DiffHunk,
+  SymbolRange,
+} from "@saasontools/code-diff";
+export { changedSymbolsIn } from "./changed-symbols.js";
 export type { KbMatch, KbMatchRecord } from "./commands/match/index.js";
 export {
   classifyDiff,

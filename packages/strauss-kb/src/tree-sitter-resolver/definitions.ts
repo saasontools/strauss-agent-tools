@@ -13,6 +13,8 @@ const SCOPE_ONLY = "reference.implementation";
 export type Definition = {
   node: Node;
   name: string;
+  /** The capture's suffix: `class`, `function`, `method`, `interface`, … */
+  kind: string;
   /** `false` for chain-only scopes such as a Rust `impl` block. */
   target: boolean;
 };
@@ -44,6 +46,7 @@ export function index(tree: Tree, query: Query): ParsedFile {
     const candidate: Definition = {
       node: defNode.node,
       name: nameNode.node.text,
+      kind: defNode.name.replace(/^definition\./, ""),
       target: defNode.name !== SCOPE_ONLY,
     };
     const existing = byName.get(nameNode.node.id);
@@ -137,6 +140,54 @@ function width(node: Node): number {
  * declaration: preceding decorators, and the `export` that fronts it.
  */
 export function spanOf(definition: Definition, source: string): ResolvedSymbol {
+  const { start, end } = spanNodes(definition);
+  const lines = source.split("\n");
+  const startLine = start.startPosition.row;
+  const endLine = lastRow(start, end);
+
+  return {
+    text: lines.slice(startLine, endLine + 1).join("\n"),
+    startLine: startLine + 1,
+    endLine: endLine + 1,
+  };
+}
+
+/** Kinds a changed hunk is named by. */
+export const DECLARATION_KINDS: ReadonlySet<string> = new Set([
+  "class",
+  "function",
+  "method",
+  "interface",
+  "type",
+  "enum",
+]);
+
+/**
+ * `spanOf`'s lines, 1-based, widened over the comments directly above: a doc
+ * comment belongs to the declaration it documents.
+ */
+export function declarationSpan(definition: Definition): {
+  startLine: number;
+  endLine: number;
+} {
+  const { start, end } = spanNodes(definition);
+  let first = start;
+  for (
+    let sibling = first.previousSibling;
+    sibling?.type === "comment" &&
+    sibling.endPosition.row >= first.startPosition.row - 1;
+    sibling = sibling.previousSibling
+  ) {
+    first = sibling;
+  }
+  return {
+    startLine: first.startPosition.row + 1,
+    endLine: lastRow(start, end) + 1,
+  };
+}
+
+/** Where a declaration's lines start and end: decorators and `export` included. */
+function spanNodes(definition: Definition): { start: Node; end: Node } {
   let start = definition.node;
   let end = definition.node;
 
@@ -156,18 +207,13 @@ export function spanOf(definition: Definition, source: string): ResolvedSymbol {
     start = parent;
     end = parent;
   }
+  return { start, end };
+}
 
-  const lines = source.split("\n");
-  const startLine = start.startPosition.row;
-  // A node ending at column 0 ends on the previous line's newline.
-  const endLine =
-    end.endPosition.column === 0 && end.endPosition.row > startLine
-      ? end.endPosition.row - 1
-      : end.endPosition.row;
-
-  return {
-    text: lines.slice(startLine, endLine + 1).join("\n"),
-    startLine: startLine + 1,
-    endLine: endLine + 1,
-  };
+/** A node ending at column 0 ends on the previous line's newline. */
+function lastRow(start: Node, end: Node): number {
+  return end.endPosition.column === 0 &&
+    end.endPosition.row > start.startPosition.row
+    ? end.endPosition.row - 1
+    : end.endPosition.row;
 }

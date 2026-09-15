@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Declaration } from "@saasontools/code-diff";
 import { Language, Parser, Query, type Tree } from "web-tree-sitter";
 import type {
   AnchorResolver,
@@ -15,6 +16,8 @@ import {
 } from "../grammars/index.js";
 import {
   chainOf,
+  declarationSpan,
+  DECLARATION_KINDS,
   index,
   select,
   spanOf,
@@ -224,6 +227,30 @@ export class TreeSitterResolver implements AnchorResolver {
       .map((definition) => ({
         symbol: chainOf(definition, parsed.byNodeId).join("."),
         span: spanOf(definition, source),
+      }));
+  }
+
+  /**
+   * The named declarations a changed hunk can sit in, each widened over the
+   * comments directly above it. Undefined when the file has no pinned grammar
+   * or it did not load, so a caller falls back to git's function context.
+   */
+  declarations(source: string, file: string): Declaration[] | undefined {
+    const language = languageForFile(file);
+    if (!language) return undefined;
+    const loaded = this.loaded.get(language);
+    if (!loaded) return undefined;
+    const parsed = this.parse(language, loaded, source);
+    if (!parsed) return undefined;
+
+    return parsed.definitions
+      .filter(
+        (definition) =>
+          definition.target && DECLARATION_KINDS.has(definition.kind),
+      )
+      .map((definition) => ({
+        name: chainOf(definition, parsed.byNodeId).join("."),
+        ...declarationSpan(definition),
       }));
   }
 
