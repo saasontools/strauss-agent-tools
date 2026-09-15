@@ -1,3 +1,4 @@
+import type { DiffFile, SymbolRange } from "@saasontools/code-diff";
 import {
   anchorFileReader,
   defaultAnchorResolvers,
@@ -6,7 +7,6 @@ import {
   resolveAnchorSpan,
 } from "../../anchor-resolver/index.js";
 import type { KbAnchor, KbRecord } from "../../kb-record.schema.js";
-import type { DiffFile, SymbolRange } from "../../match-diff.js";
 
 /**
  * The symbol anchors that land in a diff, resolved to line ranges through the

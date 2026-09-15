@@ -1,3 +1,4 @@
+import type { DiffFile, DiffHunk, SymbolRange } from "@saasontools/code-diff";
 import { adjudicate, type KbAdjudicated } from "./adjudicate.js";
 import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
 
@@ -21,45 +22,11 @@ import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
  * dozens of reader calls against microseconds of matching. Where they compose:
  * this narrows a hunk to a few records, and a reader asked to explain them gets
  * those, not the base.
+ *
+ * The diff shapes are `@saasontools/code-diff`'s. An old-side anchor lands on
+ * an old-side hunk on the caller's word that its `ref` is this diff's base rev
+ * — nothing compares the two.
  */
-export type DiffHunk = {
-  /** 1-based, inclusive, in the numbering of this hunk's `side`. */
-  startLine: number;
-  endLine: number;
-  /**
-   * Which half of the change these lines number; absent means `new`. An
-   * old-side anchor lands here on the caller's word that its `ref` is this
-   * diff's base rev — nothing compares the two.
-   */
-  side?: "old" | "new";
-  /**
-   * This hunk's own changed lines, markers stripped, where a parser kept them.
-   * Nothing here reads them; a caller classifying content does.
-   */
-  lines?: string[];
-};
-
-export type DiffFile = {
-  /** Repo-relative, matching how anchors are written. */
-  filePath: string;
-  hunks: DiffHunk[];
-  /** Where `git diff -M` says this path came from, and how alike the two are. */
-  renamedFrom?: string;
-  similarity?: number;
-};
-
-/**
- * A symbol resolved to lines. Supplied by whatever the caller uses to index
- * symbols; absence is tolerated — see `place()`.
- */
-export type SymbolRange = {
-  file: string;
-  symbol: string;
-  startLine: number;
-  endLine: number;
-  /** Which side these lines number; absent means `new`, as on a hunk. */
-  side?: "old" | "new";
-};
 
 export type DiffMatch = {
   filePath: string;

@@ -1,14 +1,9 @@
-import type { DiffFile, DiffHunk } from "../../match-diff.js";
+import type { DiffFile, DiffHunk } from "./model.js";
 
-/**
- * `git diff --unified=0` → the structure `matchToDiff` takes.
- *
- * CLI-side, not library: a caller holding a patch already has a parser for it,
- * and the library stays free of a flavour of unified diff.
- */
+/** `git diff --unified=0` → files and their hunks. */
 
 const FILE_HEADER = /^diff --git (.+)$/;
-const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;
+const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?: (.*))?/;
 const SIMILARITY = /^similarity index (\d+)%$/;
 /** What `readRangeDiff` pins. A patch from elsewhere may spell it otherwise. */
 const KNOWN_PREFIX = /^[ab]\//;
@@ -22,6 +17,8 @@ export type ParseDiffOptions = {
   keepEmpty?: boolean;
   /** Carry each hunk's changed lines, for a caller that reads content. */
   withLines?: boolean;
+  /** Carry git's function context, the fallback name for a changed symbol. */
+  withContext?: boolean;
 };
 
 /**
@@ -127,7 +124,7 @@ export function parseUnifiedDiff(
     added = undefined;
     removed = undefined;
     if (!current) continue;
-    const [next, before] = hunksOf(hunk, options.withLines === true);
+    const [next, before] = hunksOf(hunk, options);
     added = next;
     removed = before;
     list();
@@ -151,18 +148,24 @@ export function parseUnifiedDiff(
  */
 function hunksOf(
   hunk: RegExpExecArray,
-  withLines: boolean,
+  options: ParseDiffOptions,
 ): [DiffHunk, DiffHunk?] {
   const oldStart = Number(hunk[1]);
   const oldCount = hunk[2] === undefined ? 1 : Number(hunk[2]);
   const newStart = Number(hunk[3]);
   const newCount = hunk[4] === undefined ? 1 : Number(hunk[4]);
 
-  const lines = withLines ? { lines: [] as string[] } : {};
+  const lines = options.withLines ? { lines: [] as string[] } : {};
+  const context = options.withContext && hunk[5] ? { context: hunk[5] } : {};
   const added: DiffHunk =
     newCount === 0
-      ? { ...point(newStart), ...lines }
-      : { startLine: newStart, endLine: newStart + newCount - 1, ...lines };
+      ? { ...point(newStart), ...lines, ...context }
+      : {
+          startLine: newStart,
+          endLine: newStart + newCount - 1,
+          ...lines,
+          ...context,
+        };
   if (oldCount === 0) return [added];
   return [
     added,
@@ -170,7 +173,8 @@ function hunksOf(
       startLine: oldStart,
       endLine: oldStart + oldCount - 1,
       side: "old",
-      ...(withLines ? { lines: [] } : {}),
+      ...(options.withLines ? { lines: [] } : {}),
+      ...context,
     },
   ];
 }

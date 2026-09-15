@@ -1,0 +1,10 @@
+{
+  "route": "human",
+  "classifier": {
+    ".gitattributes": "source",
+    "src/services/tenant.service.ts": "source"
+  },
+  "gateGroups": ["uncovered"],
+  "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],
+  "notes": "The branch adds `src/services/** linguist-generated` and changes chunkIds in the same commit. Attributes are read at the base, so the new line does not reclassify the file it rides with: tenant.service.ts stays `source` and A1 fires on chunkIds. A classifier reading head attributes calls it `generated` and routes `auto`."
+}

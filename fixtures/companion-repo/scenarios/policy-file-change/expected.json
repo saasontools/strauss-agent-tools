@@ -1,7 +1,7 @@
 {
   "route": "human",
   "classifier": {
-    ".strauss/merge-policy.yaml": "config"
+    ".strauss/merge-policy.yaml": "source"
   },
   "gateGroups": [],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

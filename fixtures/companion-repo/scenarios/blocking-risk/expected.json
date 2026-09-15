@@ -3,9 +3,9 @@
   "classifier": {
     "src/checkout/pay.ts": "source",
     "src/checkout/checkout.spec.ts": "test",
-    ".strauss/kb/risk.checkout-retry-double-charge.md": "docs",
-    ".strauss/kb/test-obligation.checkout-single-charge.md": "docs",
-    ".strauss/kb/log.jsonl": "config"
+    ".strauss/kb/risk.checkout-retry-double-charge.md": "source",
+    ".strauss/kb/test-obligation.checkout-single-charge.md": "source",
+    ".strauss/kb/log.jsonl": "source"
   },
   "gateGroups": [],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

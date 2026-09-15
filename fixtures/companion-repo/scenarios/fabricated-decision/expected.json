@@ -2,8 +2,8 @@
   "route": "human",
   "classifier": {
     "src/services/tenant.service.ts": "source",
-    ".strauss/kb/decision.tenant-cache-ttl.md": "docs",
-    ".strauss/kb/log.jsonl": "config"
+    ".strauss/kb/decision.tenant-cache-ttl.md": "source",
+    ".strauss/kb/log.jsonl": "source"
   },
   "gateGroups": ["claim"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

@@ -41,14 +41,33 @@ describe("classifyCommand argv", () => {
   const bundle = join(tmpdir(), "strauss-kb-classify-empty");
 
   test("--stdin takes the files array", async () => {
-    const result = await classify(
-      ["classify", "--stdin"],
-      bundle,
-      asStdin([{ filePath: "docs/README.md", hunks: [] }]),
-    );
-    expect(result.files).toEqual([
-      { filePath: "docs/README.md", class: "docs", reason: "docs-path" },
-    ]);
+    const root = mkdtempSync(join(tmpdir(), "strauss-kb-classify-norepo-"));
+    try {
+      const result = await classify(
+        ["classify", "--stdin", "--repo-root", root],
+        bundle,
+        asStdin([{ filePath: "docs/README.md", hunks: [] }]),
+      );
+      // No repository declares a class here, so the default table answers.
+      expect(result).toEqual({
+        files: [
+          { filePath: "docs/README.md", class: "docs", reason: "docs-path" },
+        ],
+        notes: [".gitattributes read from the working tree: no base was given"],
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("--base reaches the input; --git takes the range's base", async () => {
+    expect(
+      await classifyCommand.fromArgv(
+        ["classify", "--stdin", "--base", "main"],
+        bundle,
+        asStdin([]),
+      ),
+    ).toMatchObject({ base: "main" });
   });
 
   test("neither --git nor --stdin is refused", async () => {

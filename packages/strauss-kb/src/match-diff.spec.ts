@@ -1,5 +1,6 @@
+import type { SymbolRange } from "@saasontools/code-diff";
 import { describe, expect, test } from "vitest";
-import { anchorOnHunk, matchToDiff, type SymbolRange } from "./match-diff.js";
+import { anchorOnHunk, matchToDiff } from "./match-diff.js";
 import type { KbAnchor, KbRecord } from "./kb-record.schema.js";
 
 function record(
