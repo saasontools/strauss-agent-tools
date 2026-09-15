@@ -62,7 +62,7 @@ public surface. Importers point at the barrel.
 | `src/commands/` | `model.ts` (the `KbCommand` type and shared Zod pieces), one file per command, `index.ts` assembling `KB_COMMANDS`              |
 | `src/kb-pins/`  | `model.ts` (manifest schemas), `layers.ts`, `budgets.ts`, `frozen.ts`, `errors.ts`, `pin.ts`, `unpin.ts`, `list.ts`, `index.ts` |
 | `src/kb-links/` | `model.ts` (the inbound-edge types), `inbound.ts` (the index), `impact.ts`, `backlinks.ts`, `index.ts`                          |
-| `src/classify/` | `model.ts` (the class set and options), `rules.ts` (the path table and shapes), `classify.ts`, `index.ts`                       |
+| `src/classify/` | `model.ts` (the class names over code-diff's set), `classify.ts` (`review:*` facts as declarations), `index.ts`                 |
 
 `index.ts`'s command order is the CLI usage listing's order: the write path, the
 read path, base housekeeping, the format, then the workspace pin verbs.
@@ -273,11 +273,13 @@ orders by `generated.at` rather than by rank.
 
 ## Classes are derived, never stored
 
-`classify` reads a class off the diff and the base never holds one, because a
-stored class is a second copy of an answer the patch already gives and the two
-disagree the first time a rule changes. The one input no script can derive —
-"this output is generated, read its input instead" — is a `review:*` fact, and
-that is the only part of the answer a record carries.
+`classify` reads a class off what the repository declares — `.gitattributes` at
+the base, a generator's banner — and the base never holds one, because a stored
+class is a second copy of that and the two disagree the first time either
+changes. The one claim a repository file cannot make — "this hunk is generated,
+read its input instead" — is a `review:*` fact, the only part of the answer a
+record carries. The classifier is `@saasontools/code-diff`'s; this package
+supplies the facts.
 
 ## Read for a question, not for a session
 

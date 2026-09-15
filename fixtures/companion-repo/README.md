@@ -63,6 +63,7 @@ path needs two states across commits and each needs its own name in `head/`
 | `drift-after-commit`     | `human` | anchor      | One anchor wants `--rebaseline`, one must not get it |
 | `review-thread-decision` | `human` | —           | `kb_verify` is audit, not approval                   |
 | `fabricated-decision`    | `human` | claim       | Anchored, typed, validates, and says nothing         |
+| `head-attribute-ignored` | `human` | uncovered   | The branch's own attribute marks the file it changes |
 
 Groups are the gate's finding-id prefixes (`uncovered`, `anchor`, `claim`, `standing`, `store`, `owed`); each `expected.json` names the individual ids.
 
@@ -71,9 +72,10 @@ so a path added and deleted across the branch is absent from it;
 `materialize.spec.mjs` asserts every key appears in that diff.
 
 Classifier classes are SAA-728's closed set: `test`, `config`, `ci`, `docs`,
-`lockfile`, `generated`, `boilerplate`, `rename`, `source`. The companion
-base's own files fall out of the path table like any other — a record is
-`docs`, `log.jsonl` is `config` — and carry no class of their own.
+`lockfile`, `generated`, `boilerplate`, `rename`, `source`. `base/.gitattributes`
+declares the lock file, `docs/` and `*.spec.ts`, so the default path table is
+off and every undeclared file — the companion base's own records and
+`log.jsonl` included — is `source`.
 
 ## Health of each base
 

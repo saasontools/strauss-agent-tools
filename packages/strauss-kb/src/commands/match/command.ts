@@ -1,5 +1,9 @@
+import {
+  parseUnifiedDiff,
+  readRangeDiff,
+  type RangeDiff,
+} from "@saasontools/code-diff";
 import { z } from "zod";
-import { readRangeDiff, type RangeDiff } from "../../drift/index.js";
 import {
   matchToDiff,
   placeOnHunk,
@@ -15,7 +19,6 @@ import {
   type KbMatch,
   type KbMatchRecord,
 } from "./model.js";
-import { parseUnifiedDiff } from "./parse-unified-diff.js";
 import { resolveSymbolRanges } from "./symbol-ranges.js";
 
 export const matchCommand = define({

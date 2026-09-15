@@ -1,8 +1,5 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { runGit } from "@saasontools/git-guard";
 import type { KbAnchor } from "../kb-record.schema.js";
-
-const execFileAsync = promisify(execFile);
 
 /* -------------------------------------------------------------------------
  * Which repository is this?
@@ -86,16 +83,11 @@ export function repoIdentifies(
  * coincidence would be recorded as evidence.
  */
 export async function repoOriginUrl(repoRoot: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync(
-      "git",
-      ["-C", repoRoot, "config", "--get", "remote.origin.url"],
-      { timeout: 5_000 },
-    );
-    return stdout.trim() || null;
-  } catch {
-    return null;
-  }
+  const result = await runGit(
+    ["-C", repoRoot, "config", "--get", "remote.origin.url"],
+    { timeoutMs: 5_000 },
+  );
+  return (result.ok && result.stdout.trim()) || null;
 }
 
 /**

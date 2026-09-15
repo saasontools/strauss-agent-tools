@@ -1,21 +1,17 @@
-import { Buffer } from "node:buffer";
-import { open, type FileHandle } from "node:fs/promises";
-import { join } from "node:path";
-import { z } from "zod";
 import {
-  classifyDiff,
-  HEADER_LINES,
-  type KbClassifiedFile,
-  type KbClassifyFile,
-  type KbClassifyResult,
-} from "../classify/index.js";
-import { readRangeDiff, type RangeDiff } from "../drift/index.js";
+  classifyFiles,
+  parseRange,
+  parseUnifiedDiff,
+  readRangeDiff,
+  type ClassifiedFile,
+  type RangeDiff,
+} from "@saasontools/code-diff";
+import { z } from "zod";
+import { kbDeclared, type KbClassifyResult } from "../classify/index.js";
 import { KbClassifyInputError } from "../kb-errors.js";
-import { filePathIsSafe } from "../remote-repo/validate.js";
 import {
   diffFileSchema,
   diffHunkSchema,
-  parseUnifiedDiff,
   resolveSymbolRanges,
 } from "./match/index.js";
 import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
@@ -29,21 +25,27 @@ const classifyFileSchema = diffFileSchema.extend({
     .min(1)
     .optional()
     .describe("Where `git diff -M` says the path came from."),
-  similarity: z.number().min(0).max(100).optional(),
 });
 
 export const classifyCommand = define({
   name: "classify",
   tool: "kb_classify",
   usage:
-    "classify --git <base>..<head> | --stdin [--repo-root <path>] [--offline]",
+    "classify --git <base>..<head> | --stdin [--base <rev>] [--repo-root <path>] [--offline]",
   description:
-    "What kind of change each file carries: test, config, ci, docs, lockfile, generated, boilerplate, rename or source, with the rule that decided it. Derived from the diff and never stored; a `review:generated`, `review:boilerplate` or `review:move` fact anchored on a file overrides the heuristic. kb_match says what sits on a hunk; this says whether to read it.",
+    "Deprecated: moving to strauss-kb-review. What kind of change each file carries — test, config, ci, docs, lockfile, generated, boilerplate, rename or source — and what declared it: a `review:*` fact, a `.gitattributes` entry at the base, a generator banner, a default path table where none is declared, else source. kb_match says what sits on a hunk; this says whether to read it.",
   input: z.object({
     bundlePath,
     files: z
       .array(classifyFileSchema)
       .describe("The changed files, each with its line ranges."),
+    base: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Commit whose `.gitattributes` decide. Omitted, only `strauss-class=source` applies.",
+      ),
     repoRoot: REPO_ROOT,
     offline: z
       .boolean()
@@ -55,7 +57,8 @@ export const classifyCommand = define({
   fromArgv: async (argv, path, stdin) => {
     const repoRoot = argvFlag(argv, "--repo-root");
     const range = argvFlag(argv, "--git");
-    const base = {
+    const base = argvFlag(argv, "--base");
+    const common = {
       bundlePath: path,
       ...(repoRoot !== undefined ? { repoRoot } : {}),
       ...(argv.includes("--offline") ? { offline: true } : {}),
@@ -68,8 +71,10 @@ export const classifyCommand = define({
           `--git ${range} ${REFUSED[diff.reason]}`,
         );
       }
+      const pinned = base ?? parseRange(range)?.base;
       return {
-        ...base,
+        ...common,
+        ...(pinned !== undefined ? { base: pinned } : {}),
         files: parseUnifiedDiff(diff.text, {
           keepEmpty: true,
           withLines: true,
@@ -82,18 +87,18 @@ export const classifyCommand = define({
         "pass --git <base>..<head>, or --stdin with { files } as JSON",
       );
     }
-    return { ...base, files: fromStdin(await stdin()) };
+    return {
+      ...common,
+      ...(base !== undefined ? { base } : {}),
+      files: fromStdin(await stdin()),
+    };
   },
   run: async (
     { store },
-    { bundlePath: path, files, repoRoot, offline },
+    { bundlePath: path, files, base, repoRoot, offline },
   ): Promise<KbClassifyResult> => {
     const records = await store.list(path);
     const root = repoRoot ?? process.cwd();
-    const withHeaders = await mapLimit(files, READERS, async (file) => ({
-      ...file,
-      header: await header(root, file),
-    }));
     // Resolved as `match` resolves them, over the files the diff names and no
     // others: without them a symbol-scoped override would cover the file.
     const symbolRanges = await resolveSymbolRanges(
@@ -102,65 +107,13 @@ export const classifyCommand = define({
       records,
       offline === true,
     );
-    return { files: classifyDiff(withHeaders, { records, symbolRanges }) };
+    return classifyFiles(root, files, {
+      base: base ?? null,
+      declared: kbDeclared(records, symbolRanges),
+    });
   },
   render: (result) => renderClassify(result as KbClassifyResult),
 });
-
-/** More than the banner window can need, and less than a lockfile costs. */
-const HEADER_BYTES = 65_536;
-
-/** How many files are open at once, whatever the diff's size. */
-const READERS = 16;
-
-/**
- * The file's banner from the working tree, which `--git <base>..<head>` reads
- * at head. Absent when it is not there — a deletion, or a tree parked
- * elsewhere — and the diff's own added lines answer instead.
- */
-async function header(
-  root: string,
-  file: KbClassifyFile,
-): Promise<string[] | undefined> {
-  // Lexical only: a committed symlink can still point outside the root, and
-  // what leaks is one bit — whether the target's head carries a banner.
-  if (!filePathIsSafe(file.filePath)) return undefined;
-  let handle: FileHandle | undefined;
-  try {
-    handle = await open(join(root, file.filePath), "r");
-    const buffer = Buffer.alloc(HEADER_BYTES);
-    const { bytesRead } = await handle.read(buffer, 0, HEADER_BYTES, 0);
-    return buffer
-      .toString("utf8", 0, bytesRead)
-      .split("\n")
-      .slice(0, HEADER_LINES);
-  } catch {
-    return undefined;
-  } finally {
-    await handle?.close();
-  }
-}
-
-/** Runs at most `limit` at a time, keeping each result in its input's place. */
-async function mapLimit<T, R>(
-  items: readonly T[],
-  limit: number,
-  run: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const out: R[] = Array.from({ length: items.length });
-  let next = 0;
-  const worker = async (): Promise<void> => {
-    while (next < items.length) {
-      const at = next;
-      next += 1;
-      out[at] = await run(items[at] as T);
-    }
-  };
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
-  );
-  return out;
-}
 
 /** What each refusal from `readRangeDiff` reads as, so the CLI names it. */
 const REFUSED: Record<Extract<RangeDiff, { ok: false }>["reason"], string> = {
@@ -185,16 +138,17 @@ function fromStdin(text: string): unknown {
   return payload.files;
 }
 
-/** One line per file: the class, the path, and the rule that decided it. */
+/** One line per file — the class, the path, what decided it — then any notes. */
 export function renderClassify(result: KbClassifyResult): string {
   const width = Math.max(
     0,
-    ...result.files.map((file: KbClassifiedFile) => file.class.length),
+    ...result.files.map((file: ClassifiedFile) => file.class.length),
   );
-  return result.files
-    .map(
+  return [
+    ...result.files.map(
       (file) =>
         `${file.class.padEnd(width)}  ${file.filePath}  (${file.reason})`,
-    )
-    .join("\n");
+    ),
+    ...(result.notes ?? []).map((note) => `note: ${note}`),
+  ].join("\n");
 }

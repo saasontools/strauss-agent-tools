@@ -3,8 +3,8 @@
   "classifier": {
     "src/protocol/protocol.json": "generated",
     "src/protocol/generated/index.ts": "generated",
-    ".strauss/kb/fact.protocol-schemas-generated.md": "docs",
-    ".strauss/kb/log.jsonl": "config"
+    ".strauss/kb/fact.protocol-schemas-generated.md": "source",
+    ".strauss/kb/log.jsonl": "source"
   },
   "gateGroups": [],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

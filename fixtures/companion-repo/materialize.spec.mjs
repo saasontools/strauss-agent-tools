@@ -133,7 +133,7 @@ test("a hostile global git config changes nothing", () => {
     const files = git(["ls-tree", "-r", "--name-only", "main"], hostile.repo)
       .split("\n")
       .filter(Boolean);
-    assert.equal(files.length, 17, "the excludesFile must not drop log.jsonl");
+    assert.equal(files.length, 18, "the excludesFile must not drop log.jsonl");
     assert.ok(files.includes(".strauss/kb/log.jsonl"));
     assert.equal(
       git(["rev-parse", "blocking-risk"], hostile.repo),

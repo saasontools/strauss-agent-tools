@@ -3,9 +3,9 @@
   "classifier": {
     "src/services/chunker.ts": "source",
     "src/services/tenant.service.ts": "source",
-    ".strauss/kb/decision.tenant-chunk-size.md": "docs",
-    ".strauss/kb/log.jsonl": "config",
-    ".strauss/kb/fact.chunking-extracted-from-tenant-service.md": "docs"
+    ".strauss/kb/decision.tenant-chunk-size.md": "source",
+    ".strauss/kb/log.jsonl": "source",
+    ".strauss/kb/fact.chunking-extracted-from-tenant-service.md": "source"
   },
   "gateGroups": ["anchor"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

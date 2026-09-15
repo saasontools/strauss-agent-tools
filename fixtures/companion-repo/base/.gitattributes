@@ -1,0 +1,3 @@
+pnpm-lock.yaml strauss-class=lockfile
+docs/** linguist-documentation
+*.spec.ts strauss-class=test

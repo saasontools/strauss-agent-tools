@@ -41,14 +41,44 @@ describe("classifyCommand argv", () => {
   const bundle = join(tmpdir(), "strauss-kb-classify-empty");
 
   test("--stdin takes the files array", async () => {
-    const result = await classify(
-      ["classify", "--stdin"],
-      bundle,
-      asStdin([{ filePath: "docs/README.md", hunks: [] }]),
-    );
-    expect(result.files).toEqual([
-      { filePath: "docs/README.md", class: "docs", reason: "docs-path" },
-    ]);
+    const root = mkdtempSync(join(tmpdir(), "strauss-kb-classify-norepo-"));
+    try {
+      const result = await classify(
+        ["classify", "--stdin", "--repo-root", root],
+        bundle,
+        asStdin([{ filePath: "docs/README.md", hunks: [] }]),
+      );
+      // No base, so nothing may lower the class: the default table is off too.
+      expect(result).toEqual({
+        files: [
+          { filePath: "docs/README.md", class: "source", reason: "default" },
+        ],
+        notes: [
+          "no base was given: only strauss-class=source applies, and the default path table is off",
+        ],
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("similarity is dropped from the input; the description names the table", () => {
+    const parsed = classifyCommand.input.parse({
+      bundlePath: bundle,
+      files: [{ filePath: "a.ts", hunks: [], similarity: 90 }],
+    }) as { files: object[] };
+    expect(parsed.files[0]).not.toHaveProperty("similarity");
+    expect(classifyCommand.description).toMatch(/default path table/);
+  });
+
+  test("--base reaches the input; --git takes the range's base", async () => {
+    expect(
+      await classifyCommand.fromArgv(
+        ["classify", "--stdin", "--base", "main"],
+        bundle,
+        asStdin([]),
+      ),
+    ).toMatchObject({ base: "main" });
   });
 
   test("neither --git nor --stdin is refused", async () => {
