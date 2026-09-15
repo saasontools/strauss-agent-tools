@@ -168,6 +168,13 @@ function declaredScope(input, cwd, range) {
     input?.agent_transcript_path ?? input?.transcript_path,
   );
   const declaration = declaredPaths(text);
+  if (declaration?.error) {
+    return {
+      paths: null,
+      classes: new Map(),
+      block: `strauss-kb gate: the changed block is present but invalid: ${declaration.error}. Its body is JSON: { "paths": [ { "path": "<repo path>", "class": "<class, optional>" } ] }.`,
+    };
+  }
   if (!declaration) {
     if (dirty.size === 0 || text === null) {
       return { paths: [], classes: new Map(), block: null };
@@ -179,7 +186,7 @@ function declaredScope(input, cwd, range) {
         'strauss-kb gate: end the turn with a fenced ```changed block whose body is JSON — { "paths": [ { "path": "<repo path>", "class": "<class, optional>" } ] } — listing what you changed, or { "paths": [] } for nothing.',
     };
   }
-  const missing = undeclarable(declaration.declared, dirty);
+  const missing = undeclarable(declaration.declared ?? [], dirty);
   if (missing.length > 0) {
     return {
       paths: null,
@@ -187,7 +194,7 @@ function declaredScope(input, cwd, range) {
       block: `strauss-kb gate: the changed block names paths the worktree does not show as changed: ${missing.join(", ")}. Declare only what you changed.`,
     };
   }
-  return { paths: declaration.declared, classes: declaration.classes, block: null };
+  return { paths: declaration.declared ?? [], classes: declaration.classes ?? new Map(), block: null };
 }
 
 /** @param {string[]} argv */
