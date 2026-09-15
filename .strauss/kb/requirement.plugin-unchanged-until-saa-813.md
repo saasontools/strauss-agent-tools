@@ -13,7 +13,10 @@ sources:
 generated:
   by: mcp
   at: "2026-09-15T15:30:30.778Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:24.956Z"
+    note: git diff c5e9a66..HEAD -- plugins is empty.
 strauss_links:
   - target: test-obligation.gate-groups-reproduced
     rel: verified_by

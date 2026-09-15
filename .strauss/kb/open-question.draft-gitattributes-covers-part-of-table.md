@@ -1,0 +1,50 @@
+---
+type: open-question
+title: >-
+  Does draftGitattributes replace the default table, as
+  decision.default-table-only-without-declared-classes says?
+description: >-
+  The decision's Impact and risk.hook-classes-shift-through-cli's mitigation
+  rest on it.
+tags:
+  - review
+  - "review:correctness"
+generated:
+  by: "agent:correctness"
+  at: "2026-09-15T15:46:23.691Z"
+verified:
+  - by: unknown
+    at: "2026-09-15T15:49:23.589Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+strauss_anchors:
+  - file: packages/code-diff/src/draft-gitattributes.ts
+    symbol: draftGitattributesFrom
+    hash: "sha256:f38aeeac4a4f201ef8ae558ec7b90734500b9aa11e93a4facd56533390467700"
+    hash_kind: ast
+    resolved_at: "2026-09-15T15:48:12.571Z"
+    lines: 31
+    resolver: tree-sitter
+strauss_links:
+  - target: decision.default-table-only-without-declared-classes
+    rel: informs
+  - target: risk.hook-classes-shift-through-cli
+    rel: informs
+strauss_status: open
+strauss_owner: "agent:author"
+---
+
+## Question
+
+The table matches markdown and docs/ as docs, and test/, tests/ and **mocks**/ as test. draftGitattributesFrom proposes lock files, CI dirs, .gitlab-ci.yml, **tests**, _.spec._, _.test._ and dist/build/vendor, and never a docs or test-directory line; its own spec expects an empty draft for README.md. Once a repo adopts the draft, repoDeclares is true and those paths turn `source`. Should the draft propose them, or should the records say it replaces part of the table?
+
+## Why it matters
+
+A repo following the recorded advice loses its docs and test-directory classes.
+
+## Default assumption
+
+The draft replaces the table only for lock files, CI and suffix-named tests; the mitigation is partial.
+
+Informs [decision.default-table-only-without-declared-classes](decision.default-table-only-without-declared-classes.md).
+
+Informs [risk.hook-classes-shift-through-cli](risk.hook-classes-shift-through-cli.md).

@@ -19,6 +19,29 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:10.341Z"
     note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:52.009Z"
+    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:42.354Z"
+    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:13.692Z"
+    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:15.643Z"
+    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:25.505Z"
+    note: >-
+      nx.json typecheck gains dependsOn ^build; both packages start at 0.1.0 on
+      workspace:0.x; build and tests ran clean with --skip-nx-cache.
+  - by: unknown
+    at: "2026-09-15T15:48:10.538Z"
+    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:21.268Z"
+    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: nx.json
     hash: "sha256:b42c709daab9257587acb71115aadac49b0edb9343e8674f03c2c275075ec670"

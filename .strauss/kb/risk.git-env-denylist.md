@@ -16,6 +16,36 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:13.324Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:55.238Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:45.196Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:16.464Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:security"
+    at: "2026-09-15T15:44:54.946Z"
+    note: >-
+      Read git-guard env.ts gitEnv (eight names stripped, GIT_TERMINAL_PROMPT=0)
+      and run.ts runGit (env only from gitEnv(process.env), no env option, argv
+      only). --no-ext-diff and --no-textconv are on every diff: repo/diff.ts
+      diff, changed-files.ts, uncommitted-paths.ts. git-guard suite passes (39).
+  - by: unknown
+    at: "2026-09-15T15:45:18.839Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:26.798Z"
+    note: >-
+      git-guard's suite passes (39 tests); diff.ts, changed-files.ts and
+      uncommitted-paths.ts pass --no-ext-diff and --no-textconv.
+  - by: unknown
+    at: "2026-09-15T15:48:14.933Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:26.771Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/env.ts
     symbol: gitEnv

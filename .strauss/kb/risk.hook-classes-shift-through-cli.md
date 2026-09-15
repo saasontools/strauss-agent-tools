@@ -14,6 +14,30 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:13.648Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:55.616Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:45.477Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:16.818Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:19.240Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:26.986Z"
+    note: >-
+      fixture.spec.mjs passes 14/14. The hook's classify() lets CLI rows
+      override its own status-R rename, so pure renames now read source, as the
+      risk says.
+  - by: unknown
+    at: "2026-09-15T15:48:15.205Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:27.057Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.ts
     symbol: classifyDiff

@@ -16,6 +16,36 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:12.135Z"
     note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:54.071Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:43.986Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:15.190Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: "agent:security"
+    at: "2026-09-15T15:44:55.301Z"
+    note: >-
+      Compared git-guard check-attr.ts with hooks/scripts/lib/git.mjs:264-292:
+      same -z stdin protocol; the port falls back only on reason 'failed' and
+      reads nothing for an unsafe source, as claimed. Both fall back to the
+      working tree: see risk.classify-unpinned-attributes-lower-classes.
+  - by: unknown
+    at: "2026-09-15T15:45:17.204Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:25.841Z"
+    note: >-
+      Compared with plugins/strauss-kb-review/hooks/scripts/lib/git.mjs: the
+      listed differences hold. The ports inherit two gaps, filed as risks.
+  - by: unknown
+    at: "2026-09-15T15:48:12.019Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:22.896Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/changed-files.ts
     symbol: changedFiles

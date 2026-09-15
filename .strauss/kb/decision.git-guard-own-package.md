@@ -23,6 +23,43 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:09.370Z"
     note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:50.960Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:41.435Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:12.821Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:14.756Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: "agent:security"
+    at: "2026-09-15T15:45:43.472Z"
+    note: >-
+      grep of strauss-kb, code-diff and git-guard src: git-guard run.ts runGit
+      is the only execFile; drift/git.ts, remote-repo/git.ts and
+      repo-identity.ts call runGit/showAtRev, and shape checks import from
+      git-guard. repo-identity's config read gains the env strip it lacked.
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:24.375Z"
+    note: >-
+      drift/git.ts git and catBlob, remote-repo/git.ts git, repoOriginUrl and
+      validate.ts's shape checks all route through @saasontools/git-guard;
+      code-diff depends only on git-guard.
+  - by: "agent:performance"
+    at: "2026-09-15T15:47:11.641Z"
+    note: >-
+      Checked limits only: drift 5 s/1 MiB, catBlob via showAtRev with the same,
+      remote-repo 30 s/MAX_ANCHOR_FILE_BYTES, repo-identity 5 s; runGit sets
+      timeout and maxBuffer on every spawn.
+  - by: unknown
+    at: "2026-09-15T15:48:09.681Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:20.358Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/run.ts
     symbol: runGit

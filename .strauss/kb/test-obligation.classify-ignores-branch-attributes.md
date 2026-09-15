@@ -13,6 +13,37 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:14.168Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T15:34:56.197Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T15:37:45.926Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T15:38:17.284Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T15:45:19.916Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:security"
+    at: "2026-09-15T15:45:43.858Z"
+    note: >-
+      Ran all three commands: strauss-kb classify.spec -t 'companion fixture' 1
+      pass, code-diff attributes.spec + repo specs 27 pass, hooks
+      fixture.spec.mjs 14 pass. Covers git >= 2.40 only (2.50.1 here); the
+      unpinned path is risk.classify-unpinned-attributes-lower-classes.
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:26.450Z"
+    note: >-
+      Ran all three commands: strauss-kb classify specs, code-diff
+      attributes.spec and fixture.spec.mjs pass, head-attribute-ignored
+      included.
+  - by: unknown
+    at: "2026-09-15T15:48:16.175Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T15:49:28.086Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: fixtures/companion-repo/scenarios/head-attribute-ignored/expected.json
     hash: "sha256:71406a56e33d99a7bba919bfd585d6ffbe8383986e8076504d1c46c0f0156d09"

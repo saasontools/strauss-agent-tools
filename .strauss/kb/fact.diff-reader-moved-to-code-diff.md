@@ -16,6 +16,42 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:11.726Z"
     note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:53.731Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:43.684Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:14.923Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:16.950Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: "agent:security"
+    at: "2026-09-15T15:45:43.673Z"
+    note: >-
+      Compared removed drift/git.ts readRangeDiff with code-diff repo/diff.ts:
+      same argv (--no-ext-diff, --no-textconv, --end-of-options, pinned prefixes
+      and quotePath), same localRevShapeIsSafe halves, 8 MB cap, 20 s timeout
+      and refusal mapping; -C moved into the argv.
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:25.664Z"
+    note: >-
+      Compared c5e9a66 drift/git.ts readRangeDiff with code-diff repo/diff.ts:
+      same argv order, 8 MiB cap, 20 s timeout and refusal mapping; the parser
+      differs only by withContext.
+  - by: "agent:performance"
+    at: "2026-09-15T15:47:11.008Z"
+    note: >-
+      Compared readRangeDiff with drift/git.ts at c5e9a66: same argv, 8 MiB cap,
+      20 s timeout, same refusal mapping; only the runner and its env changed.
+  - by: unknown
+    at: "2026-09-15T15:48:11.760Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:22.624Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/diff.ts
     symbol: readRangeDiff

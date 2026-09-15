@@ -21,6 +21,36 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:07.887Z"
     note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:49.276Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:39.990Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:11.402Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:13.607Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:24.575Z"
+    note: >-
+      code-diff/package.json carries no tree-sitter dependency; changedSymbols
+      takes declarations; TreeSitterResolver.declarations filters
+      DECLARATION_KINDS and widens through declarationSpan.
+  - by: "agent:performance"
+    at: "2026-09-15T15:47:11.366Z"
+    note: >-
+      code-diff depends only on git-guard, no web-tree-sitter. changedSymbolsIn
+      reads files and prepares grammars concurrently and parses each file once
+      through the content-hash tree cache.
+  - by: unknown
+    at: "2026-09-15T15:48:08.282Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:18.921Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols

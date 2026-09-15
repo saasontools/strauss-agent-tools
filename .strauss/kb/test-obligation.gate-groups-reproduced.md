@@ -15,6 +15,29 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:14.404Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T15:34:56.497Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:46.242Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:17.560Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:20.249Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:26.625Z"
+    note: >-
+      After the build, node --test fixture.spec.mjs: 14 pass, 0 fail,
+      head-attribute-ignored included.
+  - by: unknown
+    at: "2026-09-15T15:48:16.398Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:28.322Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: plugins/strauss-kb-review/hooks/scripts/fixture.spec.mjs
     symbol: reportOn

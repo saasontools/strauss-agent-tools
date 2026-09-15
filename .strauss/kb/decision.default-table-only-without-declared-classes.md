@@ -19,6 +19,24 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:08.484Z"
     note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:50.015Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:40.580Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:12.026Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:14.077Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:48:08.840Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:19.525Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

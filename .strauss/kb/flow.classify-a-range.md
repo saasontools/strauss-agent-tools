@@ -15,6 +15,44 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:12.455Z"
     note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:54.378Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:44.293Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:15.572Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: "agent:security"
+    at: "2026-09-15T15:44:55.506Z"
+    note: >-
+      Read commands/classify.ts (base is --base or parseRange's left half),
+      code-diff classify/read.ts classifyFiles and attributes.ts
+      readAttributes/declaresClasses; failure modes match the code, including
+      the working-tree fallback with a note.
+  - by: unknown
+    at: "2026-09-15T15:45:17.470Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:26.028Z"
+    note: >-
+      read.ts: toplevel, then check-attr, git grep and bounded header reads in
+      parallel, with notes when unpinned; commands/classify.ts defaults base to
+      the range's left half.
+  - by: "agent:performance"
+    at: "2026-09-15T15:47:10.553Z"
+    note: >-
+      Read classifyFiles and readAttributes: toplevel, then Promise.all of
+      16-wide header reads and readAttributes, which runs checkAttr (one stdin
+      batch) and declaresClasses concurrently. Failure modes omit a timed-out
+      grep: risk.classify-base-grep-walks-whole-tree.
+  - by: unknown
+    at: "2026-09-15T15:48:12.286Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:23.304Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles

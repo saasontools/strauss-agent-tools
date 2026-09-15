@@ -19,6 +19,30 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:12.723Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:54.637Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:44.546Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:15.847Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:17.733Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:performance"
+    at: "2026-09-15T15:47:10.761Z"
+    note: >-
+      checkAttr passes every path on stdin -z in one spawn; a second runs only
+      on git's own failure. 124 range paths at c5e9a66: 41.6 ms median on this
+      machine.
+  - by: unknown
+    at: "2026-09-15T15:48:13.034Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:24.572Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: readAttributes

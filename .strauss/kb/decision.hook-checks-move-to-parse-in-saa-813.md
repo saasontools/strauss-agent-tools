@@ -21,6 +21,29 @@ verified:
   - by: unknown
     at: "2026-09-15T15:33:09.696Z"
     note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:34:51.297Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:37:41.711Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:38:13.088Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:45:15.066Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: "agent:correctness"
+    at: "2026-09-15T15:46:24.775Z"
+    note: >-
+      git diff c5e9a66..HEAD -- plugins is empty; lib/git.mjs keeps its own
+      contextSymbol.
+  - by: unknown
+    at: "2026-09-15T15:48:09.950Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T15:49:20.633Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols
