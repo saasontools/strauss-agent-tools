@@ -51,6 +51,34 @@ session, and a later session with nobody left — and the gate marks each
 the one repair it may apply and the `open-question` everything else becomes,
 is [`skills/kb-fix/references/late-tier.md`](skills/kb-fix/references/late-tier.md).
 
+## Two hooks, two files
+
+| File                                                                       | Script                               | Acts on                                                                         | Events                                 |
+| -------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------- | -------------------------------------- |
+| [`hooks/example-hooks.json`](./hooks/example-hooks.json)                   | `kb-review-gate.mjs`, the author     | the session whose diff it reads: author sessions and their subagents            | `SessionStart`, `Stop`, `SubagentStop` |
+| [`hooks/example-reviewer-hooks.json`](./hooks/example-reviewer-hooks.json) | `kb-reviewer-gate.mjs`, the reviewer | only agents named under `reviewers` in `.strauss/kb-pins.json`; all else passes | `PreToolUse`, `Stop`, `SubagentStop`   |
+
+Wire one, the other, or both; they tell their cases apart by event and, for
+the reviewer, by `agent_type` against the roster, so an author never meets the
+reviewer's rules and a reviewer never meets the author's coverage checks. A
+repository with no reviewer agents wires the first only; a CI reviewer job may
+wire the second only. Both ship unwired.
+
+**Where the entries go**, for either file:
+
+- _Claude Code_ — `.claude/settings.json` in the repository, or
+  `~/.claude/settings.json`. `${CLAUDE_PLUGIN_ROOT}` resolves in a
+  plugin-installed session; otherwise write the absolute path to the script.
+- _Codex_ — `<repo>/.codex/hooks.json` or `~/.codex/hooks.json`, same JSON
+  (inline `[hooks]` in `config.toml` takes the same shape); trust the hook
+  through `/hooks` before it runs.
+- _Other clients_ — any harness that hands a Claude-shaped payload on stdin and
+  reads exit code 2 or the JSON decision; Antigravity's `.agents/hooks.json`
+  is one.
+
+The author gate also needs the `gate` key (below); the reviewer gate needs the
+roster (below that).
+
 ## Gate
 
 `hooks/scripts/kb-review-gate.mjs` reads the session's diff and the companion
