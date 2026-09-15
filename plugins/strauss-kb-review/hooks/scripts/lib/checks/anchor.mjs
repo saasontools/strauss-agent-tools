@@ -57,7 +57,7 @@ function* outsideDiff(ctx) {
         GROUP,
         "warn",
         "mechanical",
-        `${record.conceptId} anchors ${anchor.symbol}, which this diff does not change (no codegraph: callers and callees were not consulted).`,
+        `${record.conceptId} anchors ${anchor.symbol}, which this diff does not change; callers and callees were not consulted, so a call into the change is not seen.`,
         {
           recordId: record.conceptId,
           file: anchor.file,
