@@ -1,7 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { fakeGit, tempRepo, type TempRepo } from "../../test/repo.js";
 import { attributeFiles, readAttributes } from "./attributes.js";
@@ -76,13 +82,44 @@ describe("readAttributes", () => {
       repoDeclares: true,
       pinned: false,
       probeFailed: false,
+      local: false,
     });
+  });
+
+  test("the clone's info/attributes lowers nothing, and the note says why", async () => {
+    const file = join(repo.root, ".git/info/attributes");
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, "* linguist-generated\n");
+    try {
+      const attributes = await readAttributes(repo.root, base, PATHS);
+      expect(attributes).toMatchObject({
+        pinned: false,
+        local: true,
+        repoDeclares: true,
+      });
+      expect(attributes.classes.size).toBe(0);
+      const result = await classifyFiles(
+        repo.root,
+        [{ filePath: "src/x.ts", hunks: [] }],
+        { base },
+      );
+      expect(result.files[0]?.class).toBe("source");
+      expect(result.notes?.[0]).toMatch(/\.git\/info\/attributes/);
+    } finally {
+      rmSync(file, { force: true });
+    }
   });
 });
 
 describe("repoDeclares", () => {
   test.for([
     ["no .gitattributes", {}, ["src/a.ts"], false],
+    [
+      "a directory named like a class attribute",
+      {},
+      ["strauss-class/linguist-generated/a.ts"],
+      false,
+    ],
     [
       "only line endings",
       { ".gitattributes": "* text=auto eol=lf\n" },

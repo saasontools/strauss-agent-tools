@@ -54,6 +54,11 @@ function notesFor(attributes: Attributes, base: string | null): string[] {
   const fallback =
     "only strauss-class=source applies, and the default path table is off";
   if (base === null) return [`no base was given: ${fallback}`];
+  if (attributes.local) {
+    return [
+      `this clone's .git/info/attributes names a class attribute: ${fallback}`,
+    ];
+  }
   if (!attributes.pinned) {
     return [`.gitattributes could not be read at ${base}: ${fallback}`];
   }

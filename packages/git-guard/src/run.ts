@@ -22,6 +22,8 @@ export type GitOptions = {
   maxBytes?: number;
   /** Written to stdin, which is closed either way. */
   input?: string;
+  /** Added to the child's environment after `gitEnv`. */
+  env?: Readonly<Record<string, string>>;
 };
 
 export const DEFAULT_TIMEOUT_MS = 5_000;
@@ -46,7 +48,7 @@ export function runGit(
         maxBuffer: options.maxBytes ?? DEFAULT_MAX_BYTES,
         encoding: "utf8",
         windowsHide: true,
-        env: gitEnv(),
+        env: { ...gitEnv(), ...options.env },
       },
       (error, stdout, stderr) => {
         if (!error) {

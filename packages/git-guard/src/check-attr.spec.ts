@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { fakeGit, tempRepo, type TempRepo } from "../test/repo.js";
 import { checkAttr } from "./check-attr.js";
@@ -89,6 +92,44 @@ describe("checkAttr", () => {
     expect(await checkAttr(repo.root, base, [], ATTRS)).toEqual({
       attrs: new Map(),
       pinned: true,
+      local: false,
     });
+  });
+
+  test("the clone's info/attributes unpins a read it could lower", async () => {
+    const file = join(repo.root, ".git/info/attributes");
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, "* linguist-generated\n");
+    try {
+      const { pinned, local } = await checkAttr(
+        repo.root,
+        base,
+        ["src/y.ts"],
+        ATTRS,
+      );
+      expect({ pinned, local }).toEqual({ pinned: false, local: true });
+    } finally {
+      rmSync(file, { force: true });
+    }
+  });
+
+  test("core.attributesFile is never read", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "git-guard-global-attrs-"));
+    const file = join(dir, "attributes");
+    writeFileSync(file, "* linguist-generated\n");
+    repo.git("config", "core.attributesFile", file);
+    try {
+      const { attrs, pinned } = await checkAttr(
+        repo.root,
+        base,
+        ["src/y.ts"],
+        ATTRS,
+      );
+      expect(pinned).toBe(true);
+      expect(attrs.get("src/y.ts")).toBeUndefined();
+    } finally {
+      repo.git("config", "--unset", "core.attributesFile");
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

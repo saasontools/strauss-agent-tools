@@ -4,7 +4,10 @@ import {
   type DiffFile,
 } from "@saasontools/code-diff";
 import { anchorFileReader, readAnchorFiles } from "./anchor-resolver/index.js";
-import { TreeSitterResolver } from "./tree-sitter-resolver/index.js";
+import {
+  languageForFile,
+  TreeSitterResolver,
+} from "./tree-sitter-resolver/index.js";
 
 /**
  * The declaration each post-change hunk sits in, from the pinned grammars'
@@ -16,7 +19,10 @@ export async function changedSymbolsIn(
   files: readonly DiffFile[],
   options: { offline?: boolean } = {},
 ): Promise<ChangedSymbol[]> {
-  const paths = files.map((file) => file.filePath);
+  // A file no grammar parses is named by git's context; reading it buys nothing.
+  const paths = files
+    .map((file) => file.filePath)
+    .filter((path) => languageForFile(path));
   const resolver = new TreeSitterResolver({
     offline: options.offline === true,
   });

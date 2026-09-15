@@ -24,10 +24,14 @@ function classifyFile(
   file: ClassifyFile,
   { declared, attributes, repoDeclares = false }: ClassifyOptions,
 ): ClassifiedFile {
-  const whole = declared?.file(file.filePath);
+  const attributed = attributes?.get(file.filePath);
+  // A base `strauss-class=source` is the repository's own word to read the
+  // file: no declaration, base or branch, lowers it.
+  const pin = attributed?.class === "source" ? attributed : undefined;
+  const whole = pin ?? declared?.file(file.filePath);
   const verdict =
     whole ??
-    attributes?.get(file.filePath) ??
+    attributed ??
     banner(file) ??
     (repoDeclares ? undefined : pathRule(file.filePath)) ??
     SOURCE;

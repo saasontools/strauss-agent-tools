@@ -11,6 +11,8 @@ export type Attributes = {
   pinned: boolean;
   /** Pinned, but the probe for declared classes failed. */
   probeFailed: boolean;
+  /** Unpinned because the clone's `info/attributes` names a class attribute. */
+  local: boolean;
 };
 
 /** The one verdict an unpinned read may give: it raises scrutiny. */
@@ -30,7 +32,7 @@ export async function readAttributes(
   base: string | null,
   paths: readonly string[],
 ): Promise<Attributes> {
-  const [{ attrs, pinned }, declares] = await Promise.all([
+  const [{ attrs, pinned, local }, declares] = await Promise.all([
     checkAttr(repoRoot, base, paths, CLASS_ATTRIBUTES),
     base === null ? null : declaresClasses(repoRoot, base, paths),
   ]);
@@ -44,20 +46,32 @@ export async function readAttributes(
     if (verdict) classes.set(path, verdict);
   }
   if (!pinned) {
-    return { classes, repoDeclares: true, pinned, probeFailed: false };
+    return { classes, repoDeclares: true, pinned, probeFailed: false, local };
   }
   return {
     classes,
     repoDeclares: declares ?? true,
     pinned,
     probeFailed: declares === null,
+    local,
   };
 }
 
+/** What `cat-file --batch` prints after an input it cannot show. */
+const ECHOES = [
+  "missing",
+  "ambiguous",
+  "dangling",
+  "loop",
+  "notdir",
+  "submodule",
+];
+
 /**
  * Whether a `.gitattributes` at `base` that can govern `paths` mentions a
- * class attribute: one `cat-file --batch`, bounded by the directories the diff
- * touches. Any mention counts, the safe direction. Null when git failed.
+ * class attribute: the base's tree resolved once, then one `cat-file --batch`
+ * bounded by the directories the diff touches. Any mention in a blob counts,
+ * the safe direction. Null when git failed.
  */
 async function declaresClasses(
   repoRoot: string,
@@ -65,15 +79,36 @@ async function declaresClasses(
   paths: readonly string[],
 ): Promise<boolean | null> {
   if (!localRevShapeIsSafe(base)) return null;
+  const tree = await runGit([
+    "-C",
+    repoRoot,
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    "--end-of-options",
+    `${base}^{tree}`,
+  ]);
+  const id = tree.ok ? tree.stdout.trim() : "";
+  if (!/^[0-9a-f]{40,64}$/.test(id)) return null;
+
+  const inputs = attributeFiles(paths).map((file) => `${id}:${file}`);
   const result = await runGit(["-C", repoRoot, "cat-file", "--batch"], {
-    input: attributeFiles(paths)
-      .map((file) => `${base}:${file}\n`)
-      .join(""),
+    input: inputs.map((input) => `${input}\n`).join(""),
     timeoutMs: 10_000,
     maxBytes: 16 * 1_048_576,
   });
   if (!result.ok) return null;
-  return CLASS_ATTRIBUTES.some((name) => result.stdout.includes(name));
+  // An echoed input names a path, not a declaration.
+  const echoed = new Set(
+    inputs.flatMap((input) => ECHOES.map((word) => `${input} ${word}`)),
+  );
+  return result.stdout
+    .split("\n")
+    .some(
+      (line) =>
+        !echoed.has(line) &&
+        CLASS_ATTRIBUTES.some((name) => line.includes(name)),
+    );
 }
 
 /** The root's `.gitattributes`, and one per directory above a changed path. */

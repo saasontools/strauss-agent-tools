@@ -76,7 +76,8 @@ function trimmed(hunk: DiffHunk): Span {
  * type or method. Language-blind, and for a file-scope hunk it names the
  * nearest preceding declaration, which the hunk did not touch.
  */
-export function contextSymbol(context: string): string | null {
+export function contextSymbol(line: string): string | null {
+  const context = line.slice(0, MAX_CONTEXT);
   const match =
     /\b(?:class|interface|enum|struct|trait|impl)\s+([A-Za-z_$][\w$]*)/.exec(
       context,
@@ -84,12 +85,15 @@ export function contextSymbol(context: string): string | null {
     /\b(?:function|def|fn)\s+([A-Za-z_$][\w$]*)/.exec(context) ??
     // Go: `func (s *Server) Cancel(` names Cancel, not the receiver.
     /\bfunc\s+(?:\([^)]*\)\s*)?([A-Za-z_$][\w$]*)/.exec(context) ??
-    /^\s*(?:public|private|protected|static|readonly|async|export|abstract|\s)*([A-Za-z_$][\w$]*)\s*\(/.exec(
+    /^\s*(?:(?:public|private|protected|static|readonly|async|export|abstract)\s+)*([A-Za-z_$][\w$]*)\s*\(/.exec(
       context,
     );
   const name = match?.[1];
   return name && !RESERVED.has(name) ? name : null;
 }
+
+/** git keeps a function context near 80 characters; past this, it is not one. */
+const MAX_CONTEXT = 256;
 
 const RESERVED = new Set([
   "if",

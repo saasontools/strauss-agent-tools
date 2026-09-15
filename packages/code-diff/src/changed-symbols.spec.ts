@@ -112,4 +112,11 @@ describe("changedSymbols without a grammar", () => {
   ] as const)("%s → %s", ([context, name]) => {
     expect(contextSymbol(context)).toBe(name);
   });
+
+  test("a pathological context is capped, not backtracked", () => {
+    const started = Date.now();
+    expect(contextSymbol(`${" ".repeat(50_000)}x`)).toBeNull();
+    expect(contextSymbol(`$${"async ".repeat(10_000)}`)).toBeNull();
+    expect(Date.now() - started).toBeLessThan(500);
+  });
 });

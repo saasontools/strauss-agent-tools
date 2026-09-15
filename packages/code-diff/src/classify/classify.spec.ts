@@ -192,3 +192,28 @@ describe("classifyDiff drops the guesses", () => {
     ).toBe("source");
   });
 });
+
+describe("classifyDiff source pin", () => {
+  test("a base strauss-class=source outranks any declaration", () => {
+    const [result] = classifyDiff(
+      [file("src/a.ts", { hunks: [{ startLine: 1, endLine: 1 }] })],
+      {
+        attributes: new Map([
+          [
+            "src/a.ts",
+            { class: "source", reason: "attribute strauss-class=source" },
+          ],
+        ]),
+        declared: {
+          file: () => ({ class: "generated", reason: "kb-override fact.gen" }),
+          hunk: () => ({ class: "rename", reason: "kb-override fact.move" }),
+        },
+      },
+    );
+    expect(result).toEqual({
+      filePath: "src/a.ts",
+      class: "source",
+      reason: "attribute strauss-class=source",
+    });
+  });
+});
