@@ -75,7 +75,7 @@ export async function checkAttr(
 
   // Asked first: git reads that file too, and a FIFO there would hold
   // check-attr until the timeout for an answer that would not be pinned.
-  if (source !== null && (await hasLocalAttributes(cwd))) {
+  if (source !== null && (await namesAttribute(cwd))) {
     return { attrs, pinned: false, local: true };
   }
 
@@ -106,7 +106,7 @@ export async function checkAttr(
  * macro or an unset lowers as surely as a named class. Anything but a missing
  * or regular file — a FIFO, a symlink — counts too, and is never read.
  */
-async function hasLocalAttributes(cwd: string): Promise<boolean> {
+async function namesAttribute(cwd: string): Promise<boolean> {
   const where = await runGit(["rev-parse", "--git-path", "info/attributes"], {
     cwd,
   });
