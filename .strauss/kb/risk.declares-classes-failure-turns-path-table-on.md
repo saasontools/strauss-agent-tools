@@ -14,13 +14,35 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:26.135Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:42.584Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:34.291Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:31.938Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:performance"
+    at: "2026-09-15T16:12:49.945Z"
+    note: >-
+      At 8f85584 declaresClasses returns null on any runGit failure, its 10 s
+      timeout included; readAttributes then sets repoDeclares true and
+      probeFailed, and classifyFiles adds a note. attributes.spec -t
+      repoDeclares passes.
+  - by: unknown
+    at: "2026-09-15T16:13:15.111Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:52.610Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses
-    hash: "sha256:fdd964f59c5e08806cc060f763bf4f999845e463c8bcd4438b668847d66190c7"
+    hash: "sha256:bbb45d4fdc66deaf5533bb02bff348b0d0c9a28d114683c4f17e2f7d3a07b5ff"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:02:28.263Z"
-    lines: 16
+    resolved_at: "2026-09-15T16:22:38.740Z"
+    lines: 37
     resolver: tree-sitter
 strauss_links:
   - target: decision.default-table-only-without-declared-classes

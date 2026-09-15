@@ -19,13 +19,28 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:25.800Z"
     note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:42.326Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:34.033Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:31.715Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:14.919Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:52.395Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:90d32e75ed62fa67a38019b3f391e0878e9f1aad4cce4a04654bf5499d8042fb"
+    hash: "sha256:f76a2bb7649052f3a3a2d1557e5497b20b26f7990add8ba0ada0407d1bd7a0f5"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:02:28.011Z"
-    lines: 48
+    resolved_at: "2026-09-15T16:22:38.514Z"
+    lines: 64
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles

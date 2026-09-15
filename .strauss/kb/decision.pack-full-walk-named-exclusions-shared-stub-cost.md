@@ -70,6 +70,24 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:44.116Z"
     note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:38.857Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:29.902Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:28.844Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:11.692Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:27.125Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:48.743Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/pack.ts
     symbol: pack

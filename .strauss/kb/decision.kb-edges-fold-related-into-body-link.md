@@ -73,6 +73,24 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:43.113Z"
     note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:38.054Z"
+    note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:29.004Z"
+    note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:28.145Z"
+    note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:11.030Z"
+    note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:26.195Z"
+    note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:47.813Z"
+    note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS

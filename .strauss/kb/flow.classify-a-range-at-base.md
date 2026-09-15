@@ -13,6 +13,44 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:45.832Z"
     note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:40.279Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:31.569Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:29.984Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: "agent:security"
+    at: "2026-09-15T16:11:25.526Z"
+    note: >-
+      Read read.ts classifyFiles, attributes.ts, check-attr.ts at 8f85584: steps
+      and failure modes match; every git call is argv via runGit with the rev
+      shape-checked.
+  - by: "agent:correctness"
+    at: "2026-09-15T16:12:10.938Z"
+    note: >-
+      At 8f85584: read commands/classify.ts, which pins --base or parseRange's
+      left half. classifyFiles calls toplevel, then Promise.all over
+      mapLimit(header) and readAttributes, which runs checkAttr and
+      declaresClasses in parallel. Then kbDeclared, classifyDiff, and
+      renderClassify with notes last.
+  - by: "agent:performance"
+    at: "2026-09-15T16:12:50.122Z"
+    note: >-
+      Order at 8f85584: store.list, resolveSymbolRanges, then classifyFiles:
+      toplevel, then banner reads (16 at once), check-attr and cat-file --batch
+      under one Promise.all. Warm classify --git c5e9a66..HEAD: 357-376 ms.
+  - by: unknown
+    at: "2026-09-15T16:13:12.775Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:28.249Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:49.947Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles

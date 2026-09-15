@@ -37,13 +37,28 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:19.525Z"
     note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:36.727Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:27.232Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:26.990Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:10.044Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:46.806Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses
-    hash: "sha256:fdd964f59c5e08806cc060f763bf4f999845e463c8bcd4438b668847d66190c7"
+    hash: "sha256:bbb45d4fdc66deaf5533bb02bff348b0d0c9a28d114683c4f17e2f7d3a07b5ff"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:02:25.037Z"
-    lines: 16
+    resolved_at: "2026-09-15T16:22:36.814Z"
+    lines: 37
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/rules.ts
     symbol: pathRule

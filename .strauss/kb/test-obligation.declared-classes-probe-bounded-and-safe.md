@@ -15,12 +15,48 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:51.366Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:02:44.979Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:04:36.967Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:06:33.828Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:security"
+    at: "2026-09-15T16:11:25.229Z"
+    note: >-
+      Ran -t 'repoDeclares|attributeFiles' at 8f85584: 8 pass. declaresClasses:
+      base shape-checked, one cat-file --batch over attributeFiles, null on
+      failure, so repoDeclares stays true.
+  - by: "agent:correctness"
+    at: "2026-09-15T16:12:10.798Z"
+    note: >-
+      At 8f85584, the body holds. attributeFiles lists the root plus the
+      ancestor .gitattributes files. The unrelated-directory case passes, and
+      the fakeGit cat-file failure gives probeFailed and repoDeclares true.
+      Echoed object names count as declarations: see
+      risk.declares-classes-probe-matches-echoed-object-names.
+  - by: "agent:performance"
+    at: "2026-09-15T16:12:49.467Z"
+    note: >-
+      Ran pnpm vitest run src/classify/attributes.spec.ts -t
+      'repoDeclares|attributeFiles' in packages/code-diff at 8f85584: 8 pass.
+      Probe input is bounded by the directories above changed paths: 42 lines
+      for c5e9a66..HEAD, 10 101 for a 10k-file change.
+  - by: unknown
+    at: "2026-09-15T16:13:17.458Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:22:55.044Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.spec.ts
-    hash: "sha256:020f86b7c41c5f5436c0a8f844eb3bf166930e6befb6d8ed9742b62456f6501c"
+    hash: "sha256:6668fe938a1dc53ebcfabaa3514389d51c6193372c3d5fa320a15962a32e6de4"
     hash_kind: raw
-    resolved_at: "2026-09-15T16:01:30.791Z"
-    lines: 269
+    resolved_at: "2026-09-15T16:22:39.726Z"
+    lines: 306
 strauss_links:
   - target: risk.declares-classes-failure-turns-path-table-on
     rel: satisfies

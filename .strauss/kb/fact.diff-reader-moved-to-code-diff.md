@@ -55,6 +55,30 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:45.163Z"
     note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:39.712Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:30.975Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:29.533Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: "agent:performance"
+    at: "2026-09-15T16:12:50.286Z"
+    note: >-
+      Diffed drift/git.ts's removed readRangeDiff against code-diff
+      repo/diff.ts: same argv, 8 MB cap and 20 s timeout; only the spawn is
+      runGit now.
+  - by: unknown
+    at: "2026-09-15T16:13:12.353Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:27.840Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:49.455Z"
+    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/diff.ts
     symbol: readRangeDiff

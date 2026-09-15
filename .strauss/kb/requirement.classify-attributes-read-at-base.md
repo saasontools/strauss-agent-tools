@@ -43,13 +43,28 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:24.572Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:41.269Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:32.814Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:30.882Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:13.583Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:50.762Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: readAttributes
-    hash: "sha256:0286c201d4888eb1b06bc3b477030e5d7288f88dd15b63a7a0b32b225025888b"
+    hash: "sha256:88b811772b45f7da10219f8ad4b8cc6514fad0230bce4548ab2eac4dd5c31765"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:02:26.839Z"
-    lines: 28
+    resolved_at: "2026-09-15T16:22:37.428Z"
+    lines: 29
     resolver: tree-sitter
 strauss_links:
   - target: test-obligation.classify-ignores-branch-attributes

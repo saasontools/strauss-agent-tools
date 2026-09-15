@@ -46,6 +46,21 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:22.896Z"
     note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:40.032Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:31.224Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:29.774Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:12.570Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:49.727Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/changed-files.ts
     symbol: changedFiles
@@ -77,17 +92,17 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: contextSymbol
-    hash: "sha256:27591b58f304f011567516a277f5d466c7e5ce91a24dbc285f78877b9c264bf8"
+    hash: "sha256:89d414f31282713e725ae21112c79391f7c1cc4362c05d0cc7b3fd0cde37fe21"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:32:34.685Z"
-    lines: 14
+    resolved_at: "2026-09-15T16:22:37.221Z"
+    lines: 15
     resolver: tree-sitter
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:90d32e75ed62fa67a38019b3f391e0878e9f1aad4cce4a04654bf5499d8042fb"
+    hash: "sha256:f76a2bb7649052f3a3a2d1557e5497b20b26f7990add8ba0ada0407d1bd7a0f5"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:02:25.814Z"
-    lines: 48
+    resolved_at: "2026-09-15T16:22:37.223Z"
+    lines: 64
     resolver: tree-sitter
 strauss_verify:
   - >-

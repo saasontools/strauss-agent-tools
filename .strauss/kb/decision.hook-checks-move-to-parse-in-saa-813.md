@@ -47,6 +47,24 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:42.776Z"
     note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:37.775Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:28.691Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:27.889Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:10.819Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:25.993Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:47.585Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols

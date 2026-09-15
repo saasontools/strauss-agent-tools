@@ -54,6 +54,28 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:40.645Z"
     note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:35.513Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:26.334Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:26.319Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: "agent:performance"
+    at: "2026-09-15T16:12:50.573Z"
+    note: >-
+      Perf read at 8f85584: declarations() parses through the sha256-keyed tree
+      cache; prepare loads only the languages the paths need; changedSymbolsIn
+      reads files and prepares grammars in one Promise.all. No CLI or hook
+      caller yet.
+  - by: unknown
+    at: "2026-09-15T16:13:09.416Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:46.156Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols
@@ -64,10 +86,10 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/changed-symbols.ts
     symbol: changedSymbolsIn
-    hash: "sha256:fb43fa53fa58e94944d187e3f599c748e248b9507dbfae12efa52d6531c5a57c"
+    hash: "sha256:e05d7a2579efebb2bb012f61dde72e8b26d4032969dafaca18981fdc63493a55"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:32:36.157Z"
-    lines: 21
+    resolved_at: "2026-09-15T16:22:36.353Z"
+    lines: 24
     resolver: tree-sitter
   - file: packages/strauss-kb/src/tree-sitter-resolver/resolver.ts
     symbol: TreeSitterResolver.declarations

@@ -53,6 +53,24 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:23.304Z"
     note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:40.522Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:31.909Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:30.202Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:12.984Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:28.456Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:50.152Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles

@@ -45,6 +45,24 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:41.881Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:02:36.932Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:04:27.482Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:06:27.142Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:13:10.192Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:22:25.287Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: unknown
+    at: "2026-09-15T16:22:46.976Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: fixtures/companion-repo/base/.gitattributes
     hash: "sha256:212372d8f93f4ff9aa3e81255a8d875bd156c0534b07e562da2ac259d7fef120"

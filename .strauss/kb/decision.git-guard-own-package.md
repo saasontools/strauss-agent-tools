@@ -60,12 +60,27 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:20.358Z"
     note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:37.488Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:28.305Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:27.626Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:13:10.616Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:47.392Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/run.ts
     symbol: runGit
-    hash: "sha256:9a7b063cf0e5a48b374b1fe79ef62e1c0466e7a207877ebcaeaa9bd9dbedbfe2"
+    hash: "sha256:ee8353561b2bee5fc2cf41ac9b43fd503ddd499ef8f87aed33430212b8b1cce9"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:02:25.294Z"
+    resolved_at: "2026-09-15T16:22:37.005Z"
     lines: 37
     resolver: tree-sitter
   - file: packages/git-guard/src/shape.ts

@@ -19,13 +19,41 @@ verified:
   - by: unknown
     at: "2026-09-15T16:01:41.304Z"
     note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:02:36.222Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:04:26.932Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:06:26.736Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
+  - by: "agent:security"
+    at: "2026-09-15T16:11:25.688Z"
+    note: >-
+      Read readAttributes/declaresClasses at 8f85584: no base, unpinned read or
+      failed probe keeps repoDeclares true; unpinned keeps only
+      strauss-class=source.
+  - by: "agent:performance"
+    at: "2026-09-15T16:12:50.430Z"
+    note: >-
+      declaresClasses at 8f85584 is one cat-file --batch over
+      attributeFiles(paths), 10 s timeout, 16 MB cap. Measured: 28.5 ms for this
+      range's 42 lines, 56 ms for all 209 directories here, 1.1 s for 10 101.
+      Cost follows the diff's directories, not the tree.
+  - by: unknown
+    at: "2026-09-15T16:13:09.842Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:22:46.586Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses
-    hash: "sha256:fdd964f59c5e08806cc060f763bf4f999845e463c8bcd4438b668847d66190c7"
+    hash: "sha256:bbb45d4fdc66deaf5533bb02bff348b0d0c9a28d114683c4f17e2f7d3a07b5ff"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:01:32.262Z"
-    lines: 16
+    resolved_at: "2026-09-15T16:22:36.591Z"
+    lines: 37
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: attributeFiles
