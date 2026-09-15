@@ -58,6 +58,14 @@ test("a write before the base is loaded is denied", () => {
     loaded: false,
   });
   assert.match(String(reason), /load the base/);
+  // `--check` writes nothing, so it needs neither a load nor the actor.
+  assert.equal(
+    decide({
+      command: "strauss-kb anchor-resolve risk.a --check",
+      loaded: false,
+    }),
+    null,
+  );
   assert.equal(
     decide({ command: "strauss-kb query --tag review", loaded: false }),
     null,
