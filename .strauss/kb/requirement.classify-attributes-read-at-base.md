@@ -15,7 +15,10 @@ sources:
 generated:
   by: mcp
   at: "2026-09-15T15:30:23.025Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T15:33:12.723Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: readAttributes

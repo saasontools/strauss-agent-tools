@@ -19,7 +19,10 @@ sources:
 generated:
   by: mcp
   at: "2026-09-15T15:31:04.234Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T15:33:09.370Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/run.ts
     symbol: runGit

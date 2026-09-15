@@ -15,7 +15,10 @@ sources:
 generated:
   by: mcp
   at: "2026-09-15T15:31:48.823Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T15:33:10.341Z"
+    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: nx.json
     hash: "sha256:b42c709daab9257587acb71115aadac49b0edb9343e8674f03c2c275075ec670"

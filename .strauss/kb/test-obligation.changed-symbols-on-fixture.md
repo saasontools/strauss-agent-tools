@@ -11,14 +11,17 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T15:29:48.231Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T15:33:13.914Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/strauss-kb/src/changed-symbols.spec.ts
     hash: "sha256:ad1ed3d553038a9e8a958ba4cd96bef4b3ef112d3e1336917e5f18513c32dfc1"
     hash_kind: raw
     resolved_at: "2026-09-15T15:32:33.623Z"
     lines: 85
-strauss_status: resolved
+strauss_status: open
 ---
 
 ## Obligation

@@ -12,7 +12,10 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T15:30:09.835Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T15:33:12.135Z"
+    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/changed-files.ts
     symbol: changedFiles

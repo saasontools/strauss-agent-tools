@@ -11,14 +11,19 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T15:29:53.286Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T15:33:14.404Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: plugins/strauss-kb-review/hooks/scripts/fixture.spec.mjs
-    hash: "sha256:efb869871775fe91f2d23a0db66ce9f4f0b0d00bf1c8ea2ad01feeb377b10bdb"
-    hash_kind: raw
-    resolved_at: "2026-09-15T15:32:33.930Z"
-    lines: 111
-strauss_status: resolved
+    symbol: reportOn
+    hash: "sha256:d397eddd98c5adc70cdb3b34cb69eda433a09ffee73904d4869fdf82d58ca8b4"
+    hash_kind: ast
+    resolved_at: "2026-09-15T15:34:41.591Z"
+    lines: 26
+    resolver: tree-sitter
+strauss_status: open
 ---
 
 ## Obligation

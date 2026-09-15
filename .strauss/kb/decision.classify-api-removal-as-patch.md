@@ -13,7 +13,10 @@ sources:
 generated:
   by: mcp
   at: "2026-09-15T15:31:40.400Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T15:33:08.212Z"
+    note: "anchor-resolve: 3/3 anchors match (whole-file)"
 strauss_anchors:
   - file: .nx/version-plans/version-plan-saa-810.md
     hash: "sha256:5d81cd1e102ade015289123608d37e733412443009ab8a1e933867fb29ded301"
