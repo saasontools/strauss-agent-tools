@@ -57,8 +57,31 @@ function input(over = {}) {
     unearned: [],
     gate: { blocks: [], warns: [], answered: true },
     reviewer: { present: false, sha: null, verdicts: {}, risksWritten: [] },
+    decider: {
+      present: false,
+      verdict: null,
+      reason: "",
+      sha: null,
+      model: null,
+      disputes: [],
+      notes: [],
+    },
     approvals: [],
     log: [],
+    ...over,
+  };
+}
+
+/** @param {Partial<any>} over @returns {any} */
+function decider(over) {
+  return {
+    present: true,
+    verdict: "concur",
+    reason: "",
+    sha: HEAD_SHA,
+    model: "sonnet",
+    disputes: [],
+    notes: [],
     ...over,
   };
 }
@@ -333,6 +356,56 @@ test("policy-human — off is the unlisted behaviour, and auto never routes it",
   assert.equal(decide(split).rule, "policy-human");
 });
 
+test("decider-escalate — an escalation on the head sha routes human", () => {
+  const answer = decide(
+    input({
+      decider: decider({
+        verdict: "escalate",
+        reason: "the dedupe is not covered by any record",
+      }),
+    }),
+  );
+  assert.deepEqual([answer.route, answer.rule], ["human", "decider-escalate"]);
+  assert.match(answer.reason, /not covered by any record/);
+});
+
+test("decider-escalate — concur changes nothing, and removes no human", () => {
+  const concurred = decide(input({ decider: decider({}) }));
+  assert.deepEqual(
+    [concurred.route, concurred.rule],
+    ["auto", "auto-mechanical"],
+  );
+
+  // The rows above it already said human; a concur cannot take that back.
+  const escalated = input({
+    deleted: ["risk.x"],
+    decider: decider({}),
+  });
+  assert.deepEqual(
+    [decide(escalated).route, decide(escalated).rule],
+    ["human", "record-deleted"],
+  );
+});
+
+test("decider-escalate — a verdict `gather` dropped as stale is not read", () => {
+  // `inputs.mjs` clears `present` for a sha that is not the head, so the row
+  // sees nothing to act on however loud the payload was.
+  const answer = decide(
+    input({
+      decider: {
+        present: false,
+        verdict: null,
+        reason: "",
+        sha: "b".repeat(40),
+        model: null,
+        disputes: [],
+        notes: ["decider: ran on bbb…, not the head sha"],
+      },
+    }),
+  );
+  assert.deepEqual([answer.route, answer.rule], ["auto", "auto-mechanical"]);
+});
+
 test("auto-mechanical — an allowlist, default deny: no class named, nothing auto", () => {
   const denied = input();
   denied.policy.data.autoClasses = [];
@@ -562,6 +635,12 @@ test("every route an input can reach is human, auto or agent-review-then-auto, a
     [
       "a blocking record",
       input({ records: [record({ effective: "blocking" })] }),
+    ],
+    [
+      "a decider escalation",
+      input({
+        decider: decider({ verdict: "escalate", reason: "hearsay, not code" }),
+      }),
     ],
   ])) {
     assert.equal(decide(escalated).route, "human", label);

@@ -19,12 +19,17 @@
  * | 11 | `unreadable-record` | human | a record in the bundle that would not read |
  * | 12 | `gate-unavailable` | human | the gate crashed, timed out or printed nothing |
  * | 13 | `policy-human` | human | a record whose type or tag the policy dispositions `human` |
- * | 14 | `auto-mechanical` | auto | only classes and paths the policy allows, base quiet |
- * | 15 | `reviewer-clean` | agent-review-then-auto | every record on the diff verified |
- * | 16 | `default-human` | human | everything else |
+ * | 14 | `decider-escalate` | human | the fresh-eye decider escalated on the head sha |
+ * | 15 | `auto-mechanical` | auto | only classes and paths the policy allows, base quiet |
+ * | 16 | `reviewer-clean` | agent-review-then-auto | every record on the diff verified |
+ * | 17 | `default-human` | human | everything else |
  *
  * Rows 4, 8, 9 and the approval read in `enforce.mjs` are the hardening: an
  * actor string is forgeable, so none of them takes the author's word.
+ *
+ * Row 14 is a veto and not an authority: it sits below every row that already
+ * says `human`, so a decider is only ever asked about a range the deterministic
+ * rows were about to let through, and `concur` matches nothing.
  */
 import { matchesAny } from "./policy.mjs";
 
@@ -168,6 +173,14 @@ export const RULES = [
         ? `the policy sends to a human: ${named.map((record) => record.id).join(", ")}`
         : null;
     },
+  },
+  {
+    id: "decider-escalate",
+    route: "human",
+    when: (input) =>
+      input.decider.present && input.decider.verdict === "escalate"
+        ? `the decider escalated: ${input.decider.reason}`
+        : null,
   },
   {
     id: "auto-mechanical",

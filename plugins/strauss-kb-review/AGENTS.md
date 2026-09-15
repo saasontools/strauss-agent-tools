@@ -9,9 +9,10 @@ A multi-client agent plugin served as-is (no build step) to Claude Code,
 Codex, and Agent Plugins 1.0 clients:
 
 - `skills/recording-decisions/`, `skills/review-companion/`,
-  `skills/kb-review/` and `skills/review-walkthrough/` — the portable core
-  every client reads; put the real procedure here, never only in
-  client-specific files
+  `skills/kb-review/`, `skills/review-walkthrough/`, `skills/kb-fix/`,
+  `skills/merge-policy/` and `skills/merge-decide/` — the portable core every
+  client reads; put the real procedure here, never only in client-specific
+  files
 - no `agents/` — reviewers are the consumer's agents; `kb-review` is preloaded
   into each of them, and the roster in `.strauss/kb-pins.json` is the only
   place a reviewer is named
