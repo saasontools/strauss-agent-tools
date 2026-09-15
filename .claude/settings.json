@@ -12,9 +12,65 @@
   },
   "sandbox": {
     "network": {
-      "allowedDomains": [
-        "www.google-analytics.com"
-      ]
+      "allowedDomains": ["www.google-analytics.com"]
     }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/plugins/strauss-kb-review/hooks/scripts/kb-review-gate.mjs\" --session-start",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__.*strauss[-_]kb.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/plugins/strauss-kb-review/hooks/scripts/kb-reviewer-gate.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/plugins/strauss-kb-review/hooks/scripts/kb-review-gate.mjs\"",
+            "timeout": 50
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/plugins/strauss-kb-review/hooks/scripts/kb-reviewer-gate.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/plugins/strauss-kb-review/hooks/scripts/kb-review-gate.mjs\"",
+            "timeout": 50
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/plugins/strauss-kb-review/hooks/scripts/kb-reviewer-gate.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }

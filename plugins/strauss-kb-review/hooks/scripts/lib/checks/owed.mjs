@@ -292,6 +292,15 @@ function* verification(ctx) {
     if (record.type !== "risk" || terminal.has(record.status)) continue;
     if (!["blocking", "important"].includes(record.materiality ?? "")) continue;
     if (record.links.some((link) => link.rel === "verified_by")) continue;
+    // A test-obligation that points at the risk verifies it as well as a
+    // link the risk carries: the reviewer wrote the risk, the author the check.
+    const inbound = ctx.backlinks(record.conceptId)?.backlinks ?? [];
+    if (
+      inbound.some((/** @type {any} */ link) =>
+        ["verified_by", "satisfies"].includes(link?.rel),
+      )
+    )
+      continue;
     const anchors = record.anchors.map((anchor) => anchor.file);
     const specNear = ctx.files.some(
       (file) =>
