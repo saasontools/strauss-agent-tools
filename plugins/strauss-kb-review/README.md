@@ -109,8 +109,8 @@ commit: everything changed there, whoever changed it. Parallel subagents in
 one worktree therefore share one diff. On `SubagentStop` a subagent's fenced
 `changed` block (see `review-companion`) scopes the gate to the paths it
 declares, after the worktree confirms they changed; undeclared paths fall to
-the parent session at its Stop. A line may carry the agent's class for the
-change (`src/gen/api.ts generated`); a class that lowers scrutiny is checked
+the parent session at its Stop. The block is JSON, `{ "paths": [ { "path",
+"class"? } ] }`; a class that lowers scrutiny is checked
 against what the repository says — a `review:*` fact on the hunk or a
 `.gitattributes` entry at the base commit (`linguist-generated`,
 `linguist-vendored`, `linguist-documentation`, `strauss-class=test|ci|config|lockfile`)
