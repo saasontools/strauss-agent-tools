@@ -27,7 +27,10 @@
       "dependsOn": [
         { "projects": ["@saasontools/strauss-kb"], "target": "build" }
       ],
-      "command": "node --test \"plugins/strauss-kb-review/hooks/scripts/*.spec.mjs\" \"plugins/strauss-kb-review/skills/review-walkthrough/scripts/*.spec.mjs\""
+      // Two passes. `hook.spec.mjs` asserts a 150 ms wall-clock budget on the
+      // gate's idle path, so merge-policy's fixture pass — eleven repositories,
+      // each spawning the gate — runs after it rather than beside it.
+      "command": "node --test \"plugins/strauss-kb-review/hooks/scripts/*.spec.mjs\" \"plugins/strauss-kb-review/skills/review-walkthrough/scripts/*.spec.mjs\" && node --test \"plugins/strauss-kb-review/skills/merge-policy/scripts/*.spec.mjs\""
     },
     "validate": {
       "command": "claude plugin validate .",

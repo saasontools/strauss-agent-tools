@@ -1,0 +1,146 @@
+{
+  "skill_name": "merge-policy",
+  "note": "Trigger-accuracy regression suite. Same shape and run command as ../../recording-decisions/evals/README.md.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "can-this-automerge",
+      "prompt": "this branch only touches generated protocol types and a lockfile. can it go in without a human looking at it, or does someone have to review it?",
+      "expected_trigger": true,
+      "why": "The route question asked in plain words."
+    },
+    {
+      "id": 2,
+      "name": "why-escalated",
+      "prompt": "CI escalated PR 412 to human review and I don't understand why — everything on the branch is green and the kb records all look fine. which rule fired?",
+      "expected_trigger": true,
+      "why": "Asking which row of the route table matched."
+    },
+    {
+      "id": 3,
+      "name": "ci-gate-step",
+      "prompt": "add a step to our merge workflow that fails the job unless the branch is either mechanical or has an approval from someone in the owners list.",
+      "expected_trigger": true,
+      "why": "The --enforce contract is exactly this."
+    },
+    {
+      "id": 4,
+      "name": "who-reviews",
+      "prompt": "who needs to look at main..HEAD before it merges — nobody, the reviewer agent, or a person? the base has risks and a couple of open questions in it.",
+      "expected_trigger": true,
+      "why": "The three routes, named."
+    },
+    {
+      "id": 5,
+      "name": "materiality-floor",
+      "prompt": "we want anything tagged review:security to count as important even when the author marked it non-blocking, and to block automerge until someone other than the author has verified it. where does that live?",
+      "expected_trigger": true,
+      "why": "Floors and the unverified-important row."
+    },
+    {
+      "id": 6,
+      "name": "merge-policy-file",
+      "prompt": "what goes in .strauss/merge-policy.yaml, and does a change to it on my own branch take effect for that branch's own check?",
+      "expected_trigger": true,
+      "why": "The policy schema and the base-rev read."
+    },
+    {
+      "id": 7,
+      "name": "approval-source",
+      "prompt": "dana ran kb verify on the decision under her human: actor. does that count as her approving the merge?",
+      "expected_trigger": true,
+      "why": "The hardening rule: approval comes from the reviews API, never from a verify event."
+    },
+    {
+      "id": 8,
+      "name": "deleted-record-route",
+      "prompt": "someone deleted a risk record on this branch and there's no supersede behind it. should the merge check still let this through automatically?",
+      "expected_trigger": true,
+      "why": "The record-deleted row."
+    },
+    {
+      "id": 9,
+      "name": "auto-vs-agent-review",
+      "prompt": "when does the pipeline pick agent-review-then-auto instead of straight auto for a pull request?",
+      "expected_trigger": true,
+      "why": "Two of the three route values, by name."
+    },
+    {
+      "id": 10,
+      "name": "excluded-path",
+      "prompt": "our policy excludes packages/legacy-reporting, but this diff there now imports a type out of src/checkout. does the exclusion still hold for the merge decision?",
+      "expected_trigger": true,
+      "why": "The crossing check inside the route step."
+    },
+    {
+      "id": 11,
+      "name": "write-the-record",
+      "prompt": "i just changed how the retry budget is scoped. write the decision record for it with the anchors and the rejected alternative.",
+      "expected_trigger": false,
+      "why": "Writing a record is recording-decisions."
+    },
+    {
+      "id": 12,
+      "name": "reading-order",
+      "prompt": "give me an html page that walks a reviewer through this PR in a sensible order, blocking risks first.",
+      "expected_trigger": false,
+      "why": "The reading deck is review-walkthrough."
+    },
+    {
+      "id": 13,
+      "name": "run-the-reviewer",
+      "prompt": "spawn the kb reviewer on this branch and show me its verdicts per record.",
+      "expected_trigger": false,
+      "why": "Collecting and running the reviewer is kb-review."
+    },
+    {
+      "id": 14,
+      "name": "gate-blocked-me",
+      "prompt": "the stop hook keeps blocking my turn saying A1 — a changed symbol with no record. what do i write to get past it?",
+      "expected_trigger": false,
+      "why": "Fixing a gate block is review-companion's loop, not the route."
+    },
+    {
+      "id": 15,
+      "name": "branch-protection",
+      "prompt": "set up github branch protection on main: two required approvals, dismiss stale reviews, require the build check.",
+      "expected_trigger": false,
+      "why": "GitHub repository settings, not a route computed from a base."
+    },
+    {
+      "id": 16,
+      "name": "merge-conflict",
+      "prompt": "i have a merge conflict in pnpm-lock.yaml after rebasing onto main. how do i resolve it?",
+      "expected_trigger": false,
+      "why": "A git conflict; \"merge\" is the only word in common."
+    },
+    {
+      "id": 17,
+      "name": "kb-query",
+      "prompt": "has anyone already decided how repositories retry transient store errors? i don't want to decide it twice.",
+      "expected_trigger": false,
+      "why": "A base lookup, answered by knowledge-base."
+    },
+    {
+      "id": 18,
+      "name": "code-review-content",
+      "prompt": "review this diff and tell me what's wrong with it — correctness bugs, not process.",
+      "expected_trigger": false,
+      "why": "A code review, not a decision about who performs one."
+    },
+    {
+      "id": 19,
+      "name": "release-plan",
+      "prompt": "write the nx release version plan for this change and pick the bump.",
+      "expected_trigger": false,
+      "why": "Release mechanics; nothing to do with review routing."
+    },
+    {
+      "id": 20,
+      "name": "classify-files",
+      "prompt": "which files in this diff are generated and which are hand-written? just the classification.",
+      "expected_trigger": false,
+      "why": "The classifier verb on its own; the route is the consumer, not the answer."
+    }
+  ]
+}
