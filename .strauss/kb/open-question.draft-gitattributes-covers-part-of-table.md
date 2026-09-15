@@ -40,6 +40,9 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:45.613Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:29.982Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/draft-gitattributes.ts
     symbol: draftGitattributesFrom

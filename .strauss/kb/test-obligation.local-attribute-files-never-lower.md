@@ -24,15 +24,15 @@ verified:
     note: "anchor-resolve: 2/2 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.spec.ts
-    hash: "sha256:1891ae5362e883d0b8c2f857c8789c87acbf54165809dde04467543427f5262b"
+    hash: "sha256:fc760a7c7da77123b70942b6c27414108aec252af7e0e0334f209c691c7d756b"
     hash_kind: raw
-    resolved_at: "2026-09-15T16:22:33.737Z"
-    lines: 135
+    resolved_at: "2026-09-15T16:47:43.022Z"
+    lines: 169
   - file: packages/code-diff/src/classify/attributes.spec.ts
-    hash: "sha256:6668fe938a1dc53ebcfabaa3514389d51c6193372c3d5fa320a15962a32e6de4"
+    hash: "sha256:7b0d1db6566fb5656156b12ad687505422ba2b30fe282062b309392894c2297c"
     hash_kind: raw
-    resolved_at: "2026-09-15T16:22:33.738Z"
-    lines: 306
+    resolved_at: "2026-09-15T16:47:43.023Z"
+    lines: 322
 strauss_links:
   - target: risk.pinned-attribute-read-honours-local-attribute-files
     rel: satisfies

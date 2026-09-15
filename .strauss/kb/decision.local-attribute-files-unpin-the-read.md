@@ -29,10 +29,10 @@ verified:
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:f76a2bb7649052f3a3a2d1557e5497b20b26f7990add8ba0ada0407d1bd7a0f5"
+    hash: "sha256:aba399499154a15bc8b6b37031ee8ee8496c8610b1408b01e0e8f23955ee129a"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:22:26.402Z"
-    lines: 64
+    resolved_at: "2026-09-15T16:47:40.134Z"
+    lines: 66
     resolver: tree-sitter
   - file: packages/git-guard/src/check-attr.ts
     symbol: namesAttribute
@@ -50,12 +50,13 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/read.ts
     symbol: notesFor
-    hash: "sha256:590620e3baaed919303e2c720e84415834c6e9e9a67ca156bb73dea82e0999ef"
+    hash: "sha256:954dc8823edbaf66e6219e137444f092740b2bc22fe4067faaad6e6315b1943a"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:22:26.408Z"
-    lines: 19
+    resolved_at: "2026-09-15T16:47:40.140Z"
+    lines: 21
     resolver: tree-sitter
-strauss_status: accepted
+strauss_status: superseded
+strauss_superseded_by: decision.local-attribute-file-lowers-nothing
 ---
 
 ## Decision

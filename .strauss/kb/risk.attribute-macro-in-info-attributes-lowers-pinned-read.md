@@ -18,6 +18,11 @@ strauss_anchors:
     symbol: namesAttribute
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: readAttributes
+    hash: "sha256:88b811772b45f7da10219f8ad4b8cc6514fad0230bce4548ab2eac4dd5c31765"
+    hash_kind: ast
+    resolved_at: "2026-09-15T16:47:30.819Z"
+    lines: 29
+    resolver: tree-sitter
 strauss_links:
   - target: decision.local-attribute-files-unpin-the-read
     rel: informs

@@ -82,6 +82,9 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:50.521Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:35.387Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: fixtures/companion-repo/scenarios/head-attribute-ignored/expected.json
     hash: "sha256:71406a56e33d99a7bba919bfd585d6ffbe8383986e8076504d1c46c0f0156d09"

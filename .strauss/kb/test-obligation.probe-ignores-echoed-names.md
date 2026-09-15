@@ -30,10 +30,10 @@ verified:
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.spec.ts
-    hash: "sha256:6668fe938a1dc53ebcfabaa3514389d51c6193372c3d5fa320a15962a32e6de4"
+    hash: "sha256:7b0d1db6566fb5656156b12ad687505422ba2b30fe282062b309392894c2297c"
     hash_kind: raw
-    resolved_at: "2026-09-15T16:22:33.926Z"
-    lines: 306
+    resolved_at: "2026-09-15T16:47:43.211Z"
+    lines: 322
 strauss_links:
   - target: risk.declares-classes-probe-matches-echoed-object-names
     rel: satisfies

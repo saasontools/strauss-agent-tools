@@ -105,17 +105,18 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:f76a2bb7649052f3a3a2d1557e5497b20b26f7990add8ba0ada0407d1bd7a0f5"
+    hash: "sha256:aba399499154a15bc8b6b37031ee8ee8496c8610b1408b01e0e8f23955ee129a"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:22:37.223Z"
-    lines: 64
+    resolved_at: "2026-09-15T16:47:40.359Z"
+    lines: 66
     resolver: tree-sitter
 strauss_verify:
   - >-
     cd packages/code-diff && pnpm vitest run src/repo/repo.spec.ts
     src/changed-symbols.spec.ts
   - cd packages/git-guard && pnpm vitest run src/check-attr.spec.ts
-strauss_status: accepted
+strauss_status: superseded
+strauss_superseded_by: fact.gate-git-helpers-ported-and-hardened
 ---
 
 ## Claim

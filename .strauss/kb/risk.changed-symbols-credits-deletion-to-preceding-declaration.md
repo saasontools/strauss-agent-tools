@@ -14,6 +14,11 @@ verified: []
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols
+    hash: "sha256:3af8aa7350e92c6f8ee6346d244f4252da93f2f937bc9c887b1aa88e8fd5b772"
+    hash_kind: ast
+    resolved_at: "2026-09-15T16:47:31.508Z"
+    lines: 22
+    resolver: tree-sitter
 strauss_links:
   - target: decision.changed-symbols-parse-stays-with-resolver
     rel: informs

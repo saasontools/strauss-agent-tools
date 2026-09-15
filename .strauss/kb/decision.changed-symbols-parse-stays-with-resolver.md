@@ -82,6 +82,9 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:41.587Z"
     note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:24.835Z"
+    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols

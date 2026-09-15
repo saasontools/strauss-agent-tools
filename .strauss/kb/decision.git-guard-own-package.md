@@ -81,6 +81,9 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:42.751Z"
     note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:26.114Z"
+    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/run.ts
     symbol: runGit

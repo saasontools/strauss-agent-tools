@@ -60,6 +60,9 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:42.012Z"
     note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:25.270Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

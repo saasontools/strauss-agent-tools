@@ -69,6 +69,9 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:42.352Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:25.658Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: fixtures/companion-repo/base/.gitattributes
     hash: "sha256:212372d8f93f4ff9aa3e81255a8d875bd156c0534b07e562da2ac259d7fef120"

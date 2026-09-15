@@ -14,10 +14,10 @@ verified: []
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: notesFor
-    hash: "sha256:590620e3baaed919303e2c720e84415834c6e9e9a67ca156bb73dea82e0999ef"
+    hash: "sha256:954dc8823edbaf66e6219e137444f092740b2bc22fe4067faaad6e6315b1943a"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:35:47.512Z"
-    lines: 19
+    resolved_at: "2026-09-15T16:47:41.619Z"
+    lines: 21
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/classify.ts
     symbol: renderClassify

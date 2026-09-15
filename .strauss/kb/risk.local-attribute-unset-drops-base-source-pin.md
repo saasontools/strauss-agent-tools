@@ -14,10 +14,10 @@ verified: []
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles
-    hash: "sha256:8f3ec93d579719f3cec76bbc91a2ed9a95649f6145ef9d31f762cb2b78fc6377"
+    hash: "sha256:8b44adb4e92bf9f4dc931dc4b8ef19a0d9130b99f19962a9b8189d19a1c5cf4a"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:35:49.606Z"
-    lines: 27
+    resolved_at: "2026-09-15T16:47:42.032Z"
+    lines: 38
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: readAttributes

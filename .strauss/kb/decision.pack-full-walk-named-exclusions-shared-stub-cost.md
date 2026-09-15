@@ -94,6 +94,9 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:44.084Z"
     note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:27.580Z"
+    note: "anchor-resolve: 3/3 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/pack.ts
     symbol: pack

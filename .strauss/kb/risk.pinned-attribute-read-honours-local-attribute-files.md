@@ -25,10 +25,10 @@ verified:
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:f76a2bb7649052f3a3a2d1557e5497b20b26f7990add8ba0ada0407d1bd7a0f5"
+    hash: "sha256:aba399499154a15bc8b6b37031ee8ee8496c8610b1408b01e0e8f23955ee129a"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:22:39.151Z"
-    lines: 64
+    resolved_at: "2026-09-15T16:47:42.251Z"
+    lines: 66
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: readAttributes

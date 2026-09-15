@@ -15,12 +15,20 @@ verified: []
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.ts
     symbol: classifyFile
+    hash: "sha256:29ba8b9893a3bdadc24ad544909a0adba224eeb79f938fc837a81a77ff311a9c"
+    hash_kind: ast
+    resolved_at: "2026-09-15T16:47:29.578Z"
+    lines: 29
+    resolver: tree-sitter
 strauss_links:
   - target: flow.classify-a-range-at-base
     rel: informs
   - target: requirement.classify-attributes-read-at-base
     rel: informs
-strauss_status: open
+strauss_status: resolved
+strauss_answered:
+  by: mcp
+  at: "2026-09-15T16:46:38.309Z"
 strauss_owner: mcp
 ---
 
@@ -39,3 +47,7 @@ The banner is an unrecorded exception: the flow's title overclaims, and a head b
 Informs [flow.classify-a-range-at-base](flow.classify-a-range-at-base.md).
 
 Informs [requirement.classify-attributes-read-at-base](requirement.classify-attributes-read-at-base.md).
+
+## Answer
+
+An accepted exception. Reading the banner at the base only would leave every new generated file source and let a banner removed on the branch still lower. The banner is in the diff, a base strauss-class=source outranks it, and a local attributes file turns it off. decision.branch-banner-is-a-declaration records it; risk.branch-banner-lowers-its-own-file stays open for its reviewer.

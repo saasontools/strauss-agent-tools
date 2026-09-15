@@ -30,6 +30,9 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:52.010Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:37.737Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.spec.ts
     hash: "sha256:7f26ec859a1ea7a117171035c78b8be9d6f31f41aa08bf08c4a72663b3fd820f"
