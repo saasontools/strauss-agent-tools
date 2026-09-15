@@ -20,7 +20,8 @@ strauss_anchors:
 strauss_links:
   - target: fact.diff-reader-moved-to-code-diff
     rel: related_to
-strauss_status: accepted
+strauss_status: superseded
+strauss_superseded_by: decision.tests-moved-assertions-unchanged
 ---
 
 ## Decision

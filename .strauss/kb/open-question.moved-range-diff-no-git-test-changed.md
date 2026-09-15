@@ -23,8 +23,11 @@ strauss_anchors:
 strauss_links:
   - target: decision.tests-moved-with-code
     rel: informs
-strauss_status: open
+strauss_status: resolved
 strauss_owner: "agent:author"
+strauss_answered:
+  by: mcp
+  at: "2026-09-15T16:00:48.797Z"
 ---
 
 ## Question
@@ -40,3 +43,7 @@ The record claims the refusal tests moved unchanged; an unexplained edit to a mo
 The change is harmless setup; the assertion is the same.
 
 Informs [decision.tests-moved-with-code](decision.tests-moved-with-code.md).
+
+## Answer
+
+No platform needed it. The no-git case is back to PATH="" as drift/git.spec.ts had it. The rest of the setup moved to the package's tempRepo helper, which keeps the host's git config out; every assertion is unchanged. decision.tests-moved-assertions-unchanged supersedes the record that said "unchanged" outright.

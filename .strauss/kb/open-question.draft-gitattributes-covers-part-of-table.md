@@ -29,8 +29,11 @@ strauss_links:
     rel: informs
   - target: risk.hook-classes-shift-through-cli
     rel: informs
-strauss_status: open
+strauss_status: resolved
 strauss_owner: "agent:author"
+strauss_answered:
+  by: mcp
+  at: "2026-09-15T16:00:46.408Z"
 ---
 
 ## Question
@@ -48,3 +51,7 @@ The draft replaces the table only for lock files, CI and suffix-named tests; the
 Informs [decision.default-table-only-without-declared-classes](decision.default-table-only-without-declared-classes.md).
 
 Informs [risk.hook-classes-shift-through-cli](risk.hook-classes-shift-through-cli.md).
+
+## Answer
+
+It does now, except markdown. The draft proposes test/, tests/, **tests**/ and **mocks**/ directories and docs/, beside lock files, CI, _.spec._ / _.test._ and build output. *.md is left out on purpose: in an agent plugin markdown is often a prompt, and a repo should declare that itself. decision.default-table-only-on-a-read-undeclared-base records it.

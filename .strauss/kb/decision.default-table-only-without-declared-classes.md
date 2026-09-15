@@ -87,7 +87,8 @@ strauss_anchors:
     resolved_at: "2026-09-15T15:32:36.924Z"
     lines: 11
     resolver: regex
-strauss_status: accepted
+strauss_status: superseded
+strauss_superseded_by: decision.default-table-only-on-a-read-undeclared-base
 ---
 
 ## Decision

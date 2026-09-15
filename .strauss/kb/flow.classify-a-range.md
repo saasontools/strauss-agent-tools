@@ -85,7 +85,8 @@ strauss_anchors:
 strauss_links:
   - target: requirement.classify-attributes-read-at-base
     rel: satisfies
-strauss_status: accepted
+strauss_status: superseded
+strauss_superseded_by: flow.classify-a-range-at-base
 ---
 
 ## Flow
