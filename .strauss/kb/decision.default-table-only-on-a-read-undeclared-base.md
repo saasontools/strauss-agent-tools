@@ -16,18 +16,6 @@ generated:
   by: mcp
   at: "2026-09-15T16:01:04.377Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T16:01:41.304Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:36.222Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:26.932Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:26.736Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
   - by: "agent:security"
     at: "2026-09-15T16:11:25.688Z"
     note: >-
@@ -41,15 +29,6 @@ verified:
       attributeFiles(paths), 10 s timeout, 16 MB cap. Measured: 28.5 ms for this
       range's 42 lines, 56 ms for all 209 directories here, 1.1 s for 10 101.
       Cost follows the diff's directories, not the tree.
-  - by: unknown
-    at: "2026-09-15T16:13:09.842Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:46.586Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:32.878Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
   - by: "agent:correctness"
     at: "2026-09-15T16:34:55.620Z"
     note: >-
@@ -57,18 +36,6 @@ verified:
       null; classifyFile applies pathRule only when !repoDeclares;
       draftGitattributesFrom proposes test dirs, docs/, lock files, CI, suffixes
       and build output, never *.md; -t 'repoDeclares|attributeFiles' passes 9.
-  - by: unknown
-    at: "2026-09-15T16:35:42.012Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:25.270Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:56.532Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:41.799Z"
-    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

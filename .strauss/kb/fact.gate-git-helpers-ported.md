@@ -13,18 +13,6 @@ generated:
   by: mcp
   at: "2026-09-15T15:30:09.835Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:12.135Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:54.071Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:43.986Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:15.190Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
   - by: "agent:security"
     at: "2026-09-15T15:44:55.301Z"
     note: >-
@@ -32,44 +20,11 @@ verified:
       same -z stdin protocol; the port falls back only on reason 'failed' and
       reads nothing for an unsafe source, as claimed. Both fall back to the
       working tree: see risk.classify-unpinned-attributes-lower-classes.
-  - by: unknown
-    at: "2026-09-15T15:45:17.204Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:25.841Z"
     note: >-
       Compared with plugins/strauss-kb-review/hooks/scripts/lib/git.mjs: the
       listed differences hold. The ports inherit two gaps, filed as risks.
-  - by: unknown
-    at: "2026-09-15T15:48:12.019Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:22.896Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:40.032Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:31.224Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:29.774Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:12.570Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:49.727Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:35.895Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:44.969Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:00.043Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/changed-files.ts
     symbol: changedFiles

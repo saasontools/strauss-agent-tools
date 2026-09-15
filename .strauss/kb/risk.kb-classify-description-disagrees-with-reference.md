@@ -10,46 +10,6 @@ tags:
 generated:
   by: "agent:prose"
   at: "2026-09-15T15:42:58.884Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T15:48:15.501Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:49:27.397Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:43.656Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:35.401Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:32.765Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:13:16.179Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:31.839Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:53.723Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:39.431Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:49.410Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:34.288Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:05.457Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:50.875Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/classify.ts
     hash: "sha256:be2c00ceee697ef18b37251ffcc985360cab0f0b6e958a95148c125e5fa037b1"

@@ -14,74 +14,17 @@ generated:
   by: mcp
   at: "2026-09-15T15:31:40.400Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:08.212Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:34:49.637Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:37:40.243Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:38:11.732Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
   - by: "agent:prose"
     at: "2026-09-15T15:43:02.607Z"
     note: >-
       Grepped the repo outside node_modules and dist: only the SAA-810 version
       plan mentions DEFAULT_THRESHOLDS or KbClassifyThresholds, and it names
       both.
-  - by: unknown
-    at: "2026-09-15T15:45:13.825Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:25.141Z"
     note: >-
       No importer of DEFAULT_THRESHOLDS or KbClassifyThresholds under packages,
       plugins or apps; the version plan names both.
-  - by: unknown
-    at: "2026-09-15T15:48:08.549Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:49:19.247Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:01:40.994Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:35.930Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:26.590Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:26.524Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:13:09.610Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:24.658Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:46.353Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:32.661Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:41.796Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:25.053Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:56.313Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:41.567Z"
-    note: "anchor-resolve: 3/3 anchors match (whole-file)"
 strauss_anchors:
   - file: .nx/version-plans/version-plan-saa-810.md
     hash: "sha256:5d81cd1e102ade015289123608d37e733412443009ab8a1e933867fb29ded301"

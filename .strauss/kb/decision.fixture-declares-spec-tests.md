@@ -16,68 +16,11 @@ generated:
   by: mcp
   at: "2026-09-15T15:31:29.433Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:08.747Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:34:50.285Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:37:40.749Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:38:12.210Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:45:14.229Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:25.338Z"
     note: >-
       base/.gitattributes declares *.spec.ts; fixture.spec.mjs passes 14/14 with
       blocking-risk groups [].
-  - by: unknown
-    at: "2026-09-15T15:48:09.032Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:49:19.723Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:01:41.881Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:36.932Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:27.482Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:27.142Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:13:10.192Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:25.287Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:46.976Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:33.254Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:42.352Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:25.658Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:56.907Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:42.154Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: fixtures/companion-repo/base/.gitattributes
     hash: "sha256:212372d8f93f4ff9aa3e81255a8d875bd156c0534b07e562da2ac259d7fef120"

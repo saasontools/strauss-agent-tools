@@ -18,21 +18,6 @@ generated:
   by: mcp
   at: "2026-09-15T15:31:11.470Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:07.887Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:49.276Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:39.990Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:11.402Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:45:13.607Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:24.575Z"
     note: >-
@@ -45,24 +30,6 @@ verified:
       code-diff depends only on git-guard, no web-tree-sitter. changedSymbolsIn
       reads files and prepares grammars concurrently and parses each file once
       through the content-hash tree cache.
-  - by: unknown
-    at: "2026-09-15T15:48:08.282Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:18.921Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:01:40.645Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:35.513Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:26.334Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:26.319Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
   - by: "agent:performance"
     at: "2026-09-15T16:12:50.573Z"
     note: >-
@@ -70,27 +37,6 @@ verified:
       cache; prepare loads only the languages the paths need; changedSymbolsIn
       reads files and prepares grammars in one Promise.all. No CLI or hook
       caller yet.
-  - by: unknown
-    at: "2026-09-15T16:13:09.416Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:46.156Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:32.472Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:41.587Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:24.835Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:56.114Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:41.371Z"
-    note: "anchor-resolve: 5/5 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols

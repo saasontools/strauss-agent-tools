@@ -10,48 +10,12 @@ generated:
   by: mcp
   at: "2026-09-15T16:00:43.844Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T16:01:51.905Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:45.433Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:37.447Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:34.171Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:correctness"
     at: "2026-09-15T16:12:10.076Z"
     note: >-
       At 8f85584: classifyCommand.description names the default path table, and
       classifyFileSchema no longer has similarity. Ran commands/classify.spec.ts
       -t 'similarity|companion fixture': 2 passed.
-  - by: unknown
-    at: "2026-09-15T16:13:17.813Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:33.533Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:55.416Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:41.074Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:51.278Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:36.564Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:07.722Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:53.093Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/classify.spec.ts
     hash: "sha256:962fd30873a04934432daa8a40e31d16c24b473f685dee6b1701ca11a389d1a5"

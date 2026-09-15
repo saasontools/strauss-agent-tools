@@ -10,10 +10,6 @@ tags:
 generated:
   by: "agent:correctness"
   at: "2026-09-15T16:36:17.025Z"
-verified:
-  - by: "agent:author"
-    at: "2026-09-15T16:48:01.093Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr

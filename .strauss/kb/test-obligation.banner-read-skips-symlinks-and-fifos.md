@@ -8,18 +8,6 @@ generated:
   by: mcp
   at: "2026-09-15T16:00:35.196Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T16:01:50.447Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:44.140Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:35.973Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:33.160Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:security"
     at: "2026-09-15T16:11:25.101Z"
     note: >-
@@ -38,24 +26,6 @@ verified:
     note: >-
       Ran pnpm vitest run src/classify/attributes.spec.ts -t symlink in
       packages/code-diff at 8f85584: 1 pass under its 5 s ceiling.
-  - by: unknown
-    at: "2026-09-15T16:13:16.793Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:54.339Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:40.015Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:50.211Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:06.296Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:51.691Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.spec.ts
     hash: "sha256:7b0d1db6566fb5656156b12ad687505422ba2b30fe282062b309392894c2297c"

@@ -12,37 +12,6 @@ tags:
 generated:
   by: "agent:security"
   at: "2026-09-15T15:44:54.571Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T15:48:14.092Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:25.800Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:42.326Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:34.033Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:31.715Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:14.919Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:52.395Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:38.186Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:47.943Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:04.004Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr

@@ -10,43 +10,6 @@ tags:
 generated:
   by: "agent:correctness"
   at: "2026-09-15T15:46:23.906Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T15:49:24.192Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:41.057Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:32.475Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:30.670Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:13:13.387Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:28.866Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:50.551Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:36.711Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:46.017Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:30.391Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:01.707Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:46.985Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/diff.spec.ts
     hash: "sha256:141d1471d25308df93da2b90549a9eaffa62b62dcb1dec6cb06b1d2e3aaaebd9"

@@ -12,37 +12,6 @@ tags:
 generated:
   by: "agent:performance"
   at: "2026-09-15T15:47:10.304Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T15:49:25.227Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:41.800Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:33.492Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:31.296Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:14.235Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:51.703Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:37.542Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:47.100Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:03.160Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:48.485Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

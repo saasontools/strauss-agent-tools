@@ -15,58 +15,6 @@ sources:
 generated:
   by: mcp
   at: "2026-09-15T15:31:24.857Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T15:33:08.484Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:50.015Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:40.580Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:12.026Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:45:14.077Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:48:08.840Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:19.525Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:36.727Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:27.232Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:26.990Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:10.044Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:46.806Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:33.097Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:42.216Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:25.511Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:56.776Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:42.022Z"
-    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

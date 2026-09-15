@@ -13,51 +13,12 @@ generated:
   by: "agent:security"
   at: "2026-09-15T15:44:54.758Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:48:13.838Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:25.515Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:42.048Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:33.768Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:31.511Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
   - by: "agent:performance"
     at: "2026-09-15T16:12:49.790Z"
     note: >-
       Bounds at 8f85584: header() opens O_RDONLY|O_NOFOLLOW|O_NONBLOCK and reads
       only after fstat says isFile; the symlink-to-FIFO spec returns within 5 s.
       Mitigation and Verification sections still read none.
-  - by: unknown
-    at: "2026-09-15T16:13:14.464Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:29.955Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:51.962Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:37.747Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:47.300Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:32.157Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:03.369Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:48.711Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: header

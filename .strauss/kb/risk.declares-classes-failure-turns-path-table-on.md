@@ -11,18 +11,6 @@ generated:
   by: "agent:correctness"
   at: "2026-09-15T15:46:23.273Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:49:26.135Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:42.584Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:34.291Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:31.938Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
   - by: "agent:performance"
     at: "2026-09-15T16:12:49.945Z"
     note: >-
@@ -30,27 +18,6 @@ verified:
       timeout included; readAttributes then sets repoDeclares true and
       probeFailed, and classifyFiles adds a note. attributes.spec -t
       repoDeclares passes.
-  - by: unknown
-    at: "2026-09-15T16:13:15.111Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:52.610Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:38.382Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:48.137Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:33.041Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:04.215Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:49.596Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

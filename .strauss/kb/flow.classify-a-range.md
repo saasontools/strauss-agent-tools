@@ -12,18 +12,6 @@ generated:
   by: mcp
   at: "2026-09-15T15:32:01.766Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:12.455Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:54.378Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:44.293Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:15.572Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
   - by: "agent:security"
     at: "2026-09-15T15:44:55.506Z"
     note: >-
@@ -31,9 +19,6 @@ verified:
       code-diff classify/read.ts classifyFiles and attributes.ts
       readAttributes/declaresClasses; failure modes match the code, including
       the working-tree fallback with a note.
-  - by: unknown
-    at: "2026-09-15T15:45:17.470Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:26.028Z"
     note: >-
@@ -47,42 +32,6 @@ verified:
       16-wide header reads and readAttributes, which runs checkAttr (one stdin
       batch) and declaresClasses concurrently. Failure modes omit a timed-out
       grep: risk.classify-base-grep-walks-whole-tree.
-  - by: unknown
-    at: "2026-09-15T15:48:12.286Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:23.304Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:40.522Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:31.909Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:30.202Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:12.984Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:28.456Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:50.152Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:36.308Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:45.413Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:00.470Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:45.690Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles

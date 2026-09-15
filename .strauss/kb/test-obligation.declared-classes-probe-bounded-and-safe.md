@@ -12,18 +12,6 @@ generated:
   by: mcp
   at: "2026-09-15T16:00:31.661Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T16:01:51.366Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:44.979Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:36.967Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:33.828Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:security"
     at: "2026-09-15T16:11:25.229Z"
     note: >-
@@ -45,24 +33,6 @@ verified:
       'repoDeclares|attributeFiles' in packages/code-diff at 8f85584: 8 pass.
       Probe input is bounded by the directories above changed paths: 42 lines
       for c5e9a66..HEAD, 10 101 for a 10k-file change.
-  - by: unknown
-    at: "2026-09-15T16:13:17.458Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:55.044Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:40.691Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:50.911Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:06.971Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:52.382Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.spec.ts
     hash: "sha256:7b0d1db6566fb5656156b12ad687505422ba2b30fe282062b309392894c2297c"

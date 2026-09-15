@@ -13,21 +13,6 @@ generated:
   by: mcp
   at: "2026-09-15T15:30:02.684Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:11.726Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:53.731Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:43.684Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:14.923Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:45:16.950Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
   - by: "agent:security"
     at: "2026-09-15T15:45:43.673Z"
     note: >-
@@ -46,54 +31,12 @@ verified:
     note: >-
       Compared readRangeDiff with drift/git.ts at c5e9a66: same argv, 8 MiB cap,
       20 s timeout, same refusal mapping; only the runner and its env changed.
-  - by: unknown
-    at: "2026-09-15T15:48:11.760Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:22.624Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:01:45.163Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:39.712Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:30.975Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:29.533Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
   - by: "agent:performance"
     at: "2026-09-15T16:12:50.286Z"
     note: >-
       Diffed drift/git.ts's removed readRangeDiff against code-diff
       repo/diff.ts: same argv, 8 MB cap and 20 s timeout; only the spawn is
       runGit now.
-  - by: unknown
-    at: "2026-09-15T16:13:12.353Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:27.840Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:49.455Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:35.675Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:44.750Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:28.298Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:59.593Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:44.859Z"
-    note: "anchor-resolve: 9/9 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/diff.ts
     symbol: readRangeDiff

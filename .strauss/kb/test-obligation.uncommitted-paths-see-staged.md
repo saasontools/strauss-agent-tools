@@ -8,48 +8,12 @@ generated:
   by: mcp
   at: "2026-09-15T16:00:39.836Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T16:01:52.190Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:45.654Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:37.697Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:34.352Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:correctness"
     at: "2026-09-15T16:12:09.946Z"
     note: >-
       At 8f85584: uncommitted-paths.ts unions ls-files --others, diff
       --name-only and diff --cached --name-only. Ran repo.spec.ts -t
       uncommittedPaths: 1 passed.
-  - by: unknown
-    at: "2026-09-15T16:13:18.011Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:34.529Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:56.361Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:42.008Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:52.209Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:37.921Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:09.025Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:54.418Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/repo.spec.ts
     hash: "sha256:2197bc0e27cf01301baf59bb08c863678e9a9c9bda36815501f522f1d21f4342"

@@ -10,13 +10,6 @@ tags:
 generated:
   by: "agent:security"
   at: "2026-09-15T16:33:19.948Z"
-verified:
-  - by: "agent:author"
-    at: "2026-09-15T16:48:03.585Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:48.924Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: notesFor

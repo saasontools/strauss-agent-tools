@@ -10,18 +10,6 @@ generated:
   by: mcp
   at: "2026-09-15T16:00:26.256Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T16:01:51.130Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:44.726Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:36.714Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:33.640Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
   - by: "agent:security"
     at: "2026-09-15T16:11:24.962Z"
     note: >-
@@ -36,24 +24,6 @@ verified:
       keeps only strauss-class=source when unpinned. notesFor names the base.
       git-guard passed 40, code-diff passed 104. What the title claims does not
       hold: see risk.pinned-attribute-read-honours-local-attribute-files.
-  - by: unknown
-    at: "2026-09-15T16:13:17.281Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:54.832Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:40.515Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:50.733Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:06.783Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:52.214Z"
-    note: "anchor-resolve: 2/2 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.spec.ts
     hash: "sha256:7b0d1db6566fb5656156b12ad687505422ba2b30fe282062b309392894c2297c"

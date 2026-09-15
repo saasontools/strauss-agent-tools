@@ -12,13 +12,6 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T16:47:04.188Z"
-verified:
-  - by: "agent:author"
-    at: "2026-09-15T16:47:44.787Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:59.837Z"
-    note: "anchor-resolve: 6/6 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/changed-files.ts
     symbol: changedFiles

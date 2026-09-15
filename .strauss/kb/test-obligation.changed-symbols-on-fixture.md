@@ -12,73 +12,16 @@ generated:
   by: mcp
   at: "2026-09-15T15:29:48.231Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:13.914Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:34:55.945Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:37:45.735Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:38:17.097Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:45:19.747Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:26.223Z"
     note: >-
       Ran both commands: code-diff 98 passed and strauss-kb changed-symbols.spec
       passed; the fixture cases assert the named symbols and via.
-  - by: unknown
-    at: "2026-09-15T15:48:15.981Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:49:27.946Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:01:50.708Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:44.361Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:36.292Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:33.327Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:correctness"
     at: "2026-09-15T16:12:10.231Z"
     note: >-
       At 8f85584: strauss-kb src/changed-symbols.spec.ts passed 3; code-diff
       src/changed-symbols.spec.ts passed 13.
-  - by: unknown
-    at: "2026-09-15T16:13:16.983Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:32.636Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:54.517Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:40.214Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:50.408Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:35.273Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:06.474Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:51.878Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/strauss-kb/src/changed-symbols.spec.ts
     hash: "sha256:ad1ed3d553038a9e8a958ba4cd96bef4b3ef112d3e1336917e5f18513c32dfc1"

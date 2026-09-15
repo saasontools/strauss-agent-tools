@@ -10,21 +10,6 @@ generated:
   by: mcp
   at: "2026-09-15T15:29:43.201Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:14.168Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:34:56.197Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:37:45.926Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:38:17.284Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:45:19.916Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:security"
     at: "2026-09-15T15:45:43.858Z"
     note: >-
@@ -38,24 +23,6 @@ verified:
       Ran all three commands: strauss-kb classify specs, code-diff
       attributes.spec and fixture.spec.mjs pass, head-attribute-ignored
       included.
-  - by: unknown
-    at: "2026-09-15T15:48:16.175Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T15:49:28.086Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:01:50.888Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:02:44.508Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:04:36.480Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:06:33.459Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:security"
     at: "2026-09-15T16:11:25.376Z"
     note: >-
@@ -67,30 +34,6 @@ verified:
       At 8f85584: the classify.spec companion fixture case passed, code-diff
       attributes.spec passed within the full 104, and fixture.spec.mjs passed 14
       of 14.
-  - by: unknown
-    at: "2026-09-15T16:13:17.102Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:32.759Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:54.650Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:40.331Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:35:50.521Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:35.387Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:06.602Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:52.012Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: fixtures/companion-repo/scenarios/head-attribute-ignored/expected.json
     hash: "sha256:71406a56e33d99a7bba919bfd585d6ffbe8383986e8076504d1c46c0f0156d09"

@@ -20,21 +20,6 @@ generated:
   by: mcp
   at: "2026-09-15T15:31:04.234Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:09.370Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:50.960Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:41.435Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:12.821Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:45:14.756Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
   - by: "agent:security"
     at: "2026-09-15T15:45:43.472Z"
     note: >-
@@ -54,42 +39,6 @@ verified:
       Checked limits only: drift 5 s/1 MiB, catBlob via showAtRev with the same,
       remote-repo 30 s/MAX_ANCHOR_FILE_BYTES, repo-identity 5 s; runGit sets
       timeout and maxBuffer on every spawn.
-  - by: unknown
-    at: "2026-09-15T15:48:09.681Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:20.358Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:37.488Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:28.305Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:27.626Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:10.616Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:47.392Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:33.681Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:42.751Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:26.114Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:57.375Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:42.599Z"
-    note: "anchor-resolve: 12/12 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/run.ts
     symbol: runGit

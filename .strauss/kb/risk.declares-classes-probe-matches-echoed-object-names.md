@@ -12,25 +12,6 @@ tags:
 generated:
   by: "agent:correctness"
   at: "2026-09-15T16:12:09.670Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T16:22:52.881Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:38.609Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:48.353Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:33.238Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:04.436Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:49.822Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

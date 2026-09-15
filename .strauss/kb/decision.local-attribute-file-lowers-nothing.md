@@ -14,16 +14,6 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T16:46:56.666Z"
-verified:
-  - by: "agent:author"
-    at: "2026-09-15T16:47:44.576Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:57.991Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:58.865Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr

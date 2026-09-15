@@ -11,69 +11,12 @@ generated:
   by: mcp
   at: "2026-09-15T15:32:08.495Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:13.648Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:55.616Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:45.477Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:16.818Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:45:19.240Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:26.986Z"
     note: >-
       fixture.spec.mjs passes 14/14. The hook's classify() lets CLI rows
       override its own status-R rename, so pure renames now read source, as the
       risk says.
-  - by: unknown
-    at: "2026-09-15T15:48:15.205Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:27.057Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:01:49.633Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:43.402Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:35.135Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:32.560Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:15.971Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:31.637Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:53.523Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:39.228Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:49.005Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:33.867Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:05.046Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:50.444Z"
-    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.ts
     symbol: classifyDiff

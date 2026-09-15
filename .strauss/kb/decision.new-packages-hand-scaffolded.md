@@ -16,68 +16,11 @@ generated:
   by: mcp
   at: "2026-09-15T15:31:48.823Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:10.341Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:52.009Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:42.354Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:13.692Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:45:15.643Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:25.505Z"
     note: >-
       nx.json typecheck gains dependsOn ^build; both packages start at 0.1.0 on
       workspace:0.x; build and tests ran clean with --skip-nx-cache.
-  - by: unknown
-    at: "2026-09-15T15:48:10.538Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:21.268Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:01:43.418Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:38.324Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:29.313Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:28.398Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:11.261Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:26.695Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:48.290Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:34.549Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:43.615Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:27.141Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:58.405Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:43.670Z"
-    note: "anchor-resolve: 14/14 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: nx.json
     hash: "sha256:b42c709daab9257587acb71115aadac49b0edb9343e8674f03c2c275075ec670"

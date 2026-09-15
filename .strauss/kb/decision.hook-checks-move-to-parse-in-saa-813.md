@@ -18,68 +18,11 @@ generated:
   by: mcp
   at: "2026-09-15T15:31:17.780Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T15:33:09.696Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:34:51.297Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:37:41.711Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:38:13.088Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:45:15.066Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
   - by: "agent:correctness"
     at: "2026-09-15T15:46:24.775Z"
     note: >-
       git diff c5e9a66..HEAD -- plugins is empty; lib/git.mjs keeps its own
       contextSymbol.
-  - by: unknown
-    at: "2026-09-15T15:48:09.950Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T15:49:20.633Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:01:42.776Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:37.775Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:28.691Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:27.889Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:13:10.819Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:25.993Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:47.585Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:33.877Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:42.961Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:26.308Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:57.569Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:42.811Z"
-    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols

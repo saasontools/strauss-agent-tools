@@ -10,18 +10,6 @@ generated:
   by: mcp
   at: "2026-09-15T16:00:56.010Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T16:01:45.832Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:02:40.279Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:04:31.569Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:06:29.984Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
   - by: "agent:security"
     at: "2026-09-15T16:11:25.526Z"
     note: >-
@@ -42,27 +30,6 @@ verified:
       Order at 8f85584: store.list, resolveSymbolRanges, then classifyFiles:
       toplevel, then banner reads (16 at once), check-attr and cat-file --batch
       under one Promise.all. Warm classify --git c5e9a66..HEAD: 357-376 ms.
-  - by: unknown
-    at: "2026-09-15T16:13:12.775Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:28.249Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:22:49.947Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:25:36.113Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: unknown
-    at: "2026-09-15T16:35:45.188Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:00.257Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:45.479Z"
-    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles

@@ -12,33 +12,12 @@ generated:
   by: mcp
   at: "2026-09-15T16:21:16.439Z"
 verified:
-  - by: unknown
-    at: "2026-09-15T16:22:39.946Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:22:56.180Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: unknown
-    at: "2026-09-15T16:25:41.823Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
   - by: "agent:correctness"
     at: "2026-09-15T16:34:55.163Z"
     note: >-
       Re-read classifyFile in code-diff classify/classify.ts: a base
       strauss-class=source (pin) is taken before declared.file and forces every
       hunk; vitest -t 'source pin' passes 1.
-  - by: unknown
-    at: "2026-09-15T16:35:52.010Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:47:37.737Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:08.851Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:54.222Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.spec.ts
     hash: "sha256:7f26ec859a1ea7a117171035c78b8be9d6f31f41aa08bf08c4a72663b3fd820f"

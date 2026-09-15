@@ -9,16 +9,6 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T16:46:27.298Z"
-verified:
-  - by: "agent:author"
-    at: "2026-09-15T16:47:43.938Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:48:07.146Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
-  - by: "agent:author"
-    at: "2026-09-15T16:49:52.565Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.spec.ts
     hash: "sha256:8c010a7e55056b2e63197000e470c698212592b2a042bf4f6fd4384e15f253c7"
