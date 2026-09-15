@@ -9,7 +9,10 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T16:00:26.256Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T16:01:51.130Z"
+    note: "anchor-resolve: 2/2 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.spec.ts
     hash: "sha256:020f86b7c41c5f5436c0a8f844eb3bf166930e6befb6d8ed9742b62456f6501c"

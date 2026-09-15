@@ -56,10 +56,10 @@ verified:
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles
-    hash: "sha256:4702d9288510f371e929013864abd6f24c4a77b1f113d623a9aa8181da351b74"
+    hash: "sha256:8f3ec93d579719f3cec76bbc91a2ed9a95649f6145ef9d31f762cb2b78fc6377"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:32:38.804Z"
-    lines: 34
+    resolved_at: "2026-09-15T16:02:26.056Z"
+    lines: 27
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/classify.ts
     symbol: classifyDiff

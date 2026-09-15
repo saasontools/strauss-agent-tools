@@ -15,10 +15,10 @@ verified:
 strauss_anchors:
   - file: packages/code-diff/src/repo/uncommitted-paths.ts
     symbol: uncommittedPaths
-    hash: "sha256:916e1372bd63b7f0b877be0028e458b3495db4d295ceca05c86a3d9b45279abe"
+    hash: "sha256:25274cc4820fdfadc59fee8966c80b3474a4603ad605f2e1f442e762f0b9ca92"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:48:15.741Z"
-    lines: 36
+    resolved_at: "2026-09-15T16:02:28.815Z"
+    lines: 38
     resolver: tree-sitter
 strauss_status: open
 strauss_materiality: non-blocking

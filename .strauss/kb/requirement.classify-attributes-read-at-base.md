@@ -46,10 +46,10 @@ verified:
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: readAttributes
-    hash: "sha256:80f6a54441078cc6e9246c74bdaab0c627efb043cdfa81ef9216ef312f2bf017"
+    hash: "sha256:0286c201d4888eb1b06bc3b477030e5d7288f88dd15b63a7a0b32b225025888b"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:32:34.984Z"
-    lines: 16
+    resolved_at: "2026-09-15T16:02:26.839Z"
+    lines: 28
     resolver: tree-sitter
 strauss_links:
   - target: test-obligation.classify-ignores-branch-attributes

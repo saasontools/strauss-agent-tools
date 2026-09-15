@@ -70,6 +70,9 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:20.909Z"
     note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:01:43.113Z"
+    note: "anchor-resolve: 2/2 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS

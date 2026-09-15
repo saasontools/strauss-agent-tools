@@ -9,7 +9,10 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T16:00:56.010Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T16:01:45.832Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles

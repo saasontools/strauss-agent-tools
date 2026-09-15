@@ -15,7 +15,10 @@ sources:
 generated:
   by: mcp
   at: "2026-09-15T16:01:04.377Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T16:01:41.304Z"
+    note: "anchor-resolve: 8/8 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

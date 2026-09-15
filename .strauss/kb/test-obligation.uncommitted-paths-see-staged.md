@@ -7,7 +7,10 @@ tags:
 generated:
   by: mcp
   at: "2026-09-15T16:00:39.836Z"
-verified: []
+verified:
+  - by: unknown
+    at: "2026-09-15T16:01:52.190Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/repo.spec.ts
     hash: "sha256:2197bc0e27cf01301baf59bb08c863678e9a9c9bda36815501f522f1d21f4342"

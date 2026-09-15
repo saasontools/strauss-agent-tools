@@ -16,18 +16,18 @@ verified:
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/repo/diff.spec.ts
-    hash: "sha256:405ec00dd1f87266a812b9f185040813e45b83ebb43232d3cbf5e9837f82c221"
+    hash: "sha256:141d1471d25308df93da2b90549a9eaffa62b62dcb1dec6cb06b1d2e3aaaebd9"
     hash_kind: raw
-    resolved_at: "2026-09-15T15:48:12.813Z"
-    lines: 113
+    resolved_at: "2026-09-15T16:02:26.612Z"
+    lines: 110
 strauss_links:
   - target: decision.tests-moved-with-code
     rel: informs
 strauss_status: resolved
-strauss_owner: "agent:author"
 strauss_answered:
   by: mcp
   at: "2026-09-15T16:00:48.797Z"
+strauss_owner: "agent:author"
 ---
 
 ## Question

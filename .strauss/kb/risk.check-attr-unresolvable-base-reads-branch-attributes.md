@@ -19,17 +19,17 @@ verified:
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:1f8a7f4be9a9672ff6d37a2016bdec7a8eab47675b242206a462939a9ca8a5e2"
+    hash: "sha256:90d32e75ed62fa67a38019b3f391e0878e9f1aad4cce4a04654bf5499d8042fb"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:48:13.282Z"
-    lines: 46
+    resolved_at: "2026-09-15T16:02:27.138Z"
+    lines: 48
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles
-    hash: "sha256:4702d9288510f371e929013864abd6f24c4a77b1f113d623a9aa8181da351b74"
+    hash: "sha256:8f3ec93d579719f3cec76bbc91a2ed9a95649f6145ef9d31f762cb2b78fc6377"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:48:13.287Z"
-    lines: 34
+    resolved_at: "2026-09-15T16:02:27.148Z"
+    lines: 27
     resolver: tree-sitter
 strauss_links:
   - target: requirement.classify-attributes-read-at-base

@@ -38,6 +38,9 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:27.057Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:01:49.633Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.ts
     symbol: classifyDiff

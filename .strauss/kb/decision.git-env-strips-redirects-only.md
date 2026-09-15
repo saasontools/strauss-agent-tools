@@ -50,6 +50,9 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:19.969Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:01:42.174Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/env.ts
     symbol: gitEnv

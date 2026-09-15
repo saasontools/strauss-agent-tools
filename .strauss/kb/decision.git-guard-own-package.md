@@ -63,10 +63,10 @@ verified:
 strauss_anchors:
   - file: packages/git-guard/src/run.ts
     symbol: runGit
-    hash: "sha256:e0e1ffdd9febecadfe3050a7850773068bf2f28d9d6005c497234280be94e5e2"
+    hash: "sha256:9a7b063cf0e5a48b374b1fe79ef62e1c0466e7a207877ebcaeaa9bd9dbedbfe2"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:32:35.708Z"
-    lines: 35
+    resolved_at: "2026-09-15T16:02:25.294Z"
+    lines: 37
     resolver: tree-sitter
   - file: packages/git-guard/src/shape.ts
     symbol: localRevShapeIsSafe

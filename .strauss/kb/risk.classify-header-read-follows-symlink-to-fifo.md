@@ -22,10 +22,10 @@ verified:
 strauss_anchors:
   - file: packages/code-diff/src/classify/read.ts
     symbol: header
-    hash: "sha256:29b68a6a9d0b156426a0ecd2b0eed183f613d102443e3fc9d5e5269898c813fe"
+    hash: "sha256:334e55ef45d18e544f84473a404c2947c3b5cf478b555ccb831333cbbc7e820c"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:45:18.027Z"
-    lines: 22
+    resolved_at: "2026-09-15T16:02:27.739Z"
+    lines: 26
     resolver: tree-sitter
 strauss_status: open
 strauss_materiality: non-blocking

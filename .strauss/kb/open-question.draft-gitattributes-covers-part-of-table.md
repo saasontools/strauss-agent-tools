@@ -19,10 +19,10 @@ verified:
 strauss_anchors:
   - file: packages/code-diff/src/draft-gitattributes.ts
     symbol: draftGitattributesFrom
-    hash: "sha256:f38aeeac4a4f201ef8ae558ec7b90734500b9aa11e93a4facd56533390467700"
+    hash: "sha256:330fca1c2e903ff1bdfb8bca2c78e980d8895bed45caefb2d7b84ab720ee04fd"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:48:12.571Z"
-    lines: 31
+    resolved_at: "2026-09-15T16:02:26.360Z"
+    lines: 34
     resolver: tree-sitter
 strauss_links:
   - target: decision.default-table-only-without-declared-classes
@@ -30,10 +30,10 @@ strauss_links:
   - target: risk.hook-classes-shift-through-cli
     rel: informs
 strauss_status: resolved
-strauss_owner: "agent:author"
 strauss_answered:
   by: mcp
   at: "2026-09-15T16:00:46.408Z"
+strauss_owner: "agent:author"
 ---
 
 ## Question

@@ -19,17 +19,17 @@ verified:
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses
-    hash: "sha256:356820949270ab63bc22d912c752abcc1157326650168d82535105ac2eab8022"
+    hash: "sha256:fdd964f59c5e08806cc060f763bf4f999845e463c8bcd4438b668847d66190c7"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:48:13.591Z"
-    lines: 22
+    resolved_at: "2026-09-15T16:02:27.433Z"
+    lines: 16
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/read.ts
     symbol: classifyFiles
-    hash: "sha256:4702d9288510f371e929013864abd6f24c4a77b1f113d623a9aa8181da351b74"
+    hash: "sha256:8f3ec93d579719f3cec76bbc91a2ed9a95649f6145ef9d31f762cb2b78fc6377"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:48:13.597Z"
-    lines: 34
+    resolved_at: "2026-09-15T16:02:27.440Z"
+    lines: 27
     resolver: tree-sitter
 strauss_links:
   - target: decision.default-table-only-without-declared-classes

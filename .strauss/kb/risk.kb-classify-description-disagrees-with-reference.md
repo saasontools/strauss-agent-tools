@@ -19,14 +19,14 @@ verified:
     note: "anchor-resolve: 2/2 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/classify.ts
-    hash: "sha256:4a0c78d69e2e1984c001186a8ded237a3c71b584335bd52c3297108f659ff223"
+    hash: "sha256:be2c00ceee697ef18b37251ffcc985360cab0f0b6e958a95148c125e5fa037b1"
     hash_kind: raw
-    resolved_at: "2026-09-15T15:45:19.506Z"
-    lines: 155
+    resolved_at: "2026-09-15T16:02:28.538Z"
+    lines: 154
   - file: apps/strauss-kb-docs/docs/mcp-reference.md
-    hash: "sha256:20a0062971c563e2c9655727544f0d0a87d9770c0ac6d8cbe17a43699d76cfd0"
+    hash: "sha256:0594aeb26f6f47157855ea04d403941df4e31cd2e70d7b60c72b409d3ba999f5"
     hash_kind: raw
-    resolved_at: "2026-09-15T15:45:19.507Z"
+    resolved_at: "2026-09-15T16:02:28.539Z"
     lines: 621
 strauss_status: open
 strauss_materiality: non-blocking

@@ -61,6 +61,9 @@ verified:
   - by: unknown
     at: "2026-09-15T15:49:21.541Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: unknown
+    at: "2026-09-15T16:01:43.776Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/pack.ts
     symbol: render

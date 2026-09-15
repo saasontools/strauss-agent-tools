@@ -40,10 +40,10 @@ verified:
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses
-    hash: "sha256:356820949270ab63bc22d912c752abcc1157326650168d82535105ac2eab8022"
+    hash: "sha256:fdd964f59c5e08806cc060f763bf4f999845e463c8bcd4438b668847d66190c7"
     hash_kind: ast
-    resolved_at: "2026-09-15T15:32:36.908Z"
-    lines: 22
+    resolved_at: "2026-09-15T16:02:25.037Z"
+    lines: 16
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/rules.ts
     symbol: pathRule
