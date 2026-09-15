@@ -12,12 +12,17 @@ import {
   expect,
   test,
 } from "vitest";
-import type { KbClassifyResult } from "../classify/index.js";
-import { composeRecord } from "../compose.js";
-import { KbStore } from "../kb-store.js";
-import { classifyCommand, renderClassify } from "./classify.js";
+import type { KbClassifyResult } from "../../classify/index.js";
+import { composeRecord } from "../../compose.js";
+import { KbStore } from "../../kb-store.js";
+import { resetParsedCache } from "../match/parsed-cache.js";
+import { classifyCommand, renderClassify } from "./command.js";
+import { resetHeaderCache } from "./header-cache.js";
 
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
+const REPO_ROOT = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../../..",
+);
 const noStdin = () => Promise.resolve("");
 const store = new KbStore();
 const ctx = {
@@ -138,6 +143,10 @@ describe("classifyCommand symbol-scoped overrides", () => {
   let bundle: string;
 
   beforeEach(() => {
+    // Each test writes its own tree; a banner or a span remembered from the
+    // last one would only ever be a false pass.
+    resetHeaderCache();
+    resetParsedCache();
     repo = mkdtempSync(join(tmpdir(), "strauss-kb-classify-repo-"));
     bundle = mkdtempSync(join(tmpdir(), "strauss-kb-classify-bundle-"));
     mkdirSync(join(repo, "src"), { recursive: true });

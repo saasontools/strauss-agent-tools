@@ -5,11 +5,24 @@ import {
   regexResolver,
   resolveAnchorSpan,
   type AnchorResolver,
+  type AnchorUnresolvedReason,
   type FoundDefinition,
 } from "../../anchor-resolver/index.js";
 import type { KbAnchor, KbRecord } from "../../kb-record.schema.js";
 import type { DiffFile, SymbolRange } from "../../match-diff.js";
 import { TreeSitterResolver } from "../../tree-sitter-resolver/index.js";
+import {
+  blobKeys,
+  cachedDefinitions,
+  cachedSpan,
+  expectedKind,
+  isUnreadable,
+  rememberDefinitions,
+  rememberSpan,
+  rememberUnreadable,
+  type CachedSpan,
+  type ResolverKind,
+} from "./parsed-cache.js";
 
 /**
  * One resolver pass over a diff: the anchored symbols that land in it, and —
@@ -67,6 +80,54 @@ export async function resolveSymbolPass(
   const empty = { ranges: [], definitions: new Map<string, SymbolRange[]>() };
   if (!wanted.length && !withDefinitions) return empty;
 
+  const paths = [
+    ...new Set([
+      ...wanted.map((anchor) => anchor.file),
+      ...(withDefinitions ? files.map((file) => file.filePath) : []),
+    ]),
+  ];
+  const keys = await blobKeys(repoRoot, paths, offline);
+
+  // What a previous pass in this process already parsed. `match` then
+  // `classify` over one range asks the same questions of the same blobs, and
+  // the second run should cost a stat per file, not a parse.
+  const ranges: SymbolRange[] = [];
+  const definitions = new Map<string, SymbolRange[]>();
+  const pending: KbAnchor[] = [];
+  const unparsed: string[] = [];
+
+  for (const anchor of wanted) {
+    const key = keys.get(anchor.file);
+    const kind = expectedKind(anchor.file);
+    const held = cachedSpan(key, kind, anchor.symbol as string);
+    if (held === undefined) {
+      if (!isUnreadable(key, kind)) pending.push(anchor);
+      continue;
+    }
+    if (held) {
+      ranges.push({
+        file: anchor.file,
+        symbol: anchor.symbol as string,
+        ...held,
+      });
+    }
+  }
+  if (withDefinitions) {
+    for (const file of files) {
+      const key = keys.get(file.filePath);
+      const kind = expectedKind(file.filePath);
+      const held = cachedDefinitions(key, kind);
+      if (held !== undefined) {
+        definitions.set(file.filePath, withFile(file.filePath, held));
+      } else if (!isUnreadable(key, kind)) unparsed.push(file.filePath);
+    }
+  }
+
+  const toRead = [
+    ...new Set([...pending.map((anchor) => anchor.file), ...unparsed]),
+  ];
+  if (!toRead.length) return { ranges, definitions };
+
   // The chain is built here rather than through `defaultAnchorResolvers` so
   // both halves come from one parse cache: a hunk's enclosing symbol and an
   // anchor's span are then answered by the same resolver.
@@ -75,52 +136,69 @@ export async function resolveSymbolPass(
     regexResolver,
   ];
 
-  const paths = [
-    ...new Set([
-      ...wanted.map((anchor) => anchor.file),
-      ...(withDefinitions ? files.map((file) => file.filePath) : []),
-    ]),
-  ];
-  const sources = await readAnchorFiles(paths, anchorFileReader(repoRoot));
-  await prepareResolvers(resolvers, paths);
+  const sources = await readAnchorFiles(toRead, anchorFileReader(repoRoot));
+  await prepareResolvers(resolvers, toRead);
 
-  const ranges: SymbolRange[] = [];
-  for (const anchor of wanted) {
+  for (const anchor of pending) {
+    const key = keys.get(anchor.file);
+    const expected = expectedKind(anchor.file);
     const read = sources.get(anchor.file);
-    if (!read?.ok) continue;
+    if (!read?.ok) {
+      rememberUnreadable(key, expected);
+      continue;
+    }
+    const symbol = anchor.symbol as string;
     let outcome = resolveAnchorSpan(read.source, anchor, resolvers);
+    let answered = expected;
     // A grammar that would not load is not a verdict about the symbol, so the
     // heuristic gets the turn the chain denies it. Placing a record on a hunk
     // tolerates an approximate span; drift, which hashes one, does not.
     if (!outcome.ok && outcome.reason === "resolver-unavailable") {
       outcome = resolveAnchorSpan(read.source, anchor, [regexResolver]);
+      answered = "regex";
     }
     // A symbol nothing could resolve is simply left out: `matchToDiff` then
-    // degrades it to the file rather than dropping the record.
-    if (!outcome.ok) continue;
-    ranges.push({
-      file: anchor.file,
-      symbol: anchor.symbol as string,
+    // degrades it to the file rather than dropping the record. Only a verdict
+    // the resolver reached is remembered, under the kind that reached it — a
+    // grammar that would not load is a condition of this run, and the next one
+    // must ask again.
+    if (!outcome.ok) {
+      if (DETERMINISTIC.has(outcome.reason)) {
+        rememberSpan(key, answered, symbol, null);
+      }
+      continue;
+    }
+    const span = {
       startLine: outcome.span.startLine,
       endLine: outcome.span.endLine,
-    });
+    };
+    rememberSpan(
+      key,
+      outcome.resolver === "tree-sitter" ? "tree-sitter" : "regex",
+      symbol,
+      span,
+    );
+    ranges.push({ file: anchor.file, symbol, ...span });
   }
 
-  const definitions = new Map<string, SymbolRange[]>();
-  if (withDefinitions) {
-    for (const file of files) {
-      const read = sources.get(file.filePath);
-      if (!read?.ok) continue;
-      definitions.set(
-        file.filePath,
-        listDefinitions(resolvers, read.source, file.filePath).map((found) => ({
-          file: file.filePath,
-          symbol: found.symbol,
-          startLine: found.span.startLine,
-          endLine: found.span.endLine,
-        })),
-      );
+  for (const file of unparsed) {
+    const key = keys.get(file);
+    const read = sources.get(file);
+    if (!read?.ok) {
+      rememberUnreadable(key, expectedKind(file));
+      continue;
     }
+    const listed = listDefinitions(resolvers, read.source, file);
+    const found = (listed?.found ?? []).map((entry) => ({
+      symbol: entry.symbol,
+      startLine: entry.span.startLine,
+      endLine: entry.span.endLine,
+    }));
+    // Filed under the kind that answered, so a regex list for a file that has
+    // a grammar is never served to a pass expecting the AST. A list no
+    // resolver produced says nothing about the file and is not filed.
+    if (listed) rememberDefinitions(key, listed.kind, found);
+    definitions.set(file, withFile(file, found));
   }
 
   return { ranges, definitions };
@@ -129,18 +207,34 @@ export async function resolveSymbolPass(
 /**
  * The first resolver that can read the file answers for it — tree-sitter where
  * a grammar loaded, the regex heuristic where none did. A runner with no
- * cached grammar still names the symbols, one resolver less precisely.
+ * cached grammar still names the symbols, one resolver less precisely. Which
+ * one answered comes back with the list: only that kind may serve it again.
  */
 function listDefinitions(
   resolvers: readonly AnchorResolver[],
   source: string,
   file: string,
-): FoundDefinition[] {
+): { kind: ResolverKind; found: FoundDefinition[] } | null {
   for (const resolver of resolvers) {
     const found = resolver.definitions?.(source, file);
-    if (found) return found;
+    if (found) {
+      const kind: ResolverKind =
+        resolver.name === "tree-sitter" ? "tree-sitter" : "regex";
+      return { kind, found };
+    }
   }
-  return [];
+  return null;
+}
+
+/** Verdicts a resolver reached about the code, as against about its own run. */
+const DETERMINISTIC = new Set<AnchorUnresolvedReason>([
+  "symbol-not-found",
+  "symbol-ambiguous",
+  "span-out-of-range",
+]);
+
+function withFile(file: string, spans: readonly CachedSpan[]): SymbolRange[] {
+  return spans.map((span) => ({ file, ...span }));
 }
 
 /**
