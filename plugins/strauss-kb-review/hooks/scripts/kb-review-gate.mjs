@@ -176,7 +176,7 @@ function declaredScope(input, cwd, range) {
       paths: null,
       classes: new Map(),
       block:
-        "strauss-kb gate: end the turn with a fenced ```changed block listing the repository paths you changed, one per line (`<path> [<class>]`), or the word none.",
+        'strauss-kb gate: end the turn with a fenced ```changed block whose body is JSON — { "paths": [ { "path": "<repo path>", "class": "<class, optional>" } ] } — listing what you changed, or { "paths": [] } for nothing.',
     };
   }
   const missing = undeclarable(declaration.declared, dirty);
