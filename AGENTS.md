@@ -42,6 +42,24 @@ messages, error text.
   goes in `ARCHITECTURE.md` or a KB record. No design essays above functions.
 - A reviewer may reject a PR for prose length alone.
 
+## Dogfooding the review companion
+
+This repository runs its own review companion (`plugins/strauss-kb-review`)
+on every branch from SAA-810 on. The base is `.strauss/kb`, committed; the
+roster and the gate key are `.strauss/kb-pins.json`; the hooks are wired in
+`.claude/settings.json`; `.gitattributes` carries the file classes.
+
+- Build the package once per checkout so the hooks find the CLI through the
+  root's workspace link: `pnpm nx run @saasontools/strauss-kb:build`.
+- Start Claude Code with the plugin: `claude --plugin-dir ./plugins/strauss-kb-review`.
+  The `strauss-kb` plugin (the MCP server) must be installed as usual.
+- Authoring: load `review-companion`; end a subagent turn with the `changed`
+  block. The gate blocks a Stop that records nothing for what it owes.
+- Reviewing: the agents in `.claude/agents/` (`correctness`, `security`,
+  `prose`) preload `kb-review` and write as `agent:<name>`; the reviewer gate
+  holds them to it.
+- Findings about the companion itself go to SAA-735.
+
 ## Rules that are load-bearing
 
 - **No `project.json` under `packages/*`** — Nx infers targets from npm

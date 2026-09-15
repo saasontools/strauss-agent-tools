@@ -1,0 +1,36 @@
+---
+type: test-obligation
+title: The companion base is tracked on every branch
+description: >-
+  An untracked base never reaches a pull request, which is the risk the reviewer
+  raised.
+tags:
+  - review
+  - process
+generated:
+  by: "agent:author"
+  at: "2026-09-15T07:45:35.071Z"
+verified: []
+strauss_anchors:
+  - file: .strauss/kb-pins.json
+strauss_verify:
+  - git ls-files --error-unmatch .strauss/kb/log.jsonl
+strauss_links:
+  - target: risk.kb-companion-untracked-not-on-branch
+    rel: satisfies
+strauss_status: open
+---
+
+## Obligation
+
+`.strauss/kb` and `.strauss/kb-pins.json` are committed; a branch that changes records commits them.
+
+## Why it matters
+
+Reviewers and CI read the base from the branch, not from one machine.
+
+## How to verify
+
+git ls-files --error-unmatch .strauss/kb/log.jsonl exits 0.
+
+Satisfies [risk.kb-companion-untracked-not-on-branch](risk.kb-companion-untracked-not-on-branch.md).
