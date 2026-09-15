@@ -22,12 +22,15 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:49.816Z"
     note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:48:05.878Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:aba399499154a15bc8b6b37031ee8ee8496c8610b1408b01e0e8f23955ee129a"
+    hash: "sha256:4fe0d8345781772daaaa95bf1248cee1cd5c7f0382d498c45c3536ac85ee0b3b"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:47:42.251Z"
+    resolved_at: "2026-09-15T16:49:58.645Z"
     lines: 66
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/attributes.ts

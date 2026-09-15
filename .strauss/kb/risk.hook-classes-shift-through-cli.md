@@ -68,6 +68,12 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:33.867Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:48:05.046Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:50.444Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.ts
     symbol: classifyDiff

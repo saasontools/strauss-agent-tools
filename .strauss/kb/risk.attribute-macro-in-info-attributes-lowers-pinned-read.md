@@ -16,6 +16,11 @@ verified: []
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: namesAttribute
+    hash: "sha256:f840e1b6d9811610b328c26c4582bfb2fb8a23d422cee12a38e945ae66fe963e"
+    hash_kind: ast
+    resolved_at: "2026-09-15T16:49:47.421Z"
+    lines: 27
+    resolver: tree-sitter
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: readAttributes
     hash: "sha256:88b811772b45f7da10219f8ad4b8cc6514fad0230bce4548ab2eac4dd5c31765"

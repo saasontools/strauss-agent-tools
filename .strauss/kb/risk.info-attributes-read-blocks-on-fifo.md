@@ -14,10 +14,10 @@ verified: []
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: namesAttribute
-    hash: "sha256:7710a737d3a18110b14609ccfa8b5bcae7d9b149c768d6de6a2fc02f4c513fd7"
+    hash: "sha256:f840e1b6d9811610b328c26c4582bfb2fb8a23d422cee12a38e945ae66fe963e"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:35:49.214Z"
-    lines: 16
+    resolved_at: "2026-09-15T16:49:58.213Z"
+    lines: 27
     resolver: tree-sitter
 strauss_status: open
 strauss_materiality: non-blocking

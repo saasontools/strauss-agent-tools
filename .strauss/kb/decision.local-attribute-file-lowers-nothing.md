@@ -18,19 +18,25 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:44.576Z"
     note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:57.991Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:58.865Z"
+    note: "anchor-resolve: 4/4 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:aba399499154a15bc8b6b37031ee8ee8496c8610b1408b01e0e8f23955ee129a"
+    hash: "sha256:4fe0d8345781772daaaa95bf1248cee1cd5c7f0382d498c45c3536ac85ee0b3b"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:47:26.717Z"
+    resolved_at: "2026-09-15T16:49:56.699Z"
     lines: 66
     resolver: tree-sitter
   - file: packages/git-guard/src/check-attr.ts
-    symbol: hasLocalAttributes
-    hash: "sha256:1cebde041b52a6cc4bf28dfe93f194f7de5c2bd39592bb358ceb53e8f704a871"
+    symbol: namesAttribute
+    hash: "sha256:f840e1b6d9811610b328c26c4582bfb2fb8a23d422cee12a38e945ae66fe963e"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:47:26.721Z"
+    resolved_at: "2026-09-15T16:49:43.235Z"
     lines: 27
     resolver: tree-sitter
   - file: packages/code-diff/src/classify/read.ts

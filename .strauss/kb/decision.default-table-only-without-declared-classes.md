@@ -61,6 +61,12 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:25.511Z"
     note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:56.776Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:42.022Z"
+    note: "anchor-resolve: 7/7 anchors match (regex + tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

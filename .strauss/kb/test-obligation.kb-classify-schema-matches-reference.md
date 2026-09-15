@@ -46,6 +46,12 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:36.564Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:48:07.722Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:53.093Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/classify.spec.ts
     hash: "sha256:962fd30873a04934432daa8a40e31d16c24b473f685dee6b1701ca11a389d1a5"

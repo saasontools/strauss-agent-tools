@@ -26,6 +26,12 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:32.602Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:48:03.790Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:49.152Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.ts
     symbol: declaresClasses

@@ -74,6 +74,12 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:26.308Z"
     note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:57.569Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:42.811Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols

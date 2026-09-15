@@ -73,6 +73,12 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:35.273Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:48:06.474Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:51.878Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/strauss-kb/src/changed-symbols.spec.ts
     hash: "sha256:ad1ed3d553038a9e8a958ba4cd96bef4b3ef112d3e1336917e5f18513c32dfc1"

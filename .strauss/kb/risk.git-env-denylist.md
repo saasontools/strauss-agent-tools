@@ -76,6 +76,12 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:33.654Z"
     note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:48:04.844Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:50.232Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/git-guard/src/env.ts
     symbol: gitEnv

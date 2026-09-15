@@ -10,7 +10,13 @@ tags:
 generated:
   by: "agent:correctness"
   at: "2026-09-15T16:36:16.701Z"
-verified: []
+verified:
+  - by: "agent:author"
+    at: "2026-09-15T16:48:02.738Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:48.051Z"
+    note: "anchor-resolve: 1/1 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/changed-symbols.ts
     symbol: changedSymbols

@@ -48,6 +48,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:50.733Z"
     note: "anchor-resolve: 2/2 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:48:06.783Z"
+    note: "anchor-resolve: 2/2 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:52.214Z"
+    note: "anchor-resolve: 2/2 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.spec.ts
     hash: "sha256:7b0d1db6566fb5656156b12ad687505422ba2b30fe282062b309392894c2297c"

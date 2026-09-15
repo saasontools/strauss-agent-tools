@@ -18,6 +18,12 @@ verified:
   - by: "agent:author"
     at: "2026-09-15T16:47:44.137Z"
     note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:47:55.876Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:41.111Z"
+    note: "anchor-resolve: 2/2 anchors match (tree-sitter resolver)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/classify.ts
     symbol: classifyDiff

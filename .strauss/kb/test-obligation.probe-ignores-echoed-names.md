@@ -28,6 +28,12 @@ verified:
   - by: unknown
     at: "2026-09-15T16:35:51.631Z"
     note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:48:08.463Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
+  - by: "agent:author"
+    at: "2026-09-15T16:49:53.834Z"
+    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: packages/code-diff/src/classify/attributes.spec.ts
     hash: "sha256:7b0d1db6566fb5656156b12ad687505422ba2b30fe282062b309392894c2297c"

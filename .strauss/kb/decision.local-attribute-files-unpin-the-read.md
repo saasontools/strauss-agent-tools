@@ -29,17 +29,17 @@ verified:
 strauss_anchors:
   - file: packages/git-guard/src/check-attr.ts
     symbol: checkAttr
-    hash: "sha256:aba399499154a15bc8b6b37031ee8ee8496c8610b1408b01e0e8f23955ee129a"
+    hash: "sha256:4fe0d8345781772daaaa95bf1248cee1cd5c7f0382d498c45c3536ac85ee0b3b"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:47:40.134Z"
+    resolved_at: "2026-09-15T16:49:56.934Z"
     lines: 66
     resolver: tree-sitter
   - file: packages/git-guard/src/check-attr.ts
     symbol: namesAttribute
-    hash: "sha256:7710a737d3a18110b14609ccfa8b5bcae7d9b149c768d6de6a2fc02f4c513fd7"
+    hash: "sha256:f840e1b6d9811610b328c26c4582bfb2fb8a23d422cee12a38e945ae66fe963e"
     hash_kind: ast
-    resolved_at: "2026-09-15T16:22:26.404Z"
-    lines: 16
+    resolved_at: "2026-09-15T16:49:56.937Z"
+    lines: 27
     resolver: tree-sitter
   - file: packages/git-guard/src/run.ts
     symbol: runGit
