@@ -42,6 +42,32 @@ messages, error text.
   goes in `ARCHITECTURE.md` or a KB record. No design essays above functions.
 - A reviewer may reject a PR for prose length alone.
 
+## Review companion
+
+The companion base is `.strauss/kb`, committed. `.strauss/kb-pins.json`
+holds the gate key and the reviewer roster; `.claude/settings.json` and
+`.codex/hooks.json` wire the author and reviewer hooks; `.gitattributes`
+carries the file classes the gate reads at the base commit.
+
+- Build the package once per checkout so the hooks find the CLI through the
+  root's workspace link: `pnpm nx run @saasontools/strauss-kb:build`.
+- Claude Code: start with `claude --plugin-dir ./plugins/strauss-kb-review`.
+  Codex: trust `.codex/hooks.json` once through `/hooks`; the agents enable
+  the skill by path. Both need the `strauss-kb` MCP server configured.
+- Authoring: load `review-companion`. A subagent ends its turn with the
+  `changed` block. The gate blocks a Stop that records nothing for what the
+  diff owes; fix the base, never the gate.
+- Reviewing: the agents in `.claude/agents/` and `.codex/agents/`
+  (`correctness`, `security`, `prose`, `performance`) preload `kb-review` and
+  write as `agent:<name>`; each dimension's checklist is
+  `.agents/review/<name>.md`. Reviewers never write decisions or settle
+  another actor's record.
+- A task end to end: the `implement-review` skill in `.claude/skills/` takes
+  a Linear issue or a prompt, implements on a branch, then runs the roster in
+  parallel and settles the findings. Codex finds it through
+  `.agents/skills/implement-review`, a link to the same directory.
+- A finding about the companion itself goes to SAA-735, not into a workaround.
+
 ## Rules that are load-bearing
 
 - **No `project.json` under `packages/*`** — Nx infers targets from npm
