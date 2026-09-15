@@ -71,7 +71,10 @@ describe("runGit", () => {
         cwd: repo.root,
       });
       expect(result.ok).toBe(true);
-      expect(realpathSync(result.stdout.trim())).toBe(realpathSync(repo.root));
+      // `.native` expands Windows 8.3 names, which git never prints.
+      expect(realpathSync.native(result.stdout.trim())).toBe(
+        realpathSync.native(repo.root),
+      );
     } finally {
       if (saved === undefined) delete process.env["GIT_DIR"];
       else process.env["GIT_DIR"] = saved;
