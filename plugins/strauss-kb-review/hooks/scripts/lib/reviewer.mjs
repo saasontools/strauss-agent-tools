@@ -55,17 +55,18 @@ const MCP_WRITE =
 
 /**
  * The reviewer this payload runs as, or null when the roster does not name
- * it. `agent_type` is what Claude Code and Codex hand a subagent's hooks;
- * `STRAUSS_KB_REVIEWER` is the door for a client that hands nothing.
+ * it. `agent_type` is what Claude Code hands a subagent's hooks, `name` or
+ * `agent_name` what Codex may; `STRAUSS_KB_REVIEWER` is the door for a client
+ * that hands nothing.
  * @param {any} input @param {Record<string, unknown> | null} roster
  * @param {NodeJS.ProcessEnv} [env]
  * @returns {Reviewer | null}
  */
 export function reviewerOf(input, roster, env = process.env) {
-  const name =
-    typeof input?.agent_type === "string" && input.agent_type
-      ? input.agent_type
-      : env.STRAUSS_KB_REVIEWER || null;
+  const carried = [input?.agent_type, input?.agent_name, input?.name].find(
+    (value) => typeof value === "string" && value,
+  );
+  const name = carried ?? (env.STRAUSS_KB_REVIEWER || null);
   if (!name || !roster) return null;
   const entry = roster[name];
   if (!entry || typeof entry !== "object") return null;

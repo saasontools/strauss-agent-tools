@@ -58,6 +58,10 @@ roster and the gate key are `.strauss/kb-pins.json`; the hooks are wired in
 - Reviewing: the agents in `.claude/agents/` (`correctness`, `security`,
   `prose`) preload `kb-review` and write as `agent:<name>`; the reviewer gate
   holds them to it.
+- Codex: the same hooks are `.codex/hooks.json` (trust them through `/hooks`
+  once) and the same agents `.codex/agents/*.toml`, which enable the skill by
+  path, so no plugin install is needed; the `strauss-kb` MCP server must be
+  configured as usual.
 - Findings about the companion itself go to SAA-735.
 
 ## Rules that are load-bearing

@@ -41,6 +41,8 @@ function decide(over) {
 test("identity: agent_type, then STRAUSS_KB_REVIEWER, and only on the roster", () => {
   assert.equal(reviewerOf({ agent_type: "security" }, ROSTER)?.actor, "agent:security");
   assert.equal(reviewerOf({}, ROSTER, { STRAUSS_KB_REVIEWER: "perf" })?.name, "perf");
+  assert.equal(reviewerOf({ name: "security" }, ROSTER, {})?.actor, "agent:security");
+  assert.equal(reviewerOf({ agent_name: "perf" }, ROSTER, {})?.name, "perf");
   assert.equal(reviewerOf({ agent_type: "author" }, ROSTER), null);
   assert.equal(reviewerOf({ agent_type: "security" }, null), null);
   assert.equal(reviewerOf({}, ROSTER, {}), null);

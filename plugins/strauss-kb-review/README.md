@@ -128,9 +128,10 @@ passes through untouched.
 | `PreToolUse`           | A base write carries `STRAUSS_KB_ACTOR=agent:<name>`; is a reviewer's kind of write (no decisions, no settling another actor's record, `blocking` only with `mayBlock`); lands on a base `validate` and `doctor --strict` accept, checked once per base state. MCP write tools are denied: they land as actor `mcp`. |
 | `Stop`, `SubagentStop` | The turn ends with the skill's fenced `kb` report block.                                                                                                                                                                                                                                                             |
 
-**Who it applies to.** The reviewer's name is the agent's own name, which
-both Claude Code and Codex hand a subagent's hooks as `agent_type`. The gate
-acts only when that name is under `reviewers` in `.strauss/kb-pins.json`:
+**Who it applies to.** The reviewer's name is the agent's own name: Claude
+Code hands a subagent's hooks `agent_type`, Codex `name` (or `agent_name`);
+the gate reads whichever is present. It acts only when that name is under
+`reviewers` in `.strauss/kb-pins.json`:
 
 ```json
 {
