@@ -217,7 +217,7 @@ const CONTRACT =
 
 /**
  * owed.contract — a contract artefact changed. The "exported signature" half
- * needs a public API boundary; without codegraph the gate cannot tell an
+ * needs a public API boundary; without a call graph the gate cannot tell an
  * exported symbol from a package's exported symbol, so it is not shipped.
  * @param {import("../context.mjs").Ctx} ctx
  */
