@@ -115,11 +115,14 @@ export async function detectAnchorDrift(
     readCommitted(repoRoot, committedWants, options),
     (options.readRemote ?? readRemoteAnchors)(wants, options.remote ?? {}),
   ]);
-  await prepareResolvers(resolvers, [
-    ...files,
-    ...committedWants.map((anchor) => anchor.file),
-    ...wants.map((want) => want.file),
-  ]);
+  // Only files that read, and only anchors that name a symbol: a grammar is
+  // downloaded and compiled per language, and neither a missing file nor a
+  // whole-file anchor has anything for a parser to do. `stamp` on a base read
+  // from outside its tree used to pay for every grammar it named.
+  await prepareResolvers(
+    resolvers,
+    parseable(planned, reads, committed, remote),
+  );
 
   const drift = new Map<string, KbAnchorDriftEntry[]>();
   for (const record of records) {
@@ -139,6 +142,38 @@ export async function detectAnchorDrift(
     if (entries.length) drift.set(record.conceptId, entries);
   }
   return drift;
+}
+
+/**
+ * The files a resolver will actually be handed: a symbol anchor whose source
+ * read. Everything else resolves without a parse, so loading its grammar is a
+ * download nothing consumes.
+ */
+function parseable(
+  planned: Map<string, Planned[]>,
+  reads: Map<string, AnchorRead>,
+  committed: Map<string, AnchorRead>,
+  remote: Map<string, RemoteRead>,
+): string[] {
+  const files = new Set<string>();
+  for (const entries of planned.values()) {
+    for (const { anchor, foreign } of entries) {
+      if (!anchor.symbol || anchor.span) continue;
+      const read = foreign
+        ? remote.get(
+            wantKey(
+              normalizeRepoUrl(anchor.repo as string),
+              anchor.ref,
+              anchor.file,
+            ),
+          )
+        : anchor.side === "old"
+          ? committed.get(atRefKey(anchor))
+          : reads.get(anchor.file);
+      if (read?.ok) files.add(anchor.file);
+    }
+  }
+  return [...files];
 }
 
 /** One key per (ref, file): an old-side anchor is read once per pair, not per anchor. */

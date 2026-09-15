@@ -1,6 +1,7 @@
 import { adjudicate, type KbAdjudicated } from "../adjudicate.js";
 import { KbRecordNotFoundError, KbUnknownLinkRelError } from "../kb-errors.js";
 import type { KbRecord } from "../kb-record.schema.js";
+import { recordSummary } from "../record-summary.js";
 import {
   isKbLinkRel,
   KB_CAUSAL_LINK_RELS,
@@ -66,7 +67,7 @@ export function impact(
       const hit = standingOf.get(dependantId);
       const entry: KbImpactedRecord = {
         conceptId: dependantId,
-        title: record.frontmatter.title ?? null,
+        ...recordSummary(record),
         standing: hit?.standing ?? "unsettled",
         warnings: hit?.warnings ?? [],
         depth,

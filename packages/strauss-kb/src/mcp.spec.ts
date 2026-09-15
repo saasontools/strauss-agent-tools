@@ -101,6 +101,61 @@ describe("createKbMcpServer", () => {
     ).rejects.toThrow();
   });
 
+  // The server reads STRAUSS_KB_ACTOR once, at construction, so a session
+  // acting for several people had one name for all of them. `actor` is
+  // per-call, and `kb_verify` weighs it the way it weighs the ambient one.
+  describe("a per-call actor", () => {
+    const seed = () =>
+      tools().kb_write!.handler({
+        bundlePath: bundle,
+        type: "fact",
+        input: {
+          slug: "actor-is-per-call",
+          title: "A write names its own actor",
+          why: "One session may act for several people.",
+        },
+        actor: "agent:x",
+      });
+
+    test("lets someone other than the writer verify", async () => {
+      await seed();
+
+      const result = await tools().kb_verify!.handler({
+        bundlePath: bundle,
+        conceptId: "fact.actor-is-per-call",
+        note: "read the code, still true",
+        actor: "human:alice",
+      });
+
+      expect(JSON.parse(result.content[0]!.text)).toMatchObject({
+        verified: 1,
+      });
+    });
+
+    test("still refuses the record's own generator", async () => {
+      await seed();
+
+      await expect(
+        tools().kb_verify!.handler({
+          bundlePath: bundle,
+          conceptId: "fact.actor-is-per-call",
+          note: "read my own work",
+          actor: "agent:x",
+        }),
+      ).rejects.toMatchObject({ name: "KbSelfVerificationError" });
+    });
+
+    test("refuses an actor that is not kind:name", async () => {
+      await expect(
+        tools().kb_no_decision!.handler({
+          bundlePath: bundle,
+          reason: "nothing to decide",
+          actor: "alice",
+        }),
+      ).rejects.toThrow(/kind:name/);
+    });
+  });
+
   test("names itself and its version to the client", () => {
     const server = createKbMcpServer() as unknown as {
       server: { _serverInfo?: { name: string; version: string } };
