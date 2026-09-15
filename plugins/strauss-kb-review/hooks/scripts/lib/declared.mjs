@@ -48,6 +48,24 @@ export function declaredPaths(text) {
   return { declared, classes, none: declared.length === 0 };
 }
 
+/**
+ * Declared classes the repository does not back: a class that lowers
+ * scrutiny must come from a `review:*` fact or a `.gitattributes` entry,
+ * which is what `classes` (the classifier's answer) already reflects.
+ * @param {Map<string, string>} declared @param {Map<string, string>} classes
+ * @param {Set<string>} lowering
+ * @returns {{ path: string, claimed: string, actual: string }[]}
+ */
+export function unbackedClasses(declared, classes, lowering) {
+  const out = [];
+  for (const [path, claimed] of declared) {
+    if (!lowering.has(claimed)) continue;
+    const actual = classes.get(path) ?? "source";
+    if (actual !== claimed) out.push({ path, claimed, actual });
+  }
+  return out;
+}
+
 /** Forward slashes, no leading `./`. @param {string} path */
 function normalize(path) {
   return path.split("\\").join("/").replace(/^\.\//, "");
