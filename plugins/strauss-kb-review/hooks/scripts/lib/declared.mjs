@@ -11,9 +11,12 @@
  */
 
 /**
- * The last `changed` block in a turn's text, or null when there is none.
- * Each line is `<path>` or `<path> <class>`; the class is the agent's own
- * word for what kind of change it made there, `source` when absent.
+ * The last `changed` block in a turn's text, or null when there is none. The
+ * body is JSON, the same envelope the reviewer's `kb` block uses:
+ * `{ "paths": [ { "path": "src/a.ts", "class": "generated" } ] }`, with
+ * `class` optional (`source` when absent) and an empty `paths` for no
+ * changes. A body that is not that shape counts as no block, so the gate asks
+ * for one.
  * @param {string | null} text @returns {Declaration}
  */
 export function declaredPaths(text) {
@@ -21,43 +24,28 @@ export function declaredPaths(text) {
   const blocks = [...text.matchAll(/^```changed\s*\n([\s\S]*?)^```\s*$/gm)];
   const last = blocks.at(-1);
   if (!last) return null;
-  const lines = (last[1] ?? "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
-  if (lines.length === 1 && lines[0]?.toLowerCase() === "none") {
-    return { declared: [], classes: new Map(), none: true };
+  /** @type {any} */
+  let body;
+  try {
+    body = JSON.parse(last[1] ?? "");
+  } catch {
+    return null;
   }
+  const entries = Array.isArray(body?.paths) ? body.paths : null;
+  if (!entries) return null;
   /** @type {Map<string, string>} */
   const classes = new Map();
   /** @type {string[]} */
   const declared = [];
-  for (const line of lines) {
-    const [rawPath, rawClass] = line.split(/\s+/);
-    const path = normalize(rawPath ?? "");
+  for (const entry of entries) {
+    const raw = typeof entry === "string" ? entry : entry?.path;
+    const path = normalize(typeof raw === "string" ? raw : "");
     if (!path || declared.includes(path)) continue;
     declared.push(path);
-    if (rawClass) classes.set(path, rawClass.toLowerCase());
+    const cls = typeof entry === "object" ? entry?.class : undefined;
+    if (typeof cls === "string" && cls) classes.set(path, cls.toLowerCase());
   }
-  return { declared, classes, none: false };
-}
-
-/**
- * Declared classes the repository does not back: a class that lowers
- * scrutiny must come from a `review:*` fact or a `.gitattributes` entry,
- * which is what `classes` (the classifier's answer) already reflects.
- * @param {Map<string, string>} declared @param {Map<string, string>} classes
- * @param {Set<string>} lowering
- * @returns {{ path: string, claimed: string, actual: string }[]}
- */
-export function unbackedClasses(declared, classes, lowering) {
-  const out = [];
-  for (const [path, claimed] of declared) {
-    if (!lowering.has(claimed)) continue;
-    const actual = classes.get(path) ?? "source";
-    if (actual !== claimed) out.push({ path, claimed, actual });
-  }
-  return out;
+  return { declared, classes, none: declared.length === 0 };
 }
 
 /** Forward slashes, no leading `./`. @param {string} path */
