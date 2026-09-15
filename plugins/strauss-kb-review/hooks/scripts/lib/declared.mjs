@@ -7,7 +7,8 @@
  */
 
 /**
- * @typedef {{ declared: string[], classes: Map<string, string>, none: boolean } | null} Declaration
+ * @typedef {{ declared: string[], classes: Map<string, string>, none: boolean, error: null }
+ *   | { declared: null, classes: null, none: false, error: string } | null} Declaration
  */
 
 /**
@@ -15,8 +16,8 @@
  * body is JSON, the same envelope the reviewer's `kb` block uses:
  * `{ "paths": [ { "path": "src/a.ts", "class": "generated" } ] }`, with
  * `class` optional (`source` when absent) and an empty `paths` for no
- * changes. A body that is not that shape counts as no block, so the gate asks
- * for one.
+ * changes. A block that is present but not that shape is an error the gate
+ * reports as such, never silently no block.
  * @param {string | null} text @returns {Declaration}
  */
 export function declaredPaths(text) {
@@ -28,24 +29,38 @@ export function declaredPaths(text) {
   let body;
   try {
     body = JSON.parse(last[1] ?? "");
-  } catch {
-    return null;
+  } catch (error) {
+    return invalid(`the body is not JSON (${String(/** @type {any} */ (error)?.message ?? error)})`);
   }
-  const entries = Array.isArray(body?.paths) ? body.paths : null;
-  if (!entries) return null;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return invalid("the body must be an object with a `paths` array");
+  }
+  const entries = Array.isArray(body.paths) ? body.paths : null;
+  if (!entries) return invalid("the body must carry a `paths` array");
   /** @type {Map<string, string>} */
   const classes = new Map();
   /** @type {string[]} */
   const declared = [];
-  for (const entry of entries) {
+  for (const [index, entry] of entries.entries()) {
     const raw = typeof entry === "string" ? entry : entry?.path;
-    const path = normalize(typeof raw === "string" ? raw : "");
-    if (!path || declared.includes(path)) continue;
+    if (typeof raw !== "string" || !raw.trim()) {
+      return invalid(`paths[${index}] has no \`path\` string`);
+    }
+    const path = normalize(raw);
+    if (declared.includes(path)) continue;
     declared.push(path);
-    const cls = typeof entry === "object" ? entry?.class : undefined;
-    if (typeof cls === "string" && cls) classes.set(path, cls.toLowerCase());
+    const cls = typeof entry === "object" && entry !== null ? entry.class : undefined;
+    if (cls !== undefined && (typeof cls !== "string" || !cls)) {
+      return invalid(`paths[${index}].class must be a non-empty string`);
+    }
+    if (typeof cls === "string") classes.set(path, cls.toLowerCase());
   }
-  return { declared, classes, none: declared.length === 0 };
+  return { declared, classes, none: declared.length === 0, error: null };
+}
+
+/** @param {string} error @returns {Declaration} */
+function invalid(error) {
+  return { declared: null, classes: null, none: false, error };
 }
 
 /**
