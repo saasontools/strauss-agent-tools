@@ -75,13 +75,19 @@ them.
 ## Before anyone reads it
 
 A consumer — reviewer agent, walkthrough, human — validates first or reviews
-a base that lies. In order:
+a base that lies. The author gate's report is that validation; run it on the
+range before handing over:
 
-1. `kb_validate`; `kb_doctor --strict`; `kb_anchor_resolve` on every record
-   anchored in the diff.
-2. Changed code files with no anchored record and no fresh `decision.none`.
-3. `review`-tagged records past their commit: a risk the code removed, a
-   question already answered in the thread.
+```sh
+node "$CLAUDE_PLUGIN_ROOT/hooks/scripts/kb-review-gate.mjs" --report \
+  --repo-root . --base "$(git merge-base main HEAD)" --head HEAD
+```
+
+`$CLAUDE_PLUGIN_ROOT` is this plugin's directory; write the path where the
+client sets none. The report holds `validate`, `doctor --strict`, anchor
+drift, changed files with no record and no fresh `decision.none`, and
+`review`-tagged records past their commit. It carries no block, and the
+repository's own checks pass, before anyone reviews.
 
 Who fixes depends on who is left:
 

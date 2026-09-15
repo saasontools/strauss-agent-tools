@@ -42,6 +42,9 @@ importers:
       '@saasontools/nx-plugin':
         specifier: workspace:*
         version: link:packages/nx-plugin
+      '@saasontools/strauss-kb':
+        specifier: workspace:*
+        version: link:packages/strauss-kb
       '@types/node':
         specifier: ^26.4.0
         version: 26.4.0

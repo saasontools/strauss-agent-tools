@@ -1,0 +1,4 @@
+log.jsonl text eol=lf merge=union
+INDEX.md linguist-generated=true
+log.jsonl linguist-generated=true
+.index.sqlite linguist-generated=true
