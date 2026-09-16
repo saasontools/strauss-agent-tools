@@ -482,12 +482,11 @@ question is a point lookup — [`query`](./cli-reference.md#query).
 ## Promoting review records to an ADR base at merge
 
 A review base holds what a pull request settled, and most of it stops mattering
-once the branch is gone. [`promote --list`](./cli-reference.md#promote) names
-what does not — decisions off review, constraints still `proposed`, contracts,
-requirements something satisfies, blocking risks — and `promote <ids> --to
-<base> --source <pr-url>` copies those into the base that outlives the branch:
-settled, review tags gone, the pull request recorded as a source, and both bases
-logged. Links to records left behind are dropped and named, since a typed
+once the branch is gone. [`promote <ids> --to <base> --source
+<pr-url>`](./cli-reference.md#promote) copies what does not into the base that
+outlives the branch: settled, review tags gone, the pull request recorded as a
+source, and both bases logged. Which records those are is the caller's call —
+the review flow that wrote them is what knows. Links to records left behind are dropped and named, since a typed
 edge cannot cross bases. For a repository that keeps ADRs in-tree,
 [`export --format madr`](./cli-reference.md#export) renders the promoted
 decisions into `docs/adr` afterwards.

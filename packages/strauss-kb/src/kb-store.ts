@@ -356,13 +356,18 @@ export class KbStore {
     conceptId: string,
     status: KbRecordStatus,
     actor = "unknown",
+    reason?: string,
   ): Promise<KbRecord> {
     assertActor(actor);
     return this.mutate(
       bundlePath,
       conceptId,
       (frontmatter) => ({ ...frontmatter, strauss_status: status }),
-      { operation: `status:${status}`, by: actor },
+      {
+        operation: `status:${status}`,
+        by: actor,
+        ...(reason ? { reason } : {}),
+      },
     );
   }
 

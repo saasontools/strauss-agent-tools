@@ -5,16 +5,16 @@ import type {
   KbRecordStatus,
 } from "../../kb-record.schema.js";
 import { isKbLinkRel, LINK_RELS } from "../../record-types.js";
-import type { KbDroppedLink } from "./model.js";
+import type { KbCarriedField, KbDroppedLink } from "./model.js";
 
 /** The source entry a promotion adds, replaced rather than repeated on re-promote. */
 export const PROMOTION_SOURCE_ID = "promoted";
 
 /**
- * The status a copy is written under: settling is what promotion means, so the
- * unsettled statuses land `accepted` while `open` and `resolved` carry
- * unchanged. `rejected` and `superseded` never reach here — `promote` refuses
- * them.
+ * The status a copy is written under when `status` is not carried: settling is
+ * what promotion means, so the unsettled statuses land `accepted` while `open`
+ * and `resolved` carry unchanged. `rejected` and `superseded` never reach here
+ * — `promote` refuses them.
  */
 const CARRIED_STATUS: Record<KbRecordStatus, KbRecordStatus> = {
   draft: "accepted",
@@ -32,8 +32,18 @@ export type KbCarriedRecord = {
   droppedLinks: KbDroppedLink[];
 };
 
+export type KbCarryOptions = {
+  source?: string;
+  /** Fields kept as they stand. Everything else settles or is stripped. */
+  keep?: ReadonlySet<KbCarriedField>;
+};
+
 /**
  * One record as the target base should hold it.
+ *
+ * `keep` names the frontmatter that survives as it stands; what it does not
+ * name settles (`status`) or is stripped (`verified`, the review `tags`).
+ * `anchors` are carried either way, so naming it changes nothing.
  *
  * Frontmatter is carried rather than recomposed: OKF requires a consumer to
  * preserve keys it does not recognise when round-tripping, and a record written
@@ -42,7 +52,7 @@ export type KbCarriedRecord = {
 export function carry(
   record: KbRecord,
   promoted: ReadonlySet<string>,
-  source?: string,
+  { source, keep = new Set<KbCarriedField>() }: KbCarryOptions = {},
 ): KbCarriedRecord {
   const {
     type: _type,
@@ -50,20 +60,27 @@ export function carry(
     // a separate question from whether this record belongs there at all.
     strauss_supersedes: _supersedes,
     strauss_superseded_by: _supersededBy,
-    // A check run against the source repository, which the target never saw.
-    verified: _verified,
+    verified,
     ...rest
   } = record.frontmatter;
 
   const links = rest.strauss_links ?? [];
   const kept = links.filter((link) => promoted.has(link.target));
   const dropped = links.filter((link) => !promoted.has(link.target));
-  const tags = (rest.tags ?? []).filter((tag) => !isReviewTag(tag));
+  const tags = keep.has("tags")
+    ? (rest.tags ?? [])
+    : (rest.tags ?? []).filter((tag) => !isReviewTag(tag));
 
   const frontmatter: Omit<KbRecordFrontmatter, "type"> = {
     ...rest,
-    strauss_status: CARRIED_STATUS[rest.strauss_status],
+    strauss_status: keep.has("status")
+      ? rest.strauss_status
+      : CARRIED_STATUS[rest.strauss_status],
   };
+  // A check run against the source repository, which the target never saw —
+  // unless the caller is copying the review itself, a hop where the verdict is
+  // the point.
+  if (keep.has("verified") && verified?.length) frontmatter.verified = verified;
   setOrDrop(frontmatter, "tags", tags);
   setOrDrop(frontmatter, "strauss_links", kept);
 

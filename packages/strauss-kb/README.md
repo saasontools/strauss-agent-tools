@@ -301,7 +301,8 @@ strauss-kb [--bundle PATH] <command> [args]
   write <type> < record.json               Write one record.
   write-decision < decision.json           Write a decision, with the rejected alternative as a field.
   no-decision <reason...>                  Claim in one sentence that there was nothing to decide.
-  status <concept-id> <status>             Move a record's status, compare-and-swap.
+  status <concept-id> <status> [--reason "<text>"]
+                                           Move a record's status, compare-and-swap. `--reason` lands on the log entry.
   supersede <concept-id> <replacement-id>  Mark a record superseded, linking both directions.
   answer <concept-id> <answer...>          Resolve an open question and append the answer.
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
@@ -309,8 +310,8 @@ strauss-kb [--bundle PATH] <command> [args]
                                            Resolve anchors against the working tree: stamp, or report drift.
   reassess <concept-id> [--repo-root <path>] [--with-diff]
                                            One drifted record as something to judge: claim, classes, diff, impact.
-  promote <concept-id...> --to <bundle> [--source <url>] [--force] | --list
-                                           Copy settled records into the base that outlives the pull request.
+  promote <concept-id...> --to <bundle> [--source <url>] [--carry <fields>] [--on-conflict <policy>]
+                                           Copy records into another base — a scratchpad into what a human reviews, or that into what outlives the pull request.
   load [type] [--budget N | --all] [--repo-root PATH]
                                            Hand over the whole base, each record with its standing.
   catalog [type]                           Every record in one line — id, type, title, standing, stale flag.

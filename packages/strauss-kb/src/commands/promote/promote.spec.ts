@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { composeRecord, type ComposeInput } from "../../compose.js";
-import { composeNoDecisionRecord } from "../../decision-record.js";
 import {
   KbInvalidConceptIdError,
   KbPromoteCollisionError,
@@ -82,7 +81,6 @@ describe("promoteCommand", () => {
     expect(await store.read(source, "decision.alpha")).not.toBeNull();
 
     expect(result).toMatchObject({
-      mode: "promote",
       to: target,
       promoted: [
         {
@@ -163,22 +161,6 @@ describe("promoteCommand", () => {
       run({ conceptIds: ["decision.cut"], to: target }),
     ).rejects.toBeInstanceOf(KbPromoteStandingError);
     expect(await store.list(target)).toEqual([]);
-  });
-
-  test("a withdrawn record is not a candidate either", async () => {
-    await seed("contract", { slug: "old", title: "Old", why: "Because" });
-    await seed("contract", {
-      slug: "new",
-      title: "New",
-      why: "Because",
-      supersedes: ["contract.old"],
-    });
-
-    const result = await run({ list: true });
-    if (result.mode !== "list") throw new Error("expected a listing");
-    expect(result.candidates.map((row) => row.conceptId)).toEqual([
-      "contract.new",
-    ]);
   });
 
   test("statuses that say what a record is carry unchanged", async () => {
@@ -274,97 +256,21 @@ describe("promoteCommand", () => {
     expect(index).not.toContain("fact.beta");
   });
 
-  test("each candidate rule fires once, and nothing else", async () => {
-    await seed("decision", {
-      slug: "settled",
-      title: "Settled",
-      why: "Because",
-      links: [{ target: "requirement.satisfied", rel: "satisfies" }],
-    });
-    await seed("decision", {
-      slug: "under-review",
-      title: "Under review",
-      why: "Because",
-      tags: ["review", "review:pr-9"],
-    });
-    await store.write(
-      source,
-      composeNoDecisionRecord("Nothing to record", "agent:writer", AT),
-    );
-    await seed("constraint", {
-      slug: "proposed",
-      title: "Proposed",
-      why: "Because",
-    });
-    await store.setStatus(
-      source,
-      "constraint.proposed",
-      "proposed",
-      "agent:writer",
-    );
-    await seed("constraint", {
-      slug: "accepted",
-      title: "Accepted",
-      why: "Because",
-    });
-    await seed("contract", { slug: "api", title: "API", why: "Because" });
-    await seed("requirement", {
-      slug: "satisfied",
-      title: "Satisfied",
-      why: "Because",
-    });
-    await seed("requirement", {
-      slug: "orphan",
-      title: "Orphan",
-      why: "Because",
-    });
-    await seed("risk", {
-      slug: "blocking",
-      title: "Blocking",
-      why: "Because",
-      materiality: "blocking",
-    });
-    await seed("risk", {
-      slug: "settled-risk",
-      title: "Settled risk",
-      why: "Because",
-      materiality: "blocking",
-    });
-    await store.setStatus(source, "risk.settled-risk", "resolved", "agent:x");
-    await seed("risk", {
-      slug: "minor",
-      title: "Minor",
-      why: "Because",
-      materiality: "non-blocking",
-    });
-
-    const result = await run({ list: true });
-    if (result.mode !== "list") throw new Error("expected a listing");
-
-    expect(result.candidates.map((row) => row.conceptId).sort()).toEqual([
-      "constraint.proposed",
-      "contract.api",
-      "decision.settled",
-      "requirement.satisfied",
-      "risk.blocking",
-    ]);
-    expect(new Set(result.candidates.map((row) => row.why)).size).toBe(5);
-    expect(result.candidates[0]).toMatchObject({
-      type: "constraint",
-      title: "Proposed",
-    });
-  });
-
-  test("--list and a promotion are told apart in argv", () => {
-    expect(
-      promoteCommand.fromArgv(["promote", "--list"], source, () =>
-        Promise.resolve(""),
-      ),
-    ).toEqual({ bundlePath: source, list: true });
-
+  test("flag values never read as concept ids", () => {
     expect(
       promoteCommand.fromArgv(
-        ["promote", "decision.alpha", "--to", target, "--source", "https://pr"],
+        [
+          "promote",
+          "decision.alpha",
+          "--to",
+          target,
+          "--source",
+          "https://pr",
+          "--carry",
+          "status,verified",
+          "--on-conflict",
+          "skip-human-settled",
+        ],
         source,
         () => Promise.resolve(""),
       ),
@@ -373,7 +279,208 @@ describe("promoteCommand", () => {
       conceptIds: ["decision.alpha"],
       to: target,
       source: "https://pr",
+      carry: ["status", "verified"],
+      onConflict: "skip-human-settled",
     });
+  });
+
+  test("an unknown --carry field is refused", () => {
+    expect(() =>
+      promoteCommand.fromArgv(
+        ["promote", "decision.alpha", "--to", target, "--carry", "body"],
+        source,
+        () => Promise.resolve(""),
+      ),
+    ).toThrow(KbInvalidConceptIdError);
+  });
+
+  test("--carry copies status, verified and tags as they stand", async () => {
+    await seed("risk", {
+      slug: "leak",
+      title: "Leak",
+      why: "Because",
+      tags: ["review", "review:pr-9", "cursor"],
+    });
+    await store.verify(source, "risk.leak", "still open", "agent:checker", AT);
+
+    await run({
+      conceptIds: ["risk.leak"],
+      to: target,
+      carry: ["status", "verified", "tags", "anchors"],
+    });
+
+    const promoted = await store.read(target, "risk.leak");
+    expect(promoted?.frontmatter.strauss_status).toBe("open");
+    expect(promoted?.frontmatter.tags).toEqual([
+      "review",
+      "review:pr-9",
+      "cursor",
+    ]);
+    expect(promoted?.frontmatter.verified).toEqual([
+      { by: "agent:checker", at: AT, note: "still open" },
+    ]);
+  });
+
+  test("an unsettled status carries only when named, and settles otherwise", async () => {
+    await seed("constraint", {
+      slug: "budget",
+      title: "Budget",
+      why: "Because",
+    });
+    await store.setStatus(
+      source,
+      "constraint.budget",
+      "proposed",
+      "agent:writer",
+    );
+
+    await run({
+      conceptIds: ["constraint.budget"],
+      to: target,
+      carry: ["status"],
+    });
+    expect(
+      (await store.read(target, "constraint.budget"))?.frontmatter
+        .strauss_status,
+    ).toBe("proposed");
+
+    await run({
+      conceptIds: ["constraint.budget"],
+      to: target,
+      onConflict: "force",
+    });
+    expect(
+      (await store.read(target, "constraint.budget"))?.frontmatter
+        .strauss_status,
+    ).toBe("accepted");
+  });
+
+  test("--on-conflict refuse is the default, force overwrites", async () => {
+    await seed("decision", { slug: "alpha", title: "Alpha", why: "Because" });
+    await seed(
+      "decision",
+      { slug: "alpha", title: "Older Alpha", why: "Because" },
+      target,
+    );
+
+    await expect(
+      run({ conceptIds: ["decision.alpha"], to: target }),
+    ).rejects.toBeInstanceOf(KbPromoteCollisionError);
+    await expect(
+      run({
+        conceptIds: ["decision.alpha"],
+        to: target,
+        onConflict: "refuse",
+      }),
+    ).rejects.toBeInstanceOf(KbPromoteCollisionError);
+
+    const result = await run({
+      conceptIds: ["decision.alpha"],
+      to: target,
+      onConflict: "force",
+    });
+    expect(result.skipped).toEqual([]);
+    expect(
+      (await store.read(target, "decision.alpha"))?.frontmatter.title,
+    ).toBe("Alpha");
+  });
+
+  test("skip-human-settled leaves a human's record alone and refreshes the rest", async () => {
+    await seed("risk", {
+      slug: "leak",
+      title: "Leak, reworded",
+      why: "Because",
+    });
+    await seed("fact", {
+      slug: "beta",
+      title: "Beta, reworded",
+      why: "It holds",
+    });
+    await seed("risk", { slug: "leak", title: "Leak", why: "Because" }, target);
+    await seed(
+      "fact",
+      { slug: "beta", title: "Beta", why: "It holds" },
+      target,
+    );
+    await store.setStatus(
+      target,
+      "risk.leak",
+      "resolved",
+      "human:reviewer",
+      "fixed in 0ddba11",
+    );
+    // An agent settling the other one protects nothing.
+    await store.setStatus(target, "fact.beta", "accepted", "agent:merger");
+
+    const result = await run({
+      conceptIds: ["risk.leak", "fact.beta"],
+      to: target,
+      onConflict: "skip-human-settled",
+    });
+
+    expect(result.skipped).toEqual([
+      { conceptId: "risk.leak", settledBy: "human:reviewer" },
+    ]);
+    expect(result.promoted.map((entry) => entry.conceptId)).toEqual([
+      "fact.beta",
+    ]);
+    expect((await store.read(target, "risk.leak"))?.frontmatter.title).toBe(
+      "Leak",
+    );
+    expect((await store.read(target, "fact.beta"))?.frontmatter.title).toBe(
+      "Beta, reworded",
+    );
+    // Nothing was logged against the record left alone.
+    const into = (await store.readLog(target)).entries.filter(
+      (entry) => entry.operation === "promote-in",
+    );
+    expect(into.map((entry) => entry.conceptId)).toEqual(["fact.beta"]);
+  });
+
+  test("a human move that does not settle leaves the target promotable", async () => {
+    await seed("open-question", {
+      slug: "ports",
+      title: "Ports, reworded",
+      why: "Because",
+    });
+    await seed(
+      "open-question",
+      { slug: "ports", title: "Ports", why: "Because" },
+      target,
+    );
+    await store.setStatus(target, "open-question.ports", "open", "human:asker");
+
+    const result = await run({
+      conceptIds: ["open-question.ports"],
+      to: target,
+      onConflict: "skip-human-settled",
+    });
+
+    expect(result.skipped).toEqual([]);
+    expect(
+      (await store.read(target, "open-question.ports"))?.frontmatter.title,
+    ).toBe("Ports, reworded");
+  });
+
+  test("--force and a disagreeing --on-conflict are refused", () => {
+    expect(
+      promoteCommand.input.safeParse({
+        bundlePath: source,
+        conceptIds: ["decision.alpha"],
+        to: target,
+        force: true,
+        onConflict: "skip-human-settled",
+      }).success,
+    ).toBe(false);
+    expect(
+      promoteCommand.input.safeParse({
+        bundlePath: source,
+        conceptIds: ["decision.alpha"],
+        to: target,
+        force: true,
+        onConflict: "force",
+      }).success,
+    ).toBe(true);
   });
 
   test("a promotion with no target base is refused before it runs", () => {
