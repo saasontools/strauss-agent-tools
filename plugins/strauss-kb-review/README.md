@@ -36,6 +36,9 @@ the reviewers and what each may write.
 `skills/kb-review/expectations.json` says what a reviewer that preloaded it
 writes per fixture scenario; a preloaded skill has no trigger to evaluate.
 
+**`review-walkthrough`** — the base and the diff rendered as one HTML review
+guide for a human.
+
 ## Two hooks, two files
 
 | File                                                                       | Script                               | Acts on                                                                         | Events                                 |
@@ -116,6 +119,16 @@ a block by id, or switches a check off:
 ```
 
 A group name in either list covers every id under it.
+
+## Walkthrough
+
+How to run it, the order it renders and when it refuses:
+[`skills/review-walkthrough/SKILL.md`](skills/review-walkthrough/SKILL.md).
+
+`skills/review-walkthrough/scripts/__snapshots__/*.json` pin the page two
+`fixtures/companion-repo` scenarios produce. A snapshot diff is a review, not a
+failure — read it, decide whether the new page is better, then
+`UPDATE_SNAPSHOTS=1` to accept it.
 
 ## Reviewer hooks
 
