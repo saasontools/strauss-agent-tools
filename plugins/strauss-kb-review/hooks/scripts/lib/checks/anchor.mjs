@@ -15,6 +15,7 @@ export function check(ctx) {
     ...outsideDiff(ctx),
     ...missingSymbol(ctx),
     ...drifted(ctx),
+    ...unstamped(ctx),
   ];
 }
 
@@ -102,6 +103,38 @@ function* drifted(ctx) {
         "block",
         "mechanical",
         `${conceptId} drifted on ${anchor.file}:${anchor.symbol} — reassess it, then rebaseline.`,
+        {
+          recordId: conceptId,
+          file: asString(anchor.file),
+          symbol: asString(anchor.symbol),
+        },
+      );
+    }
+  }
+}
+
+/**
+ * anchor.unstamped — a record this diff wrote has an anchor with no hash, so
+ * `anchor.drifted` and `standing.resolved-unmoved` cannot see it. The gate
+ * resolves with `--check` and never stamps; the author does. A warning, not a
+ * block: stamping is the author's next pass, not a condition of this turn.
+ * @param {import("../context.mjs").Ctx} ctx
+ */
+function* unstamped(ctx) {
+  const touched = new Set(ctx.touched.map((record) => record.conceptId));
+  for (const [conceptId, result] of ctx.anchorState) {
+    if (!touched.has(conceptId)) continue;
+    for (const anchor of result?.results ?? []) {
+      if (asString(anchor?.state) !== "unstamped") continue;
+      const where = anchor.symbol
+        ? `${anchor.file}:${anchor.symbol}`
+        : asString(anchor.file);
+      yield finding(
+        "anchor.unstamped",
+        GROUP,
+        "warn",
+        "mechanical",
+        `${conceptId} anchors ${where} with no hash. Run strauss-kb anchor-resolve ${conceptId} to stamp it.`,
         {
           recordId: conceptId,
           file: asString(anchor.file),
