@@ -286,6 +286,15 @@ describe("failure paths", () => {
     expect(result.text).toContain("NOT started");
   });
 
+  it("does not retry a 429 when the attempt budget is 1", async () => {
+    mock.createQueue = [{ httpStatus: 429, message: "quota" }];
+    const started = Date.now();
+    const result = await call("deep_research_start", { query: "q" });
+    expect(result.isError).toBe(true);
+    expect(mock.createBodies()).toHaveLength(1);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
   it("maps 401 to the auth help message", async () => {
     mock.createQueue = [{ httpStatus: 401, message: "invalid key" }];
     const result = await call("deep_research_start", { query: "q" });
