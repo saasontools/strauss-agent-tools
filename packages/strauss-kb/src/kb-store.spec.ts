@@ -777,11 +777,20 @@ describe("actor", () => {
       AT,
     );
 
-  test("a name may carry non-ASCII letters", async ({ store, bundle }) => {
-    const { conceptId } = await store.write(bundle, fact("cap"), "human:josé");
+  // Both spellings of josé read the same on screen, and a Mac types the
+  // second: refusing one and taking the other would be unexplainable.
+  test("a name may carry non-ASCII letters, composed or decomposed", async ({
+    store,
+    bundle,
+  }) => {
+    const actors = ["human:josé", "human:josé", "human:王小明"];
+
+    for (const [at, actor] of actors.entries()) {
+      await store.write(bundle, fact(`cap-${at}`), actor);
+    }
 
     const { entries } = await store.readLog(bundle);
-    expect(entries.at(-1)).toMatchObject({ conceptId, by: "human:josé" });
+    expect(entries.map((entry) => entry.by)).toEqual(actors);
   });
 
   test("verify refuses the unknown actor before touching the base", async ({

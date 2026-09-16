@@ -1293,7 +1293,7 @@ function normalizeActor(id: string): string {
 }
 
 /** `kind` or `kind:name`: no quotes, spaces, or control bytes. */
-const KB_ACTOR_PATTERN = /^[A-Za-z][\w-]*(?::[\p{L}\p{N}_.@+/-]+)?$/u;
+const KB_ACTOR_PATTERN = /^[A-Za-z][\w-]*(?::[\p{L}\p{M}\p{N}_.@+/-]+)?$/u;
 
 /**
  * Refuses an actor no write may carry. `named` also refuses the CLI default
