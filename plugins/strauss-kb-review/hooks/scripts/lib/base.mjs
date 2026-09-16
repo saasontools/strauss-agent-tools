@@ -37,16 +37,30 @@ export function standings(kb) {
 }
 
 /**
- * Every record in `bundle`, with its standing.
- * @param {string} bundle @param {Map<string, string>} standing
+ * Standing applied to what `readBase` found. Separate from the read so an empty
+ * bundle costs no subprocess: `standings` spawns the CLI, `readBase` does not.
+ * @param {BaseRecord[]} records @param {Map<string, string>} standing
  * @returns {BaseRecord[]}
  */
-export function readBase(bundle, standing) {
+export function withStandings(records, standing) {
+  return records.map((record) => ({
+    ...record,
+    standing: standing.get(record.conceptId) ?? "current",
+  }));
+}
+
+/**
+ * Every record in `bundle`, standing not yet resolved.
+ * @param {string} bundle @returns {BaseRecord[]}
+ */
+export function readBase(bundle) {
   /** @type {string[]} */
   let names;
   try {
+    // A record file is `<type>.<slug>.md`. The inner dot is what tells one from
+    // the base's own markdown — `INDEX.md`, and `REPORT.md` at level 2.
     names = readdirSync(bundle).filter(
-      (name) => name.endsWith(".md") && name !== "INDEX.md",
+      (name) => name.endsWith(".md") && name.slice(0, -3).includes("."),
     );
   } catch {
     return [];
@@ -61,7 +75,7 @@ export function readBase(bundle, standing) {
       type: asString(data.type) || conceptId.split(".")[0] || "",
       title: asString(data.title),
       status: asString(data.strauss_status) || "accepted",
-      standing: standing.get(conceptId) ?? "current",
+      standing: "current",
       body,
       anchors: /** @type {import("./util.mjs").Anchor[]} */ (
         asArray(data.strauss_anchors)

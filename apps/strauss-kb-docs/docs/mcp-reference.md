@@ -99,7 +99,7 @@ As CLI [`no-decision`](./cli-reference.md#no-decision). Parameters:
 As CLI [`status`](./cli-reference.md#status). Parameters: `bundlePath`,
 `conceptId`, and `status` — one of `draft`, `proposed`, `accepted`, `open`,
 `resolved`, `rejected`, `superseded` — all required; `reason` (`string`, stored
-on the log entry) optional, and required to resolve a `risk`.
+on the log entry) optional, and required to close a `risk`.
 
 ```json
 {
@@ -451,7 +451,7 @@ default `refuse`) optional.
 
 Returns `{ to, promoted, skipped }` with `{ conceptId, droppedLinks }` per
 promoted record and `{ conceptId, settledBy }` per record left alone. A field
-`carry` does not name settles or is stripped; links to records left behind are
+not named in `carry` settles or is stripped; links to records left behind are
 dropped and reported. The originals stay put.
 
 ### `kb_export`

@@ -53,9 +53,10 @@ function openItems(records) {
     "",
     ...open.map(
       (record) =>
-        `- \`${record.conceptId}\` — ${title(record)} (${record.status}${
-          record.materiality ? `, ${record.materiality}` : ""
-        })`,
+        `- \`${record.conceptId}\` — ${title(record)} (${oneLine(
+          record.status,
+          40,
+        )}${record.materiality ? `, ${oneLine(record.materiality, 40)}` : ""})`,
     ),
     "",
   ];
@@ -67,11 +68,11 @@ function riskRows(records, input) {
   if (!risks.length) return ["## Risks", "", "None.", ""];
   const rows = risks.map((record) => {
     const id = record.conceptId;
-    return `| \`${id}\` | ${record.status} | ${record.materiality ?? "—"} | ${cell(
-      input.trailers.addressedBy.get(id),
-    )} | ${cell(input.trailers.pinnedBy.get(id))} | ${cell(
-      verdicts(record),
-    )} | ${input.reasons.get(id) ?? "—"} |`;
+    return `| \`${id}\` | ${cell([record.status])} | ${cell(
+      record.materiality ? [record.materiality] : [],
+    )} | ${cell(input.trailers.addressedBy.get(id))} | ${cell(
+      input.trailers.pinnedBy.get(id),
+    )} | ${cell(verdicts(record))} | ${cell(reason(input, id))} |`;
   });
   return [
     "## Risks",
@@ -132,7 +133,9 @@ function anchors(record) {
   return record.anchors
     .map(
       (anchor) =>
-        `\`${anchor.file}${anchor.symbol ? `:${anchor.symbol}` : ""}\``,
+        `\`${oneLine(anchor.file, 120)}${
+          anchor.symbol ? `:${oneLine(anchor.symbol, 80)}` : ""
+        }\``,
     )
     .join(", ");
 }
@@ -142,8 +145,23 @@ function title(record) {
   return oneLine(record.title || record.conceptId, 120);
 }
 
-/** @param {string[] | undefined} values */
+/**
+ * One table cell. Every value is free text a reviewer or a commit wrote, so it
+ * is folded to one line and its `|` escaped: an unescaped one forges a row.
+ * @param {string[] | undefined} values
+ */
 function cell(values) {
   if (!values || !values.length) return "—";
-  return values.map((value) => oneLine(value, 80)).join("<br>");
+  return (
+    values
+      .map((value) => oneLine(value, 80).replace(/\|/g, "\\|"))
+      .join("<br>")
+      .trim() || "—"
+  );
+}
+
+/** @param {ReportInput} input @param {string} id @returns {string[]} */
+function reason(input, id) {
+  const text = input.reasons.get(id);
+  return text ? [text] : [];
 }

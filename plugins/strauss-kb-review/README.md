@@ -200,7 +200,7 @@ node plugins/strauss-kb-review/hooks/scripts/kb-promote.mjs \
 | `--report <path>`   | Where `REPORT.md` lands. A dry run writes one only here.    |
 
 `--to review` takes every reviewer-written `risk` and every unanswered
-`open-question` whatever their state, the current heads of `decision`, `fact`,
+`open-question` that still stands, the current heads of `decision`, `fact`,
 `flow`, `requirement` and `contract`, and a `test-obligation` whose anchors name
 no test file. Each copy carries `status`, `verified` and `tags`, and
 `--on-conflict skip-human-settled` leaves a record a human already settled
@@ -213,17 +213,17 @@ a reviewer's risk is unsettled or a question unanswered, and either hop refuses
 when a selected finding did not land. It writes only through `strauss-kb
 promote`, so no record's body is rewritten and no copy loses its `generated.by`.
 
-`REPORT.md` lands in the level-2 base — open items, then one row per risk, then
-the decisions with their anchors — and the pull request body is built from it.
+`REPORT.md` lands in the level-2 base and describes it, read back after the
+writes so a record a human settled is reported as they left it — open items,
+then one row per risk, then the decisions with their anchors. The pull request
+body is built from it.
 A risk's row takes its fix from an `Addresses: <concept-id>` commit trailer and
 its test from `Pinned-by: <path>` on the same commit; both are repeatable and
 accept a comma list.
 
 ### Wiring it up
 
-Not yet applied in this repository. Flipping the gate to level 1 before the
-`.gitattributes` lines below are on `main` points it at an empty scratchpad, so
-the steps are:
+Not yet applied in this repository. The steps, in order:
 
 1. Land the `.gitattributes` lines — the gate reads file classes **at the base
    commit**, so `.strauss/scratch/**` and `.strauss/review/**` only read as

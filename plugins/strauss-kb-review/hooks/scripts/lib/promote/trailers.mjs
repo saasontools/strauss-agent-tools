@@ -17,6 +17,9 @@ import { oneLine } from "../util.mjs";
 export function readTrailers(cwd, range) {
   /** @type {Trailers} */
   const trailers = { addressedBy: new Map(), pinnedBy: new Map() };
+  // No range is not "every commit": `git log` with no revision walks all of
+  // HEAD, and a trailer from before the branch is not this review's.
+  if (!range.length) return trailers;
   const out = git(cwd, [
     "log",
     "--reverse",

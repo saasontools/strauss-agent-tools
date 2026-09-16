@@ -485,11 +485,10 @@ A review base holds what a pull request settled, and most of it stops mattering
 once the branch is gone. [`promote <ids> --to <base> --source
 <pr-url>`](./cli-reference.md#promote) copies what does not into the base that
 outlives the branch: settled, review tags gone, the pull request recorded as a
-source, and both bases logged. Which records those are is the caller's call —
-the review flow that wrote them is what knows. Links to records left behind are dropped and named, since a typed
-edge cannot cross bases. For a repository that keeps ADRs in-tree,
-[`export --format madr`](./cli-reference.md#export) renders the promoted
-decisions into `docs/adr` afterwards.
+source, and both bases logged. Links to records left behind are dropped and
+named, since a typed edge cannot cross bases. For a repository that keeps ADRs
+in-tree, [`export --format madr`](./cli-reference.md#export) renders the
+promoted decisions into `docs/adr` afterwards.
 
 ## Writing from several worktrees at once
 

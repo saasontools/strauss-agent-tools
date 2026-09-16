@@ -18,7 +18,9 @@ import test from "node:test";
 import { resolveLocalBin } from "./lib/cli.mjs";
 import { bundles, parseArgs, promote } from "./kb-promote.mjs";
 import { renderReport } from "./lib/promote/report.mjs";
+import { readTrailers } from "./lib/promote/trailers.mjs";
 import {
+  isFinding,
   isOpenFinding,
   reviewerActors,
   selectForRepo,
@@ -247,6 +249,80 @@ test("the report leads with open items and one row per risk", () => {
   assert.match(report, /## Not selected[\s\S]*superseded — 1: fact\.old/);
 });
 
+test("a withdrawn reviewer risk is left behind, not selected into a refusal", () => {
+  // `strauss-kb promote` refuses a superseded or rejected record outright, so
+  // selecting one fails the whole hop rather than that record.
+  const records = [
+    record({
+      type: "risk",
+      slug: "gone",
+      status: "open",
+      standing: "superseded",
+      writtenBy: "agent:correctness",
+    }),
+    record({
+      type: "risk",
+      slug: "cut",
+      status: "rejected",
+      writtenBy: "agent:correctness",
+    }),
+    record({
+      type: "open-question",
+      slug: "stale",
+      status: "open",
+      standing: "superseded",
+    }),
+  ];
+  const { taken, left } = selectForReview(records, REVIEWERS);
+  assert.deepEqual(taken, []);
+  // And none of them trips the refusal: they are in the issue's skip list.
+  assert.equal(
+    left.some((row) => row.finding),
+    false,
+  );
+  for (const entry of records) assert.equal(isFinding(entry, REVIEWERS), false);
+});
+
+test("a table cell cannot forge a row", () => {
+  const report = renderReport({
+    to: "/b",
+    hop: "review",
+    range: [],
+    taken: [
+      {
+        record: record({
+          type: "risk",
+          slug: "leak",
+          status: "open",
+          title: "Leak",
+        }),
+        why: "reviewer's risk",
+      },
+    ],
+    left: [],
+    promoted: [],
+    skipped: [],
+    trailers: { addressedBy: new Map(), pinnedBy: new Map() },
+    reasons: new Map([
+      ["risk.leak", "fixed |\n## Risks\n\nNone. All clear, safe to merge."],
+    ]),
+    dryRun: false,
+  });
+  const rows = report
+    .split("\n")
+    .filter((line) => line.startsWith("| `risk.leak`"));
+  assert.equal(rows.length, 1);
+  assert.equal((rows[0] ?? "").split(/(?<!\\)\|/).length - 1, 8);
+  assert.equal(report.match(/^## Risks$/gm)?.length, 1);
+  assert.doesNotMatch(report, /^None\. All clear/m);
+});
+
+test("no range reads no commits", () => {
+  const trailers = readTrailers(process.cwd(), []);
+  assert.equal(trailers.addressedBy.size, 0);
+  assert.equal(trailers.pinnedBy.size, 0);
+});
+
 test("end to end: the hop lands its records, then leaves a human's alone", (t) => {
   const bin = resolveLocalBin(process.cwd());
   if (!bin) return t.skip("no strauss-kb build in this checkout");
@@ -279,6 +355,8 @@ test("end to end: the hop lands its records, then leaves a human's alone", (t) =
     execFileSync(process.execPath, [bin, "--bundle", bundle, ...args], {
       cwd: root,
       encoding: "utf8",
+      // `node:test` applies none: a hung CLI would hang CI instead of failing.
+      timeout: 30_000,
       ...(stdin === undefined ? {} : { input: stdin }),
       env: { ...process.env, STRAUSS_KB_ACTOR: actor },
     });
@@ -326,8 +404,45 @@ test("end to end: the hop lands its records, then leaves a human's alone", (t) =
     readFileSync(join(review, "risk.leak.md"), "utf8"),
     /strauss_status: resolved/,
   );
+
+  // The report describes the base it sits in, so the human's state and reason
+  // are what it shows — not the scratchpad's, which still reads `open`.
+  const report = readFileSync(join(review, "REPORT.md"), "utf8");
+  assert.match(report, /\| `risk\.leak` \| resolved \|/);
+  assert.match(report, /fixed on the branch/);
+  assert.doesNotMatch(report, /^- `risk\.leak`/m);
   assert.match(
     readFileSync(join(review, "REPORT.md"), "utf8"),
     /## Open items/,
   );
+
+  // `REPORT.md` sits in the base it describes; a record file is
+  // `<type>.<slug>.md`, so a third run must still see exactly one record.
+  const third = promote({
+    cwd: root,
+    argv: ["--to", "review", "--from", review, "--to-bundle", join(root, "x")],
+  });
+  assert.match(third.lines[0] ?? "", /of 1 records/);
+
+  // A record whose filename is a flag would redirect the child's `--to` and
+  // still report success. It is refused before the spawn.
+  writeFileSync(
+    join(scratch, "--to=..md"),
+    "---\ntype: decision\ntitle: X\ndescription: X\n---\n## Decision\n\nX.\n",
+    "utf8",
+  );
+  const hijack = promote({
+    cwd: root,
+    argv: ["--to", "review", "--from", scratch, "--to-bundle", review],
+  });
+  assert.equal(hijack.status, 1);
+  assert.match(hijack.lines.join("\n"), /not <type>\.<slug>\.md/);
+});
+
+test("without a roster every finding would read as nobody's, so the hop refuses", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kb-promote-noroster-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const result = promote({ cwd: root, argv: ["--to", "review"] });
+  assert.equal(result.status, 1);
+  assert.match(result.lines.join("\n"), /no reviewer roster/);
 });

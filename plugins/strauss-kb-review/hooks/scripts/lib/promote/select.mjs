@@ -43,8 +43,15 @@ function byReviewer(record, reviewers) {
  * @param {BaseRecord} record @param {Set<string>} reviewers
  */
 export function isFinding(record, reviewers) {
+  if (isWithdrawn(record)) return false;
   if (record.type === "risk") return byReviewer(record, reviewers);
   return record.type === "open-question" && record.status !== "resolved";
+}
+
+/** Withdrawn where it was written — `promote` refuses it, so nothing selects it.
+ * @param {BaseRecord} record */
+export function isWithdrawn(record) {
+  return WITHDRAWN.has(record.status) || record.standing === "superseded";
 }
 
 /** A risk nobody has to carry past the merge. */
@@ -86,8 +93,11 @@ export function selectForReview(records, reviewers, isTest = () => false) {
  * @returns {{ take: boolean, reason: string }}
  */
 function reviewWhy(record, reviewers, isTest) {
-  const withdrawn =
-    WITHDRAWN.has(record.status) || record.standing === "superseded";
+  // First, and for every type: the store refuses a withdrawn record outright,
+  // so selecting one fails the whole hop rather than that record.
+  if (isWithdrawn(record)) {
+    return { take: false, reason: `${record.status} where it was written` };
+  }
 
   if (record.type === "risk") {
     if (!byReviewer(record, reviewers)) {
@@ -117,9 +127,6 @@ function reviewWhy(record, reviewers, isTest) {
       reason: "decision.none describes a turn, not the code",
     };
   }
-  if (withdrawn) {
-    return { take: false, reason: `${record.status} where it was written` };
-  }
   return { take: true, reason: `current ${record.type}` };
 }
 
@@ -135,8 +142,6 @@ export function selectForRepo(records, live) {
   /** @type {Left[]} */
   const left = [];
   for (const record of records) {
-    const withdrawn =
-      WITHDRAWN.has(record.status) || record.standing === "superseded";
     // An accepted risk is kept on a decision's terms: the review decided the
     // exposure is one the repository carries.
     const eligible =
@@ -155,7 +160,7 @@ export function selectForRepo(records, live) {
         why: "decision.none describes a turn, not the code",
         finding: false,
       });
-    } else if (withdrawn) {
+    } else if (isWithdrawn(record)) {
       left.push({
         record,
         why: `${record.status} where it was written`,

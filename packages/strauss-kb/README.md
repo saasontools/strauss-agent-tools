@@ -311,7 +311,7 @@ strauss-kb [--bundle PATH] <command> [args]
   reassess <concept-id> [--repo-root <path>] [--with-diff]
                                            One drifted record as something to judge: claim, classes, diff, impact.
   promote <concept-id...> --to <bundle> [--source <url>] [--carry <fields>] [--on-conflict <policy>]
-                                           Copy records into another base — a scratchpad into what a human reviews, or that into what outlives the pull request.
+                                           Copy records into another base under the same ids.
   load [type] [--budget N | --all] [--repo-root PATH]
                                            Hand over the whole base, each record with its standing.
   catalog [type]                           Every record in one line — id, type, title, standing, stale flag.

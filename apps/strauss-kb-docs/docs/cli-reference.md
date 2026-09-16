@@ -122,9 +122,8 @@ Move a record's status, leaving everything else alone, with a compare-and-swap.
 `<status>` is one of `draft`, `proposed`, `accepted`, `open`, `resolved`,
 `rejected`, `superseded`.
 
-`--reason` is stored on the log entry, not in the record: the frontmatter says
-what a record is now, and only the log says what made it that. Resolving a
-`risk` needs one, so a closed risk always carries its evidence.
+`--reason` is stored on the log entry, not in the record: only the log says
+what moved a status. Closing a `risk` — `resolved` or `rejected` — needs one.
 
 ```bash
 strauss-kb status requirement.export-csv accepted
@@ -581,14 +580,12 @@ originals stay where they are.
 | `--on-conflict <p>` | What a record the target already holds does. Default `refuse`.                               |
 | `--force`           | The older spelling of `--on-conflict force`.                                                 |
 
-What a copy carries is the caller's choice, because the two hops want opposite
-things. Named in `--carry`, a field survives as it stands; unnamed, `status`
-settles — `draft`, `proposed` and `accepted` land `accepted`, `open` and
-`resolved` carry either way — `verified[]` is dropped, and the `review` tag and
-every `review:<id>` tag go with it. `anchors` carry either way, so naming it
-changes nothing; they keep pointing at the source repository's files, and a
-target in another repository reports drift until the record is re-anchored
-there.
+Unnamed in `--carry`, `status` settles — `draft`, `proposed` and `accepted`
+land `accepted`, `open` and `resolved` carry either way — `verified[]` is
+dropped, and the `review` tag and every `review:<id>` tag go with it. `anchors`
+carry either way, so naming it changes nothing; they keep pointing at the source
+repository's files, and a target in another repository reports drift until the
+record is re-anchored there.
 
 Typed links are kept when their target was promoted in the same run and dropped
 otherwise — a typed edge cannot point out of its base — and every dropped edge
@@ -596,9 +593,8 @@ is named in the result. Supersession is never carried.
 
 `--on-conflict` decides a record the target already holds: `refuse` fails the
 run, `force` overwrites, and `skip-human-settled` overwrites only what no
-`human:` actor settled, reading the target's own log for the answer. It is what
-makes re-promotion safe: a reviewer who resolved a risk by hand keeps that
-resolution, and every other copy is refreshed.
+`human:` actor settled, reading the target's own log for the answer. The actor's
+kind is matched case-insensitively, as the store folds it.
 
 The pre-flight refuses the whole run when an id is not `<type>.<slug>`, when a
 record is `superseded` or `rejected` where it was written, or when **either**

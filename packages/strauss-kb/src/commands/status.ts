@@ -13,6 +13,7 @@ import {
 /** Closing one of these needs the evidence that closed it. */
 const REASON_REQUIRED: readonly { type: string; status: string }[] = [
   { type: "risk", status: "resolved" },
+  { type: "risk", status: "rejected" },
 ];
 
 export const statusCommand = define({
@@ -20,7 +21,7 @@ export const statusCommand = define({
   tool: "kb_status",
   usage: 'status <concept-id> <status> [--reason "<text>"]',
   description:
-    "Move a record's status, with an optional reason stored on the log entry. Compare-and-swap: a concurrent change fails instead of being overwritten. Resolving a `risk` needs the reason.",
+    "Move a record's status. Compare-and-swap: a concurrent change fails instead of being overwritten.",
   input: z.object({
     bundlePath,
     conceptId,

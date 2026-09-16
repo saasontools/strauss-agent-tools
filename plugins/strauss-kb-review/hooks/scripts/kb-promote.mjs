@@ -12,8 +12,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { readBase, standings } from "./lib/base.mjs";
-import { launcher, run } from "./lib/cli.mjs";
+import { readBase, standings, withStandings } from "./lib/base.mjs";
+import { launcher, run, setDeadline } from "./lib/cli.mjs";
 import { git } from "./lib/git.mjs";
 import { testPaths } from "./lib/promote/classes.mjs";
 import { renderReport } from "./lib/promote/report.mjs";
@@ -36,8 +36,14 @@ export const LEVELS = {
 /** What each copy keeps on the way into the base a human reads. */
 const REVIEW_CARRY = "status,verified,tags";
 
-/** Concept ids per `promote` call: the CLI takes at most 64. */
-const CHUNK = 32;
+/** Concept ids per `promote` call — the schema's ceiling, so fewest spawns. */
+const CHUNK = 64;
+
+/** Wall budget for the whole hop, as the two gates have one. */
+const WALL_MS = 120_000;
+
+/** `<type>.<slug>`, both kebab-case — `KB_SLUG_PATTERN` either side of the dot. */
+const CONCEPT_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
  * @typedef {{ to: string, from?: string, toBundle?: string, range?: string,
@@ -100,18 +106,25 @@ export function bundles(cwd, options) {
   return {
     from,
     to,
+    review,
     report: options.report ? at(options.report) : join(review, "REPORT.md"),
   };
 }
 
-/** The roster names `.strauss/kb-pins.json` holds. @param {string} cwd */
+/**
+ * The roster names `.strauss/kb-pins.json` holds, or null when the file cannot
+ * be read. The difference matters: an empty roster makes every finding guard
+ * vacuous, so the hop refuses rather than run without one.
+ * @param {string} cwd @returns {string[] | null}
+ */
 export function roster(cwd) {
   try {
     const raw = readFileSync(join(cwd, ".strauss", "kb-pins.json"), "utf8");
     const pins = /** @type {any} */ (JSON.parse(raw));
-    return Object.keys(pins?.reviewers ?? {});
+    const names = Object.keys(pins?.reviewers ?? {});
+    return names.length ? names : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -182,18 +195,32 @@ function chunked(ids) {
 export function promote({ cwd, argv, write = writeFile }) {
   const options = parseArgs(argv);
   const paths = bundles(cwd, options);
-  const reviewers = reviewerActors(roster(cwd));
+  const names = roster(cwd);
+  if (!names) {
+    return {
+      status: 1,
+      lines: [
+        "promote: no reviewer roster in .strauss/kb-pins.json — every finding would read as nobody's",
+      ],
+      report: "",
+    };
+  }
+  const reviewers = reviewerActors(names);
   const range = rangeOf(cwd, options.range);
 
+  setDeadline(Date.now() + WALL_MS);
   const source = launcher(cwd, paths.from);
-  const records = readBase(paths.from, standings(source));
-  if (!records.length) {
+  // The directory read answers "is there anything here" without a subprocess,
+  // so an empty base costs none.
+  const found = readBase(paths.from);
+  if (!found.length) {
     return {
       status: 1,
       lines: [`promote: ${paths.from} holds no records`],
       report: "",
     };
   }
+  const records = withStandings(found, standings(source));
 
   const anchored = records.flatMap((record) =>
     record.anchors.map((anchor) => String(anchor?.file ?? "")),
@@ -229,6 +256,20 @@ export function promote({ cwd, argv, write = writeFile }) {
   }
 
   const ids = selection.taken.map((row) => row.record.conceptId);
+  // A concept id reaches the child as a positional. `argvFlag` scans the whole
+  // argv, so a record named `--to=…` would redirect the run and still report
+  // success — the grammar, checked here, is what stops it.
+  const malformed = ids.filter((id) => !CONCEPT_ID.test(id));
+  if (malformed.length) {
+    return {
+      status: 1,
+      lines: [
+        `promote: ${paths.from} holds a file that is not <type>.<slug>.md:`,
+        ...malformed.map((id) => `  ${id}`),
+      ],
+      report: "",
+    };
+  }
   /** @type {string[]} */
   const promoted = [];
   /** @type {{ conceptId: string, settledBy: string }[]} */
@@ -238,20 +279,34 @@ export function promote({ cwd, argv, write = writeFile }) {
 
   if (!options.dryRun && ids.length) {
     for (const group of chunked(ids)) {
+      // Flags first: `argvFlag` takes the first `--to` it finds, so the hop's
+      // own must sit ahead of anything derived from the base.
       const result = run(source, [
         "promote",
-        ...group,
         "--to",
         paths.to,
         "--on-conflict",
         "skip-human-settled",
         ...(options.to === "review" ? ["--carry", REVIEW_CARRY] : []),
         "--json",
+        ...group,
       ]);
       if (result.status !== 0) {
         return {
           status: result.status || 1,
           lines: [...lines, `promote: ${result.stderr.trim() || "failed"}`],
+          report: "",
+        };
+      }
+      // Past the budget `run` refuses unrun and reports no output. Told apart
+      // from a broken result, because the two want different answers.
+      if (result.missing) {
+        return {
+          status: 1,
+          lines: [
+            ...lines,
+            `promote: over its ${WALL_MS / 1000}s budget — ${promoted.length} records landed`,
+          ],
           report: "",
         };
       }
@@ -302,16 +357,20 @@ export function promote({ cwd, argv, write = writeFile }) {
     }
   }
 
+  // The report describes the base it sits in. Read fresh after the writes, so
+  // a record `skip-human-settled` left alone is reported as the human left it
+  // and its closing reason comes from that base's own log.
+  const shown = describing(cwd, paths, options, records, selection);
   const report = renderReport({
     to: paths.to,
     hop: options.to,
     range,
-    taken: selection.taken,
+    taken: shown.taken,
     left: selection.left,
     promoted: options.dryRun ? ids : promoted,
     skipped,
     trailers: readTrailers(cwd, range),
-    reasons: closingReasons(source),
+    reasons: shown.reasons,
     dryRun: options.dryRun,
   });
   // A dry run writes nothing unless `--report` named where: the point of the
@@ -329,6 +388,33 @@ export function promote({ cwd, argv, write = writeFile }) {
   }
   if (writing) lines.push(`Report: ${paths.report}`);
   return { status: 0, lines, report };
+}
+
+/**
+ * The level-2 base as it now stands, or — on a rehearsal, where it has not been
+ * written — the selection that would produce it.
+ * @param {string} cwd @param {ReturnType<typeof bundles>} paths
+ * @param {Options} options @param {import("./lib/base.mjs").BaseRecord[]} records
+ * @param {import("./lib/promote/select.mjs").Selection} selection
+ */
+function describing(cwd, paths, options, records, selection) {
+  const ids = new Set(selection.taken.map((row) => row.record.conceptId));
+  const source = launcher(cwd, paths.from);
+  if (options.dryRun) {
+    const taken =
+      options.to === "repo"
+        ? records.map((record) => ({ record, why: "at level 2" }))
+        : selection.taken;
+    return { taken, reasons: closingReasons(source) };
+  }
+  const level2 = launcher(cwd, paths.review);
+  const held = withStandings(readBase(paths.review), standings(level2));
+  return {
+    taken: held
+      .filter((record) => options.to === "repo" || ids.has(record.conceptId))
+      .map((record) => ({ record, why: "at level 2" })),
+    reasons: closingReasons(level2),
+  };
 }
 
 /** @param {Set<string>} tracked */

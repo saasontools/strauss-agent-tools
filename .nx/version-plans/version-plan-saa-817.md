@@ -15,4 +15,5 @@ the `KbPromoteCandidate` type. Which records a review promotes is the review
 engine's policy, not the store's.
 
 `status --reason "<text>"` (MCP `reason`) stores why on the log entry, and is
-required to resolve a `risk`. Log entries gain an optional `reason`.
+required to close a `risk` — `resolved` or `rejected`. Log entries gain an
+optional `reason`.

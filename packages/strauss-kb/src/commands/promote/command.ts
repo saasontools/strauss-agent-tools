@@ -29,7 +29,7 @@ export const promoteCommand = define({
   usage:
     "promote <concept-id...> --to <bundle> [--source <url>] [--carry <fields>] [--on-conflict <policy>]",
   description:
-    "Copy records into another base at the same slug, with a source naming where the promotion came from. Use to lift what one base settled into the base that outlives it. `carry` keeps status, verified, tags; `on-conflict` says what a record the target already holds does. The originals stay put.",
+    "Copy records into another base at the same slug, with a source naming where the promotion came from. Use to lift what one base settled into the base that outlives it. The originals stay put.",
   input: promoteInputSchema,
   fromArgv: (argv, path) => {
     const to = argvFlag(argv, "--to");

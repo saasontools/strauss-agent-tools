@@ -1291,7 +1291,7 @@ function matches(record: KbRecord, needle: string): boolean {
  * while the identity after the colon keeps its case. An id with no colon is
  * all prefix, and is lowercased whole.
  */
-function normalizeActor(id: string): string {
+export function normalizeActor(id: string): string {
   const colon = id.indexOf(":");
   if (colon === -1) return id.toLowerCase();
   return id.slice(0, colon + 1).toLowerCase() + id.slice(colon + 1);

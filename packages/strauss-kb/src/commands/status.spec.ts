@@ -65,6 +65,21 @@ describe("statusCommand", () => {
     ).toBe("open");
   });
 
+  test("rejecting a risk closes it too, so it needs a reason as well", async () => {
+    await expect(
+      run({ conceptId: "risk.leak", status: "rejected" }),
+    ).rejects.toBeInstanceOf(KbStatusReasonRequiredError);
+
+    await run({
+      conceptId: "risk.leak",
+      status: "rejected",
+      reason: "the bound cannot be reached",
+    });
+    expect(
+      (await store.read(bundle, "risk.leak"))?.frontmatter.strauss_status,
+    ).toBe("rejected");
+  });
+
   test("every other move takes a reason without needing one", async () => {
     await run({ conceptId: "risk.leak", status: "accepted" });
     expect(

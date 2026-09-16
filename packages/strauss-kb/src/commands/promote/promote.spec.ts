@@ -437,6 +437,33 @@ describe("promoteCommand", () => {
     expect(into.map((entry) => entry.conceptId)).toEqual(["fact.beta"]);
   });
 
+  test("a capital does not cost a human their protection", async () => {
+    await seed("risk", { slug: "leak", title: "Reworded", why: "Because" });
+    await seed("risk", { slug: "leak", title: "Leak", why: "Because" }, target);
+    // The store case-folds an actor's kind, so this is the same actor as
+    // `human:alice` — and the same record it must not overwrite.
+    await store.setStatus(
+      target,
+      "risk.leak",
+      "resolved",
+      "Human:alice",
+      "fixed",
+    );
+
+    const result = await run({
+      conceptIds: ["risk.leak"],
+      to: target,
+      onConflict: "skip-human-settled",
+    });
+
+    expect(result.skipped).toEqual([
+      { conceptId: "risk.leak", settledBy: "Human:alice" },
+    ]);
+    expect((await store.read(target, "risk.leak"))?.frontmatter.title).toBe(
+      "Leak",
+    );
+  });
+
   test("a human move that does not settle leaves the target promotable", async () => {
     await seed("open-question", {
       slug: "ports",

@@ -1,4 +1,4 @@
-import type { KbStore } from "../../kb-store.js";
+import { normalizeActor, type KbStore } from "../../kb-store.js";
 
 /**
  * Status moves that settle a record. A move to `draft`, `proposed` or `open`
@@ -7,9 +7,14 @@ import type { KbStore } from "../../kb-store.js";
  */
 const SETTLING = new Set(["accepted", "resolved", "rejected", "superseded"]);
 
-/** `human`, or `human:<name>` — the actor kinds a promotion must not overwrite. */
+/**
+ * `human`, or `human:<name>` — the actor kinds a promotion must not overwrite.
+ * Through the store's own normalization, which case-folds the kind: `Human:a`
+ * and `human:a` are one actor, and a capital must not cost the protection.
+ */
 function isHuman(actor: string): boolean {
-  return actor === "human" || actor.startsWith("human:");
+  const id = normalizeActor(actor);
+  return id === "human" || id.startsWith("human:");
 }
 
 /**
