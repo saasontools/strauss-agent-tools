@@ -264,8 +264,7 @@ strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo
       "state": "stamped",
       "currentHash": "sha256:9f2c…"
     }
-  ],
-  "verified": true
+  ]
 }
 ```
 

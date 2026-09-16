@@ -10,10 +10,6 @@ tags:
 generated:
   by: "agent:author"
   at: "2026-09-15T07:45:35.071Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T07:48:16.973Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: .strauss/kb-pins.json
     hash: "sha256:6ebd0f7823c32a49ee6ecb1ee0bde0064041e4408233e87eeb763cd06fffe195"

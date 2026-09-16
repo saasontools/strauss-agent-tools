@@ -68,6 +68,39 @@ export class KbSelfVerificationError extends BaseError {
   }
 }
 
+/** An actor a write cannot carry: malformed, or `unknown` on a `verify`. */
+export class KbInvalidActorError extends BaseError {
+  constructor(
+    readonly actor: string,
+    readonly reason: string,
+  ) {
+    super({
+      message: `kb: actor ${JSON.stringify(actor)} ${reason} — set STRAUSS_KB_ACTOR, e.g. human:alice or agent:reviewer`,
+      errorType: ErrorTypes.KbInvalidActor,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { actor, reason, action: "refused" },
+    });
+  }
+}
+
+/** Two flags that ask for opposite things in one run. */
+export class KbFlagConflictError extends BaseError {
+  constructor(readonly flags: string[]) {
+    super({
+      message: `kb: ${flags.join(" and ")} cannot be combined`,
+      errorType: ErrorTypes.KbFlagConflict,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { flags },
+    });
+  }
+}
+
 /**
  * A pack that will not fit its token budget. Refusal, not truncation: a
  * partial pack is indistinguishable from a complete one, so the caller gets

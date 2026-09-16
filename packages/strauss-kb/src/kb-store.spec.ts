@@ -23,6 +23,7 @@ import {
 } from "./decision-record.js";
 import { KbStore } from "./kb-store.js";
 import {
+  KbInvalidActorError,
   KbInvalidConceptIdError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
@@ -761,6 +762,99 @@ describe("verify", () => {
   });
 });
 
+describe("actor", () => {
+  const AT = "2026-08-01T00:00:00Z";
+  const fact = (slug: string) =>
+    composeRecord(
+      "fact",
+      {
+        slug,
+        title: "The free tier caps at 1000 calls",
+        why: "A wrong cap prices the plan wrong.",
+        sections: { Claim: "1000 calls a month." },
+      },
+      "agent:writer",
+      AT,
+    );
+
+  // Both spellings of josé read the same on screen, and a Mac types the
+  // second: refusing one and taking the other would be unexplainable.
+  test("a name may carry non-ASCII letters, composed or decomposed", async ({
+    store,
+    bundle,
+  }) => {
+    const actors = ["human:josé", "human:josé", "human:王小明"];
+
+    for (const [at, actor] of actors.entries()) {
+      await store.write(bundle, fact(`cap-${at}`), actor);
+    }
+
+    const { entries } = await store.readLog(bundle);
+    expect(entries.map((entry) => entry.by)).toEqual(actors);
+  });
+
+  test("verify refuses the unknown actor before touching the base", async ({
+    store,
+    bundle,
+  }) => {
+    const { conceptId } = await store.write(
+      bundle,
+      fact("cap"),
+      "agent:writer",
+    );
+    const record = readFileSync(join(bundle, `${conceptId}.md`), "utf8");
+    const log = readFileSync(join(bundle, LOG_FILE), "utf8");
+
+    for (const actor of ["unknown", "Unknown", undefined]) {
+      await expect(
+        store.verify(bundle, conceptId, "Checked.", actor),
+      ).rejects.toThrow(/cannot verify/);
+    }
+
+    expect(readFileSync(join(bundle, `${conceptId}.md`), "utf8")).toBe(record);
+    expect(readFileSync(join(bundle, LOG_FILE), "utf8")).toBe(log);
+  });
+
+  // A guard: an actor lands verbatim in the log and in frontmatter.
+  test("every write refuses a malformed actor and writes nothing", async ({
+    store,
+    bundle,
+  }) => {
+    const { conceptId } = await store.write(
+      bundle,
+      fact("cap"),
+      "agent:writer",
+    );
+    const record = readFileSync(join(bundle, `${conceptId}.md`), "utf8");
+    const log = readFileSync(join(bundle, LOG_FILE), "utf8");
+
+    for (const actor of ['"agent:reviewer"', "agent: x", "", "agent:x\n"]) {
+      const writes = [
+        store.write(bundle, fact("other"), actor),
+        store.setStatus(bundle, conceptId, "rejected", actor),
+        store.updateAnchors(bundle, conceptId, [], actor),
+        store.verify(bundle, conceptId, "Checked.", actor),
+        store.supersede(bundle, conceptId, conceptId, actor),
+        store.answer(bundle, conceptId, "Yes.", actor),
+        store.deleteRecord(
+          bundle,
+          conceptId,
+          { tag: "review", statuses: ["accepted"] },
+          actor,
+        ),
+        store.note(bundle, { operation: "promote", conceptId, by: actor }),
+      ];
+      for (const write of writes) {
+        await expect(write).rejects.toBeInstanceOf(KbInvalidActorError);
+      }
+    }
+
+    expect(readFileSync(join(bundle, `${conceptId}.md`), "utf8")).toBe(record);
+    expect(readFileSync(join(bundle, LOG_FILE), "utf8")).toBe(log);
+    expect(await store.read(bundle, "fact.other")).toBeNull();
+  });
+});
+
 describe("INDEX.md", () => {
   test("is written from the records and repaired when it drifts", async ({
     store,
@@ -954,11 +1048,17 @@ describe("log.jsonl", () => {
     store,
     bundle,
   }) => {
-    await store.write(bundle, fact("one"), "agent · with · dots");
+    await store.write(bundle, fact("one"));
+    await store.note(bundle, {
+      operation: "promote",
+      conceptId: "fact.one",
+      by: "agent:writer",
+      target: "../kb · with · dots",
+    });
 
     const { entries, malformed } = await store.readLog(bundle);
     expect(malformed).toEqual([]);
-    expect(entries[0]?.by).toBe("agent · with · dots");
+    expect(entries[1]?.target).toBe("../kb · with · dots");
   });
 
   test("leaves no staging file behind", async ({ store, bundle }) => {

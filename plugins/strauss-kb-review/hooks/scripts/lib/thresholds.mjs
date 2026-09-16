@@ -10,6 +10,7 @@ import { join } from "node:path";
 /** Ids that ship as warnings: a hint, not a verdict. */
 export const WARN_BY_DEFAULT = [
   "anchor.outside-diff",
+  "anchor.unstamped",
   "claim.dead-source",
   "claim.self-verified",
   "standing.supersede-chain",

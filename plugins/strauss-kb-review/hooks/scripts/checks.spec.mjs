@@ -418,6 +418,27 @@ test("anchor.drifted fires on a drifted anchor", () => {
   assert.deepEqual(ids(found), ["anchor.drifted"]);
 });
 
+test("anchor.unstamped warns on a written record whose anchor has no hash", () => {
+  const anchorState = new Map([
+    [
+      "decision.x",
+      { results: [{ file: "src/a.ts", symbol: "Alpha", state: "unstamped" }] },
+    ],
+  ]);
+  const found = anchor.check(ctx({ records: [record()], anchorState }));
+  assert.deepEqual(ids(found), ["anchor.unstamped"]);
+  assert.equal(found[0]?.severity, "warn");
+  // A record the diff only anchors into is not this author's to stamp.
+  assert.deepEqual(
+    ids(
+      anchor.check(
+        ctx({ records: [record({ touched: false })], anchorState }),
+      ),
+    ),
+    [],
+  );
+});
+
 test("store.validate blocks on a validate error and store.expired warns on an expiry", () => {
   // Both shapes are the CLI's own: `validate` problems and a `doctor --json`
   // report.

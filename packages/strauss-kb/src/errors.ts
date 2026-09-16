@@ -23,6 +23,8 @@ export enum Fault {
 export enum ErrorTypes {
   KbRecordAlreadyExists = "KbRecordAlreadyExists",
   KbClassifyInput = "KbClassifyInput",
+  KbFlagConflict = "KbFlagConflict",
+  KbInvalidActor = "KbInvalidActor",
   KbInvalidConceptId = "KbInvalidConceptId",
   KbMatchInput = "KbMatchInput",
   KbMissingFlagValue = "KbMissingFlagValue",

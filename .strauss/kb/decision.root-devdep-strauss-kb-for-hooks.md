@@ -13,10 +13,6 @@ tags:
 generated:
   by: "agent:author"
   at: "2026-09-15T07:46:29.992Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T07:48:16.530Z"
-    note: "anchor-resolve: 1/1 anchors match (whole-file)"
 strauss_anchors:
   - file: package.json
     hash: "sha256:c4ffa90943581fc1e277786e86e3dd9072d57477ef56bacbaf8e086e188c3686"

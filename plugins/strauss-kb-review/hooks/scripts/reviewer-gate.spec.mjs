@@ -58,6 +58,14 @@ test("a write before the base is loaded is denied", () => {
     loaded: false,
   });
   assert.match(String(reason), /load the base/);
+  // A token the shell may never pass (a comment, a quoted value) is no
+  // evidence of a read, so `--check` exempts nothing.
+  for (const command of [
+    "STRAUSS_KB_ACTOR=agent:author strauss-kb anchor-resolve risk.a --rebaseline # --check",
+    'STRAUSS_KB_ACTOR=agent:author strauss-kb anchor-resolve risk.a --rebaseline --repo-root "/tmp/a --check b"',
+  ]) {
+    assert.match(String(decide({ command })), /found "agent:author"/);
+  }
   assert.equal(
     decide({ command: "strauss-kb query --tag review", loaded: false }),
     null,

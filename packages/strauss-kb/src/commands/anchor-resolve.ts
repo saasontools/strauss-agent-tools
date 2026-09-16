@@ -22,10 +22,7 @@ import {
   type RemoteAnchorState,
 } from "../anchor-resolver/index.js";
 import { grammarHints } from "../grammars/index.js";
-import {
-  KbRecordNotFoundError,
-  KbSelfVerificationError,
-} from "../kb-errors.js";
+import { KbFlagConflictError, KbRecordNotFoundError } from "../kb-errors.js";
 import { assertBaseNotFrozen, KbBaseFrozenError } from "../kb-pins/index.js";
 import type { KbAnchor } from "../kb-record.schema.js";
 import {
@@ -40,7 +37,8 @@ type AnchorResolveResult = {
   symbol?: string;
   /** Set only for `side: "old"`: resolved at `ref`, never in the working tree. */
   side?: "old";
-  state: "stamped" | "match" | "drifted" | "unresolved";
+  /** `unstamped`: no hash yet, and `check` left it that way. */
+  state: "stamped" | "unstamped" | "match" | "drifted" | "unresolved";
   storedHash?: string;
   currentHash?: string;
   /** What the compared hashes were taken over. */
@@ -60,23 +58,13 @@ type AnchorSource =
   | { ok: true; source: string; repo?: string; head?: string }
   | { ok: false; reason: AnchorUnresolvedReason; repo?: string };
 
-/** Which resolvers produced this run's spans, for the verify note. */
-function resolverSummary(results: AnchorResolveResult[]): string {
-  const names = [
-    ...new Set(
-      results.flatMap((entry) => (entry.resolver ? [entry.resolver] : [])),
-    ),
-  ].sort();
-  return names.length ? `${names.join(" + ")} resolver` : "whole-file";
-}
-
 export const anchorResolveCommand = define({
   name: "anchor-resolve",
   tool: "kb_anchor_resolve",
   usage:
-    "anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp]",
+    "anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp] [--check]",
   description:
-    "Resolve a record's anchors: stamp a hash onto anchors that lack one, report drift where the code moved. An anchor naming another repository is read from that remote through a bare cache; --offline uses the cache only. kb_verify's mechanical counterpart — reach for it when the question is whether the code still is what it was. Exits non-zero on drift.",
+    "Resolve a record's anchors: stamp a hash onto anchors that lack one, report drift where the code moved. An anchor naming another repository is read from that remote through a bare cache; --offline uses the cache only. Never writes verified[]; a judgment is kb_verify. Exits non-zero on drift.",
   input: z.object({
     bundlePath,
     conceptId,
@@ -99,6 +87,12 @@ export const anchorResolveCommand = define({
       .describe(
         "Refresh `resolved_at` on anchors that already match. Off by default, so a green run writes nothing.",
       ),
+    check: z
+      .boolean()
+      .optional()
+      .describe(
+        "Resolve and report only: no hash, no `resolved_at`, no log entry.",
+      ),
   }),
   fromArgv: (argv, path) => ({
     bundlePath: path,
@@ -107,11 +101,26 @@ export const anchorResolveCommand = define({
     offline: argv.includes("--offline"),
     rebaseline: argv.includes("--rebaseline"),
     restamp: argv.includes("--restamp"),
+    check: argv.includes("--check"),
   }),
   run: async (
     { store, actor, now },
-    { bundlePath: path, conceptId: id, repoRoot, offline, rebaseline, restamp },
+    {
+      bundlePath: path,
+      conceptId: id,
+      repoRoot,
+      offline,
+      rebaseline,
+      restamp,
+      check,
+    },
   ) => {
+    if (check && (rebaseline || restamp)) {
+      throw new KbFlagConflictError([
+        "check",
+        rebaseline ? "rebaseline" : "restamp",
+      ]);
+    }
     const root = repoRoot ?? process.cwd();
     const record = await store.read(path, id);
     if (!record) throw new KbRecordNotFoundError(id);
@@ -121,7 +130,6 @@ export const anchorResolveCommand = define({
       return {
         conceptId: id,
         results: [] as AnchorResolveResult[],
-        verified: false,
         note: "record has no anchors",
       };
     }
@@ -200,7 +208,7 @@ export const anchorResolveCommand = define({
         // digests, and this pass fills them in once the code settles.
         results.push({
           ...base,
-          state: "stamped",
+          state: check ? "unstamped" : "stamped",
           currentHash: stampedHash,
           hashKind: stampedKind,
           ...(producedBy ? { resolver: producedBy } : {}),
@@ -271,7 +279,7 @@ export const anchorResolveCommand = define({
     // freeze only costs the mutation. Reported rather than thrown — a caller
     // asking a concluded base whether its code moved deserves the answer.
     let frozen = false;
-    if (dirty) {
+    if (dirty && !check) {
       try {
         await assertBaseNotFrozen(process.cwd(), path);
       } catch (error) {
@@ -288,54 +296,18 @@ export const anchorResolveCommand = define({
     const hints = grammarHints();
     const hintNote = hints.length ? { hints } : {};
 
-    // Evidence only when every checkable anchor already matched: a freshly
-    // stamped anchor is a baseline nobody has checked. An anchor nothing could
-    // reach stays outside the denominator rather than against it, and also
-    // keeps the run from verifying — "could not look" is not "matches".
+    // Never `verified[]`: that trail holds judgments, and the hash above is
+    // the mechanical evidence. An anchor nothing could reach stays outside the
+    // denominator — "could not look" is not "matches".
     const unreachable = results.filter((entry) =>
       isUncheckedReason(entry.reason),
     ).length;
-    const checked = results.length - unreachable;
     const matches = results.filter((entry) => entry.state === "match").length;
-    const note = `${matches}/${checked} anchors match${
-      unreachable ? `, ${unreachable} unreachable` : ""
-    }`;
-    const clean = checked > 0 && matches === checked && unreachable === 0;
-    if (clean) {
-      try {
-        await store.verify(
-          path,
-          id,
-          `anchor-resolve: ${note} (${resolverSummary(results)})`,
-          actor,
-          now(),
-        );
-      } catch (error) {
-        // A mechanical resolve run by the record's own generator is still a
-        // useful drift report; only the verified[] stamp is refused.
-        if (!(error instanceof KbSelfVerificationError)) throw error;
-        return {
-          conceptId: id,
-          results,
-          verified: false,
-          verifyRefused: "self-verification",
-          ...frozenNote,
-          ...hintNote,
-        };
-      }
-      return {
-        conceptId: id,
-        results,
-        verified: true,
-        ...frozenNote,
-        ...hintNote,
-      };
-    }
+    const note = `${matches}/${results.length - unreachable} anchors match, ${unreachable} unreachable`;
 
     return {
       conceptId: id,
       results,
-      verified: false,
       ...(unreachable ? { note } : {}),
       ...frozenNote,
       ...hintNote,

@@ -12,13 +12,6 @@ tags:
 generated:
   by: "agent:security-reviewer"
   at: "2026-09-14T17:04:22.580Z"
-verified:
-  - by: unknown
-    at: "2026-09-15T07:46:42.929Z"
-    note: "anchor-resolve: 1/1 anchors match (regex resolver)"
-  - by: unknown
-    at: "2026-09-15T07:48:16.804Z"
-    note: "anchor-resolve: 1/1 anchors match (regex resolver)"
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS

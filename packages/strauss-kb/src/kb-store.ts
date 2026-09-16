@@ -25,6 +25,7 @@ import {
   type KbRecordStatus,
 } from "./kb-record.schema.js";
 import {
+  KbInvalidActorError,
   KbInvalidConceptIdError,
   KbRecordAlreadyExistsError,
   KbRecordNotFoundError,
@@ -207,6 +208,7 @@ export class KbStore {
     input: KbWriteInput,
     actor = "unknown",
   ): Promise<KbWriteResult> {
+    assertActor(actor);
     if (!KB_SLUG_PATTERN.test(input.slug)) {
       throw new KbInvalidConceptIdError("slug must be kebab-case", {
         slug: input.slug,
@@ -355,6 +357,7 @@ export class KbStore {
     status: KbRecordStatus,
     actor = "unknown",
   ): Promise<KbRecord> {
+    assertActor(actor);
     return this.mutate(
       bundlePath,
       conceptId,
@@ -379,6 +382,7 @@ export class KbStore {
     anchors: KbAnchor[],
     actor = "unknown",
   ): Promise<KbRecord> {
+    assertActor(actor);
     const checked = anchors.map((anchor) => kbAnchorWriteSchema.parse(anchor));
     return this.mutate(
       bundlePath,
@@ -406,6 +410,7 @@ export class KbStore {
     actor = "unknown",
     at = new Date().toISOString(),
   ): Promise<KbRecord> {
+    assertActor(actor, { named: true });
     const event = kbVerifiedEventSchema.parse({ by: actor, at, note });
 
     const existing = await this.read(bundlePath, conceptId);
@@ -453,6 +458,7 @@ export class KbStore {
     replacementId: string,
     actor = "unknown",
   ): Promise<KbRecord> {
+    assertActor(actor);
     const replacement = await this.read(bundlePath, replacementId);
     if (!replacement) throw new KbRecordNotFoundError(replacementId);
 
@@ -486,6 +492,7 @@ export class KbStore {
     actor = "unknown",
     at = new Date().toISOString(),
   ): Promise<KbRecord> {
+    assertActor(actor);
     return this.mutate(
       bundlePath,
       conceptId,
@@ -513,6 +520,7 @@ export class KbStore {
     expected: KbDeleteExpectation,
     actor = "unknown",
   ): Promise<KbDeleteOutcome> {
+    assertActor(actor);
     const target = this.recordPath(bundlePath, conceptId);
     const witness = await this.read(bundlePath, conceptId);
     if (!witness) throw new KbRecordNotFoundError(conceptId);
@@ -939,6 +947,7 @@ export class KbStore {
    * base too, where nothing was written.
    */
   async note(bundlePath: string, entry: Omit<KbLogEntry, "at">): Promise<void> {
+    assertActor(entry.by);
     await this.record(this.root(bundlePath), entry);
   }
 
@@ -1281,4 +1290,20 @@ function normalizeActor(id: string): string {
   const colon = id.indexOf(":");
   if (colon === -1) return id.toLowerCase();
   return id.slice(0, colon + 1).toLowerCase() + id.slice(colon + 1);
+}
+
+/** `kind` or `kind:name`: no quotes, spaces, or control bytes. */
+const KB_ACTOR_PATTERN = /^[A-Za-z][\w-]*(?::[\p{L}\p{M}\p{N}_.@+/-]+)?$/u;
+
+/**
+ * Refuses an actor no write may carry. `named` also refuses the CLI default
+ * `unknown`: a verification nobody can attribute is not a check.
+ */
+function assertActor(actor: string, { named = false } = {}): void {
+  if (!KB_ACTOR_PATTERN.test(actor)) {
+    throw new KbInvalidActorError(actor, "is not kind or kind:name");
+  }
+  if (named && normalizeActor(actor) === "unknown") {
+    throw new KbInvalidActorError(actor, "cannot verify: name who checked");
+  }
 }
