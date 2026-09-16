@@ -170,6 +170,68 @@ the consumer decides which sessions run it.
 Windows: the commands are `node "<path>"`, no shell built-ins, so they run
 under `cmd.exe` unchanged.
 
+## Three bases, two hops
+
+A pull request writes freely and a repository keeps little. Three bases split
+churn from what a human reads from what outlives the branch.
+
+| Level | Path                | Who writes                   |
+| ----- | ------------------- | ---------------------------- |
+| 1     | `.strauss/scratch/` | the author and the reviewers |
+| 2     | `.strauss/review/`  | `promote` only, plus a human |
+| 3     | `.strauss/kb/`      | `promote` at merge           |
+
+All three are committed while [SAA-722](https://linear.app/saason/issue/SAA-722)
+is open: an uncommitted level 1 loses its findings with the worktree. Levels 1
+and 2 are deleted in the pull request before merge.
+
+```bash
+node plugins/strauss-kb-review/hooks/scripts/kb-promote.mjs \
+  promote --to review --dry-run --report /tmp/REPORT.md
+```
+
+| Flag                | Effect                                                      |
+| ------------------- | ----------------------------------------------------------- |
+| `--to review\|repo` | Which hop. Required.                                        |
+| `--from <bundle>`   | Read this base instead of the level the hop implies.        |
+| `--to-bundle <b>`   | Write this base instead.                                    |
+| `--range <a>..HEAD` | Commits the trailers are read over. Defaults to the branch. |
+| `--dry-run`         | Select and report, write no records.                        |
+| `--report <path>`   | Where `REPORT.md` lands. A dry run writes one only here.    |
+
+`--to review` takes every reviewer-written `risk` and every unanswered
+`open-question` whatever their state, the current heads of `decision`, `fact`,
+`flow`, `requirement` and `contract`, and a `test-obligation` whose anchors name
+no test file. Each copy carries `status`, `verified` and `tags`, and
+`--on-conflict skip-human-settled` leaves a record a human already settled
+alone. `--to repo` takes the heads of `decision`, `fact` and `flow` with at
+least one anchor git still tracks, and risks the review accepted on the same
+terms.
+
+The command exits non-zero rather than lose a finding: `--to repo` refuses while
+a reviewer's risk is unsettled or a question unanswered, and either hop refuses
+when a selected finding did not land. It writes only through `strauss-kb
+promote`, so no record's body is rewritten and no copy loses its `generated.by`.
+
+`REPORT.md` lands in the level-2 base — open items, then one row per risk, then
+the decisions with their anchors — and the pull request body is built from it.
+A risk's row takes its fix from an `Addresses: <concept-id>` commit trailer and
+its test from `Pinned-by: <path>` on the same commit; both are repeatable and
+accept a comma list.
+
+### Wiring it up
+
+Not yet applied in this repository. Flipping the gate to level 1 before the
+`.gitattributes` lines below are on `main` points it at an empty scratchpad, so
+the steps are:
+
+1. Land the `.gitattributes` lines — the gate reads file classes **at the base
+   commit**, so `.strauss/scratch/**` and `.strauss/review/**` only read as
+   generated once they are on `main`.
+2. Point `.strauss/kb-pins.json` and the hook wiring in `.claude/settings.json`
+   and `.codex/hooks.json` at `.strauss/scratch`.
+3. Loosen the level-1 gate to warn on `owed.*`, and keep level 2 strict.
+
 ## Install (unpublished)
 
 Local session, from a checkout of this repo:

@@ -8,6 +8,10 @@
 
 # strauss-kb-review classes, read at the base commit by the review gate.
 # linguist-* are what GitHub already honours; strauss-class covers the rest.
+# Levels 1 and 2 of the review flow are churn a reviewer should not read as a
+# diff; they are deleted before merge.
+.strauss/scratch/** linguist-generated
+.strauss/review/** linguist-generated
 pnpm-lock.yaml linguist-generated
 **/dist/** linguist-generated
 **/__snapshots__/** linguist-generated

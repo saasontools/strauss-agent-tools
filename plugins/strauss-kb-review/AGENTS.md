@@ -14,9 +14,10 @@ Codex, and Agent Plugins 1.0 clients:
 - no `agents/` — reviewers are the consumer's agents; `kb-review` is preloaded
   into each of them, and the roster in `.strauss/kb-pins.json` is the only
   place a reviewer is named
-- `hooks/scripts/` — the author gate and the reviewer gate, node builtins
-  only, `// @ts-check`ed. They spawn the `strauss-kb` CLI and never import the
-  package, so this directory stays buildless
+- `hooks/scripts/` — the author gate, the reviewer gate, and `kb-promote.mjs`
+  (the two hops between the three bases), node builtins only, `// @ts-check`ed.
+  They spawn the `strauss-kb` CLI and never import the package, so this
+  directory stays buildless
 - `plugin.json` / `.claude-plugin/plugin.json` / `.codex-plugin/plugin.json`
   — one manifest per format; keep name/version/description in sync
 
