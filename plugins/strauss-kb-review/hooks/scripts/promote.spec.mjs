@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import { resolveLocalBin } from "./lib/cli.mjs";
 import { bundles, parseArgs, promote } from "./kb-promote.mjs";
@@ -194,16 +194,20 @@ test("--to takes review or repo, and the bases follow from it", () => {
     dryRun: true,
   });
 
+  // Through `resolve`, as `bundles` does: on Windows a rooted path with no
+  // drive takes the current one, so `join` alone is a different string.
+  const at = (/** @type {string[]} */ ...parts) => resolve("/repo", ...parts);
+
   const review = bundles("/repo", { to: "review", dryRun: false });
-  assert.equal(review.from, join("/repo", ".strauss", "scratch"));
-  assert.equal(review.to, join("/repo", ".strauss", "review"));
-  assert.equal(review.report, join("/repo", ".strauss", "review", "REPORT.md"));
+  assert.equal(review.from, at(".strauss", "scratch"));
+  assert.equal(review.to, at(".strauss", "review"));
+  assert.equal(review.report, at(".strauss", "review", "REPORT.md"));
 
   const repo = bundles("/repo", { to: "repo", dryRun: false });
-  assert.equal(repo.from, join("/repo", ".strauss", "review"));
-  assert.equal(repo.to, join("/repo", ".strauss", "kb"));
+  assert.equal(repo.from, at(".strauss", "review"));
+  assert.equal(repo.to, at(".strauss", "kb"));
   // The level-2 base owns the report in both hops: it is what a human reads.
-  assert.equal(repo.report, join("/repo", ".strauss", "review", "REPORT.md"));
+  assert.equal(repo.report, at(".strauss", "review", "REPORT.md"));
 
   const named = bundles("/repo", {
     to: "review",
@@ -211,7 +215,7 @@ test("--to takes review or repo, and the bases follow from it", () => {
     toBundle: "/b",
     dryRun: false,
   });
-  assert.deepEqual([named.from, named.to], ["/a", "/b"]);
+  assert.deepEqual([named.from, named.to], [resolve("/a"), resolve("/b")]);
 });
 
 test("the report leads with open items and one row per risk", () => {
