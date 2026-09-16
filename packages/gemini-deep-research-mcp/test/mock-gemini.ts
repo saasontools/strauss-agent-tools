@@ -123,7 +123,12 @@ export class MockGemini {
         });
       });
     });
-    await new Promise<void>((resolve) => this.server!.listen(0, resolve));
+    // Bind the address `url` names. A wildcard listen(0) can be handed a port
+    // another process holds on 127.0.0.1 (macOS), which then answers our
+    // requests.
+    await new Promise<void>((resolve) =>
+      this.server!.listen(0, "127.0.0.1", resolve),
+    );
     const { port } = this.server!.address() as AddressInfo;
     this.url = `http://127.0.0.1:${port}`;
   }

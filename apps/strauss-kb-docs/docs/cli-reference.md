@@ -21,7 +21,7 @@ strauss-kb [--bundle PATH] <command> [args]
 | `--`                          | Ends flag parsing; everything after it is text, for the verbs that end in free prose.                                                                                                                                                                     |
 | `-h`, `--help`                | The usage listing. Also printed when no verb is given.                                                                                                                                                                                                    |
 | `-v`, `--version`             | The installed package version — what makes plugin/CLI skew diagnosable, since neither updates the other.                                                                                                                                                  |
-| `STRAUSS_KB_ACTOR`            | Names the writer in the log and in `generated.by` / `verified[].by`. Defaults to `unknown`.                                                                                                                                                               |
+| `STRAUSS_KB_ACTOR`            | Names the writer in the log and in `generated.by` / `verified[].by`: `kind` or `kind:name`, else every write refuses. Defaults to `unknown`.                                                                                                              |
 | `STRAUSS_KB_GRAMMARS_DIR`     | Where downloaded language packs — grammar and tags query alike — are cached. Defaults to `~/.strauss/grammars`. Usually unset. For CI or air-gapped hosts, set it in the MCP server's `env` block (`.mcp.json` / plugin `mcp.json`) or the shell profile. |
 | `STRAUSS_KB_GRAMMARS`         | `off` never downloads a grammar; the cache is still read. Same effect as `--offline`.                                                                                                                                                                     |
 | `STRAUSS_KB_GRAMMARS_URL`     | Replaces the scheme and host of every grammar URL `grammars/manifest.json` pins, for a mirror. Usually unset.                                                                                                                                             |
@@ -158,8 +158,8 @@ verify <concept-id> --note <text>
 ```
 
 Append one `verified[]` event. `--note` is required and must say what the check
-found; a record's own generator is refused unless the actor is
-`human:`-prefixed.
+found. Refuses the actor `unknown`, and a record's own generator unless the
+actor is `human:`-prefixed.
 
 ```bash
 STRAUSS_KB_ACTOR="human:assaf" strauss-kb verify decision.cas-not-lock \
@@ -171,7 +171,7 @@ Returns `{ conceptId, verified }`, the new event count.
 ### `anchor-resolve`
 
 ```
-anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp]
+anchor-resolve <concept-id> [--repo-root <path>] [--offline] [--rebaseline] [--restamp] [--check]
 ```
 
 Resolve a record's [anchors](./specification.md#anchors): stamp a hash onto
@@ -187,20 +187,22 @@ else from the working tree. An unreadable file or unreachable remote is a
 | `--offline`          | Read foreign anchors from the repo cache only, never fetching.      |
 | `--rebaseline`       | Accept the current code as the new baseline.                        |
 | `--restamp`          | Refresh `resolved_at` on anchors that already match.                |
+| `--check`            | Report only: no hash, no `resolved_at`, no log entry.               |
 
 **Exits 1** when an anchor drifted, or when one carrying a hash no longer
-resolves, so a CI gate can run it. An anchor nothing could reach neither fails
-the gate nor verifies the record: a clean run appends one `verified[]` event
-only when every anchor was checked and matched, subject to the same
-self-verification rule as [`verify`](#verify).
+resolves, so a CI gate can run it; an anchor nothing could reach does not fail
+it. Never writes `verified[]` ([why](./specification.md#verification)); a
+judgment is [`verify`](#verify). `--check` refuses `--rebaseline` and
+`--restamp`.
 
 ```bash
 strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
 ```
 
-Returns `{ conceptId, results, verified }`, each result
+Returns `{ conceptId, results }`, each result
 `{ file, symbol?, side?, state, storedHash?, currentHash?, diffSize?, reason?,
-resolver?, rebaselined?, repo?, remoteState? }`. `side` is set only for an
+resolver?, rebaselined?, repo?, remoteState? }`. Under `--check` an anchor with
+no hash is `unstamped` rather than `stamped`. `side` is set only for an
 anchor read at its `ref` rather than in the working tree. `resolver` names
 which resolver produced the span — see
 [symbol resolution](./specification.md#symbol-resolution). A result whose

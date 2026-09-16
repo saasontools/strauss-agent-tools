@@ -224,3 +224,6 @@
 {"at":"2026-09-15T16:49:58.222Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.info-attributes-read-blocks-on-fifo"}
 {"at":"2026-09-15T16:49:58.448Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.local-attribute-unset-drops-base-source-pin"}
 {"at":"2026-09-15T16:49:58.654Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.pinned-attribute-read-honours-local-attribute-files"}
+{"at":"2026-09-15T18:12:44.452Z","by":"mcp","operation":"write","conceptId":"decision.gemini-mock-loopback-bind"}
+{"at":"2026-09-15T18:12:56.138Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.gemini-mock-loopback-bind"}
+{"at":"2026-09-15T18:14:43.435Z","by":"mcp","operation":"overwrite","conceptId":"decision.none"}

@@ -14,11 +14,11 @@ const entry = resolve(process.env.CLI_ENTRY ?? "dist/cli-main.js");
 let base: string;
 let bundle: string;
 
-function run(args: string[], stdin = "") {
+function run(args: string[], stdin = "", actor = "cli-round-trip") {
   const result = spawnSync(process.execPath, [entry, ...args], {
     input: stdin,
     encoding: "utf8",
-    env: { ...process.env, STRAUSS_KB_ACTOR: "cli-round-trip" },
+    env: { ...process.env, STRAUSS_KB_ACTOR: actor },
   });
   return {
     status: result.status,
@@ -162,6 +162,24 @@ describe("built CLI round trip", () => {
     expect(status).toBe(1);
     expect(stderr).toContain("strauss-kb: error:");
     expect(stderr).not.toContain("at Object.");
+  });
+
+  it("refuses verify as unknown with a non-zero exit naming why", () => {
+    const { status, stderr } = run(
+      [
+        "--bundle",
+        bundle,
+        "verify",
+        "fact.cache-key-includes-region",
+        "--note",
+        "Checked.",
+      ],
+      "",
+      "unknown",
+    );
+
+    expect(status).toBe(1);
+    expect(stderr).toContain("cannot verify");
   });
 
   // Its own base: this one is written to be mid-flight, with a link to a

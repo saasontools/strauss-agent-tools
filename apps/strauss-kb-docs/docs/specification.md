@@ -552,6 +552,10 @@ replacement is `broken-chain`.
 stamp, plus a required `note` on entries `verify` writes. Prior entries are
 spread forward untouched, and the schema still reads the noteless OKF shape.
 
+It holds judgments only. `anchor-resolve` never writes it: an anchor's `hash`
+and `resolved_at` are the mechanical evidence. `verify` refuses the actor
+`unknown`.
+
 A verifier whose actor equals the record's `generated.by`, compared
 case-insensitively, is refused unless the actor is `human:`-prefixed: a
 generator re-reading its own output is not an independent check. The refusal is

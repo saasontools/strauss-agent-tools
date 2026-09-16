@@ -154,8 +154,8 @@ As CLI [`anchor-resolve`](./cli-reference.md#anchor-resolve), with the
 flags as camelCase parameters. The non-zero exit on drift is CLI-only.
 
 Parameters: `bundlePath` and `conceptId` required; `repoRoot` (`string`,
-defaults to the working directory), `offline`, `rebaseline` and `restamp`
-(`boolean`) optional.
+defaults to the working directory), `offline`, `rebaseline`, `restamp` and
+`check` (`boolean`) optional.
 
 ```json
 {
