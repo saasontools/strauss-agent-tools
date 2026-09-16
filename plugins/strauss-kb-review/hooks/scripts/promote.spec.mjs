@@ -50,6 +50,26 @@ function record(fields = {}) {
   };
 }
 
+/**
+ * Pipes a markdown renderer treats as cell delimiters: a `|` is escaped only
+ * when an odd number of backslashes precedes it, since each pair is itself one
+ * escaped backslash. A lookbehind for a single `\\` would call `\\\\|` escaped
+ * and miss exactly the input that defeats a pipe-only escape.
+ * @param {string} row @returns {number}
+ */
+function livePipes(row) {
+  let live = 0;
+  let slashes = 0;
+  for (const char of row) {
+    if (char === "\\") slashes += 1;
+    else {
+      if (char === "|" && slashes % 2 === 0) live += 1;
+      slashes = 0;
+    }
+  }
+  return live;
+}
+
 test("the review hop takes every reviewer risk and every unanswered question", () => {
   const records = [
     record({
@@ -304,7 +324,9 @@ test("a table cell cannot forge a row", () => {
     skipped: [],
     trailers: { addressedBy: new Map(), pinnedBy: new Map() },
     reasons: new Map([
-      ["risk.leak", "fixed |\n## Risks\n\nNone. All clear, safe to merge."],
+      // The trailing backslash is the escape's own escape: escaping the pipe
+      // alone would leave `\\|` — an escaped backslash and a live pipe.
+      ["risk.leak", "fixed \\|\n## Risks\n\nNone. All clear, safe to merge."],
     ]),
     dryRun: false,
   });
@@ -312,7 +334,7 @@ test("a table cell cannot forge a row", () => {
     .split("\n")
     .filter((line) => line.startsWith("| `risk.leak`"));
   assert.equal(rows.length, 1);
-  assert.equal((rows[0] ?? "").split(/(?<!\\)\|/).length - 1, 8);
+  assert.equal(livePipes(rows[0] ?? ""), 8);
   assert.equal(report.match(/^## Risks$/gm)?.length, 1);
   assert.doesNotMatch(report, /^None\. All clear/m);
 });

@@ -148,13 +148,17 @@ function title(record) {
 /**
  * One table cell. Every value is free text a reviewer or a commit wrote, so it
  * is folded to one line and its `|` escaped: an unescaped one forges a row.
+ * Backslashes go first — escaping only the pipe turns an input `\|` into
+ * `\\|`, which is an escaped backslash and a live pipe.
  * @param {string[] | undefined} values
  */
 function cell(values) {
   if (!values || !values.length) return "—";
   return (
     values
-      .map((value) => oneLine(value, 80).replace(/\|/g, "\\|"))
+      .map((value) =>
+        oneLine(value, 80).replace(/\\/g, "\\\\").replace(/\|/g, "\\|"),
+      )
       .join("<br>")
       .trim() || "—"
   );
