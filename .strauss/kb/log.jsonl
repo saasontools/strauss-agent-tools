@@ -30,3 +30,6 @@
 {"at":"2026-09-15T07:48:16.534Z","by":"unknown","operation":"verify","conceptId":"decision.root-devdep-strauss-kb-for-hooks"}
 {"at":"2026-09-15T07:48:16.809Z","by":"unknown","operation":"verify","conceptId":"risk.edge-kind-enumeration-stale"}
 {"at":"2026-09-15T07:48:16.978Z","by":"unknown","operation":"verify","conceptId":"test-obligation.kb-companion-tracked"}
+{"at":"2026-09-15T18:12:44.452Z","by":"mcp","operation":"write","conceptId":"decision.gemini-mock-loopback-bind"}
+{"at":"2026-09-15T18:12:56.138Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.gemini-mock-loopback-bind"}
+{"at":"2026-09-15T18:14:43.435Z","by":"mcp","operation":"overwrite","conceptId":"decision.none"}
