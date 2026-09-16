@@ -1,3 +1,18 @@
+## 0.1.21 (2026-09-16)
+
+### 🩹 Fixes
+
+- `anchor-resolve` no longer writes `verified[]`: an anchor's `hash` and ([e40485f](https://github.com/saasontools/strauss-agent-tools/commit/e40485f))
+  `resolved_at` are the mechanical evidence, and `verified[]` holds judgments. Its
+  result drops `verified` and `verifyRefused`. `--check` (MCP `check`) resolves
+  and reports without writing anything. `verify` refuses the actor `unknown`, and
+  every write refuses an actor that is not `kind` or `kind:name`.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Opus 5
+
 ## 0.1.20 (2026-09-15)
 
 ### 🩹 Fixes
