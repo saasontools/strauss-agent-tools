@@ -92,7 +92,7 @@ async function startJob(): Promise<string> {
   const started = await call("deep_research_start", {
     query: "why is the sky blue?",
   });
-  expect(started.isError).toBeFalsy();
+  expect(started.isError, started.text).toBeFalsy();
   return (JSON.parse(started.text) as { job_id: string }).job_id;
 }
 
@@ -192,7 +192,7 @@ describe("format parameter", () => {
       query: "compare auth providers",
       format: "A markdown table with columns: provider, pricing, SSO support.",
     });
-    expect(started.isError).toBeFalsy();
+    expect(started.isError, started.text).toBeFalsy();
 
     const body = mock.createBodies()[0] as { input: string };
     expect(body.input).toContain("compare auth providers");
@@ -215,25 +215,28 @@ describe("format parameter", () => {
       query: "q",
       collaborative_planning: true,
     });
+    expect(started.isError, started.text).toBeFalsy();
     const jobId = (JSON.parse(started.text) as { job_id: string }).job_id;
     mock.createQueue.push(runningInteraction("v1_frun"));
     mock.setTimeline("v1_frun", [runningInteraction("v1_frun")]);
-    await call("deep_research_reply", {
+    const replied = await call("deep_research_reply", {
       job_id: jobId,
       message: "Approved",
       format: "Bullet points only.",
     });
+    expect(replied.isError, replied.text).toBeFalsy();
     const replyBody = mock.createBodies()[1] as { input: string };
     expect(replyBody.input).toContain("Approved");
     expect(replyBody.input).toContain("Bullet points only.");
 
     mock.createQueue.push(runningInteraction("v1_fblock"));
     mock.setTimeline("v1_fblock", [completedInteraction("v1_fblock")]);
-    await call("deep_research", {
+    const blocked = await call("deep_research", {
       query: "quick",
       format: "One paragraph.",
       wait_seconds: 30,
     });
+    expect(blocked.isError, blocked.text).toBeFalsy();
     const blockBody = mock.createBodies()[2] as { input: string };
     expect(blockBody.input).toContain("quick");
     expect(blockBody.input).toContain("One paragraph.");
@@ -335,6 +338,7 @@ describe("collaborative planning", () => {
       query: "plan first",
       collaborative_planning: true,
     });
+    expect(started.isError, started.text).toBeFalsy();
     const jobId = (JSON.parse(started.text) as { job_id: string }).job_id;
 
     const status = await call("deep_research_status", { job_id: jobId });
