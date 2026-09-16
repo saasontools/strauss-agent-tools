@@ -777,6 +777,13 @@ describe("actor", () => {
       AT,
     );
 
+  test("a name may carry non-ASCII letters", async ({ store, bundle }) => {
+    const { conceptId } = await store.write(bundle, fact("cap"), "human:josé");
+
+    const { entries } = await store.readLog(bundle);
+    expect(entries.at(-1)).toMatchObject({ conceptId, by: "human:josé" });
+  });
+
   test("verify refuses the unknown actor before touching the base", async ({
     store,
     bundle,
