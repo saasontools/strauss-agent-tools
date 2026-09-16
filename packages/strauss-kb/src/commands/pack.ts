@@ -35,6 +35,7 @@ export const packCommand = define({
         "Approximate token ceiling over what is actually emitted. Defaults to 25000.",
       ),
   }),
+  jsonRefused: true,
   fromArgv: (argv, path) => {
     const hops = argvFlag(argv, "--hops");
     const maxNodes = argvFlag(argv, "--max-nodes");

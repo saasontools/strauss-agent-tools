@@ -21,6 +21,7 @@ export const catalogCommand = define({
     type: z.enum(KB_RECORD_TYPES).optional(),
     tags: TAGS,
   }),
+  jsonRefused: true,
   fromArgv: (argv, path) => {
     const tags = argvFlags(argv, "--tag");
     // The type is the first positional, in either order: a flag in the slot is

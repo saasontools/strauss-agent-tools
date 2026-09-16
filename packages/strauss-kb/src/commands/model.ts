@@ -65,6 +65,12 @@ export type KbCommand<Shape extends z.ZodRawShape = z.ZodRawShape> = {
    */
   render?(result: unknown): string;
   /**
+   * Refuse `--json` rather than ignoring it: this verb's result *is* a rendered
+   * document — `catalog`, `pack`, `index` — so the flag has nothing to switch
+   * to, and one that silently does nothing teaches a caller that it worked.
+   */
+  jsonRefused?: boolean;
+  /**
    * Turns a result into a non-zero exit for the CLI. A check that reports a
    * problem has succeeded as a command and failed as a check, and a shell
    * caller can only see the difference through the exit code.
@@ -81,6 +87,62 @@ export const bundlePath = z
   .describe("Absolute path to the knowledge base directory.");
 
 export const conceptId = z.string().min(1).describe("e.g. decision.cursor-v2");
+
+/**
+ * A leading `--` in a free-text positional is a mistyped flag, never prose:
+ * `no-decision --help` used to write a record whose reason was `--help`. The
+ * cost is that prose genuinely opening with two dashes has to be reworded.
+ */
+export function looksLikeFlag(value: string): boolean {
+  return value.trimStart().startsWith("--");
+}
+
+const FLAG_NOT_TEXT = "reads as a flag, not text";
+
+/**
+ * A required free-text positional. See `looksLikeFlag`. The two refusals are
+ * separate messages: a caller who passed nothing and one who passed `--help`
+ * have different mistakes to fix.
+ */
+export const FREE_TEXT = z
+  .string()
+  .refine((value) => value.trim().length > 0, { message: "is required" })
+  .refine((value) => !looksLikeFlag(value), { message: FLAG_NOT_TEXT });
+
+/** The same, where empty means "no filter" rather than a missing argument. */
+export const OPTIONAL_FREE_TEXT = z
+  .string()
+  .refine((value) => !looksLikeFlag(value), { message: FLAG_NOT_TEXT });
+
+/**
+ * `kind:name` — the shape `STRAUSS_KB_ACTOR` already carries, spelled once so
+ * the CLI flag and the MCP input cannot disagree on what an actor is.
+ */
+export const KB_ACTOR_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*:\S+$/;
+
+export const ACTOR = z
+  .string()
+  .regex(KB_ACTOR_PATTERN, { message: "actor must be kind:name" })
+  .optional()
+  .describe("Who is writing, as kind:name. Overrides the ambient actor.");
+
+/**
+ * Who this call writes as: the per-call actor when one was passed, else the
+ * ambient one (`STRAUSS_KB_ACTOR`, or the server's default). One helper, so a
+ * writing command can never read the context actor by mistake.
+ */
+export function actorOf(
+  ctx: KbCommandContext,
+  input: { actor?: string },
+): string {
+  return input.actor ?? ctx.actor;
+}
+
+/** `--actor kind:name`, for the CLI's writing verbs. */
+export function argvActor(argv: string[]): { actor?: string } {
+  const actor = argvFlag(argv, "--actor");
+  return actor === undefined ? {} : { actor };
+}
 
 /**
  * The tag filter every read surface shares. AND, and no vocabulary: `tags` is

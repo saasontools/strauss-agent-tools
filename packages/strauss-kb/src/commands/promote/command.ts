@@ -9,7 +9,7 @@ import {
 } from "../../kb-errors.js";
 import { assertBaseNotFrozen } from "../../kb-pins/index.js";
 import { KB_SLUG_PATTERN } from "../../kb-record.schema.js";
-import { argvFlag, define } from "../model.js";
+import { actorOf, argvActor, argvFlag, define } from "../model.js";
 import { carry } from "./carry.js";
 import { promoteCandidates } from "./candidates.js";
 import {
@@ -23,7 +23,7 @@ export const promoteCommand = define({
   name: "promote",
   tool: "kb_promote",
   usage:
-    "promote <concept-id...> --to <bundle> [--source <url>] [--force] | --list",
+    "promote <concept-id...> --to <bundle> [--source <url>] [--force] [--actor K:N] | --list",
   description:
     "Copy records into another base at the same slug, with the review tags dropped and a source naming where the promotion came from. Use at merge, to lift what a review base settled into the base that outlives it. `list` names the candidates instead. The originals stay put.",
   input: promoteInputSchema,
@@ -33,7 +33,7 @@ export const promoteCommand = define({
     // Flag values sit in argv where the concept ids do, so a run that did not
     // strip them would try to promote a record named after a URL.
     const words = argv.slice(1);
-    for (const flag of ["--to", "--source"]) {
+    for (const flag of ["--to", "--source", "--actor"]) {
       const at = words.indexOf(flag);
       if (at !== -1) words.splice(at, 2);
     }
@@ -46,12 +46,13 @@ export const promoteCommand = define({
       ...(source !== undefined ? { source } : {}),
       ...(argv.includes("--force") ? { force: true } : {}),
       ...(argv.includes("--list") ? { list: true } : {}),
+      ...argvActor(argv),
     };
   },
-  run: async (
-    { store, actor },
-    { bundlePath: path, conceptIds, to, source, force, list },
-  ): Promise<KbPromoteResult> => {
+  run: async (ctx, parsed): Promise<KbPromoteResult> => {
+    const { bundlePath: path, conceptIds, to, source, force, list } = parsed;
+    const { store } = ctx;
+    const actor = actorOf(ctx, parsed);
     // Both bases are logged and compared, so both are resolved before either is
     // written to or named in a log line.
     const from = resolve(path);
