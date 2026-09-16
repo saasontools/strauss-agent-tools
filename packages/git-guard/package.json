@@ -1,0 +1,53 @@
+{
+  "name": "@saasontools/git-guard",
+  "version": "0.1.0",
+  "description": "A guarded git runner: argv only, redirecting environment stripped, bounded output, shape-checked revs and paths",
+  "license": "MIT",
+  "author": "Assaf Kamil",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "git",
+    "subprocess",
+    "security"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saasontools/strauss-agent-tools.git",
+    "directory": "packages/git-guard"
+  },
+  "scripts": {
+    "prepack": "tsup",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  }
+}

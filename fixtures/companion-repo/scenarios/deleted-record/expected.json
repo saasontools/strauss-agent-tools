@@ -2,7 +2,7 @@
   "route": "human",
   "classifier": {
     "src/checkout/pay.ts": "source",
-    ".strauss/kb/log.jsonl": "config"
+    ".strauss/kb/log.jsonl": "source"
   },
   "gateGroups": ["uncovered"],
   "doctorArgs": ["--unverified-days", "3650", "--aging-days", "3650"],

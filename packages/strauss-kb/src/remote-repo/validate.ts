@@ -1,3 +1,4 @@
+import { refShapeIsSafe } from "@saasontools/git-guard";
 import { git } from "./git.js";
 
 /**
@@ -6,34 +7,10 @@ import { git } from "./git.js";
  * shell, not git's own option parsing: `git fetch origin --upload-pack=<cmd>`
  * runs `<cmd>`, `ext::sh -c <cmd>` is a transport that does the same, and
  * `file:///` reads any repository the process can see. So each value is checked
- * against a shape before git ever sees it, and a value that fails is a finding
- * on the record rather than a command.
+ * against a shape before git ever sees it — the ref and path shapes are
+ * git-guard's — and a value that fails is a finding on the record rather than
+ * a command.
  */
-
-/** Long enough for any real branch, short enough to bound the argv. */
-const MAX_REF_LENGTH = 200;
-
-/**
- * The shape a `ref` must have to reach git at all. The leading character class
- * excludes `-`, so no ref can be read as an option; `@`, `{`, `\`, spaces, and
- * control characters are outside the class entirely.
- */
-const REF_SHAPE = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
-
-/** Checked with no subprocess, so an invalid ref never spawns git. */
-export function refShapeIsSafe(ref: string): boolean {
-  if (!ref || ref.length > MAX_REF_LENGTH) return false;
-  // `a..b` is a range, not a rev, and `git fetch` would resolve it as one.
-  if (ref.includes("..")) return false;
-  return REF_SHAPE.test(ref);
-}
-
-/** Wider than `refShapeIsSafe` (`~`, `^`) for a local read; never guards a fetch. */
-export function localRevShapeIsSafe(rev: string): boolean {
-  if (!rev || rev.length > MAX_REF_LENGTH) return false;
-  if (rev.includes("..")) return false;
-  return /^[A-Za-z0-9][A-Za-z0-9._/^~-]*$/.test(rev);
-}
 
 /**
  * git's own opinion of the name, asked only once the shape has made it safe to
@@ -43,16 +20,6 @@ export async function refIsWellFormed(ref: string): Promise<boolean> {
   if (!refShapeIsSafe(ref)) return false;
   const checked = await git(["check-ref-format", "--allow-onelevel", ref]);
   return checked.ok;
-}
-
-/**
- * A `file` that may become the path half of `<rev>:<path>`. A leading `-` would
- * be an option; `..` would climb out of the tree the anchor describes.
- */
-export function filePathIsSafe(file: string): boolean {
-  const path = file.replace(/^\.\//, "");
-  if (!path || path.startsWith("-") || path.includes("\0")) return false;
-  return !path.split("/").includes("..");
 }
 
 /** Transports a remote may be fetched over. Plaintext `http` is not one. */

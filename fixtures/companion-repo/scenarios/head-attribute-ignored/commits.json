@@ -1,0 +1,6 @@
+[
+  {
+    "message": "fix(tenant): refuse a non-positive chunk size, and mark services generated",
+    "files": [".gitattributes", "src/services/tenant.service.ts"]
+  }
+]

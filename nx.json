@@ -57,6 +57,8 @@
     },
     "typecheck": {
       "cache": true,
+      // A workspace dependency's types come from its built `dist`.
+      "dependsOn": ["^build"],
       "inputs": ["noMarkdown", "^noMarkdown"]
     },
     "test": {

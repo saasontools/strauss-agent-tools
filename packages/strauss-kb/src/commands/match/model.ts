@@ -1,6 +1,6 @@
+import type { DiffHunk } from "@saasontools/code-diff";
 import { z } from "zod";
 import type { KbStanding } from "../../adjudicate.js";
-import type { DiffHunk } from "../../match-diff.js";
 import type {
   KbAnchor,
   KbRecordFrontmatter,

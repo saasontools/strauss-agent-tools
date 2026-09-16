@@ -63,6 +63,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@saasontools/code-diff": "workspace:0.x",
+    "@saasontools/git-guard": "workspace:0.x",
     "gray-matter": "^4.0.3",
     "web-tree-sitter": "~0.27.0",
     "zod": "^4.5.4"

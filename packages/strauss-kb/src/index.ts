@@ -169,19 +169,20 @@ export {
   anchorOnHunk,
   matchToDiff,
   symbolRangeIndex,
-  type DiffFile,
-  type DiffHunk,
   type DiffMatch,
   type MatchOptions,
-  type SymbolRange,
   type SymbolRangeIndex,
 } from "./match-diff.js";
+export type {
+  ChangedSymbol,
+  DiffFile,
+  DiffHunk,
+  SymbolRange,
+} from "@saasontools/code-diff";
+export { changedSymbolsIn } from "./changed-symbols.js";
 export type { KbMatch, KbMatchRecord } from "./commands/match/index.js";
-// The rule tables and their helpers stay behind `classify/index.js`: they are
-// how the verdict is reached, not part of it.
 export {
   classifyDiff,
-  DEFAULT_THRESHOLDS,
   KB_CLASSES,
   type KbClass,
   type KbClassifiedFile,
@@ -189,7 +190,6 @@ export {
   type KbClassifyFile,
   type KbClassifyOptions,
   type KbClassifyResult,
-  type KbClassifyThresholds,
   type KbVerdict,
 } from "./classify/index.js";
 export {

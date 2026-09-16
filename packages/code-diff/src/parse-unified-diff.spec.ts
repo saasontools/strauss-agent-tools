@@ -426,4 +426,29 @@ describe("parseUnifiedDiff options", () => {
       ],
     });
   });
+
+  test("withContext carries git's function context onto both sides", () => {
+    const text = patch(
+      "diff --git a/src/order.ts b/src/order.ts",
+      "--- a/src/order.ts",
+      "+++ b/src/order.ts",
+      "@@ -14,1 +14,1 @@ export class OrderService {",
+      "-a",
+      "+b",
+      "@@ -30,0 +31,1 @@",
+      "+c",
+    );
+
+    expect(parseUnifiedDiff(text, { withContext: true })[0]?.hunks).toEqual([
+      { startLine: 14, endLine: 14, context: "export class OrderService {" },
+      {
+        startLine: 14,
+        endLine: 14,
+        side: "old",
+        context: "export class OrderService {",
+      },
+      { startLine: 31, endLine: 31 },
+    ]);
+    expect(parseUnifiedDiff(text)[0]?.hunks[0]).not.toHaveProperty("context");
+  });
 });

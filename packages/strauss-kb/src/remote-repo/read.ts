@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { filePathIsSafe, refShapeIsSafe } from "@saasontools/git-guard";
 import type { AnchorUnresolvedReason } from "../anchor-resolver/model.js";
 import { normalizeRepoUrl } from "../anchor-resolver/repo-identity.js";
 import { DEFAULT_IO_CONCURRENCY, mapLimit } from "../concurrency.js";
@@ -11,11 +12,9 @@ import {
   type RemoteWant,
 } from "./model.js";
 import {
-  filePathIsSafe,
   isShortRepoName,
   protocolArgs,
   refIsWellFormed,
-  refShapeIsSafe,
   repoUrlIsSafe,
 } from "./validate.js";
 
