@@ -10,7 +10,7 @@
  *           [--range <base>..HEAD] [--dry-run] [--report <path>]
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readBase, standings, withStandings } from "./lib/base.mjs";
 import { launcher, run, setDeadline } from "./lib/cli.mjs";
@@ -86,8 +86,10 @@ export function parseArgs(argv) {
  * @param {string} cwd @param {Options} options
  */
 export function bundles(cwd, options) {
-  const at = (/** @type {string} */ path) =>
-    isAbsolute(path) ? path : resolve(cwd, path);
+  // Always through `resolve`: on Windows `/a` is "absolute" yet carries no
+  // drive, so short-circuiting on `isAbsolute` would hand the spawns a path
+  // that means whatever the current drive is.
+  const at = (/** @type {string} */ path) => resolve(cwd, path);
   const review = at(
     options.to === "review"
       ? (options.toBundle ?? LEVELS.review)
