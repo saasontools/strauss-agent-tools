@@ -37,14 +37,7 @@ const LOCATOR_FIELDS = [
   "ref",
 ] as const;
 
-/**
- * `mint` is the one thing that separates the writers. A stamper — a record's
- * first write, which is made *about* code its author just read — may state a
- * baseline. A later caller may only carry one the record already holds, which
- * is what stops a rewritten body being declared as the body somebody checked.
- */
 export type KbAnchorSetOptions = {
-  mint?: boolean;
   dropBaselines?: boolean;
 };
 
@@ -61,12 +54,9 @@ export type KbAnchorSetOutcome = {
  * another address — that is a reviewed rename — but it may not be invented,
  * altered or duplicated, and it may not be dropped by accident.
  *
- * The one rule, and it holds at a record's birth too: `current` is empty
- * there, so every baseline is unknown and a first write can only ask for
- * addresses. `anchor-resolve` is what turns one into evidence. Both writers go
- * through here — `composeRecord` with nothing to carry, `anchor-set` inside
- * the store's mutation, where `current` is the record as it stands rather than
- * as the caller last read it.
+ One rule, and a record's birth is not an exception to it: `current` is empty
+ * there, so a first write can only ask for addresses. `anchor-resolve` is what
+ * turns one into evidence, and it writes through the store rather than here.
  */
 export function applyAnchorSet(
   conceptId: string,
@@ -95,10 +85,6 @@ export function applyAnchorSet(
   const carried = new Set<string>();
   for (const anchor of anchors) {
     if (!anchor.hash) continue;
-    if (options.mint === true) {
-      carried.add(anchor.hash);
-      continue;
-    }
     const source = held.get(anchor.hash);
     const where = locatorText(locatorOf(anchor));
     if (!source) throw new KbAnchorBaselineError(where, "unknown");

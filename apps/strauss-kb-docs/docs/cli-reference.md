@@ -64,6 +64,12 @@ required; `sections`, `anchors`, `sources`, `assumption`, `stale_after`,
 `verify`, `tags`, `relatedConceptIds`, `links`, `supersedes`, `materiality`,
 `confidence`, and `owner` optional. Unknown keys are rejected.
 
+`anchors` here are **addresses only** — `file`, and any of `symbol`, `span`,
+`side`, `repo`, `ref`. A record that does not exist yet holds no baseline to
+carry, so a `hash` is refused the same way
+[`anchor-set`](#anchor-set) refuses one; `anchor-resolve` stamps it once the
+change settles. Two anchors at one address are refused too.
+
 ```bash
 strauss-kb write fact <<'JSON'
 {

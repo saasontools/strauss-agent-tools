@@ -134,15 +134,13 @@ export function composeRecord(
     strauss_status: spec.initialStatus,
   };
   if (parsed.stale_after) frontmatter.stale_after = parsed.stale_after;
-  // The same rule `anchor-set` runs, against a record that does not exist yet.
-  // `mint` because this write is made *about* code its author just read, so a
-  // baseline stated here is its own; every later caller has to carry one.
+  // The same rule `anchor-set` runs, against a record that does not exist yet:
+  // it holds no baseline, so a first write can only ask for addresses.
   if (parsed.anchors?.length) {
     frontmatter.strauss_anchors = applyAnchorSet(
       `${type}.${parsed.slug}`,
       [],
       parsed.anchors,
-      { mint: true },
     ).anchors;
   }
   if (parsed.verify?.length) frontmatter.strauss_verify = parsed.verify;

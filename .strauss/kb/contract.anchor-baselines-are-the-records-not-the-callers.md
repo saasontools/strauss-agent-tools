@@ -18,10 +18,10 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/anchors/apply.ts
     symbol: applyAnchorSet
-    hash: "sha256:bb86c45f14600066cf3643665cb4bebfe2205dff38fcac92c556d25b8db8a88a"
+    hash: "sha256:a22cf8e03afdcdee5444b39ec5ff987d0b5240a577652c0cebd574ea255ad63c"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:00:58.238Z"
-    lines: 56
+    resolved_at: "2026-09-17T21:27:23.389Z"
+    lines: 52
     resolver: tree-sitter
   - file: packages/strauss-kb/src/anchors/errors.ts
     symbol: KbAnchorBaselineError
@@ -32,10 +32,10 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/compose.ts
     symbol: composeRecord
-    hash: "sha256:db0b3af5c38bd99d4a6a1c938ef49d941c36d8af598e3159d0549482ba847971"
+    hash: "sha256:65c5d67f87024bbd7aaaeabe5b079fae8b0afae005cbda0525624bfbc93a7278"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:00:58.247Z"
-    lines: 106
+    resolved_at: "2026-09-17T21:27:23.400Z"
+    lines: 104
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/anchor-set/model.ts
     symbol: anchorSetInputSchema
@@ -56,11 +56,11 @@ strauss_status: proposed
 
 ## Contract
 
-applyAnchorSet(conceptId, current, incoming, options) is the only place that answers it. Always: no two anchors at one address, compared through the resolver's own repo normalisation. Without `mint`: every incoming hash must be one `current` already holds, with hash_kind, lines, resolved_at and resolver unchanged, used by at most one anchor; and a stamped anchor the set omits needs `dropBaselines`. An anchor with no hash is new either way.
+applyAnchorSet(conceptId, current, incoming, options) is the only place that answers it. No two anchors at one address, compared through the resolver's own repo normalisation. Every incoming hash must be one `current` already holds, with hash_kind, lines, resolved_at and resolver unchanged, used by at most one anchor. A stamped anchor the set omits needs `dropBaselines`. An anchor with no hash is new.
 
 ## Producer
 
-composeRecord at a record's birth, with `mint` and an empty `current` — that write is made about code its author just read. anchor-set inside the store's mutation, without it. anchor-resolve and reassess stamp through updateAnchors and are the measurement itself, not callers of it.
+composeRecord at a record's birth and anchor-set inside the store's mutation, under the same rule — birth is not an exception, it just has an empty `current`, so a first write can only ask for addresses. anchor-resolve and reassess stamp through updateAnchors and are the measurement itself, not callers of it.
 
 ## Consumer
 

@@ -173,3 +173,5 @@
 {"at":"2026-09-17T21:03:16.908Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-set-is-a-whole-set-not-a-patch"}
 {"at":"2026-09-17T21:03:18.549Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
 {"at":"2026-09-17T21:03:19.024Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-is-a-gated-write-verb"}
+{"at":"2026-09-17T21:27:23.426Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"contract.anchor-baselines-are-the-records-not-the-callers"}
+{"at":"2026-09-17T21:27:26.402Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}

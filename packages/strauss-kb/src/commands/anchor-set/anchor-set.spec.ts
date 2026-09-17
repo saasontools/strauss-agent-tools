@@ -508,39 +508,47 @@ describe("anchorSetCommand", () => {
       ).toThrow(/appears twice/);
     });
 
-    // A first write is made *about* code its author just read, so a baseline
-    // stated there is its own. Every later caller has to carry one.
-    test("lets the first write state a baseline, unlike anchor-set", async () => {
+    // The same rule, and birth is not an exception: the record holds nothing,
+    // so there is no baseline to carry and a first write can only ask for
+    // addresses. anchor-resolve is what turns one into evidence.
+    test("refuses a baseline at a record's first write", () => {
+      expect(() =>
+        composeRecord(
+          "fact",
+          {
+            slug: "born-stamped",
+            title: "Born with a baseline",
+            why: "Nobody measured this.",
+            anchors: [
+              {
+                file: CLEANUP,
+                symbol: "shouldDeleteExport",
+                hash: `sha256:${"a".repeat(64)}`,
+              },
+            ],
+          },
+          "agent:writer",
+          "2026-08-01T00:00:00Z",
+        ),
+      ).toThrow(/carries a hash this record does not hold/);
+    });
+
+    test("takes the addresses, which anchor-resolve then stamps", () => {
       const record = composeRecord(
         "fact",
         {
-          slug: "born-stamped",
-          title: "Born with a baseline",
-          why: "The writer read the code it is about.",
-          anchors: [
-            {
-              file: CLEANUP,
-              symbol: "shouldDeleteExport",
-              hash: `sha256:${"a".repeat(64)}`,
-            },
-          ],
+          slug: "born-bare",
+          title: "Born with an address",
+          why: "The resolver measures it once the change settles.",
+          anchors: [{ file: CLEANUP, symbol: "shouldDeleteExport" }],
         },
         "agent:writer",
         "2026-08-01T00:00:00Z",
       );
-      const born = record.frontmatter.strauss_anchors as KbAnchor[];
-      expect(born[0]?.hash).toBe(`sha256:${"a".repeat(64)}`);
 
-      await seedRefactor();
-      await expect(
-        run({
-          reason: "state one of my own",
-          anchors: [{ file: CLEANUP, hash: `sha256:${"a".repeat(64)}` }],
-        }),
-      ).rejects.toMatchObject({
-        name: "KbAnchorBaselineError",
-        details: { reason: "unknown" },
-      });
+      expect(record.frontmatter.strauss_anchors).toEqual([
+        { file: CLEANUP, symbol: "shouldDeleteExport" },
+      ]);
     });
   });
 

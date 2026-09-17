@@ -295,21 +295,26 @@ describe("query anchor drift", () => {
           slug: "order-total",
           title: "Order totals are summed client-side",
           why: "Rounding rules live in one place.",
-          anchors: [
-            {
-              file: "src/order.ts",
-              hash: hashAnchorText(SOURCE),
-              resolved_at: "2026-08-26T10:00:00Z",
-              // Counted the way the resolver counts, so `diffSize` measures
-              // the edit rather than a trailing-newline disagreement.
-              lines:
-                resolveAnchor(SOURCE, { file: "src/order.ts" })?.endLine ?? 0,
-            },
-          ],
         },
         "test-writer",
         "2026-08-26T10:00:00Z",
       ),
+    );
+    // Stamped through the store, as a resolution pass does.
+    await store.updateAnchors(
+      bundle,
+      "fact.order-total",
+      [
+        {
+          file: "src/order.ts",
+          hash: hashAnchorText(SOURCE),
+          resolved_at: "2026-08-26T10:00:00Z",
+          // Counted the way the resolver counts, so `diffSize` measures the
+          // edit rather than a trailing-newline disagreement.
+          lines: resolveAnchor(SOURCE, { file: "src/order.ts" })?.endLine ?? 0,
+        },
+      ],
+      "agent:resolver",
     );
   }
 

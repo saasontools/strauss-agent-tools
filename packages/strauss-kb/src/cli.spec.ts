@@ -682,7 +682,8 @@ describe("runKbCli", () => {
       writeFileSync(join(repo, file), source);
 
       const resolved = resolveAnchor(source, { file, symbol: "orderKey" })!;
-      await new KbStore().write(
+      const anchored = new KbStore();
+      await anchored.write(
         bundle,
         composeRecord(
           "decision",
@@ -690,19 +691,25 @@ describe("runKbCli", () => {
             slug: "region-in-key",
             title: "The region prefixes the key",
             why: "A region-less key serves the wrong region's data.",
-            anchors: [
-              {
-                file,
-                symbol: "orderKey",
-                hash: hashAnchorText(resolved.text),
-                resolved_at: "2026-08-01T02:00:00Z",
-                lines: resolved.endLine - resolved.startLine + 1,
-              },
-            ],
           },
           "seed",
           "2026-08-01T02:00:00Z",
         ),
+      );
+      // Stamped through the store, as a resolution pass does.
+      await anchored.updateAnchors(
+        bundle,
+        "decision.region-in-key",
+        [
+          {
+            file,
+            symbol: "orderKey",
+            hash: hashAnchorText(resolved.text),
+            resolved_at: "2026-08-01T02:00:00Z",
+            lines: resolved.endLine - resolved.startLine + 1,
+          },
+        ],
+        "agent:resolver",
       );
 
       const clean = await at([
@@ -806,7 +813,8 @@ describe("runKbCli", () => {
         writeFileSync(join(repo, file), source);
 
         const resolved = resolveAnchor(source, { file, symbol: "orderKey" })!;
-        await new KbStore().write(
+        const anchored = new KbStore();
+        await anchored.write(
           bundle,
           composeRecord(
             "decision",
@@ -814,19 +822,25 @@ describe("runKbCli", () => {
               slug: "region-in-key",
               title: "The region prefixes the key",
               why: "A region-less key serves the wrong region's data.",
-              anchors: [
-                {
-                  file,
-                  symbol: "orderKey",
-                  hash: hashAnchorText(resolved.text),
-                  resolved_at: "2026-08-01T02:00:00Z",
-                  lines: resolved.endLine - resolved.startLine + 1,
-                },
-              ],
             },
             "seed",
             "2026-08-01T02:00:00Z",
           ),
+        );
+        // Stamped through the store, as a resolution pass does.
+        await anchored.updateAnchors(
+          bundle,
+          "decision.region-in-key",
+          [
+            {
+              file,
+              symbol: "orderKey",
+              hash: hashAnchorText(resolved.text),
+              resolved_at: "2026-08-01T02:00:00Z",
+              lines: resolved.endLine - resolved.startLine + 1,
+            },
+          ],
+          "agent:resolver",
         );
 
         const clean = await at(["doctor", "--json", "--repo-root", repo]);

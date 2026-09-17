@@ -284,12 +284,12 @@ set of anchors, and a required reason.
 
 One function answers "what anchors may this record hold, given what it holds
 now", and both writers go through it — a record's first write with an empty
-`current`, `anchor-set` with the record as it stands. At birth that means no
-two anchors at one address, which `kb_write` used to allow; a first write may
-still state a baseline, because it is made _about_ code its author just read.
+`current`, `anchor-set` with the record as it stands. Birth is not an
+exception: the record holds nothing, so there is no baseline to carry and
+`kb_write` can only ask for addresses. `anchor-resolve` is what turns one into
+evidence, and it writes through the store rather than through either of them.
 
-For every later caller the set is theirs and **the baselines are the
-record's**. An anchor keeps its
+The set is the caller's; **the baselines are the record's**. An anchor keeps its
 evidence by carrying its `hash`, and the rest of its stamp with it, forward from
 the anchor the caller read; moving that baseline to another `file` or `symbol`
 is the reviewed rename. A hash the record does not already hold is refused, so
