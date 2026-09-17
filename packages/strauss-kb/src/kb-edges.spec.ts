@@ -120,6 +120,44 @@ describe("edgeNeighbours", () => {
     ).toEqual(["fact.target"]);
   });
 
+  // The rendered sentence stays for a reader that knows only OKF, and nothing
+  // reads it back: `compose` writes the frontmatter entry beside it.
+  test("relatedConceptIds is stored as a link and rendered as a sentence", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(
+      bundle,
+      fact("both", { relatedConceptIds: ["fact.target", "fact.target"] }),
+    );
+
+    const { get } = await byId(store, bundle);
+    const both = get("fact.both");
+    expect(both.frontmatter.strauss_links).toEqual([
+      { target: "fact.target", rel: "related_to" },
+    ]);
+    expect(both.body).toContain("Relates to [fact.target](fact.target.md).");
+  });
+
+  // A stronger claim stands: `related_to` would only restate it.
+  test("a declared rel is not restated as related_to", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(
+      bundle,
+      fact("both", {
+        links: [{ target: "fact.target", rel: "depends_on" }],
+        relatedConceptIds: ["fact.target"],
+      }),
+    );
+
+    const { get } = await byId(store, bundle);
+    expect(get("fact.both").frontmatter.strauss_links).toEqual([
+      { target: "fact.target", rel: "depends_on" },
+    ]);
+  });
+
   // Records are routinely written before the ones they point at exist.
   test("skips a typed link whose target is not in the bundle", async ({
     store,

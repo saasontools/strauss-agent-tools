@@ -175,12 +175,12 @@ describe("sweepCommand", () => {
     await expectValid();
   });
 
-  // The shape that was being deleted: a decision that survives cites a
-  // terminal risk in its prose and nowhere else. Read through typed links
-  // alone the risk looks unreferenced — 27 such deletions on one branch left 5
-  // dangling citations across 3 surviving records, and `validate` said
-  // nothing.
-  test("keeps a record a surviving record cites only in its body", async () => {
+  // The shape that was being deleted: a survivor whose only mention of a
+  // terminal record is the sentence `relatedConceptIds` renders. It is kept
+  // because `compose` also wrote the `related_to` beside it — before that, 27
+  // deletions on one branch left 5 dangling citations across 3 records and
+  // `validate` said nothing.
+  test("keeps a record a surviving record relates to", async () => {
     const held = await seed("held", "resolved");
     await seed("live-citer", "open", { tags: ["other"], cites: [held] });
     const free = await seed("free", "resolved");
@@ -195,7 +195,7 @@ describe("sweepCommand", () => {
     await expectValid();
   });
 
-  test("--dry-run answers the same way about a body-only citation", async () => {
+  test("--dry-run answers the same way about a related record", async () => {
     const held = await seed("held", "resolved");
     await seed("live-citer", "open", { tags: ["other"], cites: [held] });
 
@@ -204,6 +204,31 @@ describe("sweepCommand", () => {
     expect(result.candidates).toEqual([]);
     expect(result.skipped).toEqual([
       { conceptId: held, heldBy: ["fact.live-citer"] },
+    ]);
+  });
+
+  // The migration's whole purpose, stated as the failure it prevents. A base
+  // that never ran `mirror-links` has citations no consumer can see, and this
+  // is the one consumer whose blindness deletes rather than under-reports.
+  test("does not see a citation that only ever lived in the prose", async () => {
+    const held = await seed("held", "resolved");
+    await seed("live-citer", "open", { tags: ["other"] });
+    // Hand-written, as a pre-migration record or a foreign producer leaves it:
+    // the sentence with no `strauss_links` entry beside it.
+    const file = join(bundle, "fact.live-citer.md");
+    writeFileSync(
+      file,
+      `${readFileSync(file, "utf8")}\nRelates to [${held}](${held}.md).\n`,
+      "utf8",
+    );
+
+    const result = await run({ dryRun: true });
+
+    expect(result.candidates).toEqual([held]);
+    expect(result.skipped).toEqual([]);
+    // `validate` is what names the record, and the repair before sweeping.
+    expect(validateBundle(await store.list(bundle))).toMatchObject([
+      { check: "body_link", conceptId: "fact.live-citer" },
     ]);
   });
 
