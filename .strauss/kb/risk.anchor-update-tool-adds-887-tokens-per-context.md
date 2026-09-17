@@ -23,10 +23,10 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/commands/anchor-update/model.ts
     symbol: anchorPatchInputSchema
-    hash: "sha256:3b84ae1004cf3eba8c29565373279b0a510d65ce24e8d9342fd70538d2236b42"
+    hash: "sha256:8bf0f9c1f648984cb33447cfb0481cdce63e757809bae9e90d2c0c7f7d9becab"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:22:10.990Z"
-    lines: 31
+    resolved_at: "2026-09-17T18:23:58.734Z"
+    lines: 34
     resolver: regex
 strauss_status: open
 strauss_materiality: non-blocking

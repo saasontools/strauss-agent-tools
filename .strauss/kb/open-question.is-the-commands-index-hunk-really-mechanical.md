@@ -29,7 +29,7 @@ strauss_links:
 strauss_status: resolved
 strauss_answered:
   by: "agent:claude"
-  at: "2026-09-17T18:21:14.463Z"
+  at: "2026-09-17T18:24:22.073Z"
 strauss_owner: "agent:claude"
 ---
 
@@ -52,3 +52,7 @@ Informs [risk.anchor-update-tool-adds-887-tokens-per-context](risk.anchor-update
 ## Answer
 
 Right, and the fact was too broad. It now says skim them for correctness and points at risk.anchor-update-tool-adds-887-tokens-per-context for the number, so the routing no longer sends a reader past the one hunk with a cost attached. The claim that nothing in those four files decides behaviour still holds; what it did not hold was being read as 'nothing here matters'.
+
+## Answer
+
+Reopened: the half I could settle is settled, the half I cannot is not. The fact is narrowed and now points at the measurement, so no reviewer is routed past the costly hunk. Whether kb_anchor_update should ship at ~880 tokens of tool list is a budget call for whoever owns the server's context cost, not mine — decision.anchor-update-keeps-its-mcp-tool-at-887-tokens records why I kept it and what the cheaper shapes cost.

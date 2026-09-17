@@ -106,3 +106,10 @@
 {"at":"2026-09-17T18:22:12.526Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"risk.apply-anchor-patch-takes-a-caller-chosen-baseline"}
 {"at":"2026-09-17T18:22:13.020Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-update-keeps-baselines"}
 {"at":"2026-09-17T18:22:13.159Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.kb-companion-tracked"}
+{"at":"2026-09-17T18:23:56.928Z","by":"agent:claude","operation":"anchor-update","conceptId":"risk.anchor-update-invisible-to-the-reviewer-gate","reason":"Mechanical narrowing: lines 47-48 are the MCP_WRITE declaration, which the resolver names. A span survives no edit above it; the symbol does.","anchors":[{"op":"remove","from":{"file":"plugins/strauss-kb-review/hooks/scripts/lib/reviewer.mjs","span":{"start":47,"end":48}}},{"op":"add","to":{"file":"plugins/strauss-kb-review/hooks/scripts/lib/reviewer.mjs","symbol":"MCP_WRITE"}}]}
+{"at":"2026-09-17T18:23:57.192Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"risk.anchor-update-invisible-to-the-reviewer-gate"}
+{"at":"2026-09-17T18:23:57.707Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"contract.anchor-locator-is-the-address-half-of-an-anchor"}
+{"at":"2026-09-17T18:23:58.212Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-update-keeps-its-mcp-tool-at-887-tokens"}
+{"at":"2026-09-17T18:23:58.741Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"risk.anchor-update-tool-adds-887-tokens-per-context"}
+{"at":"2026-09-17T18:24:21.862Z","by":"agent:claude","operation":"status:open","conceptId":"open-question.is-the-commands-index-hunk-really-mechanical"}
+{"at":"2026-09-17T18:24:22.085Z","by":"agent:claude","operation":"answer","conceptId":"open-question.is-the-commands-index-hunk-really-mechanical"}

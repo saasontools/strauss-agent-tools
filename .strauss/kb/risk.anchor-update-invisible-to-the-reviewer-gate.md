@@ -21,21 +21,19 @@ strauss_anchors:
     resolved_at: "2026-09-17T18:22:12.008Z"
     lines: 18
     resolver: regex
-  - file: plugins/strauss-kb-review/hooks/scripts/lib/reviewer.mjs
-    span:
-      start: 47
-      end: 48
-    hash: "sha256:a3641496d73217cda0111955b25ec9eea6a56ba4a42027870be6f6cee7cf6228"
-    hash_kind: raw
-    resolved_at: "2026-09-17T18:22:12.009Z"
-    lines: 2
-    resolver: span
   - file: packages/strauss-kb/src/commands/anchor-update/command.ts
     symbol: anchorUpdateCommand
     hash: "sha256:368d9fff3c057709195f1fb7c35481c51d84a83031771e03146f4cedae66f6df"
     hash_kind: raw
     resolved_at: "2026-09-17T18:22:12.011Z"
     lines: 52
+    resolver: regex
+  - file: plugins/strauss-kb-review/hooks/scripts/lib/reviewer.mjs
+    symbol: MCP_WRITE
+    hash: "sha256:575d20ea2930347c89671f06421f48e64a2b7af0d61ff5595c55b98b2d4faa17"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:23:57.185Z"
+    lines: 2
     resolver: regex
 strauss_links:
   - target: requirement.anchor-update-separates-pointer-from-baseline
