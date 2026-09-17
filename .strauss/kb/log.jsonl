@@ -149,3 +149,5 @@
 {"at":"2026-09-17T18:45:25.195Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"risk.apply-anchor-patch-takes-a-caller-chosen-baseline"}
 {"at":"2026-09-17T18:45:25.758Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.kb-log-reads-forward"}
 {"at":"2026-09-17T18:45:26.072Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-update-keeps-baselines"}
+{"at":"2026-09-17T18:50:02.484Z","by":"agent:claude","operation":"write","conceptId":"decision.anchor-update-second-round-fixes"}
+{"at":"2026-09-17T18:50:02.799Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-update-second-round-fixes"}
