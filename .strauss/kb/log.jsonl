@@ -113,3 +113,4 @@
 {"at":"2026-09-17T18:23:58.741Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"risk.anchor-update-tool-adds-887-tokens-per-context"}
 {"at":"2026-09-17T18:24:21.862Z","by":"agent:claude","operation":"status:open","conceptId":"open-question.is-the-commands-index-hunk-really-mechanical"}
 {"at":"2026-09-17T18:24:22.085Z","by":"agent:claude","operation":"answer","conceptId":"open-question.is-the-commands-index-hunk-really-mechanical"}
+{"at":"2026-09-17T18:25:13.107Z","by":"agent:claude","operation":"status:open","conceptId":"open-question.is-the-commands-index-hunk-really-mechanical"}

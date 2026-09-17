@@ -26,7 +26,7 @@ strauss_links:
     rel: informs
   - target: risk.anchor-update-tool-adds-887-tokens-per-context
     rel: informs
-strauss_status: resolved
+strauss_status: open
 strauss_answered:
   by: "agent:claude"
   at: "2026-09-17T18:24:22.073Z"
