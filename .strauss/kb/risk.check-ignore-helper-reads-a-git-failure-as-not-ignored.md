@@ -13,6 +13,10 @@ generated:
 verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.git.spec.ts
+    hash: "sha256:219acb919353ad06fcc4fd66b4487bc65bdf57fe7b58d2505cace859f77183cf"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:22:06.796Z"
+    lines: 182
 strauss_status: open
 strauss_materiality: non-blocking
 strauss_confidence: medium

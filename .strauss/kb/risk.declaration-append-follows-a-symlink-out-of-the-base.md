@@ -12,8 +12,18 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: KbStore.ensureDeclared
+    hash: "sha256:2bc4a14e63eb792f3420c25eeb4095067f2d8d00176ad0eab93a593b8b36cc4c"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:22:06.207Z"
+    lines: 68
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-pins/layers.ts
     symbol: ensureLocalPinsIgnored
+    hash: "sha256:6da23b50aaecc182cabc04bc0d9264b9701234d6c9c5ed3f126a0d95cd1cde60"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:22:06.212Z"
+    lines: 37
+    resolver: tree-sitter
 strauss_status: open
 strauss_materiality: non-blocking
 strauss_confidence: medium

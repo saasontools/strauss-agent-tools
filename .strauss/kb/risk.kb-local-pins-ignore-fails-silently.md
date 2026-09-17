@@ -26,10 +26,10 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-pins/layers.ts
     symbol: ensureLocalPinsIgnored
-    hash: "sha256:213a51325c23bb5848c72afd47ea961336884a41eb319996565996ac67f4d699"
+    hash: "sha256:6da23b50aaecc182cabc04bc0d9264b9701234d6c9c5ed3f126a0d95cd1cde60"
     hash_kind: ast
-    resolved_at: "2026-09-17T17:52:30.129Z"
-    lines: 26
+    resolved_at: "2026-09-17T18:22:05.138Z"
+    lines: 37
     resolver: tree-sitter
 strauss_links:
   - target: decision.kb-ignore-anchored-per-location

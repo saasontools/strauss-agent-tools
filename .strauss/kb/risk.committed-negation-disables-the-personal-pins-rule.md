@@ -14,6 +14,11 @@ strauss_anchors:
     symbol: isSettled
   - file: packages/strauss-kb/src/kb-pins/layers.ts
     symbol: ensureLocalPinsIgnored
+    hash: "sha256:6da23b50aaecc182cabc04bc0d9264b9701234d6c9c5ed3f126a0d95cd1cde60"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:22:05.778Z"
+    lines: 37
+    resolver: tree-sitter
 strauss_links:
   - target: risk.kb-local-pins-ignore-fails-silently
     rel: informs

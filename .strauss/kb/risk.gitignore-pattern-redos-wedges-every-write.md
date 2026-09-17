@@ -12,8 +12,18 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: matchesChild
+    hash: "sha256:67ca83e74d9de493a3ea0128cb60993c1b50924122a3941a7f505a900d59065d"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:22:05.369Z"
+    lines: 6
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: KbStore.ensureGitignore
+    hash: "sha256:e3b6bfc7606d7f5f89014b5254b5e2873c2f97ccb8c91036ac793d609621dc58"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:22:05.393Z"
+    lines: 8
+    resolver: tree-sitter
 strauss_links:
   - target: decision.kb-ignore-idempotence-by-covered-files
     rel: informs

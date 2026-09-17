@@ -75,7 +75,8 @@ strauss_verify:
 strauss_links:
   - target: decision.kb-ignore-anchored-per-location
     rel: satisfies
-strauss_status: accepted
+strauss_status: superseded
+strauss_superseded_by: flow.kb-declaration-files-ensured-on-every-mutation
 ---
 
 ## Trigger

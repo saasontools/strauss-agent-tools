@@ -14,6 +14,11 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: verdict
+    hash: "sha256:eda264e34f00997be293fd11c9f6751a8247744d7d8dba360a48387240cbc706"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:22:06.509Z"
+    lines: 12
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: isSettled
 strauss_links:

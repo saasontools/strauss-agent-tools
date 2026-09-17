@@ -55,7 +55,8 @@ strauss_verify:
 strauss_links:
   - target: decision.kb-ignore-anchored-per-location
     rel: informs
-strauss_status: accepted
+strauss_status: superseded
+strauss_superseded_by: decision.kb-ignore-reader-answers-as-git-does
 ---
 
 ## Decision
