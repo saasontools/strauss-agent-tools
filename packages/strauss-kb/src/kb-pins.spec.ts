@@ -77,6 +77,18 @@ describe("kb-pins", () => {
     ).toBe(`scratch/\n${STRAUSS_IGNORE_BLOCK}`);
   });
 
+  // Same rule as the store's: deleting it is how you decline it.
+  test("does not rewrite the ignore file once the local manifest exists", async () => {
+    await pinBase(store, workspace, bundle, at, { layer: "local" });
+    rmSync(join(workspace, ".strauss", GITIGNORE_FILE));
+
+    await pinBase(store, workspace, join(workspace, "other", "kb"), at, {
+      layer: "local",
+    });
+
+    expect(existsSync(join(workspace, ".strauss", GITIGNORE_FILE))).toBe(false);
+  });
+
   // A project pin is committed, and writes the same file as the local one —
   // it must not drag an ignore rule in with it.
   test("writing a project pin adds no ignore file", async () => {

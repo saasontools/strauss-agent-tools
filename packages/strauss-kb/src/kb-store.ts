@@ -1,4 +1,5 @@
 import {
+  access,
   appendFile,
   link,
   mkdir,
@@ -83,6 +84,14 @@ import {
 export const KB_DIR = join(".strauss", "kb");
 
 const STORE_OWNED = new Set(STORE_OWNED_FILES);
+
+/** Whether a path is there at all; any failure to look answers "no". */
+async function exists(path: string): Promise<boolean> {
+  return access(path).then(
+    () => true,
+    () => false,
+  );
+}
 
 export type KbLogger = {
   info?(entry: Record<string, unknown>): void;
@@ -1101,6 +1110,10 @@ export class KbStore {
    * bundle at any path — `.strauss/kb` or a committed one — excludes its own.
    */
   private async ensureGitignore(root: string): Promise<void> {
+    // Only at the base's birth. `record` runs before the first log append, so
+    // no log means nothing has been written here yet; once there is one, a
+    // missing `.gitignore` is a decision someone made, not a defect to repair.
+    if (await exists(join(root, LOG_FILE))) return;
     await this.ensureDeclared(
       root,
       GITIGNORE_FILE,

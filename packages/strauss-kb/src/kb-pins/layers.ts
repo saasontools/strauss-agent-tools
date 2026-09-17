@@ -1,4 +1,10 @@
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import {
+  access,
+  appendFile,
+  mkdir,
+  readFile,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
@@ -81,8 +87,19 @@ export async function writePinsLayer(
 ): Promise<void> {
   const file = layerFile(workspaceDir, layer);
   await mkdir(dirname(file), { recursive: true });
-  if (layer === "local") await ensureLocalPinsIgnored(dirname(file));
+  // Only when the personal manifest is first written — see the store's
+  // `ensureGitignore`: a rule deleted later is a decision, not a defect.
+  const born = layer === "local" && !(await exists(file));
+  if (born) await ensureLocalPinsIgnored(dirname(file));
   await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+/** Whether a path is there at all; any failure to look answers "no". */
+async function exists(path: string): Promise<boolean> {
+  return access(path).then(
+    () => true,
+    () => false,
+  );
 }
 
 /**

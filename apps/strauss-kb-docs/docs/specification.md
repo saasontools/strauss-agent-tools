@@ -130,15 +130,20 @@ overlapping rules without complaint. To keep the index tracked, put a `!` line
 after the block: git resolves repeated matches by last one wins, and the block
 is left alone once it is there.
 
-Like the `.gitattributes` step, this is best effort: a file it cannot write is
-a file in `git status`, not a failed mutation. Deleting it gets the block back
-on the next write.
+It is written **once, when the base is born** — the first mutation, before the
+first log line. After that the file is yours: delete it and it stays deleted,
+which is the only way to decline the rule. Unlike the `.gitattributes` rule
+beside it, which is repaired whenever it goes missing.
+
+Best effort either way: a file it cannot write is a line in `git status`, not a
+failed mutation.
 
 Personal pins are the one exclusion a base cannot carry, since
 `.strauss/kb-pins.local.json` sits outside it and a gitignore pattern cannot
-reach a parent. Writing the local pin layer therefore writes its own block into
-`<workspace>/.strauss/.gitignore`. The shared `kb-pins.json` beside it stays
-tracked.
+reach a parent. The first write of that manifest therefore writes its own block
+into `<workspace>/.strauss/.gitignore`, under the same rule: once the manifest
+exists, the ignore file is left alone. The shared `kb-pins.json` beside it
+stays tracked.
 
 ## Records
 

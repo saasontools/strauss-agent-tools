@@ -1,6 +1,7 @@
 /* eslint-disable no-empty-pattern -- vitest fixtures require object destructuring */
 import {
   appendFileSync,
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -1290,9 +1291,9 @@ describe(".gitignore", () => {
     );
   });
 
-  // The repair path: a base created before this block existed gains it on the
-  // next write, without a fresh bundle.
-  test("is repaired by setStatus (mutate), not only by write", async ({
+  // Deleting it is how you say no. Recreating it on the next mutation would
+  // make the tool argue, and there is no other way to decline the rule.
+  test("stays deleted once the base has been written to", async ({
     store,
     bundle,
   }) => {
@@ -1300,10 +1301,25 @@ describe(".gitignore", () => {
     unlinkSync(join(bundle, GITIGNORE_FILE));
 
     await store.setStatus(bundle, "fact.one", "rejected");
+    await store.write(bundle, fact("two"));
 
-    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_IGNORE_BLOCK,
-    );
+    expect(existsSync(join(bundle, GITIGNORE_FILE))).toBe(false);
+  });
+
+  // The `.gitattributes` rule beside it keeps its own repair behaviour; this
+  // only changes the file this change introduced.
+  test("does not change when .gitattributes is repaired", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+    unlinkSync(join(bundle, GITATTRIBUTES_FILE));
+    unlinkSync(join(bundle, GITIGNORE_FILE));
+
+    await store.write(bundle, fact("two"));
+
+    expect(existsSync(join(bundle, GITATTRIBUTES_FILE))).toBe(true);
+    expect(existsSync(join(bundle, GITIGNORE_FILE))).toBe(false);
   });
 
   // Same misreading as for `.gitattributes`: a read that fails with anything
