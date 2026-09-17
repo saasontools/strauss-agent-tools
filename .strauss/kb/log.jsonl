@@ -85,3 +85,9 @@
 {"at":"2026-09-17T18:22:07.070Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.kb-declaration-reads-repeat-per-mutation"}
 {"at":"2026-09-17T18:22:07.314Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.kb-gitignore-git-spec-unbounded-spawns"}
 {"at":"2026-09-17T18:22:07.850Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.ensure-declared-comment-outgrew-its-record"}
+{"at":"2026-09-17T18:23:23.755Z","by":"agent:author","operation":"anchor-resolve","conceptId":"decision.kb-ignore-idempotence-by-covered-files"}
+{"at":"2026-09-17T18:23:24.009Z","by":"agent:author","operation":"anchor-resolve","conceptId":"flow.kb-ignore-written-on-first-write"}
+{"at":"2026-09-17T18:23:24.271Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.committed-negation-disables-the-personal-pins-rule"}
+{"at":"2026-09-17T18:23:24.507Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.ignore-rationale-restated-in-four-homes"}
+{"at":"2026-09-17T18:23:24.725Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.ignore-reader-trims-leading-whitespace"}
+{"at":"2026-09-17T18:23:56.028Z","by":"agent:author","operation":"anchor-resolve","conceptId":"test-obligation.kb-companion-tracked"}

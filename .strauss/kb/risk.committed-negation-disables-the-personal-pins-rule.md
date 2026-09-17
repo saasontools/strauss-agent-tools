@@ -12,6 +12,11 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: isSettled
+    hash: "sha256:c6f6cbd74dacd44630541cf71c7820984083e6072367286c744164de6d0076ed"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:23:24.257Z"
+    lines: 3
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-pins/layers.ts
     symbol: ensureLocalPinsIgnored
     hash: "sha256:6da23b50aaecc182cabc04bc0d9264b9701234d6c9c5ed3f126a0d95cd1cde60"

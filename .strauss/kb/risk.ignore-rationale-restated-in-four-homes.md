@@ -12,10 +12,10 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: isSettled
-    hash: "sha256:7d64086d80fbff05dcad5e05a0b2b24ceb9a0fcf00c4c0a797c98ef31661ba8a"
+    hash: "sha256:c6f6cbd74dacd44630541cf71c7820984083e6072367286c744164de6d0076ed"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:00:51.577Z"
-    lines: 6
+    resolved_at: "2026-09-17T18:23:24.499Z"
+    lines: 3
     resolver: tree-sitter
 strauss_links:
   - target: decision.kb-ignore-idempotence-by-covered-files

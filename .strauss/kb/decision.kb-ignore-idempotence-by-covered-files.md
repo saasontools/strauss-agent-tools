@@ -35,17 +35,17 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: isSettled
-    hash: "sha256:7d64086d80fbff05dcad5e05a0b2b24ceb9a0fcf00c4c0a797c98ef31661ba8a"
+    hash: "sha256:c6f6cbd74dacd44630541cf71c7820984083e6072367286c744164de6d0076ed"
     hash_kind: ast
-    resolved_at: "2026-09-17T17:52:18.822Z"
-    lines: 6
+    resolved_at: "2026-09-17T18:23:23.738Z"
+    lines: 3
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: matchesChild
-    hash: "sha256:9617cb75b58fab47006f123318aa0ad53accbdd514d37dd8659e661180f9d104"
+    hash: "sha256:67ca83e74d9de493a3ea0128cb60993c1b50924122a3941a7f505a900d59065d"
     hash_kind: ast
-    resolved_at: "2026-09-17T17:52:18.823Z"
-    lines: 9
+    resolved_at: "2026-09-17T18:23:23.747Z"
+    lines: 6
     resolver: tree-sitter
 strauss_verify:
   - >-

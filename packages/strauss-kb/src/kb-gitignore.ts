@@ -133,13 +133,18 @@ export function ignoreRuleState(
   return verdicts.every((each) => each === "ignore") ? "ignored" : "missing";
 }
 
+/** Whether `contents` already answers for a rule, either way. */
+function isSettled(contents: string, rule: IgnoreRule): boolean {
+  return ignoreRuleState(contents, rule) !== "missing";
+}
+
 /** The patterns `contents` still lacks, in rule order. */
 export function missingIgnoreLines(
   contents: string,
   rules: readonly IgnoreRule[],
 ): string[] {
   return rules
-    .filter((rule) => ignoreRuleState(contents, rule) === "missing")
+    .filter((rule) => !isSettled(contents, rule))
     .map((rule) => rule.pattern);
 }
 

@@ -41,10 +41,10 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: KbStore.ensureDeclared
-    hash: "sha256:31722d6ef8c8a55c67f9e1df84048e1c8400a661489f1c72fa119ef6ec0cd4a6"
+    hash: "sha256:2bc4a14e63eb792f3420c25eeb4095067f2d8d00176ad0eab93a593b8b36cc4c"
     hash_kind: ast
-    resolved_at: "2026-09-17T17:52:24.467Z"
-    lines: 58
+    resolved_at: "2026-09-17T18:23:23.980Z"
+    lines: 68
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: KbStore.ensureGitignore
@@ -62,10 +62,10 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-pins/layers.ts
     symbol: writePinsLayer
-    hash: "sha256:c9d3026f7abf8e552679810778243d821448da59daf77f6502a7a2c110c03200"
+    hash: "sha256:6636f058b5767cb2ada30169e42221003ce002d60b662f357de054504c9ce475"
     hash_kind: ast
-    resolved_at: "2026-09-17T17:52:24.469Z"
-    lines: 10
+    resolved_at: "2026-09-17T18:23:24.003Z"
+    lines: 12
     resolver: tree-sitter
 strauss_verify:
   - setStatus on a base whose .gitignore was deleted restores it

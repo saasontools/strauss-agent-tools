@@ -21,6 +21,11 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: isSettled
+    hash: "sha256:c6f6cbd74dacd44630541cf71c7820984083e6072367286c744164de6d0076ed"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:23:24.719Z"
+    lines: 3
+    resolver: tree-sitter
 strauss_links:
   - target: decision.kb-ignore-idempotence-by-covered-files
     rel: informs

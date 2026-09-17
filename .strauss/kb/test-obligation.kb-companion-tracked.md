@@ -12,10 +12,10 @@ generated:
   at: "2026-09-15T07:45:35.071Z"
 strauss_anchors:
   - file: .strauss/kb-pins.json
-    hash: "sha256:6ebd0f7823c32a49ee6ecb1ee0bde0064041e4408233e87eeb763cd06fffe195"
+    hash: "sha256:b2ae955ff8910c20985854958003203678d7662a0abd85eb31a30c091874cc63"
     hash_kind: raw
-    resolved_at: "2026-09-15T07:46:43.069Z"
-    lines: 8
+    resolved_at: "2026-09-17T18:23:56.020Z"
+    lines: 20
 strauss_verify:
   - git ls-files --error-unmatch .strauss/kb/log.jsonl
 strauss_links:
