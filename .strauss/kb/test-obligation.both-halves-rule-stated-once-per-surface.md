@@ -13,14 +13,15 @@ generated:
 verified: []
 strauss_anchors:
   - file: packages/strauss-kb/ARCHITECTURE.md
-    hash: "sha256:a37af1477d3bfe5c2286ac6aac5fee39dee62abf704b95ee015ba3a9a00e22e6"
+    hash: "sha256:3d86d5feb596e74a012150b6c0aa05f54e8ae4c915407bf0f02d86585152a696"
     hash_kind: raw
-    resolved_at: "2026-09-17T19:10:56.359Z"
-    lines: 263
+    resolved_at: "2026-09-17T21:35:12.099Z"
+    lines: 268
 strauss_links:
   - target: risk.both-halves-rule-has-six-homes
     rel: satisfies
-strauss_status: open
+strauss_status: superseded
+strauss_superseded_by: test-obligation.the-edge-rule-is-stated-once-per-surface
 ---
 
 ## Obligation

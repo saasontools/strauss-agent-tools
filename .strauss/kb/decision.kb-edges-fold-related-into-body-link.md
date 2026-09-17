@@ -37,17 +37,17 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS
-    hash: "sha256:0648248fcc514e5b045b23b469c35de373e01569dcba06453f52b1d99505a63c"
+    hash: "sha256:95950bbd40c908b0d60a2d9156b6a95cef48e6b384ca27d0b36b674fb5f893a6"
     hash_kind: raw
-    resolved_at: "2026-09-15T07:43:48.074Z"
-    lines: 7
+    resolved_at: "2026-09-17T21:35:06.654Z"
+    lines: 6
     resolver: regex
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: edgeNeighbours
-    hash: "sha256:b76adc9df85f22433c21a81cea2f71a424e831a2d5c214402b812fd5444b3757"
+    hash: "sha256:1c2622d68ef5dddf5a64279db4791f922eed18f38cf5984c0cd5037d6402ffd1"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:55:59.861Z"
-    lines: 82
+    resolved_at: "2026-09-17T21:35:06.659Z"
+    lines: 70
     resolver: tree-sitter
 strauss_verify:
   - >-

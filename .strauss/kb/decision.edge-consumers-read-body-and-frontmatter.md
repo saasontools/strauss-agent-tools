@@ -71,24 +71,24 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS
-    hash: "sha256:0648248fcc514e5b045b23b469c35de373e01569dcba06453f52b1d99505a63c"
+    hash: "sha256:95950bbd40c908b0d60a2d9156b6a95cef48e6b384ca27d0b36b674fb5f893a6"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:53:51.266Z"
-    lines: 7
+    resolved_at: "2026-09-17T21:35:05.974Z"
+    lines: 6
     resolver: regex
-  - file: packages/strauss-kb/src/kb-edges.ts
-    symbol: bodyLinkTargets
-    hash: "sha256:fb2fe27fae159f26a5412004050446bf10f0cd24e6f0930bbb5aa2688848adff"
+  - file: packages/strauss-kb/src/body-citations.ts
+    symbol: bodyCitations
+    hash: "sha256:42158e6629ec8b9d5cc820f350337340a2e016d17e9df9ae67ff568fe234351b"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:27.464Z"
+    resolved_at: "2026-09-17T21:35:05.978Z"
     lines: 8
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences
-    hash: "sha256:3adae82cd75f5612c9a9826479dcb47361d4231822bdb7f20c41591346664ba2"
+    hash: "sha256:dc489e146f4ee68b4b8827d5de6b4fa8d897028d3293ca9f758f1d9c60c996b5"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:20:09.426Z"
-    lines: 30
+    resolved_at: "2026-09-17T21:35:05.979Z"
+    lines: 13
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/stale.ts
     symbol: staleReferences
@@ -98,11 +98,11 @@ strauss_anchors:
     lines: 9
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/model.ts
-    symbol: KB_REFERENCE_ORIGINS
-    hash: "sha256:0a35cfed1e27634042e7affa2a59d9aeee503935c7cccb63e5bd8ec3ced7085f"
+    symbol: KbOutboundReference
+    hash: "sha256:07bd76be16aa4576ba678cb5582ae0f4bfc949515f8d30618c5c89dc9a5a035f"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:57:20.224Z"
-    lines: 4
+    resolved_at: "2026-09-17T21:35:05.982Z"
+    lines: 5
     resolver: regex
   - file: packages/strauss-kb/src/kb-references/index.ts
     symbol: KbStaleReference
@@ -113,10 +113,10 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
-    hash: "sha256:63c69212ed7ce08687eadb436901301870ba4ffbada9656be72a1fb008d7d8e4"
+    hash: "sha256:37fcb846d49f6a7290d64f4327669afd3e50ff59a91b825c34dc6b3cf71cb19c"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:55:57.113Z"
-    lines: 169
+    resolved_at: "2026-09-17T21:35:05.986Z"
+    lines: 167
     resolver: tree-sitter
   - file: packages/strauss-kb/src/index.ts
     symbol: KbStaleReference
@@ -135,9 +135,10 @@ strauss_anchors:
 strauss_links:
   - target: risk.edge-kind-enumeration-stale
     rel: informs
-strauss_status: accepted
+strauss_status: superseded
 strauss_supersedes:
   - decision.kb-edges-fold-related-into-body-link
+strauss_superseded_by: decision.strauss-links-is-the-one-representation
 ---
 
 ## Decision

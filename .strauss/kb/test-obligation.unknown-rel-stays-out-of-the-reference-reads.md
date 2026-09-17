@@ -16,10 +16,10 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences
-    hash: "sha256:3adae82cd75f5612c9a9826479dcb47361d4231822bdb7f20c41591346664ba2"
+    hash: "sha256:dc489e146f4ee68b4b8827d5de6b4fa8d897028d3293ca9f758f1d9c60c996b5"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:26.651Z"
-    lines: 30
+    resolved_at: "2026-09-17T21:32:23.302Z"
+    lines: 13
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-links/inbound.ts
     symbol: inboundIndex

@@ -223,9 +223,9 @@ defaults to the working directory) and `withDiff` (`boolean`) optional.
 
 Returns `{ conceptId, packet, rebaselined, cosmetic }`; `packet` is `null` when
 the record has neither drift nor an unresolved reference. `packet.references`
-holds `outgoing` — what this record points at that no longer holds — and
-`incoming`, who still points at it, answered for a record that has itself
-stopped holding. It rebaselines `moved`
+holds `outgoing` — what this record's `strauss_links` point at that no longer
+holds — and `incoming`, who still points at it, answered for a record that has
+itself stopped holding. It rebaselines `moved`
 anchors and does nothing else to the record — never `verified[]`, never
 standing, never a link.
 
@@ -316,7 +316,7 @@ array, and this surface adds `depth`.
 Parameters: `bundlePath` and `conceptId` (the seed) required; `edges` (array of
 `typed-link`, `supersession`, `anchor`, `source`; default all four) and `depth`
 (positive integer, default 3) optional. `typed-link` follows only the **causal**
-rels — `related_to` is excluded for the same flooding reason body links are.
+rels — `related_to` is excluded because a bibliography floods a blast radius.
 
 ```json
 {
@@ -555,6 +555,17 @@ findingCount, healthy }`, where each group is
 `{ conceptId, title, status, note }`. A `superseded-but-cited` finding also
 carries `reference`: `{ from, target, targetStanding, origins, rels,
 replacedBy }`. Under `drifted` it also carries `packets` and `rebaselinable`.
+
+### `kb_mirror_links`
+
+As CLI [`mirror-links`](./cli-reference.md#mirror-links): the one-time
+migration that copies a record's prose citations into `strauss_links` as
+`related_to`. Parameters: `bundlePath` required, `dryRun` (`boolean`) optional.
+Returns `{ dryRun, recordCount, mirrored, pending }`, each entry
+`{ conceptId, added }`.
+
+**Run it once per base before upgrading.** Nothing reads a body for edges
+afterwards, and `kb_sweep` deletes what it cannot see.
 
 ### `kb_sweep`
 

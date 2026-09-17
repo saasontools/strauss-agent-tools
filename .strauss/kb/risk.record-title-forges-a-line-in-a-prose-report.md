@@ -16,17 +16,17 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/reassess.ts
     symbol: renderReassess
-    hash: "sha256:2112cd4c810f78f17accd83c5bceba2333813c6060ecc1ce388883479d9b801b"
+    hash: "sha256:836ca86477b52e3f29f08b288020bd62c1490e20f79710c092f169416110e8d3"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:28.404Z"
+    resolved_at: "2026-09-17T21:35:10.842Z"
     lines: 89
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/stale.ts
     symbol: liveReferencesTo
-    hash: "sha256:43e84b8cffeb3d0df826ac06fddd144eff3c1bc3f07e15a2a807fab801c54f0f"
+    hash: "sha256:8ce1d7d74bf8bb22327c317f5b320348ff2d8c91f28ba9feee252c079293bae2"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:34:28.313Z"
-    lines: 25
+    resolved_at: "2026-09-17T21:35:10.845Z"
+    lines: 24
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/doctor.ts
     symbol: render

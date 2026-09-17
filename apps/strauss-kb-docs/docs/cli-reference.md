@@ -353,12 +353,11 @@ what to do about a real change is the
 [skill's protocol](https://github.com/saasontools/strauss-agent-tools/blob/main/plugins/strauss-kb/skills/knowledge-base/SKILL.md).
 
 **References are the second half, and code drift is not required for them.** A
-record that still holds is asked what it points at that does not — both halves
-of the edge, prose citations and `strauss_links`, `related_to` included. A
-record that has itself stopped holding is asked the inverse: who still points
-at it, so the reader settling its replacement finds the open risks resting on
-the old answer. A record with neither drift nor an unresolved reference returns
-`packet: null`.
+record that still holds is asked what it points at that does not, reading
+`strauss_links` and `related_to` with it. A record that has itself stopped
+holding is asked the inverse: who still points at it, so the reader settling
+its replacement finds the open risks resting on the old answer. A record with
+neither drift nor an unresolved reference returns `packet: null`.
 
 ```bash
 strauss-kb reassess fact.region-key --with-diff
@@ -822,9 +821,9 @@ addresses (`symbol` and `span`), a malformed `span`, or a `side: "old"` with no
 `ref`. Per-record shape is enforced on every read, so a problem here means
 someone edited a file by hand.
 An unknown rel is an **error** and a link to a record that does not exist yet is
-a **warning** — the same tolerance for a prose citation of a record the bundle
-does not hold, reported once per pair however many ways it is stated: **exits 1
-on an error; warnings alone exit 0.**
+a **warning**. A body citation with no `strauss_links` entry beside it is also a
+warning, naming [`mirror-links`](#mirror-links) as the repair — this is the one
+place a record's prose is read. **Exits 1 on an error; warnings alone exit 0.**
 
 ```bash
 strauss-kb validate || echo "errors above"   # warnings alone still exit 0
@@ -892,6 +891,8 @@ Judgments worth knowing before reading one:
   not yet "older than N".
 - **`orphaned` counts incoming references only, and reads supersession one way.**
   Shared anchors and sources are co-location rather than reference.
+- **A reference is a `strauss_links` entry.** A citation in prose that nothing
+  mirrored is invisible here and reported by [`validate`](#validate).
 - **One finding per source/target pair**, however many ways the pair is stated.
   `superseded-but-cited` names the rels when the pointer is typed, and every
   finding carries the edge as `reference`.
@@ -918,15 +919,44 @@ post-merge commit.
 | `--terminal` | Required. Names the only scope it deletes: the three terminal statuses. |
 | `--dry-run`  | Report what would go, and delete nothing.                               |
 
-A record another **surviving** record points at — by typed link, by a citation
-in its prose, or by supersession — is kept and reported under `skipped`, with
-the ids holding it; an
+A record another **surviving** record points at — by typed link or by
+supersession — is kept and reported under `skipped`, with the ids holding it;
+an
 id the run could not remove is reported under `failed`. Each deletion is one
 `sweep` log entry; afterwards the index is rebuilt and the search index dropped.
 
 ```bash
 strauss-kb sweep --tag review --terminal --dry-run
 strauss-kb sweep --tag review --terminal
+```
+
+### `mirror-links`
+
+```
+mirror-links [--dry-run]
+```
+
+**Run this once per base, before upgrading.** It copies every markdown citation
+a record's prose makes into `strauss_links` as `related_to`, wherever the
+frontmatter does not already name that target. Afterwards nothing reads a body
+for edges.
+
+| Flag        | Effect                                            |
+| ----------- | ------------------------------------------------- |
+| `--dry-run` | Report what would be mirrored, and write nothing. |
+
+`related_to` is the only rel a citation can become: prose states a pointer, not
+a direction of dependence, and a target that already carries any rel keeps it.
+A link inside a fence or a code span is an example and is left alone. The
+migration is idempotent — a second run has nothing to do — and refuses to write
+on a [frozen base](#pin), where `--dry-run` still answers.
+
+A base that skips it loses every related edge that lived only in prose. In
+[`sweep`](#sweep) that is a deletion, not a missing warning.
+
+```bash
+strauss-kb mirror-links --dry-run
+strauss-kb mirror-links
 ```
 
 ### `schema`

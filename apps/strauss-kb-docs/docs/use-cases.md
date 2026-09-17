@@ -614,7 +614,7 @@ knowable; **it refuses rather than truncating** past its token budget, reporting
 the record count and every already-cut id; and **everything below the header is
 byte-identical** across runs over an unchanged base, so two packs can be diffed.
 
-The walk follows all five [edge kinds](./specification.md#edges) with the whole
+The walk follows all four [edge kinds](./specification.md#edges) with the whole
 rel vocabulary. With neither a size problem nor a root record in hand, the
 question is a point lookup — [`query`](./cli-reference.md#query).
 

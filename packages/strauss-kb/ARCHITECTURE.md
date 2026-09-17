@@ -72,12 +72,17 @@ bundle would drop the record instead of naming it. Tolerant read, strict write:
 `kb_impact` reports a superseded or rejected record and stops there. A withdrawn
 record's declared dependencies are not obligations anyone still owes.
 
-An edge is written in two places — a markdown link in the prose, a typed entry
-in `strauss_links` — and a record can carry either half alone, so every
-consumer reads both. Reading one half draws a graph the base does not have:
-`sweep` deleted records that were still cited in prose, and `doctor` missed a
-`related_to` at a superseded target. `bodyLinkTargets` and `kb-references/` are
-the shared readers.
+An edge is `strauss_links` and nothing else. A markdown link in a body renders
+the same claim for a reader that knows only OKF, and `compose` writes both at
+once, so a consumer that walked prose would count the edge twice and disagree
+the moment the two drifted.
+
+Two representations is what the package had, and it cost data: `sweep` read
+frontmatter only and deleted records still cited in prose, while `doctor` read
+prose only and missed a `related_to` at a superseded target. The repair was one
+representation, not two readers — `mirror-links` moved every existing citation
+into the frontmatter once, and `validate` is the only body read left, reporting
+that a record's prose and its links have come apart.
 
 ## Rejected: a format that needs a parser
 

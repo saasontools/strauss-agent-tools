@@ -34,10 +34,10 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/sweep.ts
     symbol: holderIndex
-    hash: "sha256:c460bf5de2dcf824331c6de809cdd860e6fa8d054adaf7303d3174d7cb1de54f"
+    hash: "sha256:d2c24ba5da81eb30c820a41af845b5b13b35e77a7cd59a39114345dd175c4d8d"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:53:58.371Z"
-    lines: 21
+    resolved_at: "2026-09-17T21:32:22.650Z"
+    lines: 19
     resolver: tree-sitter
 strauss_links:
   - target: decision.edge-consumers-read-body-and-frontmatter

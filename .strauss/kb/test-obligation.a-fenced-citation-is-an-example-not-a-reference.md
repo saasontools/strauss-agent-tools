@@ -11,11 +11,11 @@ generated:
   at: "2026-09-17T19:37:52.158Z"
 verified: []
 strauss_anchors:
-  - file: packages/strauss-kb/src/kb-edges.ts
-    symbol: bodyLinkTargets
-    hash: "sha256:fb2fe27fae159f26a5412004050446bf10f0cd24e6f0930bbb5aa2688848adff"
+  - file: packages/strauss-kb/src/body-citations.ts
+    symbol: bodyCitations
+    hash: "sha256:42158e6629ec8b9d5cc820f350337340a2e016d17e9df9ae67ff568fe234351b"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:27.001Z"
+    resolved_at: "2026-09-17T21:35:11.929Z"
     lines: 8
     resolver: tree-sitter
 strauss_links:

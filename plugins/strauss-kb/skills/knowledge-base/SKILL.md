@@ -157,7 +157,9 @@ strauss-kb doctor     # health sweep: expired, unconfirmed, orphaned records
 ```
 
 `validate` catches disagreeing supersession pointers, an assumption citing
-sources, a link or a prose citation naming a record the bundle does not hold.
+sources, a link naming a record the bundle does not hold, and a prose citation
+`strauss_links` does not declare — `strauss-kb mirror-links` is the repair, and
+the one-time migration every base runs before upgrading.
 
 `doctor` never writes; groups: expired, expiring, unverified, aging, orphaned,
 broken supersession, superseded-but-cited, drifted, unchecked. `--json` for

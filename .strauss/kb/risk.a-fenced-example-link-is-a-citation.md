@@ -12,26 +12,26 @@ generated:
   at: "2026-09-17T19:30:55.246Z"
 verified: []
 strauss_anchors:
-  - file: packages/strauss-kb/src/kb-edges.ts
-    symbol: bodyLinkTargets
-    hash: "sha256:fb2fe27fae159f26a5412004050446bf10f0cd24e6f0930bbb5aa2688848adff"
+  - file: packages/strauss-kb/src/body-citations.ts
+    symbol: bodyCitations
+    hash: "sha256:42158e6629ec8b9d5cc820f350337340a2e016d17e9df9ae67ff568fe234351b"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:27.942Z"
+    resolved_at: "2026-09-17T21:35:08.816Z"
     lines: 8
     resolver: tree-sitter
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
-    hash: "sha256:63c69212ed7ce08687eadb436901301870ba4ffbada9656be72a1fb008d7d8e4"
+    hash: "sha256:37fcb846d49f6a7290d64f4327669afd3e50ff59a91b825c34dc6b3cf71cb19c"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:27.951Z"
-    lines: 165
+    resolved_at: "2026-09-17T21:35:08.824Z"
+    lines: 167
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/sweep.ts
     symbol: holderIndex
-    hash: "sha256:c460bf5de2dcf824331c6de809cdd860e6fa8d054adaf7303d3174d7cb1de54f"
+    hash: "sha256:d2c24ba5da81eb30c820a41af845b5b13b35e77a7cd59a39114345dd175c4d8d"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:27.953Z"
-    lines: 21
+    resolved_at: "2026-09-17T21:35:08.828Z"
+    lines: 19
     resolver: tree-sitter
 strauss_links:
   - target: decision.edge-consumers-read-body-and-frontmatter

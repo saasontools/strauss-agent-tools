@@ -16,17 +16,17 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences
-    hash: "sha256:3adae82cd75f5612c9a9826479dcb47361d4231822bdb7f20c41591346664ba2"
+    hash: "sha256:dc489e146f4ee68b4b8827d5de6b4fa8d897028d3293ca9f758f1d9c60c996b5"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:20:41.492Z"
-    lines: 30
+    resolved_at: "2026-09-17T21:35:11.475Z"
+    lines: 13
     resolver: tree-sitter
   - file: packages/strauss-kb/src/doctor.ts
     symbol: supersededButCited
-    hash: "sha256:4ca6c6b71645d629ee0a59deb7e6f3c65147d30d5bf7f8b5737b4a566121193f"
+    hash: "sha256:3f43b815b716c07413bac0d09718946d4cd19cb20aafad9c0b9ea334806f1ee8"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:20:41.500Z"
-    lines: 25
+    resolved_at: "2026-09-17T21:35:11.483Z"
+    lines: 22
     resolver: tree-sitter
 strauss_links:
   - target: decision.orphaned-counts-typed-links

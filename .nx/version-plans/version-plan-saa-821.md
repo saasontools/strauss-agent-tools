@@ -2,13 +2,19 @@
 "@saasontools/strauss-kb": patch
 ---
 
-Every consumer of the edge graph reads both halves of a reference — a markdown
-citation in the prose and a `strauss_links` entry. `sweep` keeps a record cited
-only from a surviving record's body, where it used to delete it; `validate`
-warns on a prose citation of a record the bundle does not hold; `doctor`'s
-`superseded-but-cited` and `orphaned` see typed links, and a
-`superseded-but-cited` finding carries the edge as `reference`. A rel outside the closed vocabulary is
-skipped by every reference read, as it already was by the edge walk. `reassess`
-answers with no code drift at all: `packet.references.outgoing` is what the
-record points at that no longer holds, `incoming` is who still points at a
-record that has itself been replaced.
+`strauss_links` is the one representation of an edge, and a markdown link in a
+record's body is its rendering.
+
+**Run `strauss-kb mirror-links` once per base before upgrading.** The new
+one-time migration copies every prose citation into `strauss_links` as
+`related_to`, wherever the frontmatter does not already name that target. A base
+that skips it loses every related edge that lived only in prose — in `sweep`
+that is a deletion, not a missing warning.
+
+`compose` now stores `relatedConceptIds` as `related_to` links as well as
+rendering the sentence, so a new record cannot regress. `body-link` leaves
+`KbEdgeKind`, and `sweep`, `doctor`, `reassess` and `pack` read frontmatter
+alone; `doctor`'s `superseded-but-cited` sees typed links, names the rels, and
+carries the edge as `reference`; `reassess` answers with no code drift at all,
+through `packet.references`. `validate` keeps the only body read: a citation
+`strauss_links` does not declare is a warning naming the migration.

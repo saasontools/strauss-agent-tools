@@ -23,17 +23,17 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/sweep.ts
     symbol: holderIndex
-    hash: "sha256:c460bf5de2dcf824331c6de809cdd860e6fa8d054adaf7303d3174d7cb1de54f"
+    hash: "sha256:d2c24ba5da81eb30c820a41af845b5b13b35e77a7cd59a39114345dd175c4d8d"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:30.351Z"
-    lines: 21
+    resolved_at: "2026-09-17T21:35:08.609Z"
+    lines: 19
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences
-    hash: "sha256:3adae82cd75f5612c9a9826479dcb47361d4231822bdb7f20c41591346664ba2"
+    hash: "sha256:dc489e146f4ee68b4b8827d5de6b4fa8d897028d3293ca9f758f1d9c60c996b5"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:30.352Z"
-    lines: 30
+    resolved_at: "2026-09-17T21:35:08.610Z"
+    lines: 13
     resolver: tree-sitter
 strauss_links:
   - target: test-obligation.unknown-rel-stays-untraversable

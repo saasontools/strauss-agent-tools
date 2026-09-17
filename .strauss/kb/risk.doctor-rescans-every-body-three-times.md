@@ -21,17 +21,17 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/doctor.ts
     symbol: supersededButCited
-    hash: "sha256:4ca6c6b71645d629ee0a59deb7e6f3c65147d30d5bf7f8b5737b4a566121193f"
+    hash: "sha256:3f43b815b716c07413bac0d09718946d4cd19cb20aafad9c0b9ea334806f1ee8"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:20:41.923Z"
-    lines: 25
+    resolved_at: "2026-09-17T21:35:09.173Z"
+    lines: 22
     resolver: tree-sitter
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
-    hash: "sha256:63c69212ed7ce08687eadb436901301870ba4ffbada9656be72a1fb008d7d8e4"
+    hash: "sha256:37fcb846d49f6a7290d64f4327669afd3e50ff59a91b825c34dc6b3cf71cb19c"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:20:41.927Z"
-    lines: 165
+    resolved_at: "2026-09-17T21:35:09.178Z"
+    lines: 167
     resolver: tree-sitter
 strauss_links:
   - target: decision.edge-consumers-read-body-and-frontmatter
