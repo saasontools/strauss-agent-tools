@@ -123,13 +123,18 @@ A rule is settled by what git already excludes, not by matching this line: a
 pattern of your own covering the database _and_ its sidecars suppresses it, one
 naming only `.index.sqlite` does not, and a `!` negation is left alone — git
 resolves repeated matches by last one wins, so appending over it would overrule
-the choice to track the file. Deleting the file gets it back on the next write.
+the choice to track the file. Reading a line means reading it as git does,
+leading whitespace and all; anything past `*` and `?` is matched literally, so
+an unrecognised construct costs a redundant rule rather than a missing one.
+Deleting the file gets it back on the next write, and a path checked in as a
+symlink is left alone.
 
 Personal pins are the one exclusion a base cannot carry, since
 `.strauss/kb-pins.local.json` sits outside it and a gitignore pattern cannot
 reach a parent. Writing the local pin layer therefore writes
 `/kb-pins.local.json` into `<workspace>/.strauss/.gitignore`, under the same
-rules. The shared `kb-pins.json` beside it stays tracked.
+rules. The shared `kb-pins.json` beside it stays tracked, and `pin --local`
+reports a rule it could not put in place — that layer has no log of its own.
 
 ## Records
 
