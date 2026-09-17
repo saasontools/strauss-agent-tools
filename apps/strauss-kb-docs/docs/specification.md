@@ -23,7 +23,8 @@ enforce it, so it cannot drift from what a write will accept.
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
   .gitattributes      merge      store-owned, written on first write
-  .index.sqlite       search     derived, gitignored
+  .gitignore          exclusions store-owned, written on first write
+  .index.sqlite       search     derived, excluded by .gitignore
 ```
 
 The default base is `.strauss/kb`, relative to the working directory;
@@ -104,6 +105,31 @@ conflict markers in `log.jsonl`. Reads skip every marker line — `<<<<<<<`,
 `=======`, `>>>>>>>`, and diff3's `|||||||` base section — keep both sides'
 entries, and warn once for the file.
 :::
+
+### `.gitignore` and what is not committed
+
+The search index is derived from the records beside it, so the same first write
+excludes it and the sidecars SQLite writes next to it:
+
+```
+/.index.sqlite*
+```
+
+The leading slash anchors the rule to the base that owns it, so a base at any
+`--bundle` path excludes its own and nothing above it. Records, `log.jsonl`,
+`INDEX.md`, `.gitattributes` and this file stay tracked.
+
+A rule is settled by what git already excludes, not by matching this line: a
+pattern of your own covering the database _and_ its sidecars suppresses it, one
+naming only `.index.sqlite` does not, and a `!` negation is left alone — git
+resolves repeated matches by last one wins, so appending over it would overrule
+the choice to track the file. Deleting the file gets it back on the next write.
+
+Personal pins are the one exclusion a base cannot carry, since
+`.strauss/kb-pins.local.json` sits outside it and a gitignore pattern cannot
+reach a parent. Writing the local pin layer therefore writes
+`/kb-pins.local.json` into `<workspace>/.strauss/.gitignore`, under the same
+rules. The shared `kb-pins.json` beside it stays tracked.
 
 ## Records
 

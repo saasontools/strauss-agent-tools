@@ -811,7 +811,7 @@ pinned. Idempotent — re-pinning changes nothing unless a flag below is given.
 | `--mode full`    | preload the whole base into the block regardless of the full-under threshold     |
 | `--mode index`   | never upgrade to bodies                                                          |
 | `--profiles a,b` | comma-separated context profiles this pin surfaces in. Absent: all of them.      |
-| `--local`        | write `.strauss/kb-pins.local.json` (personal, gitignored)                       |
+| `--local`        | write `.strauss/kb-pins.local.json` (personal; writing it ignores it)            |
 | `--user`         | write `~/.strauss/kb-pins.json` (every workspace)                                |
 | _(neither)_      | write `.strauss/kb-pins.json`, the committed project manifest — the default      |
 | `--frozen`       | mark the base concluded: write commands refuse and `context` labels it read-only |

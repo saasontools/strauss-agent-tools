@@ -43,7 +43,8 @@ _not_ adopted.
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
   .gitattributes      merge      store-owned, written on first write
-  .index.sqlite       search     derived, gitignored
+  .gitignore          exclusions store-owned, written on first write
+  .index.sqlite       search     derived, excluded by .gitignore
 ```
 
 The default base is `.strauss/kb` relative to the working directory; every
