@@ -1,136 +1,99 @@
 import { describe, expect, test } from "vitest";
 import {
-  appendIgnoreLines,
-  BUNDLE_GITIGNORE_BLOCK,
-  BUNDLE_IGNORE_RULES,
-  missingIgnoreLines,
-  STRAUSS_GITIGNORE_BLOCK,
-  STRAUSS_IGNORE_RULES,
+  appendIgnoreBlock,
+  BUNDLE_IGNORE_BLOCK,
+  ignoreBlockState,
+  STRAUSS_IGNORE_BLOCK,
 } from "./kb-gitignore.js";
 
-describe("the rules themselves", () => {
-  test("anchor each pattern to its own directory, never reaching up", () => {
-    expect(BUNDLE_GITIGNORE_BLOCK).toBe("/.index.sqlite*\n");
-    expect(STRAUSS_GITIGNORE_BLOCK).toBe("/kb-pins.local.json\n");
+const BUNDLE = [
+  "# BEGIN strauss-kb",
+  "# Derived, rebuilt from the records beside it.",
+  "/.index.sqlite*",
+  "# END strauss-kb",
+  "",
+].join("\n");
+
+describe("the blocks themselves", () => {
+  test("carry their markers and an anchored pattern", () => {
+    expect(BUNDLE_IGNORE_BLOCK.text).toBe(BUNDLE);
+    expect(STRAUSS_IGNORE_BLOCK.text).toContain("/kb-pins.local.json");
+  });
+
+  // The markers are what makes a later rule a revision rather than a second
+  // append, so they have to be found in a file that has drifted around them.
+  test("are found in a file that has grown around them", () => {
+    const grown = `*.tmp\n${BUNDLE}scratch/\n`;
+
+    expect(ignoreBlockState(grown, BUNDLE_IGNORE_BLOCK)).toBe("present");
   });
 });
 
-describe("missingIgnoreLines", () => {
-  test("asks for the rule a fresh file lacks", () => {
-    expect(missingIgnoreLines("", BUNDLE_IGNORE_RULES)).toEqual([
-      "/.index.sqlite*",
-    ]);
+describe("ignoreBlockState", () => {
+  test("is missing for an empty file, present once written", () => {
+    expect(ignoreBlockState("", BUNDLE_IGNORE_BLOCK)).toBe("missing");
+    expect(ignoreBlockState(BUNDLE, BUNDLE_IGNORE_BLOCK)).toBe("present");
   });
 
-  test("asks for nothing once the block is present", () => {
-    expect(
-      missingIgnoreLines(BUNDLE_GITIGNORE_BLOCK, BUNDLE_IGNORE_RULES),
-    ).toEqual([]);
+  // git resolves repeated matches by last one wins, so writing the block over
+  // a `!` line would overrule a deliberate choice to track the file.
+  test("reads a literal negation of any covered file, sidecars included", () => {
+    for (const line of [
+      "!.index.sqlite\n",
+      "!/.index.sqlite\n",
+      "!.index.sqlite-wal\n",
+      "*.tmp\n!.index.sqlite-shm\n",
+    ]) {
+      expect(ignoreBlockState(line, BUNDLE_IGNORE_BLOCK)).toBe("unignored");
+    }
   });
 
-  test("asks for nothing when a user's own pattern already covers the files", () => {
-    expect(missingIgnoreLines("*.sqlite*\n", BUNDLE_IGNORE_RULES)).toEqual([]);
-    expect(missingIgnoreLines(".index.sqlite*\n", BUNDLE_IGNORE_RULES)).toEqual(
-      [],
+  // A glob in a negation is not read: reading it would mean taking on git's
+  // matching semantics, which is the whole cost this design refuses to pay.
+  // The block is written, and git's last-one-wins settles it our way.
+  test("does not read a glob negation, and says so by writing the block", () => {
+    expect(ignoreBlockState("!*.sqlite*\n", BUNDLE_IGNORE_BLOCK)).toBe(
+      "missing",
     );
   });
 
-  // The sidecars are the point: a pattern naming the database alone leaves
-  // `-wal` and `-shm` tracked, so the rule is still owed.
-  test("still asks when a user's pattern covers the database but not its sidecars", () => {
-    expect(missingIgnoreLines("/.index.sqlite\n", BUNDLE_IGNORE_RULES)).toEqual(
-      ["/.index.sqlite*"],
+  // The committed manifest must stay trackable, and it is not a covered name.
+  test("the pins block is not negated by a rule about the shared manifest", () => {
+    expect(ignoreBlockState("!kb-pins.json\n", STRAUSS_IGNORE_BLOCK)).toBe(
+      "missing",
     );
-  });
-
-  // git resolves repeated matches by "last one wins", so appending over a
-  // negation would overrule a deliberate choice to track the file.
-  test("leaves a deliberate negation alone", () => {
     expect(
-      missingIgnoreLines("*.sqlite*\n!.index.sqlite\n", BUNDLE_IGNORE_RULES),
-    ).toEqual([]);
-  });
-
-  // git keeps leading whitespace as part of the pattern, so `  *.sqlite*`
-  // matches a name starting with two spaces and covers nothing here. Reading
-  // it as a match is the one wrong direction: a redundant rule is harmless, a
-  // missing one leaves the index tracked.
-  test("gives a leading-whitespace pattern the meaning git gives it", () => {
-    expect(missingIgnoreLines("  *.sqlite*\n", BUNDLE_IGNORE_RULES)).toEqual([
-      "/.index.sqlite*",
-    ]);
-    expect(
-      missingIgnoreLines("*.sqlite*\n  !.index.sqlite\n", BUNDLE_IGNORE_RULES),
-    ).toEqual([]);
-  });
-
-  test("strips trailing whitespace and a CRLF line ending", () => {
-    expect(missingIgnoreLines("*.sqlite*  \r\n", BUNDLE_IGNORE_RULES)).toEqual(
-      [],
-    );
-  });
-
-  // A regex of adjacent `[^/]*` groups backtracks for minutes on this line;
-  // the scan answers in microseconds. The file is data that arrives with a
-  // clone, and every mutation reads it synchronously.
-  test("answers a pathological run of stars immediately", () => {
-    const started = performance.now();
-
-    expect(
-      missingIgnoreLines(`${"*".repeat(40)}X\n`, BUNDLE_IGNORE_RULES),
-    ).toEqual(["/.index.sqlite*"]);
-
-    expect(performance.now() - started).toBeLessThan(100);
-  });
-
-  test("ignores comments and blank lines", () => {
-    expect(
-      missingIgnoreLines("# /.index.sqlite*\n\n", BUNDLE_IGNORE_RULES),
-    ).toEqual(["/.index.sqlite*"]);
-  });
-
-  // A directory pattern matches no file, and a pattern with a path separator
-  // addresses something deeper than the file beside the ignore file.
-  test("does not credit a directory pattern or a deeper path", () => {
-    expect(
-      missingIgnoreLines(".index.sqlite*/\n", BUNDLE_IGNORE_RULES),
-    ).toEqual(["/.index.sqlite*"]);
-    expect(
-      missingIgnoreLines("kb/.index.sqlite*\n", BUNDLE_IGNORE_RULES),
-    ).toEqual(["/.index.sqlite*"]);
-  });
-
-  // The committed manifest must stay trackable: the rule names the personal
-  // file exactly, and `kb-pins.json` is not a prefix match for it.
-  test("the local-pins rule does not cover the committed manifest", () => {
-    expect(missingIgnoreLines("/kb-pins.json\n", STRAUSS_IGNORE_RULES)).toEqual(
-      ["/kb-pins.local.json"],
-    );
+      ignoreBlockState("!kb-pins.local.json\n", STRAUSS_IGNORE_BLOCK),
+    ).toBe("unignored");
   });
 });
 
-describe("appendIgnoreLines", () => {
+describe("appendIgnoreBlock", () => {
   test("adds no leading separator to an empty file", () => {
-    expect(appendIgnoreLines("", BUNDLE_IGNORE_RULES)).toBe(
-      BUNDLE_GITIGNORE_BLOCK,
-    );
+    expect(appendIgnoreBlock("", BUNDLE_IGNORE_BLOCK)).toBe(BUNDLE);
   });
 
   test("adds no separator when the existing content ends in a newline", () => {
-    expect(appendIgnoreLines("*.tmp\n", BUNDLE_IGNORE_RULES)).toBe(
-      BUNDLE_GITIGNORE_BLOCK,
-    );
+    expect(appendIgnoreBlock("*.tmp\n", BUNDLE_IGNORE_BLOCK)).toBe(BUNDLE);
   });
 
   test("adds a separating newline when the existing content does not end in one", () => {
-    expect(appendIgnoreLines("*.tmp", BUNDLE_IGNORE_RULES)).toBe(
-      `\n${BUNDLE_GITIGNORE_BLOCK}`,
+    expect(appendIgnoreBlock("*.tmp", BUNDLE_IGNORE_BLOCK)).toBe(`\n${BUNDLE}`);
+  });
+
+  test("appends nothing when the block is already there", () => {
+    expect(appendIgnoreBlock(BUNDLE, BUNDLE_IGNORE_BLOCK)).toBe("");
+  });
+
+  test("appends nothing over a negation", () => {
+    expect(appendIgnoreBlock("!.index.sqlite-wal\n", BUNDLE_IGNORE_BLOCK)).toBe(
+      "",
     );
   });
 
-  test("returns nothing to append when the rule is already settled", () => {
-    expect(appendIgnoreLines(BUNDLE_GITIGNORE_BLOCK, BUNDLE_IGNORE_RULES)).toBe(
-      "",
-    );
+  // A pattern of the reader's own that already covers the files gets a second,
+  // overlapping rule. git resolves it silently — the git suite pins that.
+  test("writes the block beside an equivalent rule of the reader's own", () => {
+    expect(appendIgnoreBlock("*.sqlite*\n", BUNDLE_IGNORE_BLOCK)).toBe(BUNDLE);
   });
 });

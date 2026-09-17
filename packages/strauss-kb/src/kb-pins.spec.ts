@@ -22,7 +22,7 @@ import {
   readPinsLayer,
   unpinBase,
 } from "./kb-pins/index.js";
-import { STRAUSS_GITIGNORE_BLOCK, GITIGNORE_FILE } from "./kb-gitignore.js";
+import { GITIGNORE_FILE, STRAUSS_IGNORE_BLOCK } from "./kb-gitignore.js";
 import { KbStore } from "./kb-store.js";
 
 describe("kb-pins", () => {
@@ -60,7 +60,7 @@ describe("kb-pins", () => {
 
     expect(
       readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
-    ).toBe(STRAUSS_GITIGNORE_BLOCK);
+    ).toBe(STRAUSS_IGNORE_BLOCK.text);
   });
 
   test("keeps a user's own .strauss ignore rules and adds no duplicate", async () => {
@@ -75,7 +75,7 @@ describe("kb-pins", () => {
 
     expect(
       readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
-    ).toBe(`scratch/\n${STRAUSS_GITIGNORE_BLOCK}`);
+    ).toBe(`scratch/\n${STRAUSS_IGNORE_BLOCK.text}`);
   });
 
   // Respecting an explicit negation is the rule; doing it silently is not —

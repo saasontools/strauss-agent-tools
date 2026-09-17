@@ -8,11 +8,10 @@ import {
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
-  appendIgnoreLines,
+  appendIgnoreBlock,
   GITIGNORE_FILE,
-  ignoreRuleState,
-  LOCAL_PINS_RULE,
-  STRAUSS_IGNORE_RULES,
+  ignoreBlockState,
+  STRAUSS_IGNORE_BLOCK,
 } from "../kb-gitignore.js";
 import { KbPinsMalformedError } from "./errors.js";
 import {
@@ -118,7 +117,7 @@ async function ensureLocalPinsIgnored(dir: string): Promise<string | null> {
       try {
         // Exclusive: a writer that won the race between our lstat and our
         // write already put the rule there, and must not be truncated.
-        await writeFile(target, appendIgnoreLines("", STRAUSS_IGNORE_RULES), {
+        await writeFile(target, appendIgnoreBlock("", STRAUSS_IGNORE_BLOCK), {
           encoding: "utf8",
           flag: "wx",
         });
@@ -130,10 +129,10 @@ async function ensureLocalPinsIgnored(dir: string): Promise<string | null> {
     }
 
     const existing = await readFile(target, "utf8");
-    if (ignoreRuleState(existing, LOCAL_PINS_RULE) === "unignored") {
-      return `${target} un-ignores ${LOCAL_PINS_RULE.pattern}; the rule was left unwritten`;
+    if (ignoreBlockState(existing, STRAUSS_IGNORE_BLOCK) === "unignored") {
+      return `${target} un-ignores ${STRAUSS_IGNORE_BLOCK.patterns.join(", ")}; the rule was left unwritten`;
     }
-    const addition = appendIgnoreLines(existing, STRAUSS_IGNORE_RULES);
+    const addition = appendIgnoreBlock(existing, STRAUSS_IGNORE_BLOCK);
     if (addition) await appendFile(target, addition, "utf8");
     return null;
   } catch (error) {

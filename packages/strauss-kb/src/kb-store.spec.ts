@@ -32,7 +32,7 @@ import {
   KbWriteConflictError,
 } from "./kb-errors.js";
 import { GITATTRIBUTES_BLOCK, GITATTRIBUTES_FILE } from "./kb-gitattributes.js";
-import { BUNDLE_GITIGNORE_BLOCK, GITIGNORE_FILE } from "./kb-gitignore.js";
+import { BUNDLE_IGNORE_BLOCK, GITIGNORE_FILE } from "./kb-gitignore.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
 import type { KbRecord } from "./kb-record.schema.js";
@@ -1260,11 +1260,11 @@ describe(".gitignore", () => {
     await store.write(bundle, fact("one"));
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_GITIGNORE_BLOCK,
+      BUNDLE_IGNORE_BLOCK.text,
     );
   });
 
-  test("appends the rule to a user's .gitignore, keeping what is already there", async ({
+  test("appends the block to a user's .gitignore, keeping what is already there", async ({
     store,
     bundle,
   }) => {
@@ -1274,11 +1274,11 @@ describe(".gitignore", () => {
     await store.write(bundle, fact("one"));
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      `scratch/\n${BUNDLE_GITIGNORE_BLOCK}`,
+      `scratch/\n${BUNDLE_IGNORE_BLOCK.text}`,
     );
   });
 
-  test("is left alone on a second write once the rule is present", async ({
+  test("is left alone on a second write once the block is present", async ({
     store,
     bundle,
   }) => {
@@ -1287,11 +1287,11 @@ describe(".gitignore", () => {
     await store.write(bundle, fact("two"));
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_GITIGNORE_BLOCK,
+      BUNDLE_IGNORE_BLOCK.text,
     );
   });
 
-  // The repair path: a base created before this rule existed gains it on the
+  // The repair path: a base created before this block existed gains it on the
   // next write, without a fresh bundle.
   test("is repaired by setStatus (mutate), not only by write", async ({
     store,
@@ -1303,7 +1303,7 @@ describe(".gitignore", () => {
     await store.setStatus(bundle, "fact.one", "rejected");
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_GITIGNORE_BLOCK,
+      BUNDLE_IGNORE_BLOCK.text,
     );
   });
 
@@ -1353,24 +1353,6 @@ describe(".gitignore", () => {
     );
   });
 
-  // The whole write path against a line that a compiled regex cannot answer:
-  // 18 adjacent stars backtrack for minutes, synchronously, inside the store.
-  test("a pathological ignore line does not wedge the write", async ({
-    store,
-    bundle,
-  }) => {
-    mkdirSync(bundle, { recursive: true });
-    writeFileSync(join(bundle, GITIGNORE_FILE), `${"*".repeat(18)}X\n`);
-    const started = performance.now();
-
-    await store.write(bundle, fact("one"));
-
-    expect(performance.now() - started).toBeLessThan(1000);
-    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toContain(
-      "/.index.sqlite*",
-    );
-  });
-
   // A base may check this path in as a symlink; appending through it would
   // write our line into whatever it points at, outside the base.
   test("a symlinked .gitignore is refused, and the write still succeeds", async ({
@@ -1410,7 +1392,7 @@ describe(".gitignore", () => {
     ]);
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_GITIGNORE_BLOCK,
+      BUNDLE_IGNORE_BLOCK.text,
     );
     expect(warnings).toEqual([]);
   });

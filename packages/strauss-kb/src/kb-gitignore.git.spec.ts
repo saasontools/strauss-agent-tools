@@ -11,7 +11,7 @@ import { join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { composeRecord } from "./compose.js";
 import { GITATTRIBUTES_FILE } from "./kb-gitattributes.js";
-import { GITIGNORE_FILE, SEARCH_INDEX_RULE } from "./kb-gitignore.js";
+import { BUNDLE_IGNORE_BLOCK, GITIGNORE_FILE } from "./kb-gitignore.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { pinBase, PINS_FILE, PINS_LOCAL_FILE } from "./kb-pins/index.js";
 import { LOG_FILE } from "./kb-log.js";
@@ -67,8 +67,11 @@ describe("what git actually excludes", () => {
         .split("\n")
         .filter(Boolean)
         .map((line) => {
-          const [source, path] = line.split("\t");
-          return [path, source !== "::"] as const;
+          const [match, path] = line.split("\t");
+          // `<source>:<line>:<pattern>`, or `::` for no match. A negated
+          // pattern is reported as a match too, and leaves the file tracked.
+          const pattern = /^.*:\d+:(.*)$/.exec(match ?? "")?.[1];
+          return [path, pattern !== undefined && !pattern.startsWith("!")];
         }),
     );
     return paths.map((path) => {
@@ -168,19 +171,41 @@ describe("what git actually excludes", () => {
     ).toEqual([true, false]);
   });
 
-  // The reader and git must agree on what an existing line already covers, or
-  // the rule is skipped over a pattern git gives no meaning to.
-  test("a leading-whitespace pattern settles nothing, for git or for us", async () => {
+  // The design writes its block beside a rule of the reader's own rather than
+  // deciding whether that rule already covers the files. This is the cost of
+  // that: two overlapping lines, which git resolves without complaint.
+  test("an overlapping rule of the reader's own still leaves the files ignored", async () => {
     const bundle = join(repo, KB_DIR);
     mkdirSync(bundle, { recursive: true });
-    writeFileSync(join(bundle, GITIGNORE_FILE), `  *${SEARCH_INDEX_FILE}*\n`);
+    writeFileSync(join(bundle, GITIGNORE_FILE), `*${SEARCH_INDEX_FILE}*\n`);
 
     await seed(bundle);
 
     const base = KB_DIR.split(sep).join("/");
-    expect(ignored(rel(base, SEARCH_INDEX_FILE))).toEqual([true]);
-    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toContain(
-      SEARCH_INDEX_RULE.pattern,
+    expect(
+      ignored(
+        rel(base, SEARCH_INDEX_FILE),
+        rel(base, `${SEARCH_INDEX_FILE}-wal`),
+      ),
+    ).toEqual([true, true]);
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
+      `*${SEARCH_INDEX_FILE}*\n${BUNDLE_IGNORE_BLOCK.text}`,
+    );
+  });
+
+  // The negation the block does read: git would resolve a later block as last
+  // one wins, so the file stays tracked and nothing is written.
+  test("a literal negation keeps the file tracked and nothing is written", async () => {
+    const bundle = join(repo, KB_DIR);
+    mkdirSync(bundle, { recursive: true });
+    writeFileSync(join(bundle, GITIGNORE_FILE), `!${SEARCH_INDEX_FILE}\n`);
+
+    await seed(bundle);
+
+    const base = KB_DIR.split(sep).join("/");
+    expect(ignored(rel(base, SEARCH_INDEX_FILE))).toEqual([false]);
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
+      `!${SEARCH_INDEX_FILE}\n`,
     );
   });
 

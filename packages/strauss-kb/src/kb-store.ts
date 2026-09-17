@@ -70,10 +70,10 @@ import {
   GITATTRIBUTES_FILE,
 } from "./kb-gitattributes.js";
 import {
-  appendIgnoreLines,
-  BUNDLE_IGNORE_RULES,
+  appendIgnoreBlock,
+  BUNDLE_IGNORE_BLOCK,
   GITIGNORE_FILE,
-  ignoreRuleState,
+  ignoreBlockState,
 } from "./kb-gitignore.js";
 import { STORE_OWNED_FILES } from "./kb-files.js";
 
@@ -1107,11 +1107,11 @@ export class KbStore {
       root,
       GITIGNORE_FILE,
       "kb.gitignore.ensure",
-      (existing) => appendIgnoreLines(existing, BUNDLE_IGNORE_RULES),
+      (existing) => appendIgnoreBlock(existing, BUNDLE_IGNORE_BLOCK),
       (existing) =>
-        BUNDLE_IGNORE_RULES.filter(
-          (rule) => ignoreRuleState(existing, rule) === "unignored",
-        ).map((rule) => rule.pattern),
+        ignoreBlockState(existing, BUNDLE_IGNORE_BLOCK) === "unignored"
+          ? [...BUNDLE_IGNORE_BLOCK.patterns]
+          : [],
     );
   }
 
