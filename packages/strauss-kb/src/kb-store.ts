@@ -164,6 +164,16 @@ export type KbWriteInput = {
   overwrite?: boolean;
 };
 
+/**
+ * What a patching caller hands `updateAnchors`: the anchor set to publish, and
+ * the log entry describing the change it just computed. `log` is optional so a
+ * caller with nothing extra to say keeps the default `anchor-resolve` entry.
+ */
+export type KbAnchorWrite = {
+  anchors: KbAnchor[];
+  log?: Omit<KbLogEntry, "at" | "conceptId" | "by">;
+};
+
 /** What a record had to still be for `deleteRecord` to remove it. */
 export type KbDeleteExpectation = {
   tag: string;
@@ -367,28 +377,51 @@ export class KbStore {
   }
 
   /**
-   * Replaces a record's anchors wholesale, preserving everything else.
+   * Replaces a record's anchors, preserving everything else.
    *
-   * Wholesale rather than merged: the caller just resolved the anchors it is
-   * writing, so it holds the complete current set, and a merge would keep
+   * An array replaces them wholesale: the caller just resolved the anchors it
+   * is writing, so it holds the complete current set, and a merge would keep
    * stale entries the resolution pass deliberately dropped.
    *
-   * Through the write schema: this is a write, and a defect a hand-edit put in
-   * the frontmatter must not be published back out under an actor stamp.
+   * A function is for the caller that holds a *patch* rather than a set —
+   * `anchor-update`, which moves some pointers and must leave the rest alone.
+   * It runs inside the guarded mutation, against the anchors the record holds
+   * at that moment, so a patch computed from a stale read can never overwrite
+   * a concurrent edit: either the patch sees it, or the digest check refuses
+   * the write. It names its own log operation, which an array's cannot be.
+   *
+   * Through the write schema either way: this is a write, and a defect a
+   * hand-edit put in the frontmatter must not be published back out under an
+   * actor stamp.
    */
   async updateAnchors(
     bundlePath: string,
     conceptId: string,
-    anchors: KbAnchor[],
+    anchors: KbAnchor[] | ((current: KbAnchor[]) => KbAnchorWrite),
     actor = "unknown",
   ): Promise<KbRecord> {
     assertActor(actor);
-    const checked = anchors.map((anchor) => kbAnchorWriteSchema.parse(anchor));
+    let entry: Omit<KbLogEntry, "at" | "conceptId"> = {
+      operation: "anchor-resolve",
+      by: actor,
+    };
     return this.mutate(
       bundlePath,
       conceptId,
-      (frontmatter) => ({ ...frontmatter, strauss_anchors: checked }),
-      { operation: "anchor-resolve", by: actor },
+      (frontmatter) => {
+        const write =
+          typeof anchors === "function"
+            ? anchors(frontmatter.strauss_anchors ?? [])
+            : { anchors };
+        if (write.log) entry = { ...write.log, by: actor };
+        return {
+          ...frontmatter,
+          strauss_anchors: write.anchors.map((anchor) =>
+            kbAnchorWriteSchema.parse(anchor),
+          ),
+        };
+      },
+      () => entry,
     );
   }
 
@@ -1004,7 +1037,12 @@ export class KbStore {
     bundlePath: string,
     conceptId: string,
     change: (frontmatter: KbRecordFrontmatter) => KbRecordFrontmatter,
-    entry: Omit<KbLogEntry, "at" | "conceptId"> & { target?: string },
+    // A thunk where the entry is only knowable once `change` has run: a patch
+    // logs what it actually applied, and what it applied depends on the
+    // record this mutation read.
+    entry:
+      | (Omit<KbLogEntry, "at" | "conceptId"> & { target?: string })
+      | (() => Omit<KbLogEntry, "at" | "conceptId"> & { target?: string }),
     changeBody: (body: string) => string = (body) => body,
   ): Promise<KbRecord> {
     const target = this.recordPath(bundlePath, conceptId);
@@ -1028,7 +1066,10 @@ export class KbStore {
       throw new KbWriteConflictError(conceptId);
     }
     await this.publish(target, contents, true, conceptId);
-    await this.record(this.root(bundlePath), { ...entry, conceptId });
+    await this.record(this.root(bundlePath), {
+      ...(typeof entry === "function" ? entry() : entry),
+      conceptId,
+    });
 
     return { conceptId, frontmatter, body };
   }

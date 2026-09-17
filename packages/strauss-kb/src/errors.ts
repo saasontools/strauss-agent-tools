@@ -22,6 +22,10 @@ export enum Fault {
 /** Machine-readable discriminant, stable across message rewording. */
 export enum ErrorTypes {
   KbRecordAlreadyExists = "KbRecordAlreadyExists",
+  KbAnchorBoundary = "KbAnchorBoundary",
+  KbAnchorPatchConflict = "KbAnchorPatchConflict",
+  KbAnchorPatchEmpty = "KbAnchorPatchEmpty",
+  KbAnchorSelector = "KbAnchorSelector",
   KbClassifyInput = "KbClassifyInput",
   KbFlagConflict = "KbFlagConflict",
   KbInvalidActor = "KbInvalidActor",

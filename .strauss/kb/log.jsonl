@@ -33,3 +33,15 @@
 {"at":"2026-09-15T18:12:44.452Z","by":"mcp","operation":"write","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:12:56.138Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:14:43.435Z","by":"mcp","operation":"overwrite","conceptId":"decision.none"}
+{"at":"2026-09-17T17:49:50.044Z","by":"agent:claude","operation":"write","conceptId":"decision.anchor-update-patch-inside-mutation"}
+{"at":"2026-09-17T17:50:03.061Z","by":"agent:claude","operation":"write","conceptId":"decision.anchor-update-selectors-match-original-list"}
+{"at":"2026-09-17T17:50:03.225Z","by":"agent:claude","operation":"write","conceptId":"decision.anchor-update-no-cross-boundary-replace"}
+{"at":"2026-09-17T17:50:25.698Z","by":"agent:claude","operation":"write","conceptId":"requirement.anchor-update-separates-pointer-from-baseline"}
+{"at":"2026-09-17T17:50:38.609Z","by":"agent:claude","operation":"write","conceptId":"test-obligation.anchor-update-keeps-baselines"}
+{"at":"2026-09-17T17:50:38.803Z","by":"agent:claude","operation":"write","conceptId":"decision.anchor-update-audit-extends-the-log-entry"}
+{"at":"2026-09-17T17:50:44.729Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-update-patch-inside-mutation"}
+{"at":"2026-09-17T17:50:44.982Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-update-selectors-match-original-list"}
+{"at":"2026-09-17T17:50:45.242Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-update-no-cross-boundary-replace"}
+{"at":"2026-09-17T17:50:45.495Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-update-audit-extends-the-log-entry"}
+{"at":"2026-09-17T17:50:45.784Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"requirement.anchor-update-separates-pointer-from-baseline"}
+{"at":"2026-09-17T17:50:46.086Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-update-keeps-baselines"}

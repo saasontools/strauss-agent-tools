@@ -6,6 +6,7 @@
  */
 import { DECISION_TYPE } from "../decision-record.js";
 import { anchorResolveCommand } from "./anchor-resolve.js";
+import { anchorUpdateCommand } from "./anchor-update/index.js";
 import { answerCommand } from "./answer.js";
 import { backlinksCommand } from "./backlinks.js";
 import { catalogCommand } from "./catalog.js";
@@ -50,6 +51,7 @@ export const KB_COMMANDS: KbCommand[] = [
   answerCommand,
   verifyCommand,
   anchorResolveCommand,
+  anchorUpdateCommand,
   reassessCommand,
   promoteCommand,
   loadCommand,

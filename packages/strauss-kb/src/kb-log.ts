@@ -1,6 +1,20 @@
 import { z } from "zod";
+import { kbAnchorLocatorSchema } from "./kb-record.schema.js";
 
 export const LOG_FILE = "log.jsonl";
+
+/**
+ * One pointer change, as an `anchor-update` entry records it: `from` for a
+ * replacement or a removal, `to` for a replacement or an addition. Locators
+ * only — the log says which pointer moved, never what it was hashed against.
+ */
+export const kbLogAnchorChangeSchema = z
+  .object({
+    op: z.enum(["replace", "add", "remove"]),
+    from: kbAnchorLocatorSchema.optional(),
+    to: kbAnchorLocatorSchema.optional(),
+  })
+  .strict();
 
 export const kbLogEntrySchema = z
   .object({
@@ -21,10 +35,19 @@ export const kbLogEntrySchema = z
      * supersession, the other base's path for promotion.
      */
     target: z.string().min(1).optional(),
+    /**
+     * Why the operation was performed, where the operation demands one.
+     * `anchor-update` does: a pointer moved by a reader is only auditable if
+     * the reading is recorded beside it.
+     */
+    reason: z.string().min(1).optional(),
+    /** What `anchor-update` changed, in the order it applied the changes. */
+    anchors: z.array(kbLogAnchorChangeSchema).optional(),
   })
   .strict();
 
 export type KbLogEntry = z.infer<typeof kbLogEntrySchema>;
+export type KbLogAnchorChange = z.infer<typeof kbLogAnchorChangeSchema>;
 
 /**
  * The log is the bundle's only primary artifact, and the reason it is handled
