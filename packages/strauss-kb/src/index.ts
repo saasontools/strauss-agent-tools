@@ -165,6 +165,7 @@ export {
   renderLogEntry,
   kbLogAnchorChangeSchema,
   kbLogEntrySchema,
+  kbLogEntryWriteSchema,
   type KbLogAnchorChange,
   type KbLogEntry,
   type KbLogReadResult,

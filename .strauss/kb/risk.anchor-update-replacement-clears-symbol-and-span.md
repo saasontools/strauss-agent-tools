@@ -28,7 +28,7 @@ strauss_anchors:
     resolved_at: "2026-09-17T18:22:10.761Z"
     lines: 8
     resolver: regex
-strauss_status: open
+strauss_status: resolved
 strauss_materiality: important
 strauss_confidence: high
 ---

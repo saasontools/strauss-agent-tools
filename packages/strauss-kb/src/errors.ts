@@ -24,6 +24,7 @@ export enum ErrorTypes {
   KbRecordAlreadyExists = "KbRecordAlreadyExists",
   KbAnchorBoundary = "KbAnchorBoundary",
   KbAnchorPatchConflict = "KbAnchorPatchConflict",
+  KbAnchorPatchEmptiesRecord = "KbAnchorPatchEmptiesRecord",
   KbAnchorPatchEmpty = "KbAnchorPatchEmpty",
   KbAnchorSelector = "KbAnchorSelector",
   KbClassifyInput = "KbClassifyInput",

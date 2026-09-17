@@ -6,6 +6,7 @@ export { anchorUpdateCommand } from "./command.js";
 export {
   KbAnchorBoundaryError,
   KbAnchorPatchConflictError,
+  KbAnchorPatchEmptiesRecordError,
   KbAnchorPatchEmptyError,
   KbAnchorSelectorError,
 } from "./errors.js";

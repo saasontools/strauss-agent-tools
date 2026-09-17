@@ -16,7 +16,23 @@ sources:
 generated:
   by: "agent:claude"
   at: "2026-09-17T18:21:33.023Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T18:35:51.955Z"
+    note: >-
+      Ran dist/index.cjs: applyAnchorPatch with a hash under add and under a
+      replace's to throws ZodError 'Unrecognized key: hash', and a to naming
+      both symbol and span throws 'a locator names a symbol or a span, not both'
+      at path replace.0.to.span. patch.ts line 52 is the parse;
+      kbAnchorLocatorSchema (read side) still accepts both, so a log entry
+      parses.
+  - by: "agent:security"
+    at: "2026-09-17T18:36:42.993Z"
+    note: >-
+      Ran applyAnchorPatch from dist/index.cjs: a hash, a resolved_at and a
+      __proto__ key under to or add are unrecognized_keys, and a to naming
+      symbol and span is refused by kbAnchorLocatorWriteSchema rather than
+      clearing both.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: applyAnchorPatch

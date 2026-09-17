@@ -22,6 +22,12 @@ verified:
       and pick keeps strict: { file, hash } is rejected and {} is rejected.
       anchorPatchInputSchema takes it for from, to, add and remove;
       kbLogAnchorChangeSchema for the log.
+  - by: "agent:security"
+    at: "2026-09-17T18:37:00.504Z"
+    note: >-
+      kbAnchorLocatorSchema is a pick off the strict kbAnchorSchema and keeps
+      the strict policy: hash, hash_kind, lines, resolved_at and resolver all
+      come back as unrecognized_keys under a patch locator.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-record.schema.ts
     symbol: kbAnchorLocatorSchema

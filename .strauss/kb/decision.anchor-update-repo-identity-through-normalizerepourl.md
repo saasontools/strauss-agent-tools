@@ -16,7 +16,22 @@ sources:
 generated:
   by: "agent:claude"
   at: "2026-09-17T18:21:56.726Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T18:35:52.259Z"
+    note: >-
+      fieldKey routes repo through normalizeRepoUrl (patch.ts 206-208). Ran it:
+      adding …/name.git beside an anchor at …/name throws
+      KbAnchorPatchConflictError, and a remove selector spelled without .git
+      matches the .git anchor. The boundary check calls fieldKey on both sides,
+      so a repo refusal names the normalised form.
+  - by: "agent:security"
+    at: "2026-09-17T18:36:52.508Z"
+    note: >-
+      fieldKey runs repo through normalizeRepoUrl: an add of name.git beside an
+      anchor at name is refused as duplicate-destination, a remove spelled
+      git@github.com:org/name.git finds the https anchor, and a replace to the
+      .git spelling is not a boundary crossing.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: fieldKey

@@ -245,10 +245,16 @@ survive, in place; additions go last.
 
 A replacement keeps the anchor's `hash`, `hash_kind`, `lines`, `resolved_at`
 and `resolver`, so changed code under a new name still reports drift. It may
-not change `repo`, `ref` or `side` — the baseline would not travel with it;
-`remove` plus `add` in the same patch does that. So does _clearing_ a field
-rather than changing it: `to` sets what it names and keeps the rest, so
-widening a symbol anchor back to the whole file is a remove and an add.
+not change `repo`, `ref` or `side` — the baseline would not travel with it —
+and on a **stamped** anchor it may not swap a symbol for a span or back, since
+an `ast` hash is over a token stream and a span is hashed raw. `remove` plus
+`add` in the same patch does all of those, in one write and one log entry. So
+does _clearing_ a field rather than changing it: `to` sets what it names and
+keeps the rest, so widening a symbol anchor back to the whole file is a remove
+and an add.
+
+A patch may not take a record's last anchor: a record nothing points at cannot
+drift, and emptying one is a supersession rather than a pointer move.
 
 ```bash
 strauss-kb anchor-update decision.export-retention <<'JSON'

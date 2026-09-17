@@ -16,37 +16,48 @@ export const kbLogAnchorChangeSchema = z
   })
   .strict();
 
-export const kbLogEntrySchema = z
-  .object({
-    // Validated, not just `min(1)`: `at` is a sort key (see `parseLog`
-    // below), and a value that isn't actually chronological — a Unix
-    // timestamp, a human-typed date, garbage — would sort wrong without
-    // ever failing to parse. `z.iso.datetime()` accepts exactly what
-    // `record()` writes (`Date#toISOString()`: full precision, `Z` offset)
-    // and rejects everything else, including a non-`Z` offset — so a
-    // malformed `at` is reported the same way a malformed line already is,
-    // rather than silently sorting into the wrong place.
-    at: z.iso.datetime(),
-    by: z.string().min(1),
-    operation: z.string().min(1),
-    conceptId: z.string().min(1),
-    /**
-     * The operation's other end, where it has one: a second concept id for
-     * supersession, the other base's path for promotion.
-     */
-    target: z.string().min(1).optional(),
-    /**
-     * Why the operation was performed, where the operation demands one.
-     * `anchor-update` does: a pointer moved by a reader is only auditable if
-     * the reading is recorded beside it.
-     */
-    reason: z.string().min(1).optional(),
-    /** What `anchor-update` changed, in the order it applied the changes. */
-    anchors: z.array(kbLogAnchorChangeSchema).optional(),
-  })
-  .strict();
+const kbLogEntryFields = z.object({
+  // Validated, not just `min(1)`: `at` is a sort key (see `parseLog`
+  // below), and a value that isn't actually chronological — a Unix
+  // timestamp, a human-typed date, garbage — would sort wrong without
+  // ever failing to parse. `z.iso.datetime()` accepts exactly what
+  // `record()` writes (`Date#toISOString()`: full precision, `Z` offset)
+  // and rejects everything else, including a non-`Z` offset — so a
+  // malformed `at` is reported the same way a malformed line already is,
+  // rather than silently sorting into the wrong place.
+  at: z.iso.datetime(),
+  by: z.string().min(1),
+  operation: z.string().min(1),
+  conceptId: z.string().min(1),
+  /**
+   * The operation's other end, where it has one: a second concept id for
+   * supersession, the other base's path for promotion.
+   */
+  target: z.string().min(1).optional(),
+  /**
+   * Why the operation was performed, where the operation demands one.
+   * `anchor-update` does: a pointer moved by a reader is only auditable if
+   * the reading is recorded beside it.
+   */
+  reason: z.string().min(1).optional(),
+  /** What `anchor-update` changed, in the order it applied the changes. */
+  anchors: z.array(kbLogAnchorChangeSchema).optional(),
+});
 
-export type KbLogEntry = z.infer<typeof kbLogEntrySchema>;
+/**
+ * Read-side, and tolerant of a key it has never heard of: one base is read by
+ * every version that touches the repository, so a log has to read *forward*.
+ * Under `.strict()` the first version to add a field turned its own entries
+ * into `malformed` for every older reader — the entries an audit most needs
+ * were the only ones that vanished. A line missing a required field, or
+ * carrying an `at` that is not an ISO datetime, is still malformed.
+ */
+export const kbLogEntrySchema = kbLogEntryFields.passthrough();
+
+/** Write-side: this package controls exactly what it appends. */
+export const kbLogEntryWriteSchema = kbLogEntryFields.strict();
+
+export type KbLogEntry = z.infer<typeof kbLogEntryFields>;
 export type KbLogAnchorChange = z.infer<typeof kbLogAnchorChangeSchema>;
 
 /**
@@ -70,7 +81,7 @@ export type KbLogAnchorChange = z.infer<typeof kbLogAnchorChangeSchema>;
  * atomic, and writes this size do not interleave on a local filesystem.
  */
 export function renderLogEntry(entry: KbLogEntry): string {
-  return `${JSON.stringify(kbLogEntrySchema.parse(entry))}\n`;
+  return `${JSON.stringify(kbLogEntryWriteSchema.parse(entry))}\n`;
 }
 
 export type KbLogReadResult = {

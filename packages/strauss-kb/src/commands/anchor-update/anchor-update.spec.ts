@@ -340,6 +340,33 @@ describe("anchorUpdateCommand", () => {
       expect(record?.frontmatter.verified).toEqual([]);
     });
 
+    // Both directions. Forward is the one that matters: one base is read by
+    // every version that touches the repository.
+    test("an entry from a reader that has never heard of a field still parses", () => {
+      const future = `${JSON.stringify({
+        at: "2027-01-01T00:00:00.000Z",
+        by: "agent:later",
+        operation: "anchor-update",
+        conceptId: ID,
+        reason: "a later version added a field",
+        confidence: "high",
+      })}\n`;
+
+      const read = parseLog(future);
+      expect(read.malformed).toEqual([]);
+      expect(read.entries).toHaveLength(1);
+    });
+
+    test("a line missing a required field is still malformed", () => {
+      const broken = `${JSON.stringify({
+        at: "2027-01-01T00:00:00.000Z",
+        operation: "anchor-update",
+        conceptId: ID,
+      })}\n`;
+
+      expect(parseLog(broken).malformed).toHaveLength(1);
+    });
+
     // A resolve pass that predates this command must still read its own log.
     test("entries written before the reason field still parse", () => {
       const legacy = `${JSON.stringify({
@@ -585,13 +612,14 @@ describe("anchorUpdateCommand", () => {
     });
 
     test("a selector spelled as the ssh remote finds the https anchor", () => {
-      const anchor: KbAnchor = {
+      const foreign: KbAnchor = {
         file: "lib/a.go",
         symbol: "Retention",
         repo: "https://github.com/org/name",
       };
+      const local: KbAnchor = { file: CLEANUP, symbol: "shouldDeleteExport" };
 
-      const applied = applyAnchorPatch(ID, [anchor], {
+      const applied = applyAnchorPatch(ID, [foreign, local], {
         reason: "one remote, another spelling",
         remove: [
           {
@@ -602,7 +630,108 @@ describe("anchorUpdateCommand", () => {
         ],
       });
 
-      expect(applied.anchors).toEqual([]);
+      expect(applied.anchors).toEqual([local]);
+    });
+
+    // Every stamped fixture here was raw/regex, which hid this: tree-sitter
+    // stamps `ast` on every symbol anchor in a parsed language, and a span is
+    // hashed raw, so the baseline describes the address being left behind.
+    test("a stamped symbol replaced by a span, and the reverse", async () => {
+      await seed([
+        {
+          file: CLEANUP,
+          symbol: "shouldDeleteExport",
+          hash: `sha256:${"a".repeat(64)}`,
+          hash_kind: "ast",
+          resolver: "tree-sitter",
+        },
+      ]);
+
+      await expect(
+        run({
+          reason: "the policy is an inline block now",
+          replace: [
+            {
+              from: { file: CLEANUP, symbol: "shouldDeleteExport" },
+              to: { file: CLEANUP, span: { start: 10, end: 20 } },
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        name: "KbAnchorBoundaryError",
+        details: { field: "address", from: "symbol", to: "span" },
+      });
+
+      expect(() =>
+        applyAnchorPatch(
+          ID,
+          [
+            {
+              file: CLEANUP,
+              span: { start: 1, end: 5 },
+              hash: `sha256:${"a".repeat(64)}`,
+            },
+          ],
+          {
+            reason: "it is a function again",
+            replace: [
+              {
+                from: { file: CLEANUP },
+                to: { file: CLEANUP, symbol: "isExportExpired" },
+              },
+            ],
+          },
+        ),
+      ).toThrow(/swap a span for a symbol/);
+    });
+
+    // An unstamped anchor has no baseline to strand, so the swap is free.
+    test("an unstamped anchor may still swap symbol for span", async () => {
+      await seed([{ file: DOWNLOAD, symbol: "canDownloadExport" }]);
+
+      await run({
+        reason: "the clause is a block of config, not a function",
+        replace: [
+          {
+            from: { file: DOWNLOAD, symbol: "canDownloadExport" },
+            to: { file: DOWNLOAD, span: { start: 4, end: 9 } },
+          },
+        ],
+      });
+
+      expect(await anchors()).toEqual([
+        { file: DOWNLOAD, span: { start: 4, end: 9 } },
+      ]);
+    });
+
+    test("a patch that takes the record's last anchor", async () => {
+      await seedRefactor();
+      const before = snapshot(bundle);
+
+      await expect(
+        run({
+          reason: "the code is gone",
+          remove: [{ file: CLEANUP }, { file: DOWNLOAD }],
+        }),
+      ).rejects.toMatchObject({ name: "KbAnchorPatchEmptiesRecordError" });
+
+      expect(snapshot(bundle)).toEqual(before);
+    });
+
+    // The message and `details` both reach a caller's context, and `file` has
+    // no maximum length.
+    test("a selector refusal caps the locator it quotes", async () => {
+      await seedRefactor();
+
+      const caught = await run({
+        reason: "point at something enormous",
+        remove: [{ file: `src/${"a".repeat(200_000)}.mjs` }],
+      }).then(
+        () => null,
+        (error: Error) => error,
+      );
+
+      expect(caught?.message.length).toBeLessThan(400);
     });
 
     test("a reason of only whitespace", () => {

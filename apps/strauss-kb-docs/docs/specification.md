@@ -75,8 +75,20 @@ One JSON object per line, appended with `O_APPEND`:
 | `reason`    | no       | why, where the operation demands one — [`anchor-update`](./cli-reference.md#anchor-update) does                        |
 | `anchors`   | no       | what `anchor-update` changed: `{ op, from?, to? }` per pointer, `op` one of `replace`, `add`, `remove`                 |
 
-The schema is `.strict()`: unknown keys are a malformed line, and `at` must be
-an ISO-8601 UTC datetime. Malformed lines are reported with their 1-based
+Unknown keys are **kept**, not rejected: one base is read by every version that
+touches the repository, so the log has to read forward — under a strict schema
+the first version to add a field turned its own entries into `malformed` for
+every older reader. A line missing a required field, or carrying an `at` that is
+not an ISO-8601 UTC datetime, is still malformed. Writes go through a strict
+schema, since this package controls what it appends.
+
+:::note A reader older than 0.1.22
+`reason` and `anchors` arrived in 0.1.22, when the read schema was still strict.
+A CLI or MCP server built before it reports every `anchor-update` line as
+malformed and drops it from `entries`. Malformed lines are reported, never
+repaired, so nothing is lost — but rebuild or update before reading a base for
+its audit trail.
+::: Malformed lines are reported with their 1-based
 position and never rewritten. Reads are **sorted by `at`** and **deduplicated on
 exact equality** over the whole parsed entry.
 
@@ -271,13 +283,14 @@ longer there — and nothing mechanical can say which new symbol replaces it.
 selectors naming exactly one anchor each, a required reason, and a patch that
 changes only the pointers it names.
 
-A replaced anchor keeps its baseline. Moving a pointer is therefore not
-accepting the code behind it — the drift the rename hid is reported the moment
+A patch may not take a record's last anchor, and a replaced anchor keeps its
+baseline. Moving a pointer is therefore not accepting the code behind it — the drift the rename hid is reported the moment
 the new pointer resolves, and clearing it is still
 [`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve). `repo`,
 `ref` and `side` may not be changed by a replacement, since a baseline taken
-over one repository at one rev says nothing about another's; removing and
-adding in the same patch says so explicitly. The change lands as one
+over one repository at one rev says nothing about another's, and neither may a
+stamped anchor swap a symbol for a span or back, since the two are hashed over
+different things. Removing and adding in the same patch says so explicitly. The change lands as one
 `anchor-update` log entry and is never a `verified[]` event.
 
 #### What drift does and does not see

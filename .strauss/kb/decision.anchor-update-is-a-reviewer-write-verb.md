@@ -16,7 +16,22 @@ sources:
 generated:
   by: "agent:claude"
   at: "2026-09-17T18:21:33.205Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T18:35:52.120Z"
+    note: >-
+      Imported reviewer.mjs and ran denyReason: the CLI call with no actor
+      returns 'writes carry your own actor', and toolName
+      mcp__strauss-kb__kb_anchor_update returns the 'land as actor mcp' refusal.
+      anchor-update is in WRITE_VERBS and absent from FORBIDDEN_VERBS, as the
+      Impact says.
+  - by: "agent:security"
+    at: "2026-09-17T18:36:52.680Z"
+    note: >-
+      reviewer.mjs: anchor-update is in WRITE_VERBS and absent from
+      FORBIDDEN_VERBS, MCP_WRITE matches kb_anchor_update, and command.ts calls
+      assertBaseNotFrozen as every other write does. The no-authorship-test half
+      is disputed in risk.anchor-update-can-empty-another-actors-record.
 strauss_anchors:
   - file: plugins/strauss-kb-review/hooks/scripts/lib/reviewer.mjs
     symbol: WRITE_VERBS

@@ -17,6 +17,13 @@ verified:
       leaves the addition unstamped' and 'the moved pointer reports drift until
       it is rebaselined' (drifted/match/stamped before rebaseline, all match
       after).
+  - by: "agent:security"
+    at: "2026-09-17T18:37:49.152Z"
+    note: >-
+      vitest run src/commands/anchor-update/anchor-update.spec.ts: 31 passed,
+      including the named baseline and rebaseline cases and the two injection
+      cases (a hash the caller tried to inject, a baseline injected straight
+      into the library).
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/anchor-update.spec.ts
     hash: "sha256:788cf417c9886e1c6c0919a27de4dbaba7a8f7647141da0a762d376ad0725ad2"

@@ -7,6 +7,7 @@ import {
 import {
   KbAnchorBoundaryError,
   KbAnchorPatchConflictError,
+  KbAnchorPatchEmptiesRecordError,
   KbAnchorPatchEmptyError,
   KbAnchorSelectorError,
   locatorText,
@@ -106,6 +107,7 @@ export function applyAnchorPatch(
     ...added,
   ];
   assertDestinationsAreUnique(anchors, [...replaced.values(), ...added]);
+  if (!anchors.length) throw new KbAnchorPatchEmptiesRecordError(conceptId);
 
   return { anchors, changes };
 }
@@ -145,6 +147,18 @@ function replacement(anchor: KbAnchor, to: KbAnchorLocator): KbAnchor {
     const after = fieldKey(wanted, field);
     if (before === after) continue;
     throw new KbAnchorBoundaryError(field, before, after);
+  }
+
+  // Swapping a symbol for a span or back is a boundary too, once there is a
+  // baseline: an `ast` hash is over a token stream and a span is hashed raw,
+  // so the stored one describes the address being left behind.
+  if (anchor.hash !== undefined) {
+    if (wanted.span !== undefined && anchor.symbol !== undefined) {
+      throw new KbAnchorBoundaryError("address", "symbol", "span");
+    }
+    if (wanted.symbol !== undefined && anchor.span !== undefined) {
+      throw new KbAnchorBoundaryError("address", "span", "symbol");
+    }
   }
 
   const next: KbAnchor = { ...anchor, ...wanted };

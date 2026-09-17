@@ -10,5 +10,9 @@ the code behind the new pointer still reports drift until `anchor-resolve
 --rebaseline` accepts it; nothing here resolves, verifies or moves standing.
 The change lands as an `anchor-update` log entry carrying the reason and every
 pointer moved — `reason` and `anchors` are new optional fields on the log
-entry, so older entries stay readable. `updateAnchors` now also takes a
-function computing the anchors from the record's current ones.
+entry. The log's **read** schema now keeps unknown keys instead of refusing
+them, so a base written by a later version stays readable here; the write
+schema stays strict. A reader older than this release reports `anchor-update`
+lines as malformed, which is what the change exists to stop happening again.
+`updateAnchors` now also takes a function computing the anchors from the
+record's current ones.

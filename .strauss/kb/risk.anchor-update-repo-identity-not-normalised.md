@@ -28,7 +28,7 @@ strauss_anchors:
     resolved_at: "2026-09-17T18:22:11.232Z"
     lines: 13
     resolver: tree-sitter
-strauss_status: open
+strauss_status: resolved
 strauss_materiality: non-blocking
 strauss_confidence: high
 ---
