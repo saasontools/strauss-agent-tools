@@ -29,8 +29,6 @@ strauss_verify:
 strauss_links:
   - target: decision.gemini-transport-per-request
     rel: related_to
-  - target: test-obligation.gemini-retry-attempt-budget
-    rel: verified_by
 strauss_status: open
 strauss_materiality: important
 strauss_confidence: medium
@@ -53,5 +51,3 @@ The 429 attempt-count assertion fails if retries stop being honoured. Nothing cu
 On any @google/genai bump, re-read toGoogleGenAIRequestOptions and buildGoogleGenAIClient in dist/node/index.mjs, and run the 429 test.
 
 Relates to [decision.gemini-transport-per-request](decision.gemini-transport-per-request.md).
-
-Verified by [test-obligation.gemini-retry-attempt-budget](test-obligation.gemini-retry-attempt-budget.md).
