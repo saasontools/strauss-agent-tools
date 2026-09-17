@@ -72,6 +72,8 @@ One JSON object per line, appended with `O_APPEND`:
 | `operation` | yes      | e.g. `write`, `verify:refused`                                                                                         |
 | `conceptId` | yes      | the record acted on                                                                                                    |
 | `target`    | no       | the operation's other end: a second id for supersession, the other base's absolute path for `promote-in`/`promote-out` |
+| `reason`    | no       | why, where the operation demands one — [`anchor-update`](./cli-reference.md#anchor-update) does                        |
+| `anchors`   | no       | what `anchor-update` changed: `{ op, from?, to? }` per pointer, `op` one of `replace`, `add`, `remove`                 |
 
 The schema is `.strict()`: unknown keys are a malformed line, and `at` must be
 an ISO-8601 UTC datetime. Malformed lines are reported with their 1-based
@@ -258,6 +260,38 @@ the regex resolver never reports it — there the class is `changed`. A span is
 searched for `moved` by sliding its recorded line count over its own file, since
 it names no definition to look for elsewhere. An old-side anchor is neither
 searched nor diffed: committed bytes cannot move or be reformatted.
+
+#### Moving a pointer
+
+`file`, `symbol`, `span`, `side`, `repo` and `ref` are the anchor's address;
+the five measured fields are its baseline. A refactor that renames the anchored
+symbol, or extracts part of it, leaves a record pointing at code that is no
+longer there — and nothing mechanical can say which new symbol replaces it.
+[`anchor-update`](./cli-reference.md#anchor-update) is the reader's answer:
+selectors naming exactly one anchor each, a required reason, and a patch that
+changes only the pointers it names.
+
+A replaced anchor keeps its baseline. Moving a pointer is therefore not
+accepting the code behind it — the drift the rename hid is reported the moment
+the new pointer resolves, and clearing it is still
+[`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve). `repo`,
+`ref` and `side` may not be changed by a replacement, since a baseline taken
+over one repository at one rev says nothing about another's; removing and
+adding in the same patch says so explicitly. The change lands as one
+`anchor-update` log entry and is never a `verified[]` event.
+
+#### What drift does and does not see
+
+A hash over one span answers one question, which bounds the whole mechanism:
+
+- A **body that changes under the same name** drifts. That is the case the
+  hash exists for.
+- An **unchanged caller does not inherit** an unanchored helper's change: the
+  caller's own span still hashes the same, so the helper needs its own anchor
+  to be watched.
+- A **runtime change** — an environment variable, a feature flag, a config
+  value read at startup — changes no bytes and so drifts nothing. A risk about
+  one stays open after the code drift clears; only a reading closes it.
 
 #### The reassessment packet
 

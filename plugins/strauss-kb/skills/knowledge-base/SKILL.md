@@ -165,6 +165,7 @@ machine output, `--strict` to exit 1 on any expiry.
 
 `strauss-kb anchor-resolve <id>` — re-hash a record's code anchors; one with a
 `repo` of its own is read from that remote (`--offline`: cache only).
+`strauss-kb anchor-update <id>` — move those anchors after a refactor you read.
 `kb_load`/`kb_query` warn `drifted` when the code moved, `unchecked` when a
 foreign remote was not cached.
 
@@ -184,5 +185,42 @@ Read what is left, then pick exactly one:
 
 Never auto-verify on drift and never auto-supersede: both are readings, and
 the type default in the packet is a starting point, not a verdict.
+
+## When the anchor points at nothing (`gone`)
+
+A rename or an extraction leaves the pointer wrong, not the claim. Repoint it,
+then judge the code — four steps, and none of them is one of the others:
+
+1. **Read the code and the record.** Nothing derives that `isExportExpired`
+   replaces `shouldDeleteExport`. A name that reads like a rename is what you
+   check, not the evidence.
+2. **Move the pointers**, with the reason you just formed:
+
+   ```bash
+   strauss-kb anchor-update decision.export-retention <<'JSON'
+   {
+     "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+     "replace": [{
+       "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+       "to":   { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+     }],
+     "add": [{ "file": "src/retention.mjs", "symbol": "retentionDays" }]
+   }
+   JSON
+   ```
+
+   Each `from` must match exactly one anchor; anchors you do not name survive.
+   A replacement keeps the old hash, so this accepts nothing.
+
+3. **Now read the changed body** the moved pointer exposes, and
+   `anchor-resolve <id> --rebaseline` only if the claim still holds. If it does
+   not, supersede instead — the section above.
+4. **Re-check**, and `verify <id> --note "<what you read>"` only for a reading
+   you actually did. `anchor-update` is an audit entry, never a verification.
+
+A hash sees one span: a body changing under the same name drifts, an unchanged
+caller does not inherit an unanchored helper's change, and a config or
+environment change drifts nothing at all. A risk about one of those stays open
+after the anchors match.
 
 Do not edit `INDEX.md` or `log.jsonl` by hand.

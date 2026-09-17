@@ -275,6 +275,137 @@ to run it to see drift: `load` and `query` re-resolve hash-carrying anchors as
 they read and attach a `drifted` warning — or `unchecked`, for an anchor in
 another repository whose remote was not in the cache.
 
+## Repointing a record after a refactor
+
+A refactor renames the anchored function and extracts a helper. The record's
+claim still holds; its pointers do not. `doctor --drifted` names the record:
+
+```text
+# decision.export-retention — Exports are deleted thirty days after they are produced
+type: decision   standing: current
+why: Keeping an export longer holds customer data past what the contract allows.
+
+## Anchors (1)
+- src/cleanup.mjs:shouldDeleteExport — gone (symbol-not-found)
+
+Default: rationale-may-survive — the reasoning may outlive the code that implemented it; check whether it does.
+```
+
+**Read the code first.** No tool can say that `isExportExpired` replaces
+`shouldDeleteExport`; a name that looks like a rename is the thing to check, not
+the evidence. Then say so, in one patch:
+
+```bash
+strauss-kb anchor-update decision.export-retention <<'JSON'
+{
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "replace": [
+    {
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    }
+  ],
+  "add": [{ "file": "src/retention.mjs", "symbol": "retentionDays" }]
+}
+JSON
+```
+
+An agent calls `kb_anchor_update` with the same object as `input`. Either way
+the patch is a patch: `src/download.mjs`, which nobody named, keeps its symbol
+and its hash.
+
+```json
+{
+  "changes": [
+    {
+      "op": "replace",
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    },
+    {
+      "op": "add",
+      "to": { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    }
+  ],
+  "baseline": "unchanged",
+  "note": "pointers only: nothing was resolved, rebaselined or verified. Run anchor-resolve to check the new pointers, --rebaseline to accept the code, and verify separately."
+}
+```
+
+The pointer moved; the baseline did not. So the next check reports the drift
+the rename had been hiding — the body really did change — and the helper is
+stamped for the first time:
+
+```bash
+strauss-kb anchor-resolve decision.export-retention
+```
+
+```json
+{
+  "results": [
+    {
+      "file": "src/cleanup.mjs",
+      "symbol": "isExportExpired",
+      "state": "drifted",
+      "diffSize": 0
+    },
+    {
+      "file": "src/download.mjs",
+      "symbol": "canDownloadExport",
+      "state": "match"
+    },
+    {
+      "file": "src/retention.mjs",
+      "symbol": "retentionDays",
+      "state": "stamped"
+    }
+  ]
+}
+```
+
+Hashes and `hashKind` elided. Read that body, and only then accept it:
+
+```bash
+strauss-kb anchor-resolve decision.export-retention --rebaseline
+```
+
+A re-run now reports `match` for all three and `reassess` has nothing to hand a
+reader:
+
+```text
+decision.export-retention: nothing to reassess.
+```
+
+Three acts, three commands, on purpose: `anchor-update` says where the code is,
+`--rebaseline` says the code is still right, and [`verify`](#verification) says
+somebody read it. The move is in the log with the reason attached:
+
+```json
+{
+  "at": "2026-09-17T17:51:45.636Z",
+  "by": "agent:author",
+  "operation": "anchor-update",
+  "conceptId": "decision.export-retention",
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "anchors": [
+    {
+      "op": "replace",
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    },
+    {
+      "op": "add",
+      "to": { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    }
+  ]
+}
+```
+
+What this does not settle: a risk about `EXPORT_RETENTION_DAYS` overriding the
+thirty days stays open once the anchors match, because an environment variable
+changes no bytes. See
+[what drift does and does not see](./specification.md#what-drift-does-and-does-not-see).
+
 ## Sweeping a base for decay
 
 Decay is invisible from inside a single record: a stale one reads exactly like a

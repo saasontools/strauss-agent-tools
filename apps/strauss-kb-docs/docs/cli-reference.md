@@ -42,8 +42,9 @@ pinned, since even a bare newline is noise in a fresh context.
 
 Every write verb refuses outright when the base is pinned `--frozen` in this
 workspace: `write`, `write-decision`, `no-decision`, `status`, `supersede`,
-`answer`, `verify`, and `sweep` (except under `--dry-run`). `anchor-resolve`
-stamps nothing on a frozen base and says so in its result rather than failing.
+`answer`, `verify`, `anchor-update`, and `sweep` (except under `--dry-run`).
+`anchor-resolve` stamps nothing on a frozen base and says so in its result
+rather than failing.
 
 ---
 
@@ -208,6 +209,108 @@ which resolver produced the span — see
 [symbol resolution](./specification.md#symbol-resolution). A result whose
 `reason` is `resolver-changed` drifted because the resolver changed, not the
 code; `--rebaseline` is the whole fix.
+
+`--rebaseline` writes the new hashes and still exits **1** on the drift it just
+accepted; a second run reports `match`. Being fixed under
+[SAA-822](https://linear.app/saason/issue/SAA-822).
+
+---
+
+### `anchor-update`
+
+```
+anchor-update <concept-id> < patch.json
+```
+
+Move a record's [anchors](./specification.md#anchors) after a refactor someone
+read: point one somewhere else, add one, drop one. The patch is JSON on
+**stdin**.
+
+| Key       | Effect                                                                      |
+| --------- | --------------------------------------------------------------------------- |
+| `reason`  | Required, non-blank. What was reviewed. Goes in the log.                    |
+| `replace` | `[{ from, to }]`. `to` sets only the fields it names; the baseline is kept. |
+| `add`     | Locators appended in order, each starting with no hash.                     |
+| `remove`  | Locators to drop.                                                           |
+
+A locator is an anchor's address — `file`, and any of `symbol`, `span`, `side`,
+`repo`, `ref`. A `hash` or `resolved_at` under one is rejected: a baseline is
+something a resolver stamps, never something a caller supplies. Every `from`
+and `remove` selector must match **exactly one** anchor of the record as it
+stands; an omitted field matches any value, so `{ "file": "src/a.ts" }` names
+that file's only anchor and is ambiguous the moment it has two. Selectors match
+the record's anchors, not the list earlier operations in the same patch left,
+and two operations claiming one anchor are refused. Anchors nobody names
+survive, in place; additions go last.
+
+A replacement keeps the anchor's `hash`, `hash_kind`, `lines`, `resolved_at`
+and `resolver`, so changed code under a new name still reports drift. It may
+not change `repo`, `ref` or `side` — the baseline would not travel with it;
+`remove` plus `add` in the same patch does that.
+
+```bash
+strauss-kb anchor-update decision.export-retention <<'JSON'
+{
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "replace": [
+    {
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    }
+  ],
+  "add": [{ "file": "src/retention.mjs", "symbol": "retentionDays" }]
+}
+JSON
+```
+
+```json
+{
+  "conceptId": "decision.export-retention",
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "changes": [
+    {
+      "op": "replace",
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    },
+    {
+      "op": "add",
+      "to": { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    }
+  ],
+  "anchors": [
+    {
+      "file": "src/cleanup.mjs",
+      "symbol": "isExportExpired",
+      "hash": "sha256:5c7242b8…",
+      "hash_kind": "ast",
+      "resolved_at": "2026-09-17T17:51:39.388Z",
+      "lines": 3,
+      "resolver": "tree-sitter"
+    },
+    {
+      "file": "src/download.mjs",
+      "symbol": "canDownloadExport",
+      "hash": "sha256:b4be493b…",
+      "hash_kind": "ast",
+      "resolved_at": "2026-09-17T17:51:39.391Z",
+      "lines": 3,
+      "resolver": "tree-sitter"
+    },
+    { "file": "src/retention.mjs", "symbol": "retentionDays" }
+  ],
+  "baseline": "unchanged",
+  "note": "pointers only: nothing was resolved, rebaselined or verified. Run anchor-resolve to check the new pointers, --rebaseline to accept the code, and verify separately."
+}
+```
+
+Hashes elided; everything else is the run's own output. Exits **0** on a patch
+that applied. A validation failure, a write conflict, a missing record or a
+frozen base leaves the record and the log untouched.
+
+One `anchor-update` entry lands in the [log](#log), carrying the actor, the
+reason and every change. It is not verification — that is [`verify`](#verify),
+and it is a separate act.
 
 ---
 
@@ -528,6 +631,32 @@ skips past.
 
 ```bash
 strauss-kb log
+```
+
+An entry is `{ at, by, operation, conceptId }`, plus `target` where the
+operation has another end, and `reason` and `anchors` on an
+[`anchor-update`](#anchor-update). Both are optional, so entries written before
+they existed read unchanged.
+
+```json
+{
+  "at": "2026-09-17T17:51:45.636Z",
+  "by": "agent:author",
+  "operation": "anchor-update",
+  "conceptId": "decision.export-retention",
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "anchors": [
+    {
+      "op": "replace",
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    },
+    {
+      "op": "add",
+      "to": { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    }
+  ]
+}
 ```
 
 ### `stamp`

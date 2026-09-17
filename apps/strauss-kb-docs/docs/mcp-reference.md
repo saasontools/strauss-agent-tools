@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-three tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-four tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.
@@ -164,6 +164,37 @@ defaults to the working directory), `offline`, `rebaseline`, `restamp` and
   "repoRoot": "/repo"
 }
 ```
+
+### `kb_anchor_update`
+
+As CLI [`anchor-update`](./cli-reference.md#anchor-update). The patch the CLI
+reads from stdin is the `input` parameter.
+
+Parameters: `bundlePath`, `conceptId` and `input` — all required. `input` is
+`{ reason, replace?, add?, remove? }`; the rules on selectors, locators and what
+a replacement keeps are the CLI page's.
+
+```json
+{
+  "bundlePath": "…/kb",
+  "conceptId": "decision.export-retention",
+  "input": {
+    "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+    "replace": [
+      {
+        "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+        "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+      }
+    ],
+    "add": [{ "file": "src/retention.mjs", "symbol": "retentionDays" }]
+  }
+}
+```
+
+Returns `{ conceptId, reason, changes, anchors, baseline, note }`. `baseline` is
+always `"unchanged"`: moving a pointer is not accepting the code behind it. Call
+`kb_anchor_resolve` next to check the new pointers, with `rebaseline` to accept
+them, and `kb_verify` only for a reading someone actually did.
 
 ### `kb_reassess`
 

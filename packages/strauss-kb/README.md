@@ -232,6 +232,14 @@ never writes `verified[]`; `--check` writes nothing at all. Per anchor:
 - **drifted** — hash changed. Baseline kept unless `--rebaseline`.
 - **unresolved** — not comparable, with a reason. A finding, not an error.
 
+`anchor-update <concept-id>` (`kb_anchor_update`) moves those pointers when a
+refactor renamed or extracted the code: a patch of `replace`, `add` and
+`remove` selectors, each matching exactly one anchor, plus a required reason
+that lands in the log. Anchors it does not name survive; a replaced one keeps
+its baseline, so the code behind the new pointer still has to be read and
+accepted with `--rebaseline`. It never resolves, stamps, verifies or moves
+standing. [Full rules](https://saasontools.github.io/strauss-agent-tools/cli-reference#anchor-update).
+
 An anchor naming another `repo` is read from that repository's **remote**,
 through a bare cache under `~/.strauss/repo-cache` — a local checkout is one
 person's possibly stale view of the same file. With a `ref` it has three
@@ -307,6 +315,7 @@ strauss-kb [--bundle PATH] <command> [args]
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
   anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]
                                            Resolve anchors against the working tree: stamp, or report drift.
+  anchor-update <concept-id> < patch.json  Move anchors after a refactor you read: replace, add, remove, with a reason.
   reassess <concept-id> [--repo-root <path>] [--with-diff]
                                            One drifted record as something to judge: claim, classes, diff, impact.
   promote <concept-id...> --to <bundle> [--source <url>] [--force] | --list
@@ -383,7 +392,7 @@ strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 ```
 
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_reassess`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_anchor_update`, `kb_reassess`,
 `kb_promote`,
 `kb_load`, `kb_catalog`,
 `kb_pack`, `kb_export`,
