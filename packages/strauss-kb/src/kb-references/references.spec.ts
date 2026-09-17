@@ -85,8 +85,11 @@ function replacedPair(): KbRecord[] {
       status: "superseded",
       supersededBy: "decision.new-way",
     }),
+    // As the store writes one: the history is in the frontmatter as well as
+    // the prose, which is what `compose` does with `relatedConceptIds`.
     record("decision.new-way", {
       cites: ["decision.old-way"],
+      links: [{ target: "decision.old-way", rel: "related_to" }],
       supersedes: ["decision.old-way"],
     }),
   ];
@@ -108,7 +111,10 @@ const notesIn = (report: KbDoctorReport, check: KbDoctorCheck) =>
   report.groups.find((group) => group.check === check)?.findings ?? [];
 
 describe("outboundReferences", () => {
-  test("merges the two halves into one reference per target", () => {
+  // The prose says the same thing twice as far as this is concerned, and a
+  // citation with nothing beside it in the frontmatter is not an edge: it is
+  // `validate`'s warning and `mirror-links`' work.
+  test("reads strauss_links, and a prose citation adds nothing", () => {
     const from = record("risk.export-window", {
       links: [{ target: "decision.retention", rel: "related_to" }],
       cites: ["decision.retention", "fact.quota"],
@@ -117,10 +123,8 @@ describe("outboundReferences", () => {
     expect(outboundReferences(from)).toEqual([
       {
         target: "decision.retention",
-        origins: ["body", "link"],
         rels: ["related_to"],
       },
-      { target: "fact.quota", origins: ["body"], rels: [] },
     ]);
   });
 
@@ -136,7 +140,7 @@ describe("outboundReferences", () => {
     });
 
     expect(outboundReferences(from)).toEqual([
-      { target: "fact.b", origins: ["link"], rels: ["depends_on", "informs"] },
+      { target: "fact.b", rels: ["depends_on", "informs"] },
     ]);
   });
 
@@ -152,7 +156,7 @@ describe("outboundReferences", () => {
     });
 
     expect(outboundReferences(from)).toEqual([
-      { target: "fact.c", origins: ["link"], rels: ["depends_on"] },
+      { target: "fact.c", rels: ["depends_on"] },
     ]);
 
     const bundle = [from, record("fact.b"), record("fact.c")];
@@ -176,73 +180,6 @@ describe("outboundReferences", () => {
     ];
 
     expect(stale(bundle)).toEqual([]);
-  });
-
-  // A record that explains the house style shows a citation; it does not make
-  // one. Both new consumers act on what this parser returns.
-  test("a link inside a fence or a code span is an example, not a citation", () => {
-    const from = record("decision.house-style");
-    from.body = [
-      "",
-      "## Claim",
-      "",
-      "Cite like this:",
-      "",
-      "```markdown",
-      "Relates to [decision.fenced](decision.fenced.md).",
-      "```",
-      "",
-      "Inline, `[decision.inline](decision.inline.md)` is an example too.",
-      "",
-      "Relates to [decision.real](decision.real.md).",
-      "",
-    ].join("\n");
-
-    expect(outboundReferences(from).map((entry) => entry.target)).toEqual([
-      "decision.real",
-    ]);
-    expect(validateBundle([from])).toEqual([
-      {
-        check: "body_link",
-        conceptId: "decision.house-style",
-        note: "body cites decision.real, which is not in the bundle",
-        severity: "warning",
-      },
-    ]);
-  });
-
-  // The reviewer's own record proved the first fix wrong: a longer run in the
-  // middle of a line re-paired every span after it.
-  test("a longer backtick run does not re-pair the spans after it", () => {
-    const from = record("decision.house-style");
-    from.body = [
-      "",
-      "## Claim",
-      "",
-      "`](<concept-id>.md)` inside a ```markdown block is a reference, so",
-      "`Relates to [decision.quoted](decision.quoted.md).` is an example.",
-      "",
-      "Relates to [decision.real](decision.real.md).",
-      "",
-    ].join("\n");
-
-    expect(outboundReferences(from).map((entry) => entry.target)).toEqual([
-      "decision.real",
-    ]);
-  });
-
-  test("an unclosed fence runs to the end of the record", () => {
-    const from = record("decision.truncated");
-    from.body = [
-      "",
-      "## Claim",
-      "",
-      "~~~",
-      "Relates to [decision.fenced](decision.fenced.md).",
-      "",
-    ].join("\n");
-
-    expect(outboundReferences(from)).toEqual([]);
   });
 
   test("a shared anchor is not a reference", () => {
@@ -270,7 +207,6 @@ describe("staleReferences", () => {
         from: "risk.export-window",
         target: "decision.old-way",
         targetStanding: "superseded",
-        origins: ["link"],
         rels: ["related_to"],
         replacedBy: ["decision.new-way"],
       },
@@ -291,25 +227,27 @@ describe("staleReferences", () => {
         from: "open-question.retry-scope",
         target: "decision.turned-down",
         targetStanding: "rejected",
-        origins: ["link"],
         rels: ["depends_on"],
         replacedBy: [],
       },
     ]);
   });
 
-  test("a body citation alone still reports, as it always did", () => {
+  // A base that has not run `mirror-links` hides this finding. That is the
+  // migration's whole job, and `validate` is what names the record.
+  test("an unmirrored citation is not a finding, and validate says so", () => {
     const bundle = [
       ...replacedPair(),
       record("decision.live", { cites: ["decision.old-way"] }),
     ];
 
-    expect(stale(bundle)).toMatchObject([
-      { from: "decision.live", origins: ["body"], rels: [] },
+    expect(stale(bundle)).toEqual([]);
+    expect(validateBundle(bundle).map((problem) => problem.check)).toEqual([
+      "body_link",
     ]);
   });
 
-  test("the same pair stated both ways is one finding", () => {
+  test("a mirrored citation is one finding, not two", () => {
     const bundle = [
       ...replacedPair(),
       record("decision.live", {
@@ -319,11 +257,7 @@ describe("staleReferences", () => {
     ];
 
     expect(stale(bundle)).toMatchObject([
-      {
-        from: "decision.live",
-        origins: ["body", "link"],
-        rels: ["related_to"],
-      },
+      { from: "decision.live", rels: ["related_to"] },
     ]);
   });
 
@@ -462,7 +396,6 @@ describe("liveReferencesTo", () => {
         from: "risk.export-window",
         title: "risk.export-window",
         standing: "open",
-        origins: ["link"],
         rels: ["related_to"],
       },
     ]);
@@ -489,19 +422,24 @@ describe("doctor reads both halves", () => {
     expect(findings[0]?.reference).toMatchObject({
       from: "risk.export-window",
       target: "decision.old-way",
-      origins: ["link"],
+      rels: ["related_to"],
     });
   });
 
-  test("a prose citation keeps the note it always had", () => {
+  test("a mirrored citation reads as the related_to it became", () => {
     const bundle = [
       ...replacedPair(),
-      record("decision.live", { cites: ["decision.old-way"] }),
+      record("decision.live", {
+        cites: ["decision.old-way"],
+        links: [{ target: "decision.old-way", rel: "related_to" }],
+      }),
     ];
 
     expect(
       notesIn(doctor(bundle, { now: NOW }), "superseded-but-cited")[0]?.note,
-    ).toBe("cites superseded decision.old-way — replaced by decision.new-way");
+    ).toBe(
+      "cites superseded decision.old-way via related_to — replaced by decision.new-way",
+    );
   });
 
   test("a record reachable only through a typed link is not orphaned", () => {
@@ -518,27 +456,37 @@ describe("doctor reads both halves", () => {
   });
 });
 
-describe("validate reads the body half", () => {
-  test("warns on a prose citation of a record the bundle does not hold", () => {
+describe("validate is the one body read left", () => {
+  test("warns on a citation the frontmatter does not declare", () => {
     const problems = validateBundle([
-      record("decision.live", { cites: ["fact.never-written"] }),
+      record("decision.live", { cites: ["fact.elsewhere"] }),
     ]);
 
     expect(problems).toEqual([
       {
         check: "body_link",
         conceptId: "decision.live",
-        note: "body cites fact.never-written, which is not in the bundle",
+        note: "body cites fact.elsewhere, which strauss_links does not declare — run mirror-links",
         severity: "warning",
       },
     ]);
   });
 
-  test("stays silent once the citation is removed", () => {
-    expect(validateBundle([record("decision.live")])).toEqual([]);
+  test("stays silent once the citation is mirrored", () => {
+    expect(
+      validateBundle([
+        record("decision.live", {
+          cites: ["fact.elsewhere"],
+          links: [{ target: "fact.elsewhere", rel: "related_to" }],
+        }),
+        record("fact.elsewhere"),
+      ]),
+    ).toEqual([]);
   });
 
-  test("a missing target declared both ways is reported once", () => {
+  // A declared target that is simply absent is `link_target`'s warning; the
+  // body half says nothing about it a second time.
+  test("a mirrored citation of a missing record is reported once", () => {
     const problems = validateBundle([
       record("decision.live", {
         cites: ["fact.never-written"],
@@ -623,7 +571,6 @@ describe("reassess without code drift", () => {
         from: "risk.environment-override",
         target: "decision.retention",
         targetStanding: "superseded",
-        origins: ["link"],
         rels: ["related_to"],
         replacedBy: ["decision.retention-seven-days"],
       },
@@ -633,9 +580,7 @@ describe("reassess without code drift", () => {
     const rendered = reassessCommand.render?.(result) ?? "";
     expect(rendered).not.toContain("nothing to reassess");
     expect(rendered).toContain("## References that no longer hold (1)");
-    expect(rendered).toContain(
-      "decision.retention [superseded] (link, related_to)",
-    );
+    expect(rendered).toContain("decision.retention [superseded] (related_to)");
   });
 
   test("reassessing the replaced decision exposes the risk still on it", async ({
@@ -651,7 +596,6 @@ describe("reassess without code drift", () => {
         from: "risk.environment-override",
         title: "An environment override can shorten the window",
         standing: "open",
-        origins: ["link"],
         rels: ["related_to"],
       },
     ]);

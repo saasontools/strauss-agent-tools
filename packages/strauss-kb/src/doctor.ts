@@ -481,14 +481,11 @@ function supersededButCited(
   for (const reference of staleReferences(bundle, standings)) {
     const record = byId.get(reference.from);
     if (!record) continue;
-    const via = reference.rels.length
-      ? ` via ${reference.rels.join(", ")}`
-      : "";
     const replacement = reference.replacedBy[0];
     findings.push({
       ...finding(
         record,
-        `cites ${reference.targetStanding} ${reference.target}${via}${
+        `cites ${reference.targetStanding} ${reference.target} via ${reference.rels.join(", ")}${
           replacement ? ` — replaced by ${replacement}` : ""
         }`,
       ),

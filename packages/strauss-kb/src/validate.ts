@@ -1,5 +1,5 @@
 import { isCanonicalRepoUrl } from "./anchor-resolver/index.js";
-import { bodyLinkTargets } from "./kb-edges.js";
+import { bodyCitations } from "./body-citations.js";
 import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 import { isKbLinkRel, isKbRecordType, KB_LINK_RELS } from "./record-types.js";
 
@@ -104,19 +104,21 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
       }
     }
 
-    // The body half of the same edge, on the same tolerance: a warning, never
-    // an error. One finding per pair — `compose` renders a markdown link for
-    // every typed link, so a declared target reaching this loop was already
-    // reported above and the repair is the one frontmatter edit.
+    // The one place a body is still read. `strauss_links` is the edge and the
+    // prose is its rendering, which `compose` keeps in step — so a citation
+    // with no entry beside it is a record written by hand or by a producer we
+    // did not write, and nothing downstream will ever see that edge. A
+    // warning, not an error: the repair is `mirror-links`, and a base mid-write
+    // is not broken.
     const declared = new Set(
       (fm.strauss_links ?? []).map((link) => link.target),
     );
-    for (const target of bodyLinkTargets(record)) {
-      if (byId.has(target) || declared.has(target)) continue;
+    for (const target of bodyCitations(record)) {
+      if (declared.has(target)) continue;
       report(
         "body_link",
         conceptId,
-        `body cites ${target}, which is not in the bundle`,
+        `body cites ${target}, which strauss_links does not declare — run mirror-links`,
         "warning",
       );
     }

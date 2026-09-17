@@ -58,7 +58,6 @@ export function staleReferencesFrom(
       from: record.conceptId,
       target: reference.target,
       targetStanding: standing as "superseded" | "rejected",
-      origins: reference.origins,
       rels: reference.rels,
       replacedBy: replacementChain(target, byId),
     });
@@ -93,7 +92,6 @@ export function liveReferencesTo(
       from: record.conceptId,
       title: record.frontmatter.title ?? null,
       standing: standings.get(record.conceptId) ?? "unsettled",
-      origins: reference.origins,
       rels: reference.rels,
     });
   }

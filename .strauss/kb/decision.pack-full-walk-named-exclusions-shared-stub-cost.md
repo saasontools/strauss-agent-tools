@@ -66,6 +66,9 @@ strauss_verify:
 strauss_status: accepted
 strauss_materiality: important
 strauss_confidence: high
+strauss_links:
+  - target: decision.kb-edges-fold-related-into-body-link
+    rel: related_to
 ---
 
 ## Decision

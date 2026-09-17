@@ -391,7 +391,6 @@ describe("built CLI round trip", () => {
           reference: {
             target: "decision.retention",
             targetStanding: "superseded",
-            origins: ["link"],
             rels: ["related_to"],
             replacedBy: ["decision.retention-seven-days"],
           },
@@ -406,7 +405,7 @@ describe("built CLI round trip", () => {
       expect(stdout).not.toContain("nothing to reassess");
       expect(stdout).toContain("## References that no longer hold (1)");
       expect(stdout).toContain(
-        "- decision.retention [superseded] (link, related_to) — replaced by decision.retention-seven-days",
+        "- decision.retention [superseded] (related_to) — replaced by decision.retention-seven-days",
       );
     });
 
@@ -415,7 +414,7 @@ describe("built CLI round trip", () => {
 
       expect(stdout).toContain("## Still pointing here (1)");
       expect(stdout).toContain(
-        "- risk.environment-override [open] (link, related_to)",
+        "- risk.environment-override [open] (related_to)",
       );
     });
   });

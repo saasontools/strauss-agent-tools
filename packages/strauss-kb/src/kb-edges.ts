@@ -1,4 +1,4 @@
-import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
+import type { KbRecord } from "./kb-record.schema.js";
 import { KB_LINK_RELS } from "./record-types.js";
 
 /**
@@ -8,27 +8,19 @@ import { KB_LINK_RELS } from "./record-types.js";
  * into disagreeing about what makes two records neighbours, and a diagnostic
  * pass over the graph can reuse the same definition.
  *
- * There is no separate `related` kind: compose.ts renders `relatedConceptIds`
- * as body links (`Relates to [id](id.md).`), so in stored form a related edge
- * IS a body link, and a distinct kind would count the same markdown twice.
+ * An edge is `strauss_links` in the frontmatter and nothing else. A record's
+ * prose renders the same claim for a reader that only knows OKF, and `compose`
+ * keeps the two in step at write time, so a walk over the body would count the
+ * edge a second time and disagree the moment the two drifted.
  *
- * `typed-link` is not that case, despite compose.ts also rendering a sentence
- * per link. The edge is `strauss_links` in the frontmatter — the authoritative,
- * typed form — and the sentence is its rendering for a reader that only knows
- * OKF. A record can carry the frontmatter without the prose (hand-written, or
- * from a producer we did not write), so reading only the body would miss it.
- * A pair connected both ways comes back with both kinds in `via`, which is the
- * honest answer: it was declared, and it was written about.
- *
- * `body-link` and `typed-link` are DIRECTED — the edges a record itself makes,
- * read off its own body or frontmatter. `supersession`, `anchor` and `source`
- * are symmetric: they hold between two records because both name the same
- * thing, so either end sees the other. Callers wanting the inbound half of a
- * typed edge use `kb-links/` (`kb_backlinks`, `kb_impact`) rather than this
- * module, which answers "what does this record point at".
+ * `typed-link` is DIRECTED — the edges a record itself declares.
+ * `supersession`, `anchor` and `source` are symmetric: they hold between two
+ * records because both name the same thing, so either end sees the other.
+ * Callers wanting the inbound half of a typed edge use `kb-links/`
+ * (`kb_backlinks`, `kb_impact`) rather than this module, which answers "what
+ * does this record point at".
  */
 export const KB_EDGE_KINDS = [
-  "body-link",
   "typed-link",
   "supersession",
   "anchor",
@@ -42,86 +34,6 @@ export type KbNeighbour = {
   /** Every edge kind that connects it to the record asked about. */
   via: KbEdgeKind[];
 };
-
-// The target of any markdown link whose href is a record filename:
-// `](<concept-id>.md)`. Built from the id pattern with its anchors stripped so
-// the id can be matched mid-body.
-const BODY_LINK_TARGET = new RegExp(
-  `\\]\\((${KB_CONCEPT_ID_PATTERN.source.replace(/^\^|\$$/g, "")})\\.md\\)`,
-  "g",
-);
-
-/**
- * Every concept id this record's prose cites, itself excluded.
- *
- * The one body-citation parser in the package: `doctor`, `reassess`, `sweep`
- * and `validate` all read this half of the edge graph, and a second regex over
- * the same markdown is where they would start disagreeing about what a
- * citation is. Code is not prose — a link inside a fence or a code span is an
- * example, and a base whose house-style record shows how to cite must not warn
- * about itself.
- */
-export function bodyLinkTargets(record: KbRecord): Set<string> {
-  const targets = new Set<string>();
-  for (const match of prose(record.body).matchAll(BODY_LINK_TARGET)) {
-    const target = match[1];
-    if (target && target !== record.conceptId) targets.add(target);
-  }
-  return targets;
-}
-
-/**
- * The body with fenced blocks and inline code spans removed. A fence closes on
- * a marker of its own kind and at least its own length, per CommonMark, and an
- * unclosed one runs to the end of the record.
- */
-function prose(body: string): string {
-  const kept: string[] = [];
-  let fence: string | null = null;
-  for (const line of body.replace(/\r\n/g, "\n").split("\n")) {
-    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
-    if (fence) {
-      if (marker && marker[0] === fence[0] && marker.length >= fence.length) {
-        fence = null;
-      }
-      continue;
-    }
-    if (marker) {
-      fence = marker;
-      continue;
-    }
-    kept.push(withoutCodeSpans(line));
-  }
-  return kept.join("\n");
-}
-
-/**
- * One line with its code spans removed. A span closes on a backtick run of its
- * own length, so a longer run in the middle of a line cannot re-pair the spans
- * after it; a run that never closes is literal text.
- */
-function withoutCodeSpans(line: string): string {
-  const runs = [...line.matchAll(/`+/g)].map((run) => ({
-    at: run.index ?? 0,
-    length: run[0].length,
-  }));
-  let out = "";
-  let cursor = 0;
-  for (let open = 0; open < runs.length; open += 1) {
-    const start = runs[open];
-    if (!start || start.at < cursor) continue;
-    const close = runs.findIndex(
-      (run, at) => at > open && run.length === start.length,
-    );
-    if (close < 0) continue;
-    const end = runs[close];
-    if (!end) continue;
-    out += line.slice(cursor, start.at);
-    cursor = end.at + end.length;
-    open = close;
-  }
-  return out + line.slice(cursor);
-}
 
 /**
  * Which rels a `typed-link` walk may follow.
@@ -172,24 +84,12 @@ export function edgeNeighbours(
   linkRels: readonly string[] = DEFAULT_TYPED_LINK_RELS,
 ): KbRecord[] {
   switch (kind) {
-    // A link whose target is not in the bundle is legal per compose.ts —
-    // records are routinely written before the ones they point at exist — so
-    // missing targets are skipped, never an error.
-    case "body-link": {
-      const targets = bodyLinkTargets(from);
-      if (!targets.size) return [];
-      return bundle.filter(
-        (candidate) =>
-          candidate.conceptId !== from.conceptId &&
-          targets.has(candidate.conceptId),
-      );
-    }
-
-    // Outbound only, like `body-link`, and for the same reason: this is what
-    // the record declares about itself. A missing target is legal — the walk
-    // skips it, and `kb_validate` is what reports it as a warning. A rel
-    // outside `linkRels` is skipped too, which is how an unknown rel stays
-    // untraversable everywhere rather than one walk at a time.
+    // Outbound only: this is what the record declares about itself. A missing
+    // target is legal — records are routinely written before the ones they
+    // point at exist — so the walk skips it and `kb_validate` reports it as a
+    // warning. A rel outside `linkRels` is skipped too, which is how an
+    // unknown rel stays untraversable everywhere rather than one walk at a
+    // time.
     case "typed-link": {
       const allowed = new Set(linkRels);
       const targets = new Set(

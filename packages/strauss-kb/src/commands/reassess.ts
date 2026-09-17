@@ -259,7 +259,7 @@ export function renderReassess(result: KbReassessResult): string {
     lines.push("", `## References that no longer hold (${outgoing.length})`);
     for (const entry of outgoing) {
       lines.push(
-        `- ${entry.target} [${entry.targetStanding}] ${where(entry.origins, entry.rels)}${
+        `- ${entry.target} [${entry.targetStanding}] ${where(entry.rels)}${
           entry.replacedBy.length
             ? ` — replaced by ${entry.replacedBy.join(" → ")}`
             : ""
@@ -272,7 +272,7 @@ export function renderReassess(result: KbReassessResult): string {
     lines.push("", `## Still pointing here (${incoming.length})`);
     for (const entry of incoming) {
       lines.push(
-        `- ${entry.from} [${entry.standing}] ${where(entry.origins, entry.rels)}${
+        `- ${entry.from} [${entry.standing}] ${where(entry.rels)}${
           entry.title ? ` — ${oneLine(entry.title)}` : ""
         }`,
       );
@@ -311,9 +311,7 @@ function oneLine(text: string): string {
     .trim();
 }
 
-/** Where the pointer is written, and what it claims where it is typed. */
-function where(origins: readonly string[], rels: readonly string[]): string {
-  const parts = [...origins];
-  if (rels.length) parts.push(rels.join(", "));
-  return `(${parts.join(", ")})`;
+/** What the pointer claims. */
+function where(rels: readonly string[]): string {
+  return `(${rels.join(", ")})`;
 }

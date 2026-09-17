@@ -376,7 +376,7 @@ describe("doctor", () => {
 
     expect(ids(report, "superseded-but-cited")).toEqual(["decision.root"]);
     expect(note(report, "superseded-but-cited", "decision.root")).toBe(
-      "cites superseded decision.old-way — replaced by decision.new-way",
+      "cites superseded decision.old-way via related_to — replaced by decision.new-way",
     );
   });
 
@@ -385,11 +385,10 @@ describe("doctor", () => {
   test("exempts a record citing the one it replaced", () => {
     const report = doctor(
       [
-        record(
-          "decision.new-way",
-          { strauss_supersedes: ["decision.old-way"] },
-          "Relates to [decision.old-way](decision.old-way.md).\n",
-        ),
+        record("decision.new-way", {
+          strauss_supersedes: ["decision.old-way"],
+          strauss_links: [{ target: "decision.old-way", rel: "related_to" }],
+        }),
         record("decision.old-way", {
           strauss_status: "superseded",
           strauss_superseded_by: "decision.new-way",
@@ -404,16 +403,14 @@ describe("doctor", () => {
   test("calls a clean base healthy", () => {
     const report = doctor(
       [
-        record(
-          "fact.one",
-          { verified: [{ by: "human:a", at: RECENT }] },
-          ["Relates to [fact.two](fact.two.md)."].join("\n"),
-        ),
-        record(
-          "fact.two",
-          { verified: [{ by: "human:a", at: RECENT }] },
-          ["Relates to [fact.one](fact.one.md)."].join("\n"),
-        ),
+        record("fact.one", {
+          verified: [{ by: "human:a", at: RECENT }],
+          strauss_links: [{ target: "fact.two", rel: "related_to" }],
+        }),
+        record("fact.two", {
+          verified: [{ by: "human:a", at: RECENT }],
+          strauss_links: [{ target: "fact.one", rel: "related_to" }],
+        }),
       ],
       { now: NOW },
     );
@@ -523,18 +520,18 @@ describe("doctor", () => {
   test("reports a live record citing a rejected one", () => {
     const report = doctor(
       [
-        record(
-          "decision.live",
-          {},
-          "Relates to [decision.turned-down](decision.turned-down.md).\n",
-        ),
+        record("decision.live", {
+          strauss_links: [
+            { target: "decision.turned-down", rel: "related_to" },
+          ],
+        }),
         record("decision.turned-down", { strauss_status: "rejected" }),
       ],
       { now: NOW },
     );
 
     expect(note(report, "superseded-but-cited", "decision.live")).toBe(
-      "cites rejected decision.turned-down",
+      "cites rejected decision.turned-down via related_to",
     );
   });
 

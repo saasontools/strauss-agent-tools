@@ -422,7 +422,7 @@ describe("drift classification", () => {
 
     expect(result.packet?.anchors).toHaveLength(1);
     expect(result.packet?.references.outgoing).toMatchObject([
-      { target: "decision.retention", origins: ["link"], rels: ["related_to"] },
+      { target: "decision.retention", rels: ["related_to"] },
     ]);
     // The type's lean still speaks about the code, because the code did move.
     expect(result.packet?.default).toBe("presumed-invalidated");

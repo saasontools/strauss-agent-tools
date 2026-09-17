@@ -20,6 +20,7 @@ import {
   kbVerifiedEventSchema,
   KB_SLUG_PATTERN,
   type KbAnchor,
+  type KbLink,
   type KbRecord,
   type KbRecordFrontmatter,
   type KbRecordStatus,
@@ -409,6 +410,27 @@ export class KbStore {
         };
       },
       () => entry,
+    );
+  }
+
+  /**
+   * Replaces a record's `strauss_links`, for the one-time `mirror-links`
+   * migration. Not a general edit verb: a link is a claim, and changing one
+   * changes what the record says. The migration only ever adds the edge a
+   * citation already stated in the record's own prose.
+   */
+  async updateLinks(
+    bundlePath: string,
+    conceptId: string,
+    links: KbLink[],
+    actor = "unknown",
+  ): Promise<KbRecord> {
+    assertActor(actor);
+    return this.mutate(
+      bundlePath,
+      conceptId,
+      (frontmatter) => ({ ...frontmatter, strauss_links: links }),
+      { operation: "mirror-links", by: actor },
     );
   }
 

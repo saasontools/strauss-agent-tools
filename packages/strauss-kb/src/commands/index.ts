@@ -19,6 +19,7 @@ import { listCommand } from "./list.js";
 import { loadCommand } from "./load.js";
 import { logCommand } from "./log.js";
 import { matchCommand } from "./match/index.js";
+import { mirrorLinksCommand } from "./mirror-links.js";
 import { noDecisionCommand } from "./no-decision.js";
 import { packCommand } from "./pack.js";
 import { pinCommand } from "./pin.js";
@@ -71,6 +72,7 @@ export const KB_COMMANDS: KbCommand[] = [
   validateCommand,
   doctorCommand,
   sweepCommand,
+  mirrorLinksCommand,
   schemaCommand,
   pinCommand,
   unpinCommand,

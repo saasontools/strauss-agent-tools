@@ -159,7 +159,23 @@ export function composeRecord(
       `kb: ${type}.${parsed.slug} cannot ${selfLink.rel} itself — a link must name another record`,
     );
   }
-  if (parsed.links?.length) frontmatter.strauss_links = parsed.links;
+  // `relatedConceptIds` is an edge like any other, so it is stored like one.
+  // The prose sentence below stays for a plain-OKF reader, but nothing reads
+  // it back: a related edge that lived only in the body was invisible to every
+  // consumer the moment they stopped parsing prose. A target already carrying
+  // a declared rel keeps it — `related_to` claims no dependence, so it would
+  // only restate a stronger claim.
+  const seen = new Set([
+    `${type}.${parsed.slug}`,
+    ...(parsed.links ?? []).map((link) => link.target),
+  ]);
+  const links: ComposeLink[] = [...(parsed.links ?? [])];
+  for (const target of parsed.relatedConceptIds ?? []) {
+    if (seen.has(target)) continue;
+    seen.add(target);
+    links.push({ target, rel: "related_to" });
+  }
+  if (links.length) frontmatter.strauss_links = links;
 
   const blocks: string[] = [];
   for (const heading of spec.sections) {

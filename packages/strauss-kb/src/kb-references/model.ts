@@ -6,20 +6,10 @@ import type { KbStanding } from "../adjudicate.js";
  * `kb-links/` answers the causal inverse.
  */
 
-/** Where a reference is written: the record's prose, or its `strauss_links`. */
-export type KbReferenceOrigin = "body" | "link";
-
-/** Fixed order, so a pair stated both ways always reads the same. */
-export const KB_REFERENCE_ORIGINS: readonly KbReferenceOrigin[] = [
-  "body",
-  "link",
-];
-
-/** One target a record points at, with every way it points at it. */
+/** One target a record points at, with every claim it makes about it. */
 export type KbOutboundReference = {
   target: string;
-  origins: KbReferenceOrigin[];
-  /** Rels declared for this target, in declaration order. Empty for a body-only citation. */
+  /** Rels declared for this target, in declaration order. Never empty. */
   rels: string[];
 };
 
@@ -29,7 +19,6 @@ export type KbStaleReference = {
   target: string;
   /** Always `superseded` or `rejected` — the standings that stopped holding. */
   targetStanding: Extract<KbStanding, "superseded" | "rejected">;
-  origins: KbReferenceOrigin[];
   rels: string[];
   /** The replacement chain, nearest first, limited to ids the bundle holds. */
   replacedBy: string[];
@@ -40,6 +29,5 @@ export type KbLiveReference = {
   from: string;
   title: string | null;
   standing: KbStanding;
-  origins: KbReferenceOrigin[];
   rels: string[];
 };

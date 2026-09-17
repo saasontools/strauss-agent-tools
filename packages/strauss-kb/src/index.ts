@@ -212,8 +212,8 @@ export {
   type KbTraceOptions,
   type KbTraceStep,
 } from "./trace.js";
+export { bodyCitations } from "./body-citations.js";
 export {
-  bodyLinkTargets,
   edgeNeighbours,
   neighbours,
   DEFAULT_TYPED_LINK_RELS,
@@ -226,10 +226,8 @@ export {
   outboundReferences,
   staleReferences,
   staleReferencesFrom,
-  KB_REFERENCE_ORIGINS,
   type KbLiveReference,
   type KbOutboundReference,
-  type KbReferenceOrigin,
   type KbStaleReference,
 } from "./kb-references/index.js";
 export {

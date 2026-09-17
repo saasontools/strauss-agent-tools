@@ -228,7 +228,7 @@ describe("createKbMcpServer", () => {
     ).toMatchObject({
       from: "risk.environment-override",
       target: "decision.retention",
-      origins: ["link"],
+      rels: ["related_to"],
     });
 
     const packet = JSON.parse(
