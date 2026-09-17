@@ -1,3 +1,14 @@
+## 0.1.4 (2026-09-17)
+
+### 🩹 Fixes
+
+- interactions calls now honour the configured retry attempts and the 30s timeout ([0914d26](https://github.com/saasontools/strauss-agent-tools/commit/0914d26))
+
+### ❤️ Thank You
+
+- assafk
+- Claude Opus 5
+
 ## 0.1.3 (2026-08-30)
 
 ### 🩹 Fixes
