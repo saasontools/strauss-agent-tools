@@ -24,15 +24,28 @@ import { SEARCH_INDEX_FILE } from "./search-index.js";
  */
 describe("what git actually excludes", () => {
   let repo: string;
+  let emptyConfig: string;
   const store = new KbStore();
   const at = "2026-09-15T00:00:00Z";
 
+  /**
+   * check-ignore reads `core.excludesFile` like any other git command, so a
+   * contributor whose personal excludes hold `*.sqlite*` would run this suite
+   * green with the rule never written. An empty config for both scopes is the
+   * whole fix — not the null device, which git rejects as a config path on
+   * Windows, where this suite also runs.
+   */
   const git = (...args: string[]) =>
     execFileSync("git", ["-C", repo, ...args], {
       encoding: "utf8",
       // A synchronous spawn cannot be interrupted by vitest's own timeout, so
       // a stuck git would hang the worker rather than fail the test.
       timeout: 30_000,
+      env: {
+        ...process.env,
+        GIT_CONFIG_GLOBAL: emptyConfig,
+        GIT_CONFIG_SYSTEM: emptyConfig,
+      },
     });
 
   /**
@@ -86,6 +99,8 @@ describe("what git actually excludes", () => {
 
   beforeEach(() => {
     repo = mkdtempSync(join(tmpdir(), "strauss-kb-check-ignore-"));
+    emptyConfig = join(repo, "empty.gitconfig");
+    writeFileSync(emptyConfig, "");
     git("init", "-q");
   });
 

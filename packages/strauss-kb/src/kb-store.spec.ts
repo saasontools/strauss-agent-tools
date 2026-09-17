@@ -1328,6 +1328,31 @@ describe(".gitignore", () => {
     );
   });
 
+  // A `!` line arrives with a clone and decides whether the protection is
+  // written. Respecting it is the rule; this path holds a logger, so unlike
+  // the pins layer it can say so.
+  test("warns when the base deliberately un-ignores the index", async ({
+    bundle,
+  }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+    mkdirSync(bundle, { recursive: true });
+    writeFileSync(join(bundle, GITIGNORE_FILE), "!.index.sqlite-wal\n");
+
+    await quiet.write(bundle, fact("one"));
+
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
+      "!.index.sqlite-wal\n",
+    );
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        operation: "kb.gitignore.ensure",
+        outcome: "unignored",
+        patterns: ["/.index.sqlite*"],
+      }),
+    );
+  });
+
   // The whole write path against a line that a compiled regex cannot answer:
   // 18 adjacent stars backtrack for minutes, synchronously, inside the store.
   test("a pathological ignore line does not wedge the write", async ({

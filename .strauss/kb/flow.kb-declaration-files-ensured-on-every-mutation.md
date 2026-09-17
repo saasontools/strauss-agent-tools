@@ -17,7 +17,15 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T18:21:52.321Z"
-verified: []
+verified:
+  - by: "agent:security"
+    at: "2026-09-17T18:34:25.674Z"
+    note: >-
+      Ran both writers against a symlinked .gitignore: the link target stayed
+      byte-identical, the store warned refused-symlink and pinBase returned the
+      symlink warning, and both mutations succeeded. The refusal covers the
+      named file only — a symlinked parent directory still takes the write
+      outside (risk.symlink-refusal-guards-the-leaf-only).
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: KbStore.ensureDeclared

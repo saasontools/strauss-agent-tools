@@ -39,6 +39,13 @@ verified:
       at docs/adr; /kb-pins.local.json is written to
       <workspace>/.strauss/.gitignore on a local pin only, and kb-pins.json
       stays tracked.
+  - by: "agent:security"
+    at: "2026-09-17T18:34:25.845Z"
+    note: >-
+      Re-read ensureLocalPinsIgnored after the symlink and negation changes:
+      still dirname(layerFile) for the local layer only, still the one-file
+      pattern, and the suppressed rule now leaves through pinBase's warning
+      field into KbPinResult, which both the CLI and kb_pin return.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: SEARCH_INDEX_RULE

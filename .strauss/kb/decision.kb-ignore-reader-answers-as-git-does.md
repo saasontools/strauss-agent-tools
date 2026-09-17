@@ -17,7 +17,16 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T18:20:43.567Z"
-verified: []
+verified:
+  - by: "agent:security"
+    at: "2026-09-17T18:34:25.468Z"
+    note: >-
+      Ran the reader against real check-ignore on twelve adversarial lines (40
+      and 2000 stars, leading whitespace, CRLF, escaped star, bracket
+      expression, dir pattern, **/, trailing whitespace, negation): every
+      disagreement is in the safe direction — the reader says 'missing' where
+      git ignores, never 'ignored' where git does not. 2000 stars answered in
+      0.3ms, a 400k-line file in 69ms.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: globMatches

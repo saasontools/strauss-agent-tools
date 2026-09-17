@@ -73,6 +73,7 @@ import {
   appendIgnoreLines,
   BUNDLE_IGNORE_RULES,
   GITIGNORE_FILE,
+  ignoreRuleState,
 } from "./kb-gitignore.js";
 import { STORE_OWNED_FILES } from "./kb-files.js";
 
@@ -1107,6 +1108,10 @@ export class KbStore {
       GITIGNORE_FILE,
       "kb.gitignore.ensure",
       (existing) => appendIgnoreLines(existing, BUNDLE_IGNORE_RULES),
+      (existing) =>
+        BUNDLE_IGNORE_RULES.filter(
+          (rule) => ignoreRuleState(existing, rule) === "unignored",
+        ).map((rule) => rule.pattern),
     );
   }
 
@@ -1123,6 +1128,8 @@ export class KbStore {
     name: string,
     operation: string,
     append: (existing: string) => string,
+    /** Patterns the file deliberately un-ignores: nothing to write, but not nothing to say. */
+    suppressed?: (existing: string) => string[],
   ): Promise<void> {
     const target = join(root, name);
     try {
@@ -1169,6 +1176,16 @@ export class KbStore {
         });
         return;
       }
+      const unignored = suppressed?.(existing) ?? [];
+      if (unignored.length > 0) {
+        this.logger.warn?.({
+          operation,
+          bundlePath: root,
+          outcome: "unignored",
+          patterns: unignored,
+        });
+      }
+
       const addition = append(existing);
       if (addition) {
         await appendFile(target, addition, "utf8");

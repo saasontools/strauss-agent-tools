@@ -91,3 +91,12 @@
 {"at":"2026-09-17T18:23:24.507Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.ignore-rationale-restated-in-four-homes"}
 {"at":"2026-09-17T18:23:24.725Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.ignore-reader-trims-leading-whitespace"}
 {"at":"2026-09-17T18:23:56.028Z","by":"agent:author","operation":"anchor-resolve","conceptId":"test-obligation.kb-companion-tracked"}
+{"at":"2026-09-17T18:33:44.854Z","by":"agent:security","operation":"write","conceptId":"risk.git-spec-reads-the-machines-global-excludes"}
+{"at":"2026-09-17T18:33:58.140Z","by":"agent:security","operation":"write","conceptId":"risk.base-negation-suppresses-the-index-rule-in-silence"}
+{"at":"2026-09-17T18:34:12.146Z","by":"agent:security","operation":"write","conceptId":"risk.symlink-refusal-guards-the-leaf-only"}
+{"at":"2026-09-17T18:34:25.479Z","by":"agent:security","operation":"verify","conceptId":"decision.kb-ignore-reader-answers-as-git-does"}
+{"at":"2026-09-17T18:34:25.700Z","by":"agent:security","operation":"verify","conceptId":"flow.kb-declaration-files-ensured-on-every-mutation"}
+{"at":"2026-09-17T18:34:25.855Z","by":"agent:security","operation":"verify","conceptId":"decision.kb-ignore-anchored-per-location"}
+{"at":"2026-09-17T18:35:06.588Z","by":"agent:security","operation":"anchor-resolve","conceptId":"risk.git-spec-reads-the-machines-global-excludes"}
+{"at":"2026-09-17T18:35:06.858Z","by":"agent:security","operation":"anchor-resolve","conceptId":"risk.base-negation-suppresses-the-index-rule-in-silence"}
+{"at":"2026-09-17T18:35:07.109Z","by":"agent:security","operation":"anchor-resolve","conceptId":"risk.symlink-refusal-guards-the-leaf-only"}
