@@ -40,3 +40,10 @@
 {"at":"2026-09-17T18:32:23.046Z","by":"mcp","operation":"write","conceptId":"decision.edge-consumers-read-body-and-frontmatter"}
 {"at":"2026-09-17T18:32:28.564Z","by":"mcp","operation":"supersede","conceptId":"decision.kb-edges-fold-related-into-body-link","target":"decision.edge-consumers-read-body-and-frontmatter"}
 {"at":"2026-09-17T18:32:28.567Z","by":"mcp","operation":"supersedes","conceptId":"decision.edge-consumers-read-body-and-frontmatter","target":"decision.kb-edges-fold-related-into-body-link"}
+{"at":"2026-09-17T18:53:14.461Z","by":"mcp","operation":"write","conceptId":"decision.orphaned-counts-typed-links"}
+{"at":"2026-09-17T18:53:27.391Z","by":"mcp","operation":"write","conceptId":"risk.sweep-pinned-by-a-prose-citation"}
+{"at":"2026-09-17T18:53:43.197Z","by":"mcp","operation":"write","conceptId":"decision.reassess-references-ride-in-the-packet"}
+{"at":"2026-09-17T18:53:51.270Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.edge-consumers-read-body-and-frontmatter"}
+{"at":"2026-09-17T18:53:53.355Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.orphaned-counts-typed-links"}
+{"at":"2026-09-17T18:53:58.376Z","by":"mcp","operation":"anchor-resolve","conceptId":"risk.sweep-pinned-by-a-prose-citation"}
+{"at":"2026-09-17T18:54:01.048Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.reassess-references-ride-in-the-packet"}

@@ -19,8 +19,18 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS
+    hash: "sha256:0648248fcc514e5b045b23b469c35de373e01569dcba06453f52b1d99505a63c"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:53:51.266Z"
+    lines: 7
+    resolver: regex
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: bodyLinkTargets
+    hash: "sha256:718597d02716b5d78485eec3a44c51a3bb6d1edd0d91280184a9fc8ca331d6cd"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:53:51.266Z"
+    lines: 8
+    resolver: tree-sitter
 strauss_links:
   - target: risk.edge-kind-enumeration-stale
     rel: informs
