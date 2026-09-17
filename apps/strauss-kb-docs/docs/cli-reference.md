@@ -246,7 +246,9 @@ survive, in place; additions go last.
 A replacement keeps the anchor's `hash`, `hash_kind`, `lines`, `resolved_at`
 and `resolver`, so changed code under a new name still reports drift. It may
 not change `repo`, `ref` or `side` — the baseline would not travel with it;
-`remove` plus `add` in the same patch does that.
+`remove` plus `add` in the same patch does that. So does _clearing_ a field
+rather than changing it: `to` sets what it names and keeps the rest, so
+widening a symbol anchor back to the whole file is a remove and an add.
 
 ```bash
 strauss-kb anchor-update decision.export-retention <<'JSON'
