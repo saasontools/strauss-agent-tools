@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -14,11 +15,13 @@ import {
   KbBaseFrozenError,
   KbPinsMalformedError,
   PINS_FILE,
+  PINS_LOCAL_FILE,
   listPins,
   pinBase,
   readPinsLayer,
   unpinBase,
 } from "./kb-pins/index.js";
+import { STRAUSS_GITIGNORE_BLOCK, GITIGNORE_FILE } from "./kb-gitignore.js";
 import { KbStore } from "./kb-store.js";
 
 describe("kb-pins", () => {
@@ -47,6 +50,40 @@ describe("kb-pins", () => {
 
   afterEach(() => {
     rmSync(workspace, { recursive: true, force: true });
+  });
+
+  // The local manifest is personal, and lives outside any base, so no
+  // base-level ignore file can reach it.
+  test("writing a local pin ignores it at the workspace .strauss level", async () => {
+    await pinBase(store, workspace, bundle, at, { layer: "local" });
+
+    expect(
+      readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
+    ).toBe(STRAUSS_GITIGNORE_BLOCK);
+  });
+
+  test("keeps a user's own .strauss ignore rules and adds no duplicate", async () => {
+    mkdirSync(join(workspace, ".strauss"), { recursive: true });
+    writeFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "scratch/\n");
+
+    await pinBase(store, workspace, bundle, at, { layer: "local" });
+    await pinBase(store, workspace, bundle, at, {
+      layer: "local",
+      mode: "index",
+    });
+
+    expect(
+      readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
+    ).toBe(`scratch/\n${STRAUSS_GITIGNORE_BLOCK}`);
+  });
+
+  // A project pin is committed, and writes the same file as the local one —
+  // it must not drag an ignore rule in with it.
+  test("writing a project pin adds no ignore file", async () => {
+    await pinBase(store, workspace, bundle, at);
+
+    expect(existsSync(join(workspace, ".strauss", GITIGNORE_FILE))).toBe(false);
+    expect(existsSync(join(workspace, PINS_LOCAL_FILE))).toBe(false);
   });
 
   test("pin, list, unpin round-trip", async () => {

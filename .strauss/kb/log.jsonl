@@ -33,3 +33,7 @@
 {"at":"2026-09-15T18:12:44.452Z","by":"mcp","operation":"write","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:12:56.138Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:14:43.435Z","by":"mcp","operation":"overwrite","conceptId":"decision.none"}
+{"at":"2026-09-17T17:47:02.393Z","by":"mcp","operation":"write","conceptId":"decision.kb-ignore-anchored-per-location"}
+{"at":"2026-09-17T17:47:14.922Z","by":"mcp","operation":"write","conceptId":"decision.kb-ignore-idempotence-by-covered-files"}
+{"at":"2026-09-17T17:47:41.435Z","by":"mcp","operation":"write","conceptId":"flow.kb-ignore-written-on-first-write"}
+{"at":"2026-09-17T17:47:55.124Z","by":"mcp","operation":"write","conceptId":"risk.kb-local-pins-ignore-fails-silently"}

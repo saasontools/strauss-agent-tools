@@ -31,6 +31,7 @@ import {
   KbWriteConflictError,
 } from "./kb-errors.js";
 import { GITATTRIBUTES_BLOCK, GITATTRIBUTES_FILE } from "./kb-gitattributes.js";
+import { BUNDLE_GITIGNORE_BLOCK, GITIGNORE_FILE } from "./kb-gitignore.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
 import type { KbRecord } from "./kb-record.schema.js";
@@ -65,6 +66,11 @@ type WithParse = {
  */
 type WithEnsureGitattributes = {
   ensureGitattributes(root: string): Promise<void>;
+};
+
+/** The same, for the `.gitignore` written beside it. */
+type WithEnsureGitignore = {
+  ensureGitignore(root: string): Promise<void>;
 };
 
 interface Ctx {
@@ -1066,7 +1072,12 @@ describe("log.jsonl", () => {
     await store.write(bundle, { ...decision(), overwrite: true });
 
     expect(readdirSync(bundle).sort()).toEqual(
-      ["decision.region-in-cache-key.md", LOG_FILE, GITATTRIBUTES_FILE].sort(),
+      [
+        "decision.region-in-cache-key.md",
+        LOG_FILE,
+        GITATTRIBUTES_FILE,
+        GITIGNORE_FILE,
+      ].sort(),
     );
   });
 });
@@ -1235,6 +1246,102 @@ describe(".gitattributes", () => {
 
     expect(readFileSync(join(bundle, GITATTRIBUTES_FILE), "utf8")).toBe(
       GITATTRIBUTES_BLOCK,
+    );
+    expect(warnings).toEqual([]);
+  });
+});
+
+describe(".gitignore", () => {
+  test("is created on first write, excluding the search index and its sidecars", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
+      BUNDLE_GITIGNORE_BLOCK,
+    );
+  });
+
+  test("appends the rule to a user's .gitignore, keeping what is already there", async ({
+    store,
+    bundle,
+  }) => {
+    mkdirSync(bundle, { recursive: true });
+    writeFileSync(join(bundle, GITIGNORE_FILE), "scratch/\n");
+
+    await store.write(bundle, fact("one"));
+
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
+      `scratch/\n${BUNDLE_GITIGNORE_BLOCK}`,
+    );
+  });
+
+  test("is left alone on a second write once the rule is present", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+
+    await store.write(bundle, fact("two"));
+
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
+      BUNDLE_GITIGNORE_BLOCK,
+    );
+  });
+
+  // The repair path: a base created before this rule existed gains it on the
+  // next write, without a fresh bundle.
+  test("is repaired by setStatus (mutate), not only by write", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(bundle, fact("one"));
+    unlinkSync(join(bundle, GITIGNORE_FILE));
+
+    await store.setStatus(bundle, "fact.one", "rejected");
+
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
+      BUNDLE_GITIGNORE_BLOCK,
+    );
+  });
+
+  // Same misreading as for `.gitattributes`: a read that fails with anything
+  // but `ENOENT` is not "missing", and must not be truncated with our block.
+  test("a .gitignore that cannot be read is left alone, and the write still succeeds", async ({
+    bundle,
+  }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+    mkdirSync(join(bundle, GITIGNORE_FILE), { recursive: true });
+
+    const written = await quiet.write(bundle, fact("one"));
+
+    expect(written.conceptId).toBe("fact.one");
+    expect(readdirSync(join(bundle, GITIGNORE_FILE))).toEqual([]);
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        operation: "kb.gitignore.ensure",
+        outcome: "failed",
+      }),
+    );
+  });
+
+  test("two concurrent ensureGitignore calls on a fresh bundle both succeed", async ({
+    bundle,
+  }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+    mkdirSync(bundle, { recursive: true });
+
+    const internal = quiet as unknown as WithEnsureGitignore;
+    await Promise.all([
+      internal.ensureGitignore(bundle),
+      internal.ensureGitignore(bundle),
+    ]);
+
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
+      BUNDLE_GITIGNORE_BLOCK,
     );
     expect(warnings).toEqual([]);
   });

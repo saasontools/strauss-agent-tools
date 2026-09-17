@@ -1,6 +1,11 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import {
+  appendIgnoreLines,
+  GITIGNORE_FILE,
+  STRAUSS_IGNORE_RULES,
+} from "../kb-gitignore.js";
 import { KbPinsMalformedError } from "./errors.js";
 import {
   PIN_LAYERS,
@@ -76,7 +81,44 @@ export async function writePinsLayer(
 ): Promise<void> {
   const file = layerFile(workspaceDir, layer);
   await mkdir(dirname(file), { recursive: true });
+  if (layer === "local") await ensureLocalPinsIgnored(dirname(file));
   await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
+
+/**
+ * Excludes `kb-pins.local.json` from `<workspace>/.strauss/.gitignore` — the
+ * committed manifest sits beside it, so the rule names the personal file
+ * alone. Only the local layer: the user layer is outside any workspace.
+ *
+ * Best-effort, and silent because this layer has no logger: the manifest
+ * write is the operation the caller asked for, and it must not fail because
+ * a `.gitignore` could not be written.
+ */
+async function ensureLocalPinsIgnored(dir: string): Promise<void> {
+  const target = join(dir, GITIGNORE_FILE);
+  try {
+    let existing: string | null;
+    try {
+      existing = await readFile(target, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      existing = null;
+    }
+
+    if (existing === null) {
+      await writeFile(target, appendIgnoreLines("", STRAUSS_IGNORE_RULES), {
+        encoding: "utf8",
+        // Exclusive: a writer that won the race between our read and our
+        // write already put the rule there, and must not be truncated.
+        flag: "wx",
+      });
+      return;
+    }
+    const addition = appendIgnoreLines(existing, STRAUSS_IGNORE_RULES);
+    if (addition) await appendFile(target, addition, "utf8");
+  } catch {
+    // See above: never fails the pin.
+  }
 }
 
 /** Where a stored pin points, resolved against its layer's root. */
