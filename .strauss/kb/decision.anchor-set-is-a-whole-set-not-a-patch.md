@@ -20,9 +20,9 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-set/command.ts
     symbol: anchorSetCommand
-    hash: "sha256:843ec2e88de4d91152134bd98fab8c9a4a6bb4bcc44e41101f8450cf186f4d49"
+    hash: "sha256:7de4a91aacd8016451740f896a8c01f62c7c5d2c72c38f9fbe13b564e229edf4"
     hash_kind: raw
-    resolved_at: "2026-09-17T21:00:59.687Z"
+    resolved_at: "2026-09-17T21:03:16.880Z"
     lines: 52
     resolver: regex
   - file: packages/strauss-kb/src/kb-store.ts
@@ -56,6 +56,11 @@ strauss_anchors:
     resolved_at: "2026-09-17T20:11:53.528Z"
     lines: 23
     resolver: regex
+  - file: packages/strauss-kb/src/anchors/index.ts
+    hash: "sha256:633f9e0541d519450867014d83ceda99cacbfa0c3fd9112939c4347256c90cb6"
+    hash_kind: raw
+    resolved_at: "2026-09-17T21:03:16.900Z"
+    lines: 18
 strauss_links:
   - target: contract.anchor-baselines-are-the-records-not-the-callers
     rel: depends_on

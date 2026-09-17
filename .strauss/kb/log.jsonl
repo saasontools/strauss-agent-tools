@@ -168,3 +168,8 @@
 {"at":"2026-09-17T21:00:59.712Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-set-is-a-whole-set-not-a-patch"}
 {"at":"2026-09-17T21:01:01.236Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
 {"at":"2026-09-17T21:01:37.229Z","by":"agent:claude","operation":"anchor-set","conceptId":"risk.anchor-set-has-no-authorship-test","reason":"The baseline rule moved to its own module so a record's first write shares it; the error class is the same code at a new path.","anchors":[{"op":"move","from":{"file":"packages/strauss-kb/src/commands/anchor-set/errors.ts","symbol":"KbAnchorDropsBaselineError"},"to":{"file":"packages/strauss-kb/src/anchors/errors.ts","symbol":"KbAnchorDropsBaselineError"}}]}
+{"at":"2026-09-17T21:03:03.232Z","by":"agent:claude","operation":"write","conceptId":"test-obligation.anchor-set-is-a-gated-write-verb"}
+{"at":"2026-09-17T21:03:12.868Z","by":"agent:claude","operation":"anchor-set","conceptId":"decision.anchor-set-is-a-whole-set-not-a-patch","reason":"The baseline rule moved to anchors/; its barrel is part of the same registration surface this decision governs.","anchors":[{"op":"add","to":{"file":"packages/strauss-kb/src/anchors/index.ts"}}]}
+{"at":"2026-09-17T21:03:16.908Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-set-is-a-whole-set-not-a-patch"}
+{"at":"2026-09-17T21:03:18.549Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
+{"at":"2026-09-17T21:03:19.024Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-is-a-gated-write-verb"}
