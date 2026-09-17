@@ -162,3 +162,4 @@
 {"at":"2026-09-17T20:11:54.349Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"risk.anchor-set-has-no-authorship-test"}
 {"at":"2026-09-17T20:11:55.013Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
 {"at":"2026-09-17T20:11:55.199Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.kb-companion-tracked"}
+{"at":"2026-09-17T20:16:03.011Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
