@@ -7,7 +7,6 @@ import { composeRecord } from "./compose.js";
 import { GITATTRIBUTES_FILE } from "./kb-gitattributes.js";
 import { GITIGNORE_FILE } from "./kb-files.js";
 import { LOG_FILE } from "./kb-log.js";
-import { pinBase, PINS_FILE, PINS_LOCAL_FILE } from "./kb-pins/index.js";
 import { KB_DIR, KbStore } from "./kb-store.js";
 import { SEARCH_INDEX_FILE } from "./search-index.js";
 
@@ -120,21 +119,6 @@ describe("what git actually excludes", () => {
 
     expect(
       ignored(rel("docs", "adr", SEARCH_INDEX_FILE), SEARCH_INDEX_FILE),
-    ).toEqual([true, false]);
-  });
-
-  test("local pins are excluded and the shared manifest is not", async () => {
-    const bundle = join(repo, KB_DIR);
-    await seed(bundle);
-
-    await pinBase(store, repo, bundle, at, { layer: "local" });
-    await pinBase(store, repo, bundle, at);
-
-    expect(
-      ignored(
-        PINS_LOCAL_FILE.split(sep).join("/"),
-        PINS_FILE.split(sep).join("/"),
-      ),
     ).toEqual([true, false]);
   });
 });

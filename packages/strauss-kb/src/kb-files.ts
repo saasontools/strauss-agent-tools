@@ -1,7 +1,5 @@
-import { basename } from "node:path";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
-import { PINS_LOCAL_FILE } from "./kb-pins/model.js";
 import { SEARCH_INDEX_FILE } from "./search-index.js";
 
 /**
@@ -17,22 +15,14 @@ function block(reason: string, pattern: string): string {
 }
 
 /**
- * Written into a base. The leading slash keeps it to the base that owns it,
+ * Written into a base, which the store owns. Nothing outside one is the
+ * store's to edit. The leading slash keeps the rule to the base that owns it,
  * and the trailing `*` covers the `-wal`, `-shm` and `-journal` files SQLite
  * writes beside the database.
  */
 export const BUNDLE_IGNORE_BLOCK = block(
   "Derived, rebuilt from the records beside it.",
   `/${SEARCH_INDEX_FILE}*`,
-);
-
-/**
- * Written into `<workspace>/.strauss`, which no base-level file can reach.
- * Names the personal manifest exactly; the committed one sits beside it.
- */
-export const STRAUSS_IGNORE_BLOCK = block(
-  "Personal, not the team's.",
-  `/${basename(PINS_LOCAL_FILE)}`,
 );
 
 /**

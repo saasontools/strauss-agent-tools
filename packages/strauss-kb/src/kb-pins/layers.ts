@@ -1,17 +1,6 @@
-import {
-  access,
-  appendFile,
-  mkdir,
-  readFile,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import {
-  appendIfAbsent,
-  GITIGNORE_FILE,
-  STRAUSS_IGNORE_BLOCK,
-} from "../kb-files.js";
 import { KbPinsMalformedError } from "./errors.js";
 import {
   PIN_LAYERS,
@@ -87,38 +76,7 @@ export async function writePinsLayer(
 ): Promise<void> {
   const file = layerFile(workspaceDir, layer);
   await mkdir(dirname(file), { recursive: true });
-  // Only when the personal manifest is first written — see the store's
-  // `ensureGitignore`: a rule deleted later is a decision, not a defect.
-  const born = layer === "local" && !(await exists(file));
-  if (born) await ensureLocalPinsIgnored(dirname(file));
   await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-}
-
-/** Whether a path is there at all; any failure to look answers "no". */
-async function exists(path: string): Promise<boolean> {
-  return access(path).then(
-    () => true,
-    () => false,
-  );
-}
-
-/**
- * Excludes `kb-pins.local.json` at `<workspace>/.strauss/.gitignore` — the
- * personal manifest is outside every base, so no base-level file reaches it.
- * Only the local layer; the user layer is outside any workspace.
- *
- * Best effort, and silent: the manifest write is what the caller asked for,
- * and a missing rule costs a file in `git status`, not correctness.
- */
-async function ensureLocalPinsIgnored(dir: string): Promise<void> {
-  const target = join(dir, GITIGNORE_FILE);
-  try {
-    const existing = await readFile(target, "utf8").catch(() => "");
-    const addition = appendIfAbsent(existing, STRAUSS_IGNORE_BLOCK);
-    if (addition) await appendFile(target, addition, "utf8");
-  } catch {
-    // See above: never fails the pin.
-  }
 }
 
 /** Where a stored pin points, resolved against its layer's root. */

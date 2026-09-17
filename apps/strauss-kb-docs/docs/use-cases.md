@@ -376,9 +376,9 @@ nothing at all when nothing is pinned, and a refusal listing the bases and their
 sizes rather than a truncation past its budget.
 
 Pins live in `.strauss/kb-pins.json`, committed with the repo, plus
-`.strauss/kb-pins.local.json` (personal — writing it
-[ignores it](./specification.md#gitignore-and-what-is-not-committed)) and
-`~/.strauss/kb-pins.json` (every workspace). Nearest layer wins per base, `unpin` removes from all three,
+`.strauss/kb-pins.local.json` (personal —
+[exclude it yourself](./specification.md#gitignore-and-what-is-not-committed))
+and `~/.strauss/kb-pins.json` (every workspace). Nearest layer wins per base, `unpin` removes from all three,
 and a malformed layer is skipped on read and refused on write. Per-pin flags are
 on the [CLI page](./cli-reference.md#pin).
 

@@ -138,12 +138,20 @@ beside it, which is repaired whenever it goes missing.
 Best effort either way: a file it cannot write is a line in `git status`, not a
 failed mutation.
 
-Personal pins are the one exclusion a base cannot carry, since
-`.strauss/kb-pins.local.json` sits outside it and a gitignore pattern cannot
-reach a parent. The first write of that manifest therefore writes its own block
-into `<workspace>/.strauss/.gitignore`, under the same rule: once the manifest
-exists, the ignore file is left alone. The shared `kb-pins.json` beside it
-stays tracked.
+Personal pins are **not** excluded for you. `.strauss/kb-pins.local.json` sits
+outside every base, and the only file that could exclude it —
+`<workspace>/.strauss/.gitignore` — is committed and shared, so writing to it
+would turn one contributor's local `pin --local` into a change every teammate
+sees in the diff. Nothing outside a base is the store's to edit. Exclude it
+where personal ignores belong:
+
+```sh
+echo '/.strauss/kb-pins.local.json' >> "$(git rev-parse --git-path info/exclude)"
+```
+
+Or, if the team agrees it should never be committed, put the same line in the
+repository's own `.gitignore` once. The shared `kb-pins.json` stays tracked
+either way.
 
 ## Records
 
