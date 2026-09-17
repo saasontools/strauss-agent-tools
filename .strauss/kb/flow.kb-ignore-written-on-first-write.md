@@ -16,7 +16,28 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T17:47:41.423Z"
-verified: []
+verified:
+  - by: "agent:prose"
+    at: "2026-09-17T17:59:36.424Z"
+    note: >-
+      Read ensureDeclared, ensureGitignore and ensureLocalPinsIgnored; the
+      record's Failure modes restate the ENOENT and append-race paragraphs of
+      the ensureDeclared comment.
+  - by: "agent:performance"
+    at: "2026-09-17T18:00:44.748Z"
+    note: >-
+      Read KbStore.record: both ensures run under one Promise.all, not in
+      sequence; measured 0.135 ms for the pair against 0.093 ms for the single
+      read before. ensureLocalPinsIgnored runs after mkdir and before the
+      manifest write, a sequence the ordering requires.
+  - by: "agent:correctness"
+    at: "2026-09-17T18:11:41.748Z"
+    note: >-
+      Read every caller of KbStore.record (write, verify, deleteRecord, note,
+      mutate, kb-store.ts:244/434/547/956/1036) — all mutations, no read verb;
+      ensureDeclared creates only on ENOENT and appends only the missing lines;
+      setStatus after unlinking .gitignore restores it. Confirmed with git
+      check-ignore at .strauss/kb and at docs/adr.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: KbStore.ensureDeclared

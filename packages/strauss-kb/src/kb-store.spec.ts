@@ -7,6 +7,7 @@ import {
   rmSync,
   writeFileSync,
   mkdirSync,
+  symlinkSync,
   unlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1325,6 +1326,49 @@ describe(".gitignore", () => {
         outcome: "failed",
       }),
     );
+  });
+
+  // The whole write path against a line that a compiled regex cannot answer:
+  // 18 adjacent stars backtrack for minutes, synchronously, inside the store.
+  test("a pathological ignore line does not wedge the write", async ({
+    store,
+    bundle,
+  }) => {
+    mkdirSync(bundle, { recursive: true });
+    writeFileSync(join(bundle, GITIGNORE_FILE), `${"*".repeat(18)}X\n`);
+    const started = performance.now();
+
+    await store.write(bundle, fact("one"));
+
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toContain(
+      "/.index.sqlite*",
+    );
+  });
+
+  // A base may check this path in as a symlink; appending through it would
+  // write our line into whatever it points at, outside the base.
+  test("a symlinked .gitignore is refused, and the write still succeeds", async ({
+    bundle,
+  }) => {
+    const warnings: Record<string, unknown>[] = [];
+    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
+    mkdirSync(bundle, { recursive: true });
+    const outside = join(bundle, "..", `outside-${process.pid}.txt`);
+    writeFileSync(outside, "untouched\n");
+    symlinkSync(outside, join(bundle, GITIGNORE_FILE));
+
+    const written = await quiet.write(bundle, fact("one"));
+
+    expect(written.conceptId).toBe("fact.one");
+    expect(readFileSync(outside, "utf8")).toBe("untouched\n");
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        operation: "kb.gitignore.ensure",
+        outcome: "refused-symlink",
+      }),
+    );
+    rmSync(outside, { force: true });
   });
 
   test("two concurrent ensureGitignore calls on a fresh bundle both succeed", async ({

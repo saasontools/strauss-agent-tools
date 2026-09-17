@@ -17,7 +17,28 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T17:47:02.381Z"
-verified: []
+verified:
+  - by: "agent:prose"
+    at: "2026-09-17T17:59:36.012Z"
+    note: >-
+      Read SEARCH_INDEX_RULE and LOCAL_PINS_RULE against the new
+      specification.md section and the README/overview layout blocks; the
+      anchored-per-location rule is stated the same way in each.
+  - by: "agent:security"
+    at: "2026-09-17T18:07:25.126Z"
+    note: >-
+      Read SEARCH_INDEX_RULE, LOCAL_PINS_RULE and ensureLocalPinsIgnored: the
+      base rule is leading-slash anchored and written under the bundle root
+      passed to ensureGitignore, and the pins rule is written to
+      dirname(layerFile) for the local layer only, never the user layer.
+  - by: "agent:correctness"
+    at: "2026-09-17T18:11:41.960Z"
+    note: >-
+      Ran check-ignore in a throwaway repo: /.index.sqlite* excludes the base's
+      index and its -wal/-shm/-journal and nothing above the base, at KB_DIR and
+      at docs/adr; /kb-pins.local.json is written to
+      <workspace>/.strauss/.gitignore on a local pin only, and kb-pins.json
+      stays tracked.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: SEARCH_INDEX_RULE

@@ -1,6 +1,7 @@
 import {
   appendFile,
   link,
+  lstat,
   mkdir,
   readdir,
   readFile,
@@ -1111,40 +1112,11 @@ export class KbStore {
 
   /**
    * Brings one store-owned declaration file up to date: `append` returns the
-   * bytes `name` is missing, and only those are written.
-   *
-   * Called from `record` — every path that appends a log line, not just
-   * `write` — so a bundle only ever mutated through `setStatus`/`verify`/
-   * `supersede` still gets it. There is no cheaper reliable signal for
-   * "first write" than checking the file itself, and after the first call
-   * the check is a no-op `readFile`.
-   *
-   * A missing file is created outright, with `wx` (exclusive create) rather
-   * than a plain write: if another process won a race and created it between
-   * the `readFile` below and this call, `wx` fails instead of truncating what
-   * that writer just wrote, and the failure is swallowed by the catch below
-   * like every other best-effort miss. A file that exists gets only the
-   * lines it lacks appended, never a wholesale rewrite; a declaration it
-   * already carries — this one's value or a user's own — is left alone.
-   *
-   * `readFile` failing is `existing === null` only for `ENOENT` — genuinely
-   * missing. Any other error (a permission problem, a transient `EMFILE`,
-   * the path being a directory) is *not* "missing" and must not fall into
-   * the create branch, which would truncate whatever is actually there with
-   * just our block: that is the file-destroying bug this function exists to
-   * avoid, not commit. An unreadable existing file is therefore left
-   * untouched and reported as a failure like any other.
-   *
-   * Two processes racing the append branch — both read a file without the
-   * lines, both append them — is possible and left unguarded: `appendFile` is
-   * `O_APPEND`, so the result is two copies of the same lines rather than a
-   * torn write, and the next call sees a duplicate declaration as "already
-   * declared". A cheap-to-detect, harmless-to-leave residue, not a reason to
-   * add a cross-process lock (see `ARCHITECTURE.md`'s rejection of one for
-   * the same trade on records).
-   *
-   * Best-effort, like the log append it precedes: failing to write this
-   * file must not fail the mutation it guards.
+   * bytes `name` is missing, and only those are written. Created with `wx` or
+   * appended to, never rewritten; a read that fails with anything but ENOENT
+   * is not "missing"; best-effort, so it never fails the mutation that calls
+   * it. Why, and the append race left unguarded:
+   * flow.kb-ignore-written-on-first-write.
    */
   private async ensureDeclared(
     root: string,
@@ -1154,13 +1126,23 @@ export class KbStore {
   ): Promise<void> {
     const target = join(root, name);
     try {
-      let existing: string | null;
-      try {
-        existing = await readFile(target, "utf8");
-      } catch (error) {
+      const stats = await lstat(target).catch((error: unknown) => {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-        existing = null;
+        return null;
+      });
+
+      // A base that checks in this path as a symlink would have us append a
+      // line to whatever it points at, outside the base.
+      if (stats?.isSymbolicLink()) {
+        this.logger.warn?.({
+          operation,
+          bundlePath: root,
+          outcome: "refused-symlink",
+        });
+        return;
       }
+
+      const existing = stats === null ? null : await readFile(target, "utf8");
 
       if (existing === null) {
         try {

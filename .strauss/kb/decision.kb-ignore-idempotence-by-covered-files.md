@@ -18,7 +18,20 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T17:47:14.915Z"
-verified: []
+verified:
+  - by: "agent:prose"
+    at: "2026-09-17T17:59:36.187Z"
+    note: >-
+      Read isSettled, verdict and matchesChild against the record and the
+      specification section; same rule, and the record's Rejected names a real
+      alternative.
+  - by: "agent:performance"
+    at: "2026-09-17T18:00:44.900Z"
+    note: >-
+      Read isSettled/verdict/matchesChild: only * and ? expand, unsupported
+      constructs fail closed as claimed. Cost of the scan measured: 0.002 ms on
+      the base's own one-line file, 0.015 ms on a 28-line .gitignore, 1.0 ms on
+      a 5000-line one.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: isSettled

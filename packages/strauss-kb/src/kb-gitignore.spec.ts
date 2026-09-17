@@ -51,6 +51,38 @@ describe("missingIgnoreLines", () => {
     ).toEqual([]);
   });
 
+  // git keeps leading whitespace as part of the pattern, so `  *.sqlite*`
+  // matches a name starting with two spaces and covers nothing here. Reading
+  // it as a match is the one wrong direction: a redundant rule is harmless, a
+  // missing one leaves the index tracked.
+  test("gives a leading-whitespace pattern the meaning git gives it", () => {
+    expect(missingIgnoreLines("  *.sqlite*\n", BUNDLE_IGNORE_RULES)).toEqual([
+      "/.index.sqlite*",
+    ]);
+    expect(
+      missingIgnoreLines("*.sqlite*\n  !.index.sqlite\n", BUNDLE_IGNORE_RULES),
+    ).toEqual([]);
+  });
+
+  test("strips trailing whitespace and a CRLF line ending", () => {
+    expect(missingIgnoreLines("*.sqlite*  \r\n", BUNDLE_IGNORE_RULES)).toEqual(
+      [],
+    );
+  });
+
+  // A regex of adjacent `[^/]*` groups backtracks for minutes on this line;
+  // the scan answers in microseconds. The file is data that arrives with a
+  // clone, and every mutation reads it synchronously.
+  test("answers a pathological run of stars immediately", () => {
+    const started = performance.now();
+
+    expect(
+      missingIgnoreLines(`${"*".repeat(40)}X\n`, BUNDLE_IGNORE_RULES),
+    ).toEqual(["/.index.sqlite*"]);
+
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
   test("ignores comments and blank lines", () => {
     expect(
       missingIgnoreLines("# /.index.sqlite*\n\n", BUNDLE_IGNORE_RULES),

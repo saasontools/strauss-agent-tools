@@ -16,7 +16,13 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T17:47:55.123Z"
-verified: []
+verified:
+  - by: "agent:security"
+    at: "2026-09-17T18:07:25.326Z"
+    note: >-
+      Read ensureLocalPinsIgnored: the whole body is inside a bare catch with no
+      logger in scope, so an EACCES on .strauss/.gitignore is invisible;
+      KbStore.ensureDeclared's warn path has no counterpart here.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-pins/layers.ts
     symbol: ensureLocalPinsIgnored

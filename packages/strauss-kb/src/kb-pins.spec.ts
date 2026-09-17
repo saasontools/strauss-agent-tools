@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -75,6 +76,40 @@ describe("kb-pins", () => {
     expect(
       readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
     ).toBe(`scratch/\n${STRAUSS_GITIGNORE_BLOCK}`);
+  });
+
+  // Respecting an explicit negation is the rule; doing it silently is not —
+  // the contributor whose personal manifest is now trackable gets no other
+  // signal, because this layer has no logger.
+  test("reports a committed negation that suppresses the rule", async () => {
+    mkdirSync(join(workspace, ".strauss"), { recursive: true });
+    writeFileSync(
+      join(workspace, ".strauss", GITIGNORE_FILE),
+      "!kb-pins.local.json\n",
+    );
+
+    const pinned = await pinBase(store, workspace, bundle, at, {
+      layer: "local",
+    });
+
+    expect(pinned.warning).toContain("un-ignores /kb-pins.local.json");
+    expect(
+      readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
+    ).toBe("!kb-pins.local.json\n");
+  });
+
+  test("leaves a symlinked .strauss/.gitignore alone and says so", async () => {
+    mkdirSync(join(workspace, ".strauss"), { recursive: true });
+    const outside = join(workspace, "outside.txt");
+    writeFileSync(outside, "untouched\n");
+    symlinkSync(outside, join(workspace, ".strauss", GITIGNORE_FILE));
+
+    const pinned = await pinBase(store, workspace, bundle, at, {
+      layer: "local",
+    });
+
+    expect(pinned.warning).toContain("symlink");
+    expect(readFileSync(outside, "utf8")).toBe("untouched\n");
   });
 
   // A project pin is committed, and writes the same file as the local one —
