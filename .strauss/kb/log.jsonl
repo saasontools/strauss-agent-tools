@@ -51,3 +51,7 @@
 {"at":"2026-09-17T18:55:59.864Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.kb-edges-fold-related-into-body-link"}
 {"at":"2026-09-17T18:57:20.232Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.edge-consumers-read-body-and-frontmatter"}
 {"at":"2026-09-17T18:58:04.414Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.edge-consumers-read-body-and-frontmatter"}
+{"at":"2026-09-17T19:08:34.562Z","by":"agent:prose","operation":"write","conceptId":"risk.both-halves-rule-has-six-homes"}
+{"at":"2026-09-17T19:08:42.292Z","by":"agent:prose","operation":"verify","conceptId":"decision.edge-consumers-read-body-and-frontmatter"}
+{"at":"2026-09-17T19:10:39.948Z","by":"mcp","operation":"write","conceptId":"test-obligation.both-halves-rule-stated-once-per-surface"}
+{"at":"2026-09-17T19:10:56.362Z","by":"mcp","operation":"anchor-resolve","conceptId":"test-obligation.both-halves-rule-stated-once-per-surface"}

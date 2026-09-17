@@ -15,7 +15,13 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T18:32:23.034Z"
-verified: []
+verified:
+  - by: "agent:prose"
+    at: "2026-09-17T19:08:42.269Z"
+    note: >-
+      Prose check only: bodyLinkTargets in kb-edges.ts is the sole body-citation
+      parser — the BODY_LINK_TARGET regex has no second use, and validate.ts,
+      sweep.ts, outbound.ts and edgeNeighbours all call it.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS
