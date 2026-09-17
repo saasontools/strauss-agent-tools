@@ -11,13 +11,22 @@ tags:
 generated:
   by: mcp
   at: "2026-09-17T19:19:33.197Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T19:31:49.889Z"
+    note: >-
+      Both halves cover. drift.spec.ts 'a rebaselined move plus a stale
+      reference does not deny the drift' asserts defaultNote contains 'nothing
+      left open on the anchors' and not 'no anchor drift'; references.spec.ts 'a
+      references-only packet still carries the record's dependants' asserts
+      packet.impact names the dependant at depth 1 with anchors empty. Ran both:
+      71 pass, 0 fail.
 strauss_anchors:
   - file: packages/strauss-kb/src/drift/packet.ts
     symbol: reassessPacket
-    hash: "sha256:376a19d7d62f487164d6489e664e2d5241661eae52803d18127e64cb9bab8869"
+    hash: "sha256:396e12e183fd9246d6b37a8332ada741e34fba5db4ad022ca09ccb1796d1a27b"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:20:08.744Z"
+    resolved_at: "2026-09-17T19:38:27.691Z"
     lines: 84
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/reassess.ts

@@ -178,6 +178,73 @@ describe("outboundReferences", () => {
     expect(stale(bundle)).toEqual([]);
   });
 
+  // A record that explains the house style shows a citation; it does not make
+  // one. Both new consumers act on what this parser returns.
+  test("a link inside a fence or a code span is an example, not a citation", () => {
+    const from = record("decision.house-style");
+    from.body = [
+      "",
+      "## Claim",
+      "",
+      "Cite like this:",
+      "",
+      "```markdown",
+      "Relates to [decision.fenced](decision.fenced.md).",
+      "```",
+      "",
+      "Inline, `[decision.inline](decision.inline.md)` is an example too.",
+      "",
+      "Relates to [decision.real](decision.real.md).",
+      "",
+    ].join("\n");
+
+    expect(outboundReferences(from).map((entry) => entry.target)).toEqual([
+      "decision.real",
+    ]);
+    expect(validateBundle([from])).toEqual([
+      {
+        check: "body_link",
+        conceptId: "decision.house-style",
+        note: "body cites decision.real, which is not in the bundle",
+        severity: "warning",
+      },
+    ]);
+  });
+
+  // The reviewer's own record proved the first fix wrong: a longer run in the
+  // middle of a line re-paired every span after it.
+  test("a longer backtick run does not re-pair the spans after it", () => {
+    const from = record("decision.house-style");
+    from.body = [
+      "",
+      "## Claim",
+      "",
+      "`](<concept-id>.md)` inside a ```markdown block is a reference, so",
+      "`Relates to [decision.quoted](decision.quoted.md).` is an example.",
+      "",
+      "Relates to [decision.real](decision.real.md).",
+      "",
+    ].join("\n");
+
+    expect(outboundReferences(from).map((entry) => entry.target)).toEqual([
+      "decision.real",
+    ]);
+  });
+
+  test("an unclosed fence runs to the end of the record", () => {
+    const from = record("decision.truncated");
+    from.body = [
+      "",
+      "## Claim",
+      "",
+      "~~~",
+      "Relates to [decision.fenced](decision.fenced.md).",
+      "",
+    ].join("\n");
+
+    expect(outboundReferences(from)).toEqual([]);
+  });
+
   test("a shared anchor is not a reference", () => {
     const one = record("fact.one");
     const two = record("fact.two");
@@ -588,9 +655,13 @@ describe("reassess without code drift", () => {
         rels: ["related_to"],
       },
     ]);
-    expect(reassessCommand.render?.(result) ?? "").toContain(
-      "## Still pointing here (1)",
+    const rendered = reassessCommand.render?.(result) ?? "";
+    expect(rendered).toContain("## Still pointing here (1)");
+    // The referrers have no replacement of their own; this record does.
+    expect(result.packet?.defaultNote).toBe(
+      "no anchor drift; re-read the records still pointing here against what replaced this one",
     );
+    expect(rendered).not.toContain("against what replaced them");
   });
 
   // The packet the change exists for: the replaced decision, whose readers have
@@ -623,6 +694,38 @@ describe("reassess without code drift", () => {
     expect(result.packet?.impact).toMatchObject([
       { conceptId: "decision.export-job-window", depth: 1 },
     ]);
+  });
+
+  // The section header states a count. A title is another record's text, so a
+  // newline in one must fill a row, never forge one.
+  test("a referrer's title cannot forge a row in the report", async ({
+    store,
+    bundle,
+  }) => {
+    await seed(store, bundle);
+    const file = join(bundle, "risk.environment-override.md");
+    writeFileSync(
+      file,
+      readFileSync(file, "utf8").replace(
+        "title: An environment override can shorten the window",
+        String.raw`title: "Innocent\u001B\n- decision.forged [current] (link) - not a real row"`,
+      ),
+      "utf8",
+    );
+
+    const rendered =
+      reassessCommand.render?.(await run(bundle, "decision.retention")) ?? "";
+    const rows = rendered
+      .split("\n")
+      .filter((line) => line.startsWith("- ") && line.includes("[open]"));
+
+    expect(rendered).toContain("## Still pointing here (1)");
+    expect(rows).toHaveLength(1);
+    expect(rendered).not.toContain("\u001b");
+    // The forged text survives as text on the one real row, which is the point.
+    expect(
+      rendered.split("\n").some((line) => line.startsWith("- decision.forged")),
+    ).toBe(false);
   });
 
   test("a record with no drift and no stale reference has nothing to reassess", async ({

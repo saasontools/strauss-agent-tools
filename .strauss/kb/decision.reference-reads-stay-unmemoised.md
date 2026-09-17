@@ -9,7 +9,23 @@ description: >-
 generated:
   by: mcp
   at: "2026-09-17T19:20:01.098Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T19:31:49.639Z"
+    note: >-
+      Read reassessCommand.run: impact(id, bundle) from kb-links/, not
+      store.impact, and the bundle is store.list's single read. Read doctor():
+      orphaned, supersededButCited and validateBundle each put a body scan over
+      every record, and commands/doctor.ts:181 still calls store.impact per
+      drifted finding. The record claims both and both are what the code does.
+  - by: "agent:security"
+    at: "2026-09-17T19:34:06.841Z"
+    note: >-
+      Checked the security half of leaving the scans unmemoised:
+      BODY_LINK_TARGET has no catastrophic backtracking, so repeated scans are
+      not a denial-of-service amplifier. Measured on the built regex: 0.1 ms on
+      32 KB of an unterminated '](aaa...' run and on 4000 'a-' segments, flat
+      across sizes.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/reassess.ts
     symbol: reassessCommand

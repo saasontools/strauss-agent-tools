@@ -40,12 +40,22 @@ verified:
       packet on references alone with default 'review'; doctor's command passes
       impact and standing but no references. Freeze guard still gated on
       moves.length, so the no-drift path writes nothing.
+  - by: "agent:correctness"
+    at: "2026-09-17T19:31:50.065Z"
+    note: >-
+      Re-read at HEAD, superseding my 19:12 note. impact is now computed for
+      every packet (reassess.ts:100, unconditional after the early return), so
+      the risk that note named is closed; the note is chosen per anchor state,
+      not per type, when nothing is open. Confirmed on the built CLI: a
+      superseded decision with one live related_to and no drift prints a packet
+      with '## Still pointing here (1)' and Default: review. doctor --drifted
+      still passes no references, as the record states.
 strauss_anchors:
   - file: packages/strauss-kb/src/drift/packet.ts
     symbol: reassessPacket
-    hash: "sha256:376a19d7d62f487164d6489e664e2d5241661eae52803d18127e64cb9bab8869"
+    hash: "sha256:396e12e183fd9246d6b37a8332ada741e34fba5db4ad022ca09ccb1796d1a27b"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:20:09.869Z"
+    resolved_at: "2026-09-17T19:42:36.444Z"
     lines: 84
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/reassess.ts

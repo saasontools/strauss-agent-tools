@@ -227,7 +227,7 @@ export function renderReassess(result: KbReassessResult): string {
 
   lines.push(
     "",
-    `# ${packet.conceptId}${packet.title ? ` — ${packet.title}` : ""}`,
+    `# ${packet.conceptId}${packet.title ? ` — ${oneLine(packet.title)}` : ""}`,
     `type: ${packet.type}   standing: ${packet.standing}`,
     ...(packet.why ? [`why: ${packet.why}`] : []),
     ...(packet.claim
@@ -273,7 +273,7 @@ export function renderReassess(result: KbReassessResult): string {
     for (const entry of incoming) {
       lines.push(
         `- ${entry.from} [${entry.standing}] ${where(entry.origins, entry.rels)}${
-          entry.title ? ` — ${entry.title}` : ""
+          entry.title ? ` — ${oneLine(entry.title)}` : ""
         }`,
       );
     }
@@ -283,7 +283,9 @@ export function renderReassess(result: KbReassessResult): string {
     lines.push("", `## Impact (${packet.impact.length})`);
     for (const entry of packet.impact) {
       lines.push(
-        `- ${entry.conceptId} [${entry.standing}]${entry.title ? ` — ${entry.title}` : ""}`,
+        `- ${entry.conceptId} [${entry.standing}]${
+          entry.title ? ` — ${oneLine(entry.title)}` : ""
+        }`,
       );
     }
     if (packet.impactTruncated) lines.push("- … walk truncated");
@@ -295,6 +297,18 @@ export function renderReassess(result: KbReassessResult): string {
 
 function at(file: string, symbol?: string): string {
   return symbol ? `${file}:${symbol}` : file;
+}
+
+/**
+ * Another record's own text, flattened to one line. A title is data in a
+ * report whose section headers state a count, so a newline or an escape in one
+ * would forge a row rather than fill one.
+ */
+function oneLine(text: string): string {
+  return text
+    .replace(/[\p{Cc}\p{Cf}]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Where the pointer is written, and what it claims where it is typed. */

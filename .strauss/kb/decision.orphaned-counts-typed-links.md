@@ -34,6 +34,15 @@ verified:
       self-links are skipped on both halves so a record cannot un-orphan itself.
       Caveat recorded separately: the reader also counts a rel the vocabulary
       rejects.
+  - by: "agent:correctness"
+    at: "2026-09-17T19:32:02.503Z"
+    note: >-
+      Re-read at HEAD after the unknown-rel filter landed. orphaned() reads
+      outboundReferences, so a typed link un-orphans its target; on a probe
+      bundle whose only link carries rel not_a_real_rel, doctor leaves the
+      target in orphaned (12 findings on this base, both probe records among
+      them) while validate reports link_rel as an error. The caveat in the 19:13
+      security note is now resolved in the code.
 strauss_anchors:
   - file: packages/strauss-kb/src/doctor.ts
     symbol: orphaned

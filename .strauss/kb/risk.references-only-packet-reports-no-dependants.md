@@ -23,9 +23,9 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/drift/packet.ts
     symbol: reassessPacket
-    hash: "sha256:376a19d7d62f487164d6489e664e2d5241661eae52803d18127e64cb9bab8869"
+    hash: "sha256:396e12e183fd9246d6b37a8332ada741e34fba5db4ad022ca09ccb1796d1a27b"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:20:41.085Z"
+    resolved_at: "2026-09-17T19:38:29.329Z"
     lines: 84
     resolver: tree-sitter
 strauss_links:

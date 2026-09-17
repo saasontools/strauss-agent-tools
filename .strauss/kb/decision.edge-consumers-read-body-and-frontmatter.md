@@ -48,6 +48,26 @@ verified:
       all read both halves. A missing target stays a warning (validate exit 0)
       and a reason to keep (sweep skipped). KB_EDGE_KINDS has the five kinds
       named.
+  - by: "agent:correctness"
+    at: "2026-09-17T19:32:02.726Z"
+    note: >-
+      Re-read all four named consumers at HEAD. bodyLinkTargets is the only
+      matchAll over BODY_LINK_TARGET in src/; doctor, sweep, validate and
+      reassess reach the body half through it, and outboundReferences merges it
+      with strauss_links, skipping a rel outside KB_LINK_RELS. Missing target
+      stays a warning in validate and a hold in sweep, never an error: validate
+      exits 0 on a body_link warning alone. Two caveats recorded separately - a
+      fenced example link counts as a citation, and the untraversable-rel
+      invariant does not reach inboundIndex.
+  - by: "agent:security"
+    at: "2026-09-17T19:34:06.683Z"
+    note: >-
+      Re-read at HEAD, after the isKbLinkRel filter landed in
+      outboundReferences. The rel half of risk.unknown-rel-traversed-and-echoed
+      is closed: an unknown rel no longer rescues a target from orphaned and no
+      rel outside the eight reaches a note. That risk's Mitigation section still
+      reads 'None in the diff' and now misstates the code; the author or a human
+      settles it.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS
@@ -58,9 +78,9 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: bodyLinkTargets
-    hash: "sha256:718597d02716b5d78485eec3a44c51a3bb6d1edd0d91280184a9fc8ca331d6cd"
+    hash: "sha256:fb2fe27fae159f26a5412004050446bf10f0cd24e6f0930bbb5aa2688848adff"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:53:51.266Z"
+    resolved_at: "2026-09-17T19:38:27.464Z"
     lines: 8
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/outbound.ts

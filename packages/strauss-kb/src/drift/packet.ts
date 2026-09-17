@@ -188,17 +188,17 @@ export async function reassessPacket(
           ? "rationale-may-survive"
           : "review"
       : "review";
-  // `open` is what classification left, not what drifted: a record whose every
-  // drifted anchor turned out `moved` is a record whose anchors were read and
-  // settled, and a note denying the drift would print beside the rebaseline
-  // this command just wrote.
+  // Both halves of the note say what happened, not what the shape of the
+  // packet was: `open` is what classification left rather than what drifted,
+  // and an inbound reference is a record to re-read against *this* record's
+  // replacement, where an outbound one points at a target that has its own.
   const note = open.length
     ? DEFAULT_NOTES[fallback]
     : `${
         entries.some((entry) => entry.state !== "match")
           ? "nothing left open on the anchors"
           : "no anchor drift"
-      }; re-read the references below against what replaced them`;
+      }; ${referenceNote(references)}`;
 
   return {
     classified,
@@ -222,6 +222,16 @@ export async function reassessPacket(
       defaultNote: note,
     },
   };
+}
+
+/** What to re-read, per side, for a packet no anchor raised. */
+function referenceNote(references: KbPacketReferences): string {
+  const outgoing = "re-read the references below against what replaced them";
+  const incoming =
+    "re-read the records still pointing here against what replaced this one";
+  if (!references.outgoing.length) return incoming;
+  if (!references.incoming.length) return outgoing;
+  return `${outgoing}, and ${incoming}`;
 }
 
 function anchorPacket(

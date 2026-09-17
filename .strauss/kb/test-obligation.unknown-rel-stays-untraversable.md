@@ -11,7 +11,15 @@ tags:
 generated:
   by: mcp
   at: "2026-09-17T19:19:44.949Z"
-verified: []
+verified:
+  - by: "agent:security"
+    at: "2026-09-17T19:33:56.030Z"
+    note: >-
+      Reproduced at HEAD on a scratch bundle: with rel not_a_real_rel the target
+      stays in doctor's orphaned group and no note quotes the rel; validate
+      reports link_rel. Scope of the claim: outboundReferences skips it,
+      inboundIndex (kb-links) still keeps it, so sweep holds on an unknown rel
+      and kb_backlinks emits it — JSON-escaped, so no prose renderer takes it.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences
@@ -23,7 +31,8 @@ strauss_anchors:
 strauss_links:
   - target: risk.unknown-rel-traversed-and-echoed
     rel: satisfies
-strauss_status: open
+strauss_status: superseded
+strauss_superseded_by: test-obligation.unknown-rel-stays-out-of-the-reference-reads
 ---
 
 ## Obligation
