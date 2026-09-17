@@ -1,5 +1,4 @@
 import {
-  access,
   appendFile,
   link,
   mkdir,
@@ -69,12 +68,7 @@ import {
   appendGitattributesLines,
   GITATTRIBUTES_FILE,
 } from "./kb-gitattributes.js";
-import {
-  appendIfAbsent,
-  BUNDLE_IGNORE_BLOCK,
-  GITIGNORE_FILE,
-  STORE_OWNED_FILES,
-} from "./kb-files.js";
+import { STORE_OWNED_FILES } from "./kb-files.js";
 
 /**
  * Default bundle, relative to the working directory. A scratch base lives here
@@ -84,14 +78,6 @@ import {
 export const KB_DIR = join(".strauss", "kb");
 
 const STORE_OWNED = new Set(STORE_OWNED_FILES);
-
-/** Whether a path is there at all; any failure to look answers "no". */
-async function exists(path: string): Promise<boolean> {
-  return access(path).then(
-    () => true,
-    () => false,
-  );
-}
 
 export type KbLogger = {
   info?(entry: Record<string, unknown>): void;
@@ -1094,49 +1080,43 @@ export class KbStore {
    * bundle interleave their `log.jsonl` lines on merge rather than one
    * side's appends silently losing to git's ordinary line-level merge — and
    * marks every store-owned file generated, so GitHub collapses it in a diff.
+   *
+   * Called from `record` — every path that appends a log line, not just
+   * `write` — so a bundle only ever mutated through `setStatus`/`verify`/
+   * `supersede` still gets it. There is no cheaper reliable signal for
+   * "first write" than checking the file itself, and after the first call
+   * the check is a no-op `readFile`.
+   *
+   * A missing `.gitattributes` is created outright, with `wx` (exclusive
+   * create) rather than a plain write: if another process's `write()` won a
+   * race and created the file between the `readFile` below and this call,
+   * `wx` fails instead of truncating what that writer just wrote, and the
+   * failure is swallowed by the catch below same as any other best-effort
+   * miss. A file that exists gets only the lines it lacks appended, never a
+   * wholesale rewrite; an attribute it already sets — this one's value or a
+   * user's own — is left alone (see `missingGitattributesLines`).
+   *
+   * `readFile` failing is `existing === null` only for `ENOENT` — genuinely
+   * missing. Any other error (a permission problem, a transient `EMFILE`,
+   * the path being a directory) is *not* "missing" and must not fall into
+   * the create branch, which would truncate whatever is actually there with
+   * just the union-merge line: that is the file-destroying bug this
+   * function exists to avoid, not commit. An unreadable existing file is
+   * therefore left untouched and reported as a failure like any other.
+   *
+   * Two processes racing the append branch — both read a file without the
+   * lines, both append them — is possible and left unguarded: `appendFile` is
+   * `O_APPEND`, so the result is two copies of the same lines rather than a
+   * torn write, and the next call sees a duplicate declaration as "already
+   * declared". A cheap-to-detect, harmless-to-leave residue, not a reason to
+   * add a cross-process lock (see `ARCHITECTURE.md`'s rejection of one for
+   * the same trade on records).
+   *
+   * Best-effort, like the log append it precedes: failing to write this
+   * file must not fail the mutation it guards.
    */
   private async ensureGitattributes(root: string): Promise<void> {
-    await this.ensureDeclared(
-      root,
-      GITATTRIBUTES_FILE,
-      "kb.gitattributes.ensure",
-      appendGitattributesLines,
-    );
-  }
-
-  /**
-   * Excludes the search index and its SQLite sidecars, which are derived from
-   * the records beside them and rebuilt at will. Anchored to this base, so a
-   * bundle at any path — `.strauss/kb` or a committed one — excludes its own.
-   */
-  private async ensureGitignore(root: string): Promise<void> {
-    // Only at the base's birth. `record` runs before the first log append, so
-    // no log means nothing has been written here yet; once there is one, a
-    // missing `.gitignore` is a decision someone made, not a defect to repair.
-    if (await exists(join(root, LOG_FILE))) return;
-    await this.ensureDeclared(
-      root,
-      GITIGNORE_FILE,
-      "kb.gitignore.ensure",
-      (existing) => appendIfAbsent(existing, BUNDLE_IGNORE_BLOCK),
-    );
-  }
-
-  /**
-   * Brings one store-owned declaration file up to date: `append` returns the
-   * bytes `name` is missing, and only those are written. Created with `wx` or
-   * appended to, never rewritten; a read that fails with anything but ENOENT
-   * is not "missing"; best-effort, so it never fails the mutation that calls
-   * it. Why, and the append race left unguarded:
-   * flow.kb-ignore-written-on-first-write.
-   */
-  private async ensureDeclared(
-    root: string,
-    name: string,
-    operation: string,
-    append: (existing: string) => string,
-  ): Promise<void> {
-    const target = join(root, name);
+    const target = join(root, GITATTRIBUTES_FILE);
     try {
       let existing: string | null;
       try {
@@ -1148,7 +1128,7 @@ export class KbStore {
 
       if (existing === null) {
         try {
-          await writeFile(target, append(""), {
+          await writeFile(target, appendGitattributesLines(""), {
             encoding: "utf8",
             flag: "wx",
           });
@@ -1158,31 +1138,31 @@ export class KbStore {
           // for us, not a failure.
           if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
           this.logger.info?.({
-            operation,
+            operation: "kb.gitattributes.ensure",
             bundlePath: root,
             outcome: "exists",
           });
           return;
         }
         this.logger.info?.({
-          operation,
+          operation: "kb.gitattributes.ensure",
           bundlePath: root,
           outcome: "created",
         });
         return;
       }
-      const addition = append(existing);
+      const addition = appendGitattributesLines(existing);
       if (addition) {
         await appendFile(target, addition, "utf8");
         this.logger.info?.({
-          operation,
+          operation: "kb.gitattributes.ensure",
           bundlePath: root,
           outcome: "appended",
         });
       }
     } catch (error) {
       this.logger.warn?.({
-        operation,
+        operation: "kb.gitattributes.ensure",
         outcome: "failed",
         error: error instanceof Error ? error.message : "unknown",
       });
@@ -1194,10 +1174,7 @@ export class KbStore {
     root: string,
     entry: Omit<KbLogEntry, "at"> & { at?: string },
   ): Promise<void> {
-    await Promise.all([
-      this.ensureGitattributes(root),
-      this.ensureGitignore(root),
-    ]);
+    await this.ensureGitattributes(root);
     const line = renderLogEntry({ at: new Date().toISOString(), ...entry });
     await appendFile(join(root, LOG_FILE), line, "utf8").catch((error) => {
       this.logger.warn?.({

@@ -649,6 +649,41 @@ Returns `{ to, format, exported, foreign }`, each `exported` entry
 
 ## Format and housekeeping
 
+### `init`
+
+```
+init [--bundle PATH]
+```
+
+Creates the base directory and excludes its search index from Git, by writing a
+marked block into `<kb>/.gitignore`:
+
+```
+# BEGIN strauss-kb
+# Derived, rebuilt from the records beside it.
+/.index.sqlite*
+# END strauss-kb
+```
+
+**CLI-only** — the capability it adds is a Git rule, not something an agent
+reasons about. Writing to a base creates the directory too, so `init` is the
+one step that is about Git rather than records.
+
+Safe to re-run: the block is written when it is not already there, byte for
+byte, and an ignore file you already have keeps its contents. Nothing ever puts
+the block back on its own, so deleting it is how you decline it and re-running
+`init` is how you ask for it again.
+
+```bash
+strauss-kb init                      # .strauss/kb
+strauss-kb init --bundle docs/adr    # anywhere else
+```
+
+The leading slash keeps the rule to the base that owns it, and the trailing `*`
+covers the `-wal`, `-shm` and `-journal` files SQLite writes beside the
+database. Records, `log.jsonl`, `INDEX.md`, `.gitattributes` and the generated
+`.gitignore` all stay tracked.
+
 ### `validate`
 
 ```

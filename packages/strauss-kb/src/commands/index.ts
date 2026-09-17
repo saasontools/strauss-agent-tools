@@ -14,6 +14,7 @@ import { contextCommand } from "./context.js";
 import { doctorCommand } from "./doctor.js";
 import { exportCommand } from "./export.js";
 import { impactCommand } from "./impact.js";
+import { initCommand } from "./init.js";
 import { listCommand } from "./list.js";
 import { loadCommand } from "./load.js";
 import { logCommand } from "./log.js";
@@ -66,6 +67,7 @@ export const KB_COMMANDS: KbCommand[] = [
   readIndexCommand,
   logCommand,
   stampCommand,
+  initCommand,
   validateCommand,
   doctorCommand,
   sweepCommand,

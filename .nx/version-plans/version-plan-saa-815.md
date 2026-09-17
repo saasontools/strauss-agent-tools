@@ -2,13 +2,14 @@
 "@saasontools/strauss-kb": patch
 ---
 
-A base now writes a `.gitignore` block when it is born, excluding
-`/.index.sqlite*` — the search index and its SQLite sidecars — for that base
-wherever it lives. Written once, at birth, and never again: delete it and it
-stays deleted. The block is delimited by `# BEGIN strauss-kb` /
-`# END strauss-kb`, and nothing else in the file is read. Best effort, like the
-`.gitattributes` step: a file it cannot write never fails the mutation.
+New CLI-only command `strauss-kb init [--bundle PATH]`: creates the base
+directory and excludes its search index from Git, by writing a marked block
+into `<kb>/.gitignore`. Safe to re-run — the block is written only when it is
+not already there, byte for byte, and an ignore file you already have keeps its
+contents.
 
-`kb-pins.local.json` is not excluded for you. It sits outside every base, and
-the only file that could exclude it is committed and shared — the CLI
-reference and the specification say where to put the rule instead.
+Nothing else writes that file. Writing a record still creates the base
+directory, but a rule you delete stays deleted; re-running `init` is how you
+ask for it back. `kb-pins.local.json` is not excluded for you either — the only
+file that could is committed and shared, and the CLI reference says where to
+put the rule instead.

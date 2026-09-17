@@ -43,7 +43,7 @@ ESM and CommonJS.
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
   .gitattributes      merge      store-owned, written on first write
-  .gitignore          exclusions store-owned, written on first write
+  .gitignore          exclusions written by `init`, then yours
   .index.sqlite       search     derived, excluded by .gitignore
 ```
 

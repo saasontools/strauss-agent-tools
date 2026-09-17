@@ -23,7 +23,7 @@ enforce it, so it cannot drift from what a write will accept.
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
   .gitattributes      merge      store-owned, written on first write
-  .gitignore          exclusions store-owned, written on first write
+  .gitignore          exclusions written by `init`, then yours
   .index.sqlite       search     derived, excluded by .gitignore
 ```
 
@@ -108,8 +108,8 @@ entries, and warn once for the file.
 
 ### `.gitignore` and what is not committed
 
-The search index is derived from the records beside it, so the same first write
-excludes it and the sidecars SQLite writes next to it:
+The search index is derived from the records beside it, so nothing should
+commit it. `strauss-kb init` writes the rule, as a marked block:
 
 ```
 # BEGIN strauss-kb
@@ -122,28 +122,19 @@ The leading slash keeps the rule to the base that owns it, so a base at any
 `--bundle` path excludes its own and nothing above it. Records, `log.jsonl`,
 `INDEX.md`, `.gitattributes` and this file stay tracked.
 
-The markers are the idempotence: the block is written when it is not already in
-the file, byte for byte, and a later rule replaces it rather than appending a
-second copy. Nothing reads the rest of the file — a pattern of your own
-covering the same files gets the block written beside it, and git resolves two
-overlapping rules without complaint. To keep the index tracked, put a `!` line
-after the block: git resolves repeated matches by last one wins, and the block
-is left alone once it is there.
+**Only `init` writes it.** Writing a record creates the base directory too, but
+never this file: a tool that restores a rule you deleted leaves no way to
+decline it. Deleting the block is how you decline it, and re-running `init` is
+how you ask for it back — see the [CLI page](./cli-reference.md#init). The block
+is written when it is not already there, byte for byte, and an ignore file you
+already have keeps its contents.
 
-It is written **once, when the base is born** — the first mutation, before the
-first log line. After that the file is yours: delete it and it stays deleted,
-which is the only way to decline the rule. Unlike the `.gitattributes` rule
-beside it, which is repaired whenever it goes missing.
-
-Best effort either way: a file it cannot write is a line in `git status`, not a
-failed mutation.
-
-Personal pins are **not** excluded for you. `.strauss/kb-pins.local.json` sits
-outside every base, and the only file that could exclude it —
+Personal pins are not excluded for you either. `.strauss/kb-pins.local.json`
+sits outside every base, and the only file that could exclude it —
 `<workspace>/.strauss/.gitignore` — is committed and shared, so writing to it
-would turn one contributor's local `pin --local` into a change every teammate
-sees in the diff. Nothing outside a base is the store's to edit. Exclude it
-where personal ignores belong:
+would turn one contributor's `pin --local` into a change every teammate sees.
+Nothing outside a base is the store's to edit. Exclude it where personal
+ignores belong:
 
 ```sh
 echo '/.strauss/kb-pins.local.json' >> "$(git rev-parse --git-path info/exclude)"

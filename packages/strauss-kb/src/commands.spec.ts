@@ -25,21 +25,25 @@ describe("command table", () => {
     );
   });
 
-  // The one sanctioned gap in the projection: sync-instructions edits files
-  // for hooks and instruction blocks, and the capability it plumbs —
-  // "get the pinned context block" — is kb_context. Anything else CLI-only
-  // is a drift bug.
-  test("sync-instructions is the only CLI-only command", () => {
+  // The sanctioned gaps in the projection. `sync-instructions` edits files for
+  // hooks and instruction blocks, and the capability it plumbs — "get the
+  // pinned context block" — is kb_context. `init` writes a Git rule, which is
+  // setup rather than a capability an agent reasons about, and every tool
+  // description is paid on every context. Anything else CLI-only is a drift
+  // bug.
+  test("init and sync-instructions are the only CLI-only commands", () => {
     expect(
-      KB_COMMANDS.filter((command) => !command.tool).map(
-        (command) => command.name,
-      ),
-    ).toEqual(["sync-instructions"]);
+      KB_COMMANDS.filter((command) => !command.tool)
+        .map((command) => command.name)
+        .sort(),
+    ).toEqual(["init", "sync-instructions"]);
   });
 
   test("names and tools are unique", () => {
     const names = KB_COMMANDS.map((command) => command.name);
-    const tools = KB_COMMANDS.map((command) => command.tool);
+    // Only the tools that exist: a CLI-only command has none, and two of them
+    // would otherwise collide as one `undefined`.
+    const tools = KB_COMMANDS.flatMap((command) => command.tool ?? []);
 
     expect(new Set(names).size).toBe(names.length);
     expect(new Set(tools).size).toBe(tools.length);

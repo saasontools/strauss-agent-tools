@@ -3,12 +3,13 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { composeRecord } from "./compose.js";
-import { GITATTRIBUTES_FILE } from "./kb-gitattributes.js";
-import { GITIGNORE_FILE } from "./kb-files.js";
-import { LOG_FILE } from "./kb-log.js";
-import { KB_DIR, KbStore } from "./kb-store.js";
-import { SEARCH_INDEX_FILE } from "./search-index.js";
+import { composeRecord } from "../compose.js";
+import { GITATTRIBUTES_FILE } from "../kb-gitattributes.js";
+import { GITIGNORE_FILE } from "../kb-files.js";
+import { initCommand } from "./init.js";
+import { LOG_FILE } from "../kb-log.js";
+import { KB_DIR, KbStore } from "../kb-store.js";
+import { SEARCH_INDEX_FILE } from "../search-index.js";
 
 /**
  * The block is a guess about what git does with a pattern until git is asked.
@@ -71,8 +72,13 @@ describe("what git actually excludes", () => {
   const base = KB_DIR.split(sep).join("/");
   const at = "2026-09-15T00:00:00Z";
 
-  const seed = (bundle: string) =>
-    store.write(
+  /** `init` writes the block; the record is what a base is otherwise for. */
+  const seed = async (bundle: string) => {
+    await initCommand.run(
+      { store, actor: "agent:tester", now: () => at },
+      initCommand.input.parse({ bundlePath: bundle }),
+    );
+    return store.write(
       bundle,
       composeRecord(
         "fact",
@@ -85,6 +91,7 @@ describe("what git actually excludes", () => {
         at,
       ),
     );
+  };
 
   beforeEach(() => {
     repo = mkdtempSync(join(tmpdir(), "strauss-kb-check-ignore-"));
