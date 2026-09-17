@@ -51,7 +51,7 @@ module that touches both sides.
 - **stdout is sacred.** It carries JSON-RPC; all diagnostics go to stderr via
   `logger.ts`, enforced by a package-level ESLint `no-console` rule.
 
-## SDK notes (@google/genai 2.17.1, verified empirically)
+## SDK notes (@google/genai 2.20.0, verified empirically)
 
 - Endpoints used: `POST /v1beta/interactions`, `GET /v1beta/interactions/:id`,
   `POST /v1beta/interactions/:id/cancel`.
@@ -59,8 +59,10 @@ module that touches both sides.
   against a local mock HTTP server this way (no key, no network).
 - The next-gen interactions client **throws its own error classes**
   (`RateLimitError`, …), not `ApiError`; `gemini.ts` duck-types the HTTP
-  status. It also **retries 429/5xx internally regardless of
-  `httpOptions.retryOptions`**.
+  status. It also **ignores `httpOptions.timeout` and
+  `httpOptions.retryOptions`**, rebuilding its transport from the parent
+  client's base URL and auth alone — retries and the timeout must ride on
+  each call's own request options.
 - The SDK **recomputes `output_text` from `model_output` steps**; a
   server-sent `output_text` is ignored, so extraction reads steps as the
   source of truth (with `output_text` as the preferred fast path when the SDK
