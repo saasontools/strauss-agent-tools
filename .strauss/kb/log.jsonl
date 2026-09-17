@@ -45,3 +45,8 @@
 {"at":"2026-09-17T17:50:45.495Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-update-audit-extends-the-log-entry"}
 {"at":"2026-09-17T17:50:45.784Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"requirement.anchor-update-separates-pointer-from-baseline"}
 {"at":"2026-09-17T17:50:46.086Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-update-keeps-baselines"}
+{"at":"2026-09-17T17:59:36.475Z","by":"agent:claude","operation":"write","conceptId":"contract.anchor-locator-is-the-address-half-of-an-anchor"}
+{"at":"2026-09-17T17:59:36.785Z","by":"agent:claude","operation":"write","conceptId":"fact.anchor-update-registration-surfaces"}
+{"at":"2026-09-17T17:59:44.779Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"contract.anchor-locator-is-the-address-half-of-an-anchor"}
+{"at":"2026-09-17T17:59:46.484Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"fact.anchor-update-registration-surfaces"}
+{"at":"2026-09-17T17:59:47.252Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-update-keeps-baselines"}

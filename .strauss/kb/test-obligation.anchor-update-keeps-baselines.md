@@ -12,10 +12,10 @@ generated:
 verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/anchor-update.spec.ts
-    hash: "sha256:d04dc9b92be96e8039efc958e0d975cb7a5b4d04ba122822f997571ab94e2fc6"
+    hash: "sha256:988407164a039ea50cb71592b2e40696573180c1bfa3c55f39ff16786a87a288"
     hash_kind: raw
-    resolved_at: "2026-09-17T17:50:46.080Z"
-    lines: 729
+    resolved_at: "2026-09-17T17:59:47.237Z"
+    lines: 737
 strauss_status: open
 ---
 
