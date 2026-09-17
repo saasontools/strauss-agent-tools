@@ -118,33 +118,27 @@ excludes it and the sidecars SQLite writes next to it:
 # END strauss-kb
 ```
 
-The leading slash anchors the rule to the base that owns it, so a base at any
+The leading slash keeps the rule to the base that owns it, so a base at any
 `--bundle` path excludes its own and nothing above it. Records, `log.jsonl`,
 `INDEX.md`, `.gitattributes` and this file stay tracked.
 
-The markers are the idempotence: the block is written when it is not already
-in the file, byte for byte, and a later rule replaces it rather than appending
-a second one. Nothing tries to decide whether a rule of your own already covers
-the same files — a pattern like `*.sqlite*` simply gets the block written
-beside it, and git resolves two overlapping rules without complaint. That is
-the trade: a redundant line, in exchange for never having to agree with git
-about what a pattern means.
+The markers are the idempotence: the block is written when it is not already in
+the file, byte for byte, and a later rule replaces it rather than appending a
+second copy. Nothing reads the rest of the file — a pattern of your own
+covering the same files gets the block written beside it, and git resolves two
+overlapping rules without complaint. To keep the index tracked, put a `!` line
+after the block: git resolves repeated matches by last one wins, and the block
+is left alone once it is there.
 
-The one line that is read is a literal `!.index.sqlite` — or any covered name,
-sidecars included. git resolves repeated matches by last one wins, so writing
-the block under it would overrule a deliberate choice to track the file;
-instead nothing is written and the store logs which patterns it withheld. A
-negation written as a glob is not read, and the block is written.
-
-Deleting the file gets it back on the next write, and a path checked in as a
-symlink is left alone.
+Like the `.gitattributes` step, this is best effort: a file it cannot write is
+a file in `git status`, not a failed mutation. Deleting it gets the block back
+on the next write.
 
 Personal pins are the one exclusion a base cannot carry, since
 `.strauss/kb-pins.local.json` sits outside it and a gitignore pattern cannot
 reach a parent. Writing the local pin layer therefore writes its own block into
-`<workspace>/.strauss/.gitignore`, under the same rules. The shared
-`kb-pins.json` beside it stays tracked, and `pin --local` reports a block it
-could not put in place — that layer has no log of its own.
+`<workspace>/.strauss/.gitignore`. The shared `kb-pins.json` beside it stays
+tracked.
 
 ## Records
 

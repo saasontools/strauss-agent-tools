@@ -1,7 +1,6 @@
 import {
   appendFile,
   link,
-  lstat,
   mkdir,
   readdir,
   readFile,
@@ -70,12 +69,11 @@ import {
   GITATTRIBUTES_FILE,
 } from "./kb-gitattributes.js";
 import {
-  appendIgnoreBlock,
+  appendIfAbsent,
   BUNDLE_IGNORE_BLOCK,
   GITIGNORE_FILE,
-  ignoreBlockState,
-} from "./kb-gitignore.js";
-import { STORE_OWNED_FILES } from "./kb-files.js";
+  STORE_OWNED_FILES,
+} from "./kb-files.js";
 
 /**
  * Default bundle, relative to the working directory. A scratch base lives here
@@ -1107,11 +1105,7 @@ export class KbStore {
       root,
       GITIGNORE_FILE,
       "kb.gitignore.ensure",
-      (existing) => appendIgnoreBlock(existing, BUNDLE_IGNORE_BLOCK),
-      (existing) =>
-        ignoreBlockState(existing, BUNDLE_IGNORE_BLOCK) === "unignored"
-          ? [...BUNDLE_IGNORE_BLOCK.patterns]
-          : [],
+      (existing) => appendIfAbsent(existing, BUNDLE_IGNORE_BLOCK),
     );
   }
 
@@ -1128,28 +1122,16 @@ export class KbStore {
     name: string,
     operation: string,
     append: (existing: string) => string,
-    /** Patterns the file deliberately un-ignores: nothing to write, but not nothing to say. */
-    suppressed?: (existing: string) => string[],
   ): Promise<void> {
     const target = join(root, name);
     try {
-      const stats = await lstat(target).catch((error: unknown) => {
+      let existing: string | null;
+      try {
+        existing = await readFile(target, "utf8");
+      } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-        return null;
-      });
-
-      // A base that checks in this path as a symlink would have us append a
-      // line to whatever it points at, outside the base.
-      if (stats?.isSymbolicLink()) {
-        this.logger.warn?.({
-          operation,
-          bundlePath: root,
-          outcome: "refused-symlink",
-        });
-        return;
+        existing = null;
       }
-
-      const existing = stats === null ? null : await readFile(target, "utf8");
 
       if (existing === null) {
         try {
@@ -1176,16 +1158,6 @@ export class KbStore {
         });
         return;
       }
-      const unignored = suppressed?.(existing) ?? [];
-      if (unignored.length > 0) {
-        this.logger.warn?.({
-          operation,
-          bundlePath: root,
-          outcome: "unignored",
-          patterns: unignored,
-        });
-      }
-
       const addition = append(existing);
       if (addition) {
         await appendFile(target, addition, "utf8");

@@ -1,18 +1,11 @@
-import {
-  appendFile,
-  lstat,
-  mkdir,
-  readFile,
-  writeFile,
-} from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
-  appendIgnoreBlock,
+  appendIfAbsent,
   GITIGNORE_FILE,
-  ignoreBlockState,
   STRAUSS_IGNORE_BLOCK,
-} from "../kb-gitignore.js";
+} from "../kb-files.js";
 import { KbPinsMalformedError } from "./errors.js";
 import {
   PIN_LAYERS,
@@ -85,59 +78,29 @@ export async function writePinsLayer(
   workspaceDir: string,
   layer: KbPinLayer,
   manifest: KbPinsManifest,
-): Promise<string | null> {
+): Promise<void> {
   const file = layerFile(workspaceDir, layer);
   await mkdir(dirname(file), { recursive: true });
-  const unignored =
-    layer === "local" ? await ensureLocalPinsIgnored(dirname(file)) : null;
+  if (layer === "local") await ensureLocalPinsIgnored(dirname(file));
   await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  return unignored;
 }
 
 /**
- * Excludes `kb-pins.local.json` from `<workspace>/.strauss/.gitignore` — the
- * committed manifest sits beside it, so the rule names the personal file
- * alone. Only the local layer: the user layer is outside any workspace.
+ * Excludes `kb-pins.local.json` at `<workspace>/.strauss/.gitignore` — the
+ * personal manifest is outside every base, so no base-level file reaches it.
+ * Only the local layer; the user layer is outside any workspace.
  *
- * Returns why the file is personal but not excluded, for the caller to pass
- * on: this layer has no logger, and the one thing worse than not writing the
- * rule is not writing it silently.
+ * Best effort, and silent: the manifest write is what the caller asked for,
+ * and a missing rule costs a file in `git status`, not correctness.
  */
-async function ensureLocalPinsIgnored(dir: string): Promise<string | null> {
+async function ensureLocalPinsIgnored(dir: string): Promise<void> {
   const target = join(dir, GITIGNORE_FILE);
   try {
-    const stats = await lstat(target).catch((error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      return null;
-    });
-    // Appending through a symlink writes outside the workspace's .strauss.
-    if (stats?.isSymbolicLink()) return `${target} is a symlink; left alone`;
-
-    if (stats === null) {
-      try {
-        // Exclusive: a writer that won the race between our lstat and our
-        // write already put the rule there, and must not be truncated.
-        await writeFile(target, appendIgnoreBlock("", STRAUSS_IGNORE_BLOCK), {
-          encoding: "utf8",
-          flag: "wx",
-        });
-        return null;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-        return null;
-      }
-    }
-
-    const existing = await readFile(target, "utf8");
-    if (ignoreBlockState(existing, STRAUSS_IGNORE_BLOCK) === "unignored") {
-      return `${target} un-ignores ${STRAUSS_IGNORE_BLOCK.patterns.join(", ")}; the rule was left unwritten`;
-    }
-    const addition = appendIgnoreBlock(existing, STRAUSS_IGNORE_BLOCK);
+    const existing = await readFile(target, "utf8").catch(() => "");
+    const addition = appendIfAbsent(existing, STRAUSS_IGNORE_BLOCK);
     if (addition) await appendFile(target, addition, "utf8");
-    return null;
-  } catch (error) {
-    // Best-effort: the manifest write is what the caller asked for.
-    return `${target} could not be written (${error instanceof Error ? error.message : "unknown"})`;
+  } catch {
+    // See above: never fails the pin.
   }
 }
 

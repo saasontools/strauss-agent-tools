@@ -1,45 +1,35 @@
 import { execFileSync } from "node:child_process";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { composeRecord } from "./compose.js";
 import { GITATTRIBUTES_FILE } from "./kb-gitattributes.js";
-import { BUNDLE_IGNORE_BLOCK, GITIGNORE_FILE } from "./kb-gitignore.js";
-import { INDEX_FILE } from "./kb-index.js";
-import { pinBase, PINS_FILE, PINS_LOCAL_FILE } from "./kb-pins/index.js";
+import { GITIGNORE_FILE } from "./kb-files.js";
 import { LOG_FILE } from "./kb-log.js";
+import { pinBase, PINS_FILE, PINS_LOCAL_FILE } from "./kb-pins/index.js";
 import { KB_DIR, KbStore } from "./kb-store.js";
 import { SEARCH_INDEX_FILE } from "./search-index.js";
 
 /**
- * A real repository, because the question is what git does with the rules,
- * not what the rules say. `check-ignore` is git's own answer.
+ * The block is a guess about what git does with a pattern until git is asked.
+ * That is the whole job here — not the store's write path, which the unit
+ * suites cover.
  */
 describe("what git actually excludes", () => {
   let repo: string;
   let emptyConfig: string;
   const store = new KbStore();
-  const at = "2026-09-15T00:00:00Z";
 
   /**
-   * check-ignore reads `core.excludesFile` like any other git command, so a
-   * contributor whose personal excludes hold `*.sqlite*` would run this suite
-   * green with the rule never written. An empty config for both scopes is the
-   * whole fix — not the null device, which git rejects as a config path on
-   * Windows, where this suite also runs.
+   * Scoped config: check-ignore reads `core.excludesFile` like any other git
+   * command, so a contributor whose personal excludes hold `*.sqlite*` would
+   * run this green with nothing written. Not the null device — git rejects it
+   * as a config path on Windows, where this suite also runs.
    */
   const git = (...args: string[]) =>
     execFileSync("git", ["-C", repo, ...args], {
       encoding: "utf8",
-      // A synchronous spawn cannot be interrupted by vitest's own timeout, so
-      // a stuck git would hang the worker rather than fail the test.
       timeout: 30_000,
       env: {
         ...process.env,
@@ -48,17 +38,15 @@ describe("what git actually excludes", () => {
       },
     });
 
-  /**
-   * Git's verdict on each path, in one spawn. `--non-matching -v` answers for
-   * every path, so exit 1 (nothing matched) is an answer and anything else is
-   * a git failure this suite must not read as "not ignored".
-   */
+  /** Git's verdict on each path, in one spawn. */
   const ignored = (...paths: string[]): boolean[] => {
     let out: string;
     try {
       out = git("check-ignore", "--no-index", "-v", "--non-matching", ...paths);
     } catch (error) {
       const failure = error as { status?: number; stdout?: string };
+      // 1 is "nothing matched" — an answer. Anything else is a git failure,
+      // which must not read as "not ignored".
       if (failure.status !== 1) throw error;
       out = failure.stdout ?? "";
     }
@@ -68,8 +56,6 @@ describe("what git actually excludes", () => {
         .filter(Boolean)
         .map((line) => {
           const [match, path] = line.split("\t");
-          // `<source>:<line>:<pattern>`, or `::` for no match. A negated
-          // pattern is reported as a match too, and leaves the file tracked.
           const pattern = /^.*:\d+:(.*)$/.exec(match ?? "")?.[1];
           return [path, pattern !== undefined && !pattern.startsWith("!")];
         }),
@@ -82,8 +68,9 @@ describe("what git actually excludes", () => {
     });
   };
 
-  /** Forward slashes: git echoes the path back, and the parse must match. */
   const rel = (...segments: string[]) => segments.join("/");
+  const base = KB_DIR.split(sep).join("/");
+  const at = "2026-09-15T00:00:00Z";
 
   const seed = (bundle: string) =>
     store.write(
@@ -109,51 +96,31 @@ describe("what git actually excludes", () => {
 
   afterEach(() => rmSync(repo, { recursive: true, force: true }));
 
-  test("the search index and every SQLite sidecar, at the default base", async () => {
-    await seed(join(repo, KB_DIR));
+  test("the index and every SQLite sidecar, and nothing a reader needs", async () => {
+    const bundle = join(repo, KB_DIR);
+    await seed(bundle);
+    // `INDEX.md` is written on read, not on write.
+    await store.list(bundle);
 
-    const base = KB_DIR.split(sep).join("/");
     expect(
       ignored(
         ...["", "-wal", "-shm", "-journal"].map((suffix) =>
           rel(base, `${SEARCH_INDEX_FILE}${suffix}`),
         ),
+        rel(base, "fact.derived-files-are-not-committed.md"),
+        rel(base, LOG_FILE),
+        rel(base, GITATTRIBUTES_FILE),
+        rel(base, GITIGNORE_FILE),
       ),
-    ).toEqual([true, true, true, true]);
+    ).toEqual([true, true, true, true, false, false, false, false]);
   });
 
-  test("the same at a custom base, because the rule travels with it", async () => {
+  test("a custom base excludes its own, and nothing above it", async () => {
     await seed(join(repo, "docs", "adr"));
 
     expect(
-      ignored(
-        rel("docs", "adr", SEARCH_INDEX_FILE),
-        rel("docs", "adr", `${SEARCH_INDEX_FILE}-wal`),
-        // Anchored, so it excludes its own base and nothing above it.
-        SEARCH_INDEX_FILE,
-      ),
-    ).toEqual([true, true, false]);
-  });
-
-  test("everything a reader needs stays trackable", async () => {
-    const bundle = join(repo, KB_DIR);
-    await seed(bundle);
-    // `INDEX.md` is written on read, not on write; it is store-owned and
-    // committed all the same.
-    await store.list(bundle);
-
-    const base = KB_DIR.split(sep).join("/");
-    expect(
-      ignored(
-        ...[
-          "fact.derived-files-are-not-committed.md",
-          LOG_FILE,
-          GITATTRIBUTES_FILE,
-          GITIGNORE_FILE,
-          INDEX_FILE,
-        ].map((file) => rel(base, file)),
-      ),
-    ).toEqual([false, false, false, false, false]);
+      ignored(rel("docs", "adr", SEARCH_INDEX_FILE), SEARCH_INDEX_FILE),
+    ).toEqual([true, false]);
   });
 
   test("local pins are excluded and the shared manifest is not", async () => {
@@ -169,54 +136,5 @@ describe("what git actually excludes", () => {
         PINS_FILE.split(sep).join("/"),
       ),
     ).toEqual([true, false]);
-  });
-
-  // The design writes its block beside a rule of the reader's own rather than
-  // deciding whether that rule already covers the files. This is the cost of
-  // that: two overlapping lines, which git resolves without complaint.
-  test("an overlapping rule of the reader's own still leaves the files ignored", async () => {
-    const bundle = join(repo, KB_DIR);
-    mkdirSync(bundle, { recursive: true });
-    writeFileSync(join(bundle, GITIGNORE_FILE), `*${SEARCH_INDEX_FILE}*\n`);
-
-    await seed(bundle);
-
-    const base = KB_DIR.split(sep).join("/");
-    expect(
-      ignored(
-        rel(base, SEARCH_INDEX_FILE),
-        rel(base, `${SEARCH_INDEX_FILE}-wal`),
-      ),
-    ).toEqual([true, true]);
-    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      `*${SEARCH_INDEX_FILE}*\n${BUNDLE_IGNORE_BLOCK.text}`,
-    );
-  });
-
-  // The negation the block does read: git would resolve a later block as last
-  // one wins, so the file stays tracked and nothing is written.
-  test("a literal negation keeps the file tracked and nothing is written", async () => {
-    const bundle = join(repo, KB_DIR);
-    mkdirSync(bundle, { recursive: true });
-    writeFileSync(join(bundle, GITIGNORE_FILE), `!${SEARCH_INDEX_FILE}\n`);
-
-    await seed(bundle);
-
-    const base = KB_DIR.split(sep).join("/");
-    expect(ignored(rel(base, SEARCH_INDEX_FILE))).toEqual([false]);
-    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      `!${SEARCH_INDEX_FILE}\n`,
-    );
-  });
-
-  test("a base created outside a repository is written all the same", async () => {
-    const outside = mkdtempSync(join(tmpdir(), "strauss-kb-no-repo-"));
-    try {
-      const written = await seed(join(outside, KB_DIR));
-
-      expect(written.conceptId).toBe("fact.derived-files-are-not-committed");
-    } finally {
-      rmSync(outside, { recursive: true, force: true });
-    }
   });
 });

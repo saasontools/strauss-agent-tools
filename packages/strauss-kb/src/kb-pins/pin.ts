@@ -32,15 +32,10 @@ export async function pinBase(
     (entry) => resolvePinPath(root, entry.path) === absolute,
   );
   const records = await store.list(absolute);
-  const notPopulated =
+  const warning =
     records.length === 0
       ? `no records found at ${absolute} — pinned anyway; bases are routinely pinned before they are populated`
       : undefined;
-
-  /** Both halves, so a suppressed ignore rule is never the silent one. */
-  const warn = (unignored: string | null): string | undefined =>
-    [notPopulated, unignored ?? undefined].filter(Boolean).join("; ") ||
-    undefined;
 
   const fields = {
     ...(options.mode ? { mode: options.mode } : {}),
@@ -50,15 +45,14 @@ export async function pinBase(
 
   if (existing) {
     const updated: KbPin = { ...existing, ...fields };
-    const unignored = Object.keys(fields).length
-      ? await writePinsLayer(workspaceDir, layer, {
-          ...manifest,
-          pins: manifest.pins.map((entry) =>
-            entry === existing ? updated : entry,
-          ),
-        })
-      : null;
-    const warning = warn(unignored);
+    if (Object.keys(fields).length) {
+      await writePinsLayer(workspaceDir, layer, {
+        ...manifest,
+        pins: manifest.pins.map((entry) =>
+          entry === existing ? updated : entry,
+        ),
+      });
+    }
     return {
       path: existing.path,
       layer,
@@ -76,12 +70,10 @@ export async function pinBase(
     pinnedAt: at,
     ...fields,
   };
-  const warning = warn(
-    await writePinsLayer(workspaceDir, layer, {
-      ...manifest,
-      pins: [...manifest.pins, entry],
-    }),
-  );
+  await writePinsLayer(workspaceDir, layer, {
+    ...manifest,
+    pins: [...manifest.pins, entry],
+  });
   return {
     path: entry.path,
     layer,

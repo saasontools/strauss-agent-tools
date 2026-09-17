@@ -7,7 +7,6 @@ import {
   rmSync,
   writeFileSync,
   mkdirSync,
-  symlinkSync,
   unlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -32,7 +31,7 @@ import {
   KbWriteConflictError,
 } from "./kb-errors.js";
 import { GITATTRIBUTES_BLOCK, GITATTRIBUTES_FILE } from "./kb-gitattributes.js";
-import { BUNDLE_IGNORE_BLOCK, GITIGNORE_FILE } from "./kb-gitignore.js";
+import { BUNDLE_IGNORE_BLOCK, GITIGNORE_FILE } from "./kb-files.js";
 import { INDEX_FILE } from "./kb-index.js";
 import { LOG_FILE } from "./kb-log.js";
 import type { KbRecord } from "./kb-record.schema.js";
@@ -1260,7 +1259,7 @@ describe(".gitignore", () => {
     await store.write(bundle, fact("one"));
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_IGNORE_BLOCK.text,
+      BUNDLE_IGNORE_BLOCK,
     );
   });
 
@@ -1274,7 +1273,7 @@ describe(".gitignore", () => {
     await store.write(bundle, fact("one"));
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      `scratch/\n${BUNDLE_IGNORE_BLOCK.text}`,
+      `scratch/\n${BUNDLE_IGNORE_BLOCK}`,
     );
   });
 
@@ -1287,7 +1286,7 @@ describe(".gitignore", () => {
     await store.write(bundle, fact("two"));
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_IGNORE_BLOCK.text,
+      BUNDLE_IGNORE_BLOCK,
     );
   });
 
@@ -1303,7 +1302,7 @@ describe(".gitignore", () => {
     await store.setStatus(bundle, "fact.one", "rejected");
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_IGNORE_BLOCK.text,
+      BUNDLE_IGNORE_BLOCK,
     );
   });
 
@@ -1328,56 +1327,6 @@ describe(".gitignore", () => {
     );
   });
 
-  // A `!` line arrives with a clone and decides whether the protection is
-  // written. Respecting it is the rule; this path holds a logger, so unlike
-  // the pins layer it can say so.
-  test("warns when the base deliberately un-ignores the index", async ({
-    bundle,
-  }) => {
-    const warnings: Record<string, unknown>[] = [];
-    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
-    mkdirSync(bundle, { recursive: true });
-    writeFileSync(join(bundle, GITIGNORE_FILE), "!.index.sqlite-wal\n");
-
-    await quiet.write(bundle, fact("one"));
-
-    expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      "!.index.sqlite-wal\n",
-    );
-    expect(warnings).toContainEqual(
-      expect.objectContaining({
-        operation: "kb.gitignore.ensure",
-        outcome: "unignored",
-        patterns: ["/.index.sqlite*"],
-      }),
-    );
-  });
-
-  // A base may check this path in as a symlink; appending through it would
-  // write our line into whatever it points at, outside the base.
-  test("a symlinked .gitignore is refused, and the write still succeeds", async ({
-    bundle,
-  }) => {
-    const warnings: Record<string, unknown>[] = [];
-    const quiet = new KbStore({ warn: (entry) => warnings.push(entry) });
-    mkdirSync(bundle, { recursive: true });
-    const outside = join(bundle, "..", `outside-${process.pid}.txt`);
-    writeFileSync(outside, "untouched\n");
-    symlinkSync(outside, join(bundle, GITIGNORE_FILE));
-
-    const written = await quiet.write(bundle, fact("one"));
-
-    expect(written.conceptId).toBe("fact.one");
-    expect(readFileSync(outside, "utf8")).toBe("untouched\n");
-    expect(warnings).toContainEqual(
-      expect.objectContaining({
-        operation: "kb.gitignore.ensure",
-        outcome: "refused-symlink",
-      }),
-    );
-    rmSync(outside, { force: true });
-  });
-
   test("two concurrent ensureGitignore calls on a fresh bundle both succeed", async ({
     bundle,
   }) => {
@@ -1392,7 +1341,7 @@ describe(".gitignore", () => {
     ]);
 
     expect(readFileSync(join(bundle, GITIGNORE_FILE), "utf8")).toBe(
-      BUNDLE_IGNORE_BLOCK.text,
+      BUNDLE_IGNORE_BLOCK,
     );
     expect(warnings).toEqual([]);
   });

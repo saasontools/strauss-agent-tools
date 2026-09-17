@@ -4,7 +4,6 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
-  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,7 +21,7 @@ import {
   readPinsLayer,
   unpinBase,
 } from "./kb-pins/index.js";
-import { GITIGNORE_FILE, STRAUSS_IGNORE_BLOCK } from "./kb-gitignore.js";
+import { GITIGNORE_FILE, STRAUSS_IGNORE_BLOCK } from "./kb-files.js";
 import { KbStore } from "./kb-store.js";
 
 describe("kb-pins", () => {
@@ -60,7 +59,7 @@ describe("kb-pins", () => {
 
     expect(
       readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
-    ).toBe(STRAUSS_IGNORE_BLOCK.text);
+    ).toBe(STRAUSS_IGNORE_BLOCK);
   });
 
   test("keeps a user's own .strauss ignore rules and adds no duplicate", async () => {
@@ -75,41 +74,7 @@ describe("kb-pins", () => {
 
     expect(
       readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
-    ).toBe(`scratch/\n${STRAUSS_IGNORE_BLOCK.text}`);
-  });
-
-  // Respecting an explicit negation is the rule; doing it silently is not —
-  // the contributor whose personal manifest is now trackable gets no other
-  // signal, because this layer has no logger.
-  test("reports a committed negation that suppresses the rule", async () => {
-    mkdirSync(join(workspace, ".strauss"), { recursive: true });
-    writeFileSync(
-      join(workspace, ".strauss", GITIGNORE_FILE),
-      "!kb-pins.local.json\n",
-    );
-
-    const pinned = await pinBase(store, workspace, bundle, at, {
-      layer: "local",
-    });
-
-    expect(pinned.warning).toContain("un-ignores /kb-pins.local.json");
-    expect(
-      readFileSync(join(workspace, ".strauss", GITIGNORE_FILE), "utf8"),
-    ).toBe("!kb-pins.local.json\n");
-  });
-
-  test("leaves a symlinked .strauss/.gitignore alone and says so", async () => {
-    mkdirSync(join(workspace, ".strauss"), { recursive: true });
-    const outside = join(workspace, "outside.txt");
-    writeFileSync(outside, "untouched\n");
-    symlinkSync(outside, join(workspace, ".strauss", GITIGNORE_FILE));
-
-    const pinned = await pinBase(store, workspace, bundle, at, {
-      layer: "local",
-    });
-
-    expect(pinned.warning).toContain("symlink");
-    expect(readFileSync(outside, "utf8")).toBe("untouched\n");
+    ).toBe(`scratch/\n${STRAUSS_IGNORE_BLOCK}`);
   });
 
   // A project pin is committed, and writes the same file as the local one —
