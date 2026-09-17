@@ -16,10 +16,10 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: replacement
-    hash: "sha256:2352ee8e3e543714f4e1f23599cbdf6bd81c50dbbf6037dc834cd8adbb41edc5"
+    hash: "sha256:94cbb260877cbc5e366b2c0414de9edd33d2561135a17d428ddbacf99725c555"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:22:10.754Z"
-    lines: 15
+    resolved_at: "2026-09-17T18:45:22.259Z"
+    lines: 27
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-record.schema.ts
     symbol: kbAnchorLocatorSchema

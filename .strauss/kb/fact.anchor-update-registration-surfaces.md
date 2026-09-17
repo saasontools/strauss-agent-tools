@@ -26,21 +26,21 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/errors.ts
     symbol: ErrorTypes
-    hash: "sha256:8aaefa6a951af2ae2309ed3729bc7683d82ef8ac1407cb1a4a3b33eb772c6860"
+    hash: "sha256:3291864689e7416bd1b81585a3c74485a759c456542831663d8944345300ace5"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:01:21.355Z"
-    lines: 24
+    resolved_at: "2026-09-17T18:45:21.212Z"
+    lines: 25
     resolver: regex
   - file: packages/strauss-kb/src/index.ts
-    hash: "sha256:f84aab1a0dc7ee02608cc7c80c64cad8ab91953b732d4a5e1bb1d25be7b18283"
+    hash: "sha256:0c2e9e0ed5bfefa62099c61844029e1d347ea222b7dc4036957a30dd29873286"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:21:14.799Z"
-    lines: 339
+    resolved_at: "2026-09-17T18:45:21.212Z"
+    lines: 340
   - file: packages/strauss-kb/src/commands/anchor-update/index.ts
-    hash: "sha256:3d2739209ffbcaed33a75b4a465e3534cbda1d51dd788ee5bdf720239cdb20c8"
+    hash: "sha256:af231877e45b6b5d2523442ba7b20192ae8287f386ed5ce1d5b43a30a0937eee"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:03:45.140Z"
-    lines: 19
+    resolved_at: "2026-09-17T18:45:21.212Z"
+    lines: 20
 strauss_verify:
   - >-
     pnpm nx run @saasontools/strauss-kb:test — src/commands.spec.ts asserts

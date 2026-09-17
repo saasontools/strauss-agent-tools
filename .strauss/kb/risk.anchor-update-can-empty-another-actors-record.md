@@ -14,8 +14,18 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: applyAnchorPatch
+    hash: "sha256:996b5d13e5e55d150774ed7f7b2fd99bf1a46487036ad87dd819e53e134fe238"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:45:22.513Z"
+    lines: 70
+    resolver: tree-sitter
   - file: plugins/strauss-kb-review/hooks/scripts/lib/reviewer.mjs
     symbol: WRITE_VERBS
+    hash: "sha256:49e47b61a9d51f82a69ab31ade21ea5ff3ac6ab03af20d6aec9e087334a1a2ae"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:45:22.519Z"
+    lines: 18
+    resolver: regex
 strauss_links:
   - target: decision.anchor-update-is-a-reviewer-write-verb
     rel: informs

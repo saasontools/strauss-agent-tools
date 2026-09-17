@@ -41,10 +41,10 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-log.ts
     symbol: kbLogEntrySchema
-    hash: "sha256:b9209e3ceeb0f771ac99a54e86f2cccf28eca3da0f8c973c0356f2e47356780e"
+    hash: "sha256:d68e066fe4af4a3a854ba101dd1797fd87126322b41089ab5d36d20f7d47b1f8"
     hash_kind: raw
-    resolved_at: "2026-09-17T17:50:45.482Z"
-    lines: 28
+    resolved_at: "2026-09-17T18:45:19.176Z"
+    lines: 1
     resolver: regex
   - file: packages/strauss-kb/src/kb-log.ts
     symbol: kbLogAnchorChangeSchema

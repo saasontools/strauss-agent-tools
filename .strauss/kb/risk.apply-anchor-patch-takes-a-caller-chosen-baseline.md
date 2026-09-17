@@ -16,17 +16,17 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: applyAnchorPatch
-    hash: "sha256:5a5d3336a3b0cdbfb61f4f7051d013a916332868a6a1fe9a170725d6f3397bb3"
+    hash: "sha256:996b5d13e5e55d150774ed7f7b2fd99bf1a46487036ad87dd819e53e134fe238"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:22:12.517Z"
-    lines: 69
+    resolved_at: "2026-09-17T18:45:25.186Z"
+    lines: 70
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: replacement
-    hash: "sha256:2352ee8e3e543714f4e1f23599cbdf6bd81c50dbbf6037dc834cd8adbb41edc5"
+    hash: "sha256:94cbb260877cbc5e366b2c0414de9edd33d2561135a17d428ddbacf99725c555"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:22:12.518Z"
-    lines: 15
+    resolved_at: "2026-09-17T18:45:25.189Z"
+    lines: 27
     resolver: tree-sitter
 strauss_links:
   - target: contract.anchor-locator-is-the-address-half-of-an-anchor

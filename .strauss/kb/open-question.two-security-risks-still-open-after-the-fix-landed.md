@@ -16,10 +16,10 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: applyAnchorPatch
-    hash: "sha256:5a5d3336a3b0cdbfb61f4f7051d013a916332868a6a1fe9a170725d6f3397bb3"
+    hash: "sha256:996b5d13e5e55d150774ed7f7b2fd99bf1a46487036ad87dd819e53e134fe238"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:37:24.737Z"
-    lines: 69
+    resolved_at: "2026-09-17T18:45:21.495Z"
+    lines: 70
     resolver: tree-sitter
   - file: plugins/strauss-kb-review/hooks/scripts/lib/reviewer.mjs
     symbol: WRITE_VERBS

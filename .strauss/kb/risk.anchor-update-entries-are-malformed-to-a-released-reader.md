@@ -14,6 +14,11 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-log.ts
     symbol: kbLogEntrySchema
+    hash: "sha256:d68e066fe4af4a3a854ba101dd1797fd87126322b41089ab5d36d20f7d47b1f8"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:45:23.030Z"
+    lines: 1
+    resolver: regex
 strauss_links:
   - target: decision.anchor-update-audit-extends-the-log-entry
     rel: informs

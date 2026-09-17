@@ -26,10 +26,10 @@ verified:
       into the library).
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/anchor-update.spec.ts
-    hash: "sha256:788cf417c9886e1c6c0919a27de4dbaba7a8f7647141da0a762d376ad0725ad2"
+    hash: "sha256:31b3d548f4aeb92271a5238b3c472eac9bda975160fbbaf2615c6105ed232ecf"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:22:13.013Z"
-    lines: 829
+    resolved_at: "2026-09-17T18:45:26.064Z"
+    lines: 958
 strauss_status: open
 ---
 

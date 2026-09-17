@@ -20,10 +20,10 @@ strauss_anchors:
     resolved_at: "2026-09-17T18:22:11.747Z"
     lines: 224
   - file: apps/strauss-kb-docs/docs/specification.md
-    hash: "sha256:f73060dea9ae19b4aebae1699d01e2cf903c7fb66ad592be621d6656cc0fe589"
+    hash: "sha256:a3bf85ef10b0dec7ca533b53ce442451bab8a13a7f15075d4f7d6b9637ef5d26"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:22:11.748Z"
-    lines: 748
+    resolved_at: "2026-09-17T18:45:24.350Z"
+    lines: 761
 strauss_status: open
 strauss_materiality: non-blocking
 strauss_confidence: high

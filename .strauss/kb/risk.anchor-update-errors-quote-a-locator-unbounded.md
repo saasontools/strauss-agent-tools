@@ -14,6 +14,11 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/errors.ts
     symbol: locatorText
+    hash: "sha256:8b57d0292f939cb02dcb07604b230f1eed2da2f06e9fe16e0ea74002d8a57877"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:45:22.790Z"
+    lines: 7
+    resolver: tree-sitter
 strauss_status: open
 strauss_materiality: non-blocking
 strauss_confidence: high
