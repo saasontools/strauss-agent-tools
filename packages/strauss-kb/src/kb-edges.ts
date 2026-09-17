@@ -52,6 +52,23 @@ const BODY_LINK_TARGET = new RegExp(
 );
 
 /**
+ * Every concept id this record's prose cites, itself excluded.
+ *
+ * The one body-citation parser in the package: `doctor`, `reassess`, `sweep`
+ * and `validate` all read this half of the edge graph, and a second regex over
+ * the same markdown is where they would start disagreeing about what a
+ * citation is.
+ */
+export function bodyLinkTargets(record: KbRecord): Set<string> {
+  const targets = new Set<string>();
+  for (const match of record.body.matchAll(BODY_LINK_TARGET)) {
+    const target = match[1];
+    if (target && target !== record.conceptId) targets.add(target);
+  }
+  return targets;
+}
+
+/**
  * Which rels a `typed-link` walk may follow.
  *
  * Defaults to the whole known vocabulary — including `related_to`, since a
@@ -104,9 +121,7 @@ export function edgeNeighbours(
     // records are routinely written before the ones they point at exist — so
     // missing targets are skipped, never an error.
     case "body-link": {
-      const targets = new Set(
-        [...from.body.matchAll(BODY_LINK_TARGET)].map((match) => match[1]),
-      );
+      const targets = bodyLinkTargets(from);
       if (!targets.size) return [];
       return bundle.filter(
         (candidate) =>

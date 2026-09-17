@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { adjudicate, type KbAdjudicated } from "../adjudicate.js";
+import { bodyLinkTargets } from "../kb-edges.js";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
 import { inboundIndex } from "../kb-links/index.js";
 import type { KbRecord, KbRecordStatus } from "../kb-record.schema.js";
@@ -171,9 +172,15 @@ function sweepable(hit: KbAdjudicated, tag: string): boolean {
 }
 
 /**
- * Everything pointing at a record, by target: typed links plus both
- * supersession pointers. A pointer is not an edge, but a survivor left holding
- * one at a swept record has a dangling id `validate` faults.
+ * Everything pointing at a record, by target: typed links, body citations, and
+ * both supersession pointers. A pointer is not an edge, but a survivor left
+ * holding one at a swept record has a dangling id.
+ *
+ * Body citations count for the same reason typed links do, and their absence
+ * here was the one edge read that destroyed data rather than withholding a
+ * warning: a record cited only from a surviving record's prose looked
+ * unreferenced and went. `--dry-run` offered no protection, since it answers
+ * from this same index.
  */
 function holderIndex(bundle: KbRecord[]): Map<string, Set<string>> {
   const byTarget = new Map<string, Set<string>>();
@@ -188,6 +195,8 @@ function holderIndex(bundle: KbRecord[]): Map<string, Set<string>> {
     for (const edge of edges) hold(target, edge.from);
   }
   for (const record of bundle) {
+    for (const target of bodyLinkTargets(record))
+      hold(target, record.conceptId);
     const { strauss_supersedes, strauss_superseded_by } = record.frontmatter;
     for (const old of strauss_supersedes ?? []) hold(old, record.conceptId);
     if (strauss_superseded_by) hold(strauss_superseded_by, record.conceptId);

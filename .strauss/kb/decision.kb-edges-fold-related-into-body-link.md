@@ -53,9 +53,10 @@ strauss_verify:
   - >-
     a record written via composeRecord relatedConceptIds is reached by the
     body-link edge in kb-edges.spec.ts
-strauss_status: accepted
+strauss_status: superseded
 strauss_materiality: important
 strauss_confidence: high
+strauss_superseded_by: decision.edge-consumers-read-body-and-frontmatter
 ---
 
 ## Decision

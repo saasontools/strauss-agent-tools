@@ -37,3 +37,6 @@
 {"at":"2026-09-15T18:12:44.452Z","by":"mcp","operation":"write","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:12:56.138Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:14:43.435Z","by":"mcp","operation":"overwrite","conceptId":"decision.none"}
+{"at":"2026-09-17T18:32:23.046Z","by":"mcp","operation":"write","conceptId":"decision.edge-consumers-read-body-and-frontmatter"}
+{"at":"2026-09-17T18:32:28.564Z","by":"mcp","operation":"supersede","conceptId":"decision.kb-edges-fold-related-into-body-link","target":"decision.edge-consumers-read-body-and-frontmatter"}
+{"at":"2026-09-17T18:32:28.567Z","by":"mcp","operation":"supersedes","conceptId":"decision.edge-consumers-read-body-and-frontmatter","target":"decision.kb-edges-fold-related-into-body-link"}

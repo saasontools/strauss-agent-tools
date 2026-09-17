@@ -1,9 +1,17 @@
 import { z } from "zod";
-import { adjudicate } from "../adjudicate.js";
-import { reassessPacket, type KbReassessPacket } from "../drift/index.js";
+import { adjudicate, type KbStanding } from "../adjudicate.js";
+import {
+  reassessPacket,
+  type KbPacketReferences,
+  type KbReassessPacket,
+} from "../drift/index.js";
 import { KbRecordNotFoundError } from "../kb-errors.js";
+import {
+  liveReferencesTo,
+  staleReferencesFrom,
+} from "../kb-references/index.js";
 import { assertBaseNotFrozen, KbBaseFrozenError } from "../kb-pins/index.js";
-import type { KbAnchor } from "../kb-record.schema.js";
+import type { KbAnchor, KbRecord } from "../kb-record.schema.js";
 import { argvFlag, bundlePath, conceptId, define, REPO_ROOT } from "./model.js";
 
 /** One anchor whose code turned up unchanged elsewhere, and where. */
@@ -30,7 +38,7 @@ export const reassessCommand = define({
   tool: "kb_reassess",
   usage: "reassess <concept-id> [--repo-root <path>] [--with-diff]",
   description:
-    "One drifted record, as something to judge: its claim, each anchor's drift class, the old-vs-new span diff, and the records that depend on it. Formatting-only drift is dropped. Empty when there is nothing to reassess. Writes: relocates moved anchors, keeping their hash; never verifies, supersedes, or changes standing.",
+    "One record, as something to judge: its claim, each drifted anchor's class, the old-vs-new span diff, what depends on it, and the references it makes or receives that no longer hold. Formatting-only drift is dropped. Empty when there is nothing to reassess. Writes: relocates moved anchors, keeping their hash; never verifies, supersedes, or changes standing.",
   input: z.object({
     bundlePath,
     conceptId,
@@ -60,23 +68,38 @@ export const reassessCommand = define({
     const record = bundle.find((entry) => entry.conceptId === id);
     if (!record) throw new KbRecordNotFoundError(id);
 
+    const standings = new Map<string, KbStanding>(
+      adjudicate(bundle, bundle).map((hit) => [
+        hit.record.conceptId,
+        hit.standing,
+      ]),
+    );
+    const standing = standings.get(id);
+    const references = referenceReview(record, bundle, standings);
+
     const drift = await store.detectDrift([record], repoRoot);
     const entries = drift?.get(id) ?? [];
-    if (!entries.some((entry) => entry.state !== "match")) {
+    const drifted = entries.some((entry) => entry.state !== "match");
+    // A record with no drift and no unresolved reference has nothing anyone
+    // needs to read. Drift alone used to be the test, which answered "nothing
+    // to reassess" for a record resting on a decision that had been replaced.
+    if (
+      !drifted &&
+      !references.outgoing.length &&
+      !references.incoming.length
+    ) {
       return { conceptId: id, packet: null, rebaselined: [], cosmetic: 0 };
     }
 
-    const standing = adjudicate(bundle, bundle).find(
-      (hit) => hit.record.conceptId === id,
-    )?.standing;
     // Only asked for once there is drift: the dependants of a record that
     // still holds are not part of this question.
-    const impact = await store.impact(path, id);
+    const impact = drifted ? await store.impact(path, id) : undefined;
 
     const { packet, classified } = await reassessPacket(root, record, entries, {
       ...(withDiff ? { withDiff: true } : {}),
-      impact,
+      ...(impact ? { impact } : {}),
       ...(standing ? { standing } : {}),
+      references,
     });
 
     // `moved` is the one class this command settles rather than reports: the
@@ -143,6 +166,37 @@ export const reassessCommand = define({
 });
 
 /**
+ * The two reference questions, asked of whichever one this record can answer.
+ *
+ * A record that still holds is asked what it is leaning on that stopped
+ * holding. A record that has itself stopped holding is asked the inverse: who
+ * is still leaning on it, so a reader settling its replacement can find the
+ * open risks and questions that were resting on the old answer. Neither is
+ * acted on here — `reassess` reports, and never closes, retargets or verifies
+ * anything on the strength of a link.
+ */
+function referenceReview(
+  record: KbRecord,
+  bundle: KbRecord[],
+  standings: Map<string, KbStanding>,
+): KbPacketReferences {
+  const standing = standings.get(record.conceptId);
+  const outOfForce = standing === "superseded" || standing === "rejected";
+  return {
+    outgoing: outOfForce
+      ? []
+      : staleReferencesFrom(
+          record,
+          new Map(bundle.map((entry) => [entry.conceptId, entry])),
+          standings,
+        ),
+    incoming: outOfForce
+      ? liveReferencesTo(record.conceptId, bundle, standings)
+      : [],
+  };
+}
+
+/**
  * The packet as prose, because it is read rather than parsed. `--json` is the
  * machine shape; everything below exists so a reader can answer without
  * opening the repository.
@@ -196,6 +250,31 @@ export function renderReassess(result: KbReassessResult): string {
     );
   }
 
+  const { outgoing, incoming } = packet.references;
+  if (outgoing.length) {
+    lines.push("", `## References that no longer hold (${outgoing.length})`);
+    for (const entry of outgoing) {
+      lines.push(
+        `- ${entry.target} [${entry.targetStanding}] ${where(entry.origins, entry.rels)}${
+          entry.replacedBy.length
+            ? ` — replaced by ${entry.replacedBy.join(" → ")}`
+            : ""
+        }`,
+      );
+    }
+  }
+
+  if (incoming.length) {
+    lines.push("", `## Still pointing here (${incoming.length})`);
+    for (const entry of incoming) {
+      lines.push(
+        `- ${entry.from} [${entry.standing}] ${where(entry.origins, entry.rels)}${
+          entry.title ? ` — ${entry.title}` : ""
+        }`,
+      );
+    }
+  }
+
   if (packet.impact.length) {
     lines.push("", `## Impact (${packet.impact.length})`);
     for (const entry of packet.impact) {
@@ -212,4 +291,11 @@ export function renderReassess(result: KbReassessResult): string {
 
 function at(file: string, symbol?: string): string {
   return symbol ? `${file}:${symbol}` : file;
+}
+
+/** Where the pointer is written, and what it claims where it is typed. */
+function where(origins: readonly string[], rels: readonly string[]): string {
+  const parts = [...origins];
+  if (rels.length) parts.push(rels.join(", "));
+  return `(${parts.join(", ")})`;
 }

@@ -36,6 +36,7 @@ export {
 } from "./moved.js";
 export {
   reassessPacket,
+  type KbPacketReferences,
   type KbReassessAnchor,
   type KbReassessDefault,
   type KbReassessDiff,

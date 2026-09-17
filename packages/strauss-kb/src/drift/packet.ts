@@ -6,6 +6,10 @@ import type {
 } from "../anchor-resolver/index.js";
 import type { KbRecord, KbRecordType } from "../kb-record.schema.js";
 import type { KbImpactResult } from "../kb-links/index.js";
+import type {
+  KbLiveReference,
+  KbStaleReference,
+} from "../kb-references/index.js";
 import { isKbRecordType, RECORD_TYPES } from "../record-types.js";
 import {
   classifyDrift,
@@ -80,6 +84,25 @@ const DEFAULT_NOTES: Record<KbReassessDefault, string> = {
   review: "re-read the record against the new code",
 };
 
+/**
+ * The reference half of a reassessment, kept apart from the anchor half.
+ *
+ * Code drift and a reference that stopped holding are two different readings
+ * with two different repairs, and merging them would hand the reader one list
+ * to sort again. Either can be present without the other: a record with no
+ * anchors at all can still be leaning on a decision that was replaced.
+ */
+export type KbPacketReferences = {
+  /** What this record points at that no longer holds. */
+  outgoing: KbStaleReference[];
+  /**
+   * Who still points at this record, asked only of a record that has itself
+   * stopped holding. Contextual and one hop — `impact` is the causal walk and
+   * is not changed by this.
+   */
+  incoming: KbLiveReference[];
+};
+
 export type KbReassessPacket = {
   conceptId: string;
   title: string | null;
@@ -101,6 +124,7 @@ export type KbReassessPacket = {
     depth: number;
   }[];
   impactTruncated: boolean;
+  references: KbPacketReferences;
   default: KbReassessDefault;
   defaultNote: string;
 };
@@ -110,15 +134,19 @@ export type PacketOptions = ClassifyOptions & {
   withDiff?: boolean;
   impact?: KbImpactResult;
   standing?: KbStanding;
+  /** Computed by the caller, which holds the bundle; the packet stays a shaper. */
+  references?: KbPacketReferences;
 };
 
 /**
- * One record's packet, or `null` when nothing survived classification.
+ * One record's packet, or `null` when there is nothing for a reader to do.
  *
  * A record whose every drifted anchor turned out to be `moved` or `cosmetic`
  * is a record with no reassessment work, and emitting an empty packet for it
  * would put it back in front of the reader the classification just cleared it
- * from.
+ * from. An unresolved reference finding is reassessment work on its own,
+ * though: a record can be perfectly anchored and still rest on a decision that
+ * was replaced, which is the case "nothing to reassess" used to hide.
  */
 export async function reassessPacket(
   repoRoot: string,
@@ -135,10 +163,20 @@ export async function reassessPacket(
     withHistory: options.withDiff !== false,
   });
 
+  const references: KbPacketReferences = {
+    outgoing: options.references?.outgoing ?? [],
+    incoming: options.references?.incoming ?? [],
+  };
   const open = classified.filter(
     (found) => found.class === "changed" || found.class === "gone",
   );
-  if (!open.length) return { packet: null, classified };
+  if (
+    !open.length &&
+    !references.outgoing.length &&
+    !references.incoming.length
+  ) {
+    return { packet: null, classified };
+  }
 
   const budget = diffBudget(open.length);
   const anchors = open.map((found) =>
@@ -146,13 +184,22 @@ export async function reassessPacket(
   );
 
   const type = record.frontmatter.type;
-  const fallback: KbReassessDefault = isKbRecordType(type)
-    ? PRESUMED_INVALID.includes(type)
-      ? "presumed-invalidated"
-      : RATIONALE_SURVIVES.includes(type)
-        ? "rationale-may-survive"
-        : "review"
-    : "review";
+  // The type's lean is a lean about changed code. With no anchor open, there is
+  // no code to lean about, and the reading in front of the reader is the
+  // references — so the packet says that instead of presuming a claim invalid
+  // on evidence that did not move.
+  const fallback: KbReassessDefault = !open.length
+    ? "review"
+    : isKbRecordType(type)
+      ? PRESUMED_INVALID.includes(type)
+        ? "presumed-invalidated"
+        : RATIONALE_SURVIVES.includes(type)
+          ? "rationale-may-survive"
+          : "review"
+      : "review";
+  const note = open.length
+    ? DEFAULT_NOTES[fallback]
+    : "no anchor drift; re-read the references below against what replaced them";
 
   return {
     classified,
@@ -171,8 +218,9 @@ export async function reassessPacket(
         depth: entry.depth,
       })),
       impactTruncated: options.impact?.truncated ?? false,
+      references,
       default: fallback,
-      defaultNote: DEFAULT_NOTES[fallback],
+      defaultNote: note,
     },
   };
 }

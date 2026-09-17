@@ -1,4 +1,5 @@
 import { isCanonicalRepoUrl } from "./anchor-resolver/index.js";
+import { bodyLinkTargets } from "./kb-edges.js";
 import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 import { isKbLinkRel, isKbRecordType, KB_LINK_RELS } from "./record-types.js";
 
@@ -101,6 +102,27 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
           "warning",
         );
       }
+    }
+
+    // The body half of the same edge, held to the same tolerance: a prose
+    // citation of a record that is not here is a warning, never an error. The
+    // half that is not optional is reading it at all — a citation nothing
+    // checks is how `sweep` came to delete records that were still cited.
+    //
+    // One finding per pair: `compose` renders a sentence with a markdown link
+    // for every typed link, so a declared target reaching this loop has already
+    // been reported above, and the repair is the one frontmatter edit.
+    const declared = new Set(
+      (fm.strauss_links ?? []).map((link) => link.target),
+    );
+    for (const target of bodyLinkTargets(record)) {
+      if (byId.has(target) || declared.has(target)) continue;
+      report(
+        "body_link",
+        conceptId,
+        `body cites ${target}, which is not in the bundle`,
+        "warning",
+      );
     }
 
     // A short `repo` names a repository without saying where it lives, so a

@@ -213,6 +213,7 @@ export {
   type KbTraceStep,
 } from "./trace.js";
 export {
+  bodyLinkTargets,
   edgeNeighbours,
   neighbours,
   DEFAULT_TYPED_LINK_RELS,
@@ -220,6 +221,17 @@ export {
   type KbEdgeKind,
   type KbNeighbour,
 } from "./kb-edges.js";
+export {
+  liveReferencesTo,
+  outboundReferences,
+  staleReferences,
+  staleReferencesFrom,
+  KB_REFERENCE_ORIGINS,
+  type KbLiveReference,
+  type KbOutboundReference,
+  type KbReferenceOrigin,
+  type KbStaleReference,
+} from "./kb-references/index.js";
 export {
   pack,
   DEFAULT_PACK_HOPS,
