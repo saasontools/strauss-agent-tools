@@ -19,10 +19,10 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: KbStore.ensureGitignore
-    hash: "sha256:e3b6bfc7606d7f5f89014b5254b5e2873c2f97ccb8c91036ac793d609621dc58"
+    hash: "sha256:65416677a90e7227e9aeab3ac2bb03cc86a3ba35dc4bccd180cab0e92beda774"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:22:05.393Z"
-    lines: 8
+    resolved_at: "2026-09-17T18:42:11.633Z"
+    lines: 12
     resolver: tree-sitter
 strauss_links:
   - target: decision.kb-ignore-idempotence-by-covered-files

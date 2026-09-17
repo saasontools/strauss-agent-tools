@@ -20,10 +20,10 @@ strauss_anchors:
     lines: 28
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-gitignore.git.spec.ts
-    hash: "sha256:219acb919353ad06fcc4fd66b4487bc65bdf57fe7b58d2505cace859f77183cf"
+    hash: "sha256:9a4b5e2a5a73ae2d446bbded6380b43743ccd3a5a03fb3546b7bf8c9e68da921"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:22:04.598Z"
-    lines: 182
+    resolved_at: "2026-09-17T18:42:13.691Z"
+    lines: 197
 strauss_links:
   - target: risk.gitignore-pattern-redos-wedges-every-write
     rel: satisfies

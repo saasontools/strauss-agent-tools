@@ -14,10 +14,10 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: KbStore.ensureDeclared
-    hash: "sha256:2bc4a14e63eb792f3420c25eeb4095067f2d8d00176ad0eab93a593b8b36cc4c"
+    hash: "sha256:9bbf334daca7c3894834539b56d3be95222816ede9ba9fab3fad14686440b4ff"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:22:07.830Z"
-    lines: 68
+    resolved_at: "2026-09-17T18:42:10.979Z"
+    lines: 80
     resolver: tree-sitter
 strauss_links:
   - target: flow.kb-ignore-written-on-first-write
