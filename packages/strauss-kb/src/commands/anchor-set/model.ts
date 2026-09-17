@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { bundlePath, conceptId } from "../model.js";
-import {
-  kbAnchorWriteSchema,
-  type KbAnchor,
-  type KbAnchorLocator,
-} from "../../kb-record.schema.js";
+import type { KbAnchorChange } from "../../anchors/index.js";
+import { kbAnchorWriteSchema, type KbAnchor } from "../../kb-record.schema.js";
 
 /**
  * The record's anchors, as the caller means them to end up.
@@ -46,14 +43,6 @@ export const anchorSetCommandInput = z.object({
   conceptId,
   input: anchorSetInputSchema,
 });
-
-/** One change the write made, as the result and the log entry report it. */
-export type KbAnchorChange = {
-  /** `move` keeps a baseline under a new address; `add` and `drop` are plain. */
-  op: "move" | "add" | "drop";
-  from?: KbAnchorLocator;
-  to?: KbAnchorLocator;
-};
 
 export type KbAnchorSetResult = {
   conceptId: string;

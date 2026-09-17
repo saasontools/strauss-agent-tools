@@ -163,3 +163,8 @@
 {"at":"2026-09-17T20:11:55.013Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
 {"at":"2026-09-17T20:11:55.199Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.kb-companion-tracked"}
 {"at":"2026-09-17T20:16:03.011Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
+{"at":"2026-09-17T21:00:53.099Z","by":"agent:claude","operation":"write","conceptId":"contract.anchor-baselines-are-the-records-not-the-callers"}
+{"at":"2026-09-17T21:00:58.261Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"contract.anchor-baselines-are-the-records-not-the-callers"}
+{"at":"2026-09-17T21:00:59.712Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-set-is-a-whole-set-not-a-patch"}
+{"at":"2026-09-17T21:01:01.236Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
+{"at":"2026-09-17T21:01:37.229Z","by":"agent:claude","operation":"anchor-set","conceptId":"risk.anchor-set-has-no-authorship-test","reason":"The baseline rule moved to its own module so a record's first write shares it; the error class is the same code at a new path.","anchors":[{"op":"move","from":{"file":"packages/strauss-kb/src/commands/anchor-set/errors.ts","symbol":"KbAnchorDropsBaselineError"},"to":{"file":"packages/strauss-kb/src/anchors/errors.ts","symbol":"KbAnchorDropsBaselineError"}}]}

@@ -23,7 +23,7 @@ strauss_anchors:
     resolved_at: "2026-09-17T20:11:54.332Z"
     lines: 18
     resolver: regex
-  - file: packages/strauss-kb/src/commands/anchor-set/errors.ts
+  - file: packages/strauss-kb/src/anchors/errors.ts
     symbol: KbAnchorDropsBaselineError
     hash: "sha256:6d28279ddad5d61924104453af7aa61c8fde3eeef72815b700495f23094e7272"
     hash_kind: ast

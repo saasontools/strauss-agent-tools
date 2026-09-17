@@ -20,10 +20,10 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-set/command.ts
     symbol: anchorSetCommand
-    hash: "sha256:b0d693d735b5c2267a057aba4ec5d940ce4ed917af32c2ff8eab3636e34c2283"
+    hash: "sha256:843ec2e88de4d91152134bd98fab8c9a4a6bb4bcc44e41101f8450cf186f4d49"
     hash_kind: raw
-    resolved_at: "2026-09-17T20:11:53.511Z"
-    lines: 48
+    resolved_at: "2026-09-17T21:00:59.687Z"
+    lines: 52
     resolver: regex
   - file: packages/strauss-kb/src/kb-store.ts
     symbol: updateAnchors
@@ -40,15 +40,15 @@ strauss_anchors:
     lines: 37
     resolver: regex
   - file: packages/strauss-kb/src/commands/anchor-set/index.ts
-    hash: "sha256:ef9eb0b8399c497feb1953047e2ed5fa3ba360809f44e025146d4ea94210412f"
+    hash: "sha256:5de87be7de855475843072d6c19bbbdeb71082ac4844c220ad23ddcf0fd2cfb6"
     hash_kind: raw
-    resolved_at: "2026-09-17T20:11:53.527Z"
-    lines: 17
+    resolved_at: "2026-09-17T21:00:59.705Z"
+    lines: 10
   - file: packages/strauss-kb/src/index.ts
-    hash: "sha256:7c44ea7d6dd5aefb256fc3e9e9501a6053b38aa4e3ec75c4b6bbf2d73eee3f19"
+    hash: "sha256:a5a6f6eef92468799c0176984dbeddb8f65f5960d544e88405f819b32cce06a3"
     hash_kind: raw
-    resolved_at: "2026-09-17T20:11:53.527Z"
-    lines: 338
+    resolved_at: "2026-09-17T21:00:59.705Z"
+    lines: 341
   - file: packages/strauss-kb/src/errors.ts
     symbol: ErrorTypes
     hash: "sha256:17962311fe64f977340f54b529d419b0582dd90fc809c27f723c731e31024b3f"

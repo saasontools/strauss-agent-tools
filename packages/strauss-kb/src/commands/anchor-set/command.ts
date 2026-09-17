@@ -1,6 +1,9 @@
 import { assertBaseNotFrozen } from "../../kb-pins/index.js";
 import { define } from "../model.js";
-import { applyAnchorSet, type KbAnchorSetOutcome } from "./apply.js";
+import {
+  applyAnchorSet,
+  type KbAnchorSetOutcome,
+} from "../../anchors/index.js";
 import { anchorSetCommandInput, type KbAnchorSetResult } from "./model.js";
 
 /** Said in the result, because the caller's next step depends on knowing it. */
@@ -32,7 +35,11 @@ export const anchorSetCommand = define({
       path,
       id,
       (current) => {
-        applied = applyAnchorSet(id, current, input);
+        applied = applyAnchorSet(id, current, input.anchors, {
+          ...(input.dropBaselines === undefined
+            ? {}
+            : { dropBaselines: input.dropBaselines }),
+        });
         return {
           anchors: applied.anchors,
           log: {

@@ -1,5 +1,5 @@
-import { BaseError, ErrorTypes, Fault } from "../../errors.js";
-import type { KbAnchorLocator } from "../../kb-record.schema.js";
+import { BaseError, ErrorTypes, Fault } from "../errors.js";
+import type { KbAnchorLocator } from "../kb-record.schema.js";
 
 /**
  * A locator in the terms the caller wrote it, for an error message. Each field

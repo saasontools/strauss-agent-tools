@@ -19,7 +19,7 @@ import type { KbAnchor } from "../../kb-record.schema.js";
 import { KbStore } from "../../kb-store.js";
 import { createKbMcpServer } from "../../mcp.js";
 import { KB_COMMANDS_BY_NAME } from "../index.js";
-import { applyAnchorSet } from "./apply.js";
+import { applyAnchorSet } from "../../anchors/index.js";
 import { anchorSetCommand } from "./command.js";
 import type { AnchorSetInput, KbAnchorSetResult } from "./model.js";
 
@@ -487,6 +487,63 @@ describe("anchorSetCommand", () => {
     });
   });
 
+  // The rule has one home, and a record's first write runs it too.
+  describe("a record's birth", () => {
+    test("refuses two anchors at one address, which compose used to allow", () => {
+      expect(() =>
+        composeRecord(
+          "fact",
+          {
+            slug: "dup",
+            title: "Two pointers, one place",
+            why: "They would drift and rebaseline as a pair for ever.",
+            anchors: [
+              { file: CLEANUP, symbol: "x" },
+              { file: CLEANUP, symbol: "x" },
+            ],
+          },
+          "agent:writer",
+          "2026-08-01T00:00:00Z",
+        ),
+      ).toThrow(/appears twice/);
+    });
+
+    // A first write is made *about* code its author just read, so a baseline
+    // stated there is its own. Every later caller has to carry one.
+    test("lets the first write state a baseline, unlike anchor-set", async () => {
+      const record = composeRecord(
+        "fact",
+        {
+          slug: "born-stamped",
+          title: "Born with a baseline",
+          why: "The writer read the code it is about.",
+          anchors: [
+            {
+              file: CLEANUP,
+              symbol: "shouldDeleteExport",
+              hash: `sha256:${"a".repeat(64)}`,
+            },
+          ],
+        },
+        "agent:writer",
+        "2026-08-01T00:00:00Z",
+      );
+      const born = record.frontmatter.strauss_anchors as KbAnchor[];
+      expect(born[0]?.hash).toBe(`sha256:${"a".repeat(64)}`);
+
+      await seedRefactor();
+      await expect(
+        run({
+          reason: "state one of my own",
+          anchors: [{ file: CLEANUP, hash: `sha256:${"a".repeat(64)}` }],
+        }),
+      ).rejects.toMatchObject({
+        name: "KbAnchorBaselineError",
+        details: { reason: "unknown" },
+      });
+    });
+  });
+
   describe("refusals leave the record and the log alone", () => {
     test("an empty set", () => {
       expect(() =>
@@ -541,9 +598,10 @@ describe("anchorSetCommand", () => {
     // One remote has many spellings, and the resolver compares them normalised.
     test("two spellings of one remote are one address", () => {
       expect(() =>
-        applyAnchorSet(ID, [{ file: "lib/a.go", symbol: "Retention" }], {
-          reason: "add the same place under another spelling",
-          anchors: [
+        applyAnchorSet(
+          ID,
+          [{ file: "lib/a.go", symbol: "Retention" }],
+          [
             {
               file: "lib/a.go",
               symbol: "Retention",
@@ -555,7 +613,7 @@ describe("anchorSetCommand", () => {
               repo: "git@github.com:org/name.git",
             },
           ],
-        }),
+        ),
       ).toThrow(/appears twice/);
     });
 

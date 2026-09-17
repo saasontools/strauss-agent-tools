@@ -12,10 +12,10 @@ generated:
 verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-set/anchor-set.spec.ts
-    hash: "sha256:f9332ad53a60eb4f56e523a3581df8bc3bb0a34295dd02c2e8e4042e2ca2511a"
+    hash: "sha256:2bf24ba85c66a7316f12f8fe7cc1d423a3f87108ef2de968da23e2cd022ceaf5"
     hash_kind: raw
-    resolved_at: "2026-09-17T20:16:02.997Z"
-    lines: 663
+    resolved_at: "2026-09-17T21:01:01.227Z"
+    lines: 717
 strauss_links:
   - target: contract.anchor-baselines-are-the-records-not-the-callers
     rel: verified_by

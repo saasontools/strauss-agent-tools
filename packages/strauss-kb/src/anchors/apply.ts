@@ -1,16 +1,23 @@
-import { normalizeRepoUrl } from "../../anchor-resolver/index.js";
+import { normalizeRepoUrl } from "../anchor-resolver/index.js";
 import {
   kbAnchorLocatorSchema,
   type KbAnchor,
   type KbAnchorLocator,
-} from "../../kb-record.schema.js";
+} from "../kb-record.schema.js";
 import {
   KbAnchorBaselineError,
   KbAnchorDropsBaselineError,
   KbAnchorSetDuplicateError,
   locatorText,
 } from "./errors.js";
-import type { AnchorSetInput, KbAnchorChange } from "./model.js";
+
+/** One change the write made, as the result and the log entry report it. */
+export type KbAnchorChange = {
+  /** `move` keeps a baseline under a new address; `add` and `drop` are plain. */
+  op: "move" | "add" | "drop";
+  from?: KbAnchorLocator;
+  to?: KbAnchorLocator;
+};
 
 /** What a resolver stamps, and a caller may only ever carry, never mint. */
 const BASELINE_FIELDS = [
@@ -30,6 +37,17 @@ const LOCATOR_FIELDS = [
   "ref",
 ] as const;
 
+/**
+ * `mint` is the one thing that separates the writers. A stamper — a record's
+ * first write, which is made *about* code its author just read — may state a
+ * baseline. A later caller may only carry one the record already holds, which
+ * is what stops a rewritten body being declared as the body somebody checked.
+ */
+export type KbAnchorSetOptions = {
+  mint?: boolean;
+  dropBaselines?: boolean;
+};
+
 export type KbAnchorSetOutcome = {
   anchors: KbAnchor[];
   changes: KbAnchorChange[];
@@ -41,18 +59,22 @@ export type KbAnchorSetOutcome = {
  *
  * The set is the caller's; the baselines are the record's. A hash may move to
  * another address — that is a reviewed rename — but it may not be invented,
- * altered or duplicated, and it may not be dropped by accident. Everything
- * else is a plain replacement, exactly as `anchor-resolve` writes one.
+ * altered or duplicated, and it may not be dropped by accident.
  *
- * Pure, and called inside the store's mutation, so `current` is the record as
- * it stands rather than as the caller last read it.
+ * The one rule, and it holds at a record's birth too: `current` is empty
+ * there, so every baseline is unknown and a first write can only ask for
+ * addresses. `anchor-resolve` is what turns one into evidence. Both writers go
+ * through here — `composeRecord` with nothing to carry, `anchor-set` inside
+ * the store's mutation, where `current` is the record as it stands rather than
+ * as the caller last read it.
  */
 export function applyAnchorSet(
   conceptId: string,
   current: KbAnchor[],
-  input: AnchorSetInput,
+  incoming: KbAnchor[],
+  options: KbAnchorSetOptions = {},
 ): KbAnchorSetOutcome {
-  const anchors = input.anchors.map((anchor) => ({ ...anchor }));
+  const anchors = incoming.map((anchor) => ({ ...anchor }));
 
   const seen = new Set<string>();
   for (const anchor of anchors) {
@@ -73,6 +95,10 @@ export function applyAnchorSet(
   const carried = new Set<string>();
   for (const anchor of anchors) {
     if (!anchor.hash) continue;
+    if (options.mint === true) {
+      carried.add(anchor.hash);
+      continue;
+    }
     const source = held.get(anchor.hash);
     const where = locatorText(locatorOf(anchor));
     if (!source) throw new KbAnchorBaselineError(where, "unknown");
@@ -89,7 +115,7 @@ export function applyAnchorSet(
   const abandoned = current.filter(
     (anchor) => anchor.hash !== undefined && !carried.has(anchor.hash),
   );
-  if (abandoned.length && input.dropBaselines !== true) {
+  if (abandoned.length && options.dropBaselines !== true) {
     throw new KbAnchorDropsBaselineError(
       conceptId,
       abandoned.map((anchor) => locatorText(locatorOf(anchor))),

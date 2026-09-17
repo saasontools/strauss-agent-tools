@@ -275,15 +275,18 @@ export {
   type KbCommandContext,
 } from "./commands/index.js";
 export {
-  anchorSetInputSchema,
   applyAnchorSet,
   locatorOf,
   KbAnchorBaselineError,
   KbAnchorDropsBaselineError,
   KbAnchorSetDuplicateError,
-  type AnchorSetInput,
   type KbAnchorChange,
+  type KbAnchorSetOptions,
   type KbAnchorSetOutcome,
+} from "./anchors/index.js";
+export {
+  anchorSetInputSchema,
+  type AnchorSetInput,
   type KbAnchorSetResult,
 } from "./commands/anchor-set/index.js";
 export {

@@ -282,7 +282,14 @@ longer there — and nothing mechanical can say which new symbol replaces it.
 [`anchor-set`](./cli-reference.md#anchor-set) is the reader's answer: the new
 set of anchors, and a required reason.
 
-The set is the caller's; **the baselines are the record's**. An anchor keeps its
+One function answers "what anchors may this record hold, given what it holds
+now", and both writers go through it — a record's first write with an empty
+`current`, `anchor-set` with the record as it stands. At birth that means no
+two anchors at one address, which `kb_write` used to allow; a first write may
+still state a baseline, because it is made _about_ code its author just read.
+
+For every later caller the set is theirs and **the baselines are the
+record's**. An anchor keeps its
 evidence by carrying its `hash`, and the rest of its stamp with it, forward from
 the anchor the caller read; moving that baseline to another `file` or `symbol`
 is the reviewed rename. A hash the record does not already hold is refused, so

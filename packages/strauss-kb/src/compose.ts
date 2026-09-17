@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applyAnchorSet } from "./anchors/index.js";
 import {
   kbAnchorWriteSchema,
   kbConceptIdSchema,
@@ -133,7 +134,17 @@ export function composeRecord(
     strauss_status: spec.initialStatus,
   };
   if (parsed.stale_after) frontmatter.stale_after = parsed.stale_after;
-  if (parsed.anchors?.length) frontmatter.strauss_anchors = parsed.anchors;
+  // The same rule `anchor-set` runs, against a record that does not exist yet.
+  // `mint` because this write is made *about* code its author just read, so a
+  // baseline stated here is its own; every later caller has to carry one.
+  if (parsed.anchors?.length) {
+    frontmatter.strauss_anchors = applyAnchorSet(
+      `${type}.${parsed.slug}`,
+      [],
+      parsed.anchors,
+      { mint: true },
+    ).anchors;
+  }
   if (parsed.verify?.length) frontmatter.strauss_verify = parsed.verify;
   if (parsed.tags?.length) frontmatter.tags = parsed.tags;
   if (parsed.sources?.length) frontmatter.sources = parsed.sources;
