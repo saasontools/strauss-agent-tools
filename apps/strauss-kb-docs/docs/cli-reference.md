@@ -335,10 +335,11 @@ every change. It is not verification — that is [`verify`](#verify).
 reassess <concept-id> [--repo-root <path>] [--with-diff]
 ```
 
-One drifted record, turned into something a reader can judge without opening the
+One record, turned into something a reader can judge without opening the
 repository: the record's claim, each anchor's
-[drift class](./specification.md#drift-classes), and the record's
-[`impact`](#impact) set.
+[drift class](./specification.md#drift-classes), the record's
+[`impact`](#impact) set, and the references it makes or receives that no longer
+hold.
 
 | Flag                 | Effect                                                              |
 | -------------------- | ------------------------------------------------------------------- |
@@ -347,9 +348,17 @@ repository: the record's claim, each anchor's
 
 Anchors whose code only `moved` are rebaselined — `file` and `symbol` are
 updated, the hash is not — and dropped from the packet; `cosmetic` ones are
-counted and dropped. A record with nothing left returns `packet: null`. Never
-verifies, never supersedes, never moves standing: what to do about a real change
-is the [skill's protocol](https://github.com/saasontools/strauss-agent-tools/blob/main/plugins/strauss-kb/skills/knowledge-base/SKILL.md).
+counted and dropped. Never verifies, never supersedes, never moves standing:
+what to do about a real change is the
+[skill's protocol](https://github.com/saasontools/strauss-agent-tools/blob/main/plugins/strauss-kb/skills/knowledge-base/SKILL.md).
+
+**References are the second half, and code drift is not required for them.** A
+record that still holds is asked what it points at that does not — both halves
+of the edge, prose citations and `strauss_links`, `related_to` included. A
+record that has itself stopped holding is asked the inverse: who still points
+at it, so the reader settling its replacement finds the open risks resting on
+the old answer. A record with neither drift nor an unresolved reference returns
+`packet: null`.
 
 ```bash
 strauss-kb reassess fact.region-key --with-diff
@@ -358,7 +367,14 @@ strauss-kb reassess fact.region-key --with-diff
 Returns `{ conceptId, packet, rebaselined, cosmetic }`. Each packet anchor
 carries `{ file, symbol?, class, storedHash, diffSize, movedTo?, diff? }`, and
 `diff` is either `{ status: "ok", source, ref, unified, added, removed,
-truncated }` or `{ status: "unrecoverable" }`.
+truncated }` or `{ status: "unrecoverable" }`. `packet.references` carries
+`outgoing` (`{ from, target, targetStanding, origins, rels, replacedBy }`) and
+`incoming` (`{ from, title, standing, origins, rels }`).
+
+```
+## References that no longer hold (1)
+- decision.retention [superseded] (link, related_to) — replaced by decision.retention-seven-days
+```
 
 ---
 
@@ -806,7 +822,9 @@ addresses (`symbol` and `span`), a malformed `span`, or a `side: "old"` with no
 `ref`. Per-record shape is enforced on every read, so a problem here means
 someone edited a file by hand.
 An unknown rel is an **error** and a link to a record that does not exist yet is
-a **warning**: **exits 1 on an error; warnings alone exit 0.**
+a **warning** — the same tolerance for a prose citation of a record the bundle
+does not hold, reported once per pair however many ways it is stated: **exits 1
+on an error; warnings alone exit 0.**
 
 ```bash
 strauss-kb validate || echo "errors above"   # warnings alone still exit 0
@@ -828,9 +846,9 @@ or re-dates; every finding names a record for a person to repair.
 | `expiring`             | `stale_after` falls inside the next `--expiring-days`.                         |
 | `unverified`           | `verified[]` is empty and the record is over `--unverified-days` old.          |
 | `aging`                | Still `open` or `proposed` after `--aging-days`.                               |
-| `orphaned`             | No other record links to it, by body link or supersession.                     |
+| `orphaned`             | Nothing points at it, by reference or supersession.                            |
 | `broken-supersession`  | A chain that does not resolve: no replacement, a missing one, a cycle, a fork. |
-| `superseded-but-cited` | A record that still holds, whose body links to one that does not.              |
+| `superseded-but-cited` | A record that still holds, pointing at one that does not.                      |
 | `drifted`              | A hash-carrying anchor whose code moved, or whose file or symbol is gone.      |
 | `unchecked`            | An anchor in another repository nothing could reach, grouped per repository.   |
 
@@ -872,8 +890,12 @@ Judgments worth knowing before reading one:
 - **Age is read from `generated.at`, exclusively**, so a record with no
   timestamp is never reported as aging or unverified, and exactly N days old is
   not yet "older than N".
-- **`orphaned` counts incoming links only, and reads supersession one way.**
+- **`orphaned` counts incoming references only, and reads supersession one way.**
   Shared anchors and sources are co-location rather than reference.
+- **A reference is both halves of the record**: a markdown link in the prose and
+  a `strauss_links` entry, `related_to` included, deduplicated to one finding
+  per pair. `superseded-but-cited` names the rels when the pointer is typed, and
+  every finding carries the edge as `reference`.
 - **A record citing the one it replaced is not `superseded-but-cited`.**
 
 `--strict` gates on **expiry alone**, the one finding a pipeline can act on
@@ -897,8 +919,9 @@ post-merge commit.
 | `--terminal` | Required. Names the only scope it deletes: the three terminal statuses. |
 | `--dry-run`  | Report what would go, and delete nothing.                               |
 
-A record another **surviving** record points at — by typed link or by
-supersession — is kept and reported under `skipped`, with the ids holding it; an
+A record another **surviving** record points at — by typed link, by a citation
+in its prose, or by supersession — is kept and reported under `skipped`, with
+the ids holding it; an
 id the run could not remove is reported under `failed`. Each deletion is one
 `sweep` log entry; afterwards the index is rebuilt and the search index dropped.
 

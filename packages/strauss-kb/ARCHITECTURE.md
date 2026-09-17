@@ -72,6 +72,13 @@ bundle would drop the record instead of naming it. Tolerant read, strict write:
 `kb_impact` reports a superseded or rejected record and stops there. A withdrawn
 record's declared dependencies are not obligations anyone still owes.
 
+An edge is written in two places — a markdown link in the prose, a typed entry
+in `strauss_links` — and a record can carry either half alone, so every
+consumer reads both. Reading one half draws a graph the base does not have:
+`sweep` deleted records that were still cited in prose, and `doctor` missed a
+`related_to` at a superseded target. `bodyLinkTargets` and `kb-references/` are
+the shared readers.
+
 ## Rejected: a format that needs a parser
 
 A hand-rolled frontmatter reader could not express nested maps, misreading every

@@ -434,7 +434,7 @@ thresholds: expiring within 30d, unverified over 90d, aging over 90d
   aging                   2  still open or proposed long after it was written
   orphaned                0  no other record links to it
   broken-supersession     0  the supersession pointers do not resolve
-  superseded-but-cited    1  a live record's body links to one that no longer holds
+  superseded-but-cited    1  a live record points at one that no longer holds
   drifted                 0  the code an anchor points at moved
   unchecked               0  an anchor in another repository nothing could reach
 
