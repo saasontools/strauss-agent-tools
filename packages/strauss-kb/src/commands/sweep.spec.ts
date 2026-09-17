@@ -37,7 +37,12 @@ describe("sweepCommand", () => {
   const seed = async (
     slug: string,
     status: KbRecordStatus,
-    options: { tags?: string[]; links?: ComposeLink[] } = {},
+    options: {
+      tags?: string[];
+      links?: ComposeLink[];
+      /** Cited in the prose only — `relatedConceptIds` writes no frontmatter link. */
+      cites?: string[];
+    } = {},
   ) => {
     const written = await store.write(
       bundle,
@@ -49,6 +54,7 @@ describe("sweepCommand", () => {
           why: "Something observed.",
           tags: options.tags ?? [TAG],
           ...(options.links ? { links: options.links } : {}),
+          ...(options.cites ? { relatedConceptIds: options.cites } : {}),
         },
         "agent:writer",
         AT,
@@ -167,6 +173,38 @@ describe("sweepCommand", () => {
     ]);
     expect(existsSync(join(bundle, `${held}.md`))).toBe(true);
     await expectValid();
+  });
+
+  // The shape that was being deleted: a decision that survives cites a
+  // terminal risk in its prose and nowhere else. Read through typed links
+  // alone the risk looks unreferenced — 27 such deletions on one branch left 5
+  // dangling citations across 3 surviving records, and `validate` said
+  // nothing.
+  test("keeps a record a surviving record cites only in its body", async () => {
+    const held = await seed("held", "resolved");
+    await seed("live-citer", "open", { tags: ["other"], cites: [held] });
+    const free = await seed("free", "resolved");
+
+    const result = await run();
+
+    expect(result.deleted).toEqual([free]);
+    expect(result.skipped).toEqual([
+      { conceptId: held, heldBy: ["fact.live-citer"] },
+    ]);
+    expect(existsSync(join(bundle, `${held}.md`))).toBe(true);
+    await expectValid();
+  });
+
+  test("--dry-run answers the same way about a body-only citation", async () => {
+    const held = await seed("held", "resolved");
+    await seed("live-citer", "open", { tags: ["other"], cites: [held] });
+
+    const result = await run({ dryRun: true });
+
+    expect(result.candidates).toEqual([]);
+    expect(result.skipped).toEqual([
+      { conceptId: held, heldBy: ["fact.live-citer"] },
+    ]);
   });
 
   // A supersession pointer is not a typed link, and it dangles the same way:
