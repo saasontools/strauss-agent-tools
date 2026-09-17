@@ -753,9 +753,8 @@ symmetric. `pack` walks all four with the whole rel vocabulary including
 `related_to` would flood a timeline.
 
 **Prose is not walked.** A markdown link in a body is the rendering of an
-edge, so a walk over it would count the same claim twice and disagree the
-moment the two drifted. `validate` is the one reader of a body, and it reports
-only that the two have come apart.
+edge, never the edge. [`validate`](./cli-reference.md#validate) is the one
+reader of a body.
 
 A pair connected by two rels comes back with both in `via`, and an unknown rel
 is never traversed. The **inbound** half of a typed edge is answered

@@ -3,10 +3,7 @@ import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 /**
  * Markdown citations in a record's prose.
  *
- * Not an edge. `strauss_links` is the one representation, and `compose` keeps
- * the prose in step with it at write time — this module exists so `validate`
- * can say when the two have come apart, and so the one-time `mirror-links`
- * migration can put an unmirrored citation where it belongs.
+ * Not an edge: `strauss_links` is. Two callers, `validate` and `mirror-links`.
  */
 
 // The target of any markdown link whose href is a record filename:
@@ -20,10 +17,7 @@ const BODY_LINK_TARGET = new RegExp(
 /**
  * Every concept id this record's prose cites, itself excluded.
  *
- * The one body-citation parser in the package, with two callers: `validate`
- * and the migration. Code is not prose — a link inside a fence or a code span
- * is an example, and a base whose house-style record shows how to cite must
- * not warn about itself.
+ * Code is not prose: a link inside a fence or a code span is an example.
  */
 export function bodyCitations(record: KbRecord): Set<string> {
   const targets = new Set<string>();

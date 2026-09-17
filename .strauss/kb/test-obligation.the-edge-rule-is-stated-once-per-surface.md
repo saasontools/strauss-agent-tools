@@ -20,9 +20,10 @@ strauss_anchors:
 strauss_links:
   - target: risk.both-halves-rule-has-six-homes
     rel: satisfies
-strauss_status: open
+strauss_status: superseded
 strauss_supersedes:
   - test-obligation.both-halves-rule-stated-once-per-surface
+strauss_superseded_by: test-obligation.the-edge-rule-has-one-home-and-no-survivors
 ---
 
 ## Obligation

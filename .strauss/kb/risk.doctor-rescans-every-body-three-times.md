@@ -36,9 +36,10 @@ strauss_anchors:
 strauss_links:
   - target: decision.edge-consumers-read-body-and-frontmatter
     rel: informs
-strauss_status: open
+strauss_status: superseded
 strauss_materiality: non-blocking
 strauss_confidence: high
+strauss_superseded_by: risk.doctor-scans-every-body-once-and-rebuilds-a-map
 ---
 
 ## Risk

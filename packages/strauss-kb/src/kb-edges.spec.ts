@@ -75,9 +75,6 @@ async function byId(
 }
 
 describe("edgeNeighbours", () => {
-  // A markdown link is rendering. `strauss_links` is the edge, and a walk that
-  // read prose would count a related edge twice and disagree the moment the
-  // two drifted.
   test("a markdown link in the body is not an edge on its own", async ({
     store,
     bundle,

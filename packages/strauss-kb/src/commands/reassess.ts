@@ -170,14 +170,9 @@ export const reassessCommand = define({
 });
 
 /**
- * The two reference questions, asked of whichever one this record can answer.
- *
- * A record that still holds is asked what it is leaning on that stopped
- * holding. A record that has itself stopped holding is asked the inverse: who
- * is still leaning on it, so a reader settling its replacement can find the
- * open risks and questions that were resting on the old answer. Neither is
- * acted on here — `reassess` reports, and never closes, retargets or verifies
- * anything on the strength of a link.
+ * A record that still holds is asked what it leans on that stopped holding; one
+ * that has stopped holding is asked who still leans on it. Reported, never
+ * acted on.
  */
 function referenceReview(
   record: KbRecord,

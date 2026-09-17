@@ -159,12 +159,9 @@ export function composeRecord(
       `kb: ${type}.${parsed.slug} cannot ${selfLink.rel} itself — a link must name another record`,
     );
   }
-  // `relatedConceptIds` is an edge like any other, so it is stored like one.
-  // The prose sentence below stays for a plain-OKF reader, but nothing reads
-  // it back: a related edge that lived only in the body was invisible to every
-  // consumer the moment they stopped parsing prose. A target already carrying
-  // a declared rel keeps it — `related_to` claims no dependence, so it would
-  // only restate a stronger claim.
+  // `relatedConceptIds` is an edge, so it is stored like one; the sentence
+  // below stays for a plain-OKF reader. A target already carrying a declared
+  // rel keeps it.
   const seen = new Set([
     `${type}.${parsed.slug}`,
     ...(parsed.links ?? []).map((link) => link.target),

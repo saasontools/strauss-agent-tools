@@ -104,12 +104,8 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
       }
     }
 
-    // The one place a body is still read. `strauss_links` is the edge and the
-    // prose is its rendering, which `compose` keeps in step — so a citation
-    // with no entry beside it is a record written by hand or by a producer we
-    // did not write, and nothing downstream will ever see that edge. A
-    // warning, not an error: the repair is `mirror-links`, and a base mid-write
-    // is not broken.
+    // The one place a body is still read: a citation with no entry beside it
+    // is an edge nothing downstream will see.
     const declared = new Set(
       (fm.strauss_links ?? []).map((link) => link.target),
     );

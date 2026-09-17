@@ -8,10 +8,7 @@ import { KB_LINK_RELS } from "./record-types.js";
  * into disagreeing about what makes two records neighbours, and a diagnostic
  * pass over the graph can reuse the same definition.
  *
- * An edge is `strauss_links` in the frontmatter and nothing else. A record's
- * prose renders the same claim for a reader that only knows OKF, and `compose`
- * keeps the two in step at write time, so a walk over the body would count the
- * edge a second time and disagree the moment the two drifted.
+ * An edge is `strauss_links` and nothing else; prose is never walked.
  *
  * `typed-link` is DIRECTED — the edges a record itself declares.
  * `supersession`, `anchor` and `source` are symmetric: they hold between two

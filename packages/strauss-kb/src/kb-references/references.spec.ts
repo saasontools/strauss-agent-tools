@@ -402,7 +402,7 @@ describe("liveReferencesTo", () => {
   });
 });
 
-describe("doctor reads both halves", () => {
+describe("doctor's superseded-but-cited", () => {
   test("superseded-but-cited names the rel and the replacement", () => {
     const bundle = [
       ...replacedPair(),

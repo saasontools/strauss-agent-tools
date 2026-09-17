@@ -361,9 +361,8 @@ function aging(
  * replaced record stays reachable through its history and the replacement has
  * to earn its own inbound link.
  *
- * Both halves of a reference count, like everywhere else: a record reachable
- * only through a `strauss_links` pointer is reachable, and calling it an island
- * would send a reader to link something already linked.
+ * A record reachable only through a `strauss_links` pointer is reachable;
+ * calling it an island would send a reader to link something already linked.
  */
 function orphaned(bundle: KbRecord[]): KbDoctorFinding[] {
   const present = new Set(bundle.map((record) => record.conceptId));
