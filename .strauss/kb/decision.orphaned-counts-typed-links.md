@@ -12,7 +12,28 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T18:53:14.457Z"
-verified: []
+verified:
+  - by: "agent:performance"
+    at: "2026-09-17T19:11:35.994Z"
+    note: >-
+      Re-read orphaned: one outboundReferences call per record into a Set, no
+      bundle scan inside the loop, where the previous edgeNeighbours(record,
+      bundle, 'body-link') filtered the whole bundle per record. Timed on dist:
+      the old pass is 0.29/4.67/72.63 ms at n=100/400/1600 (quadratic), the new
+      one 0.12/0.36/1.47 ms (linear).
+  - by: "agent:correctness"
+    at: "2026-09-17T19:12:29.093Z"
+    note: >-
+      doctor.ts orphaned() reads outboundReferences, so a target reached only
+      through strauss_links lands in referenced; the spec case 'a record
+      reachable only through a typed link is not orphaned' passes.
+  - by: "agent:security"
+    at: "2026-09-17T19:13:39.995Z"
+    note: >-
+      orphaned reads outboundReferences, not edgeNeighbours(body-link);
+      self-links are skipped on both halves so a record cannot un-orphan itself.
+      Caveat recorded separately: the reader also counts a rel the vocabulary
+      rejects.
 strauss_anchors:
   - file: packages/strauss-kb/src/doctor.ts
     symbol: orphaned

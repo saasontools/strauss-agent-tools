@@ -85,12 +85,8 @@ const DEFAULT_NOTES: Record<KbReassessDefault, string> = {
 };
 
 /**
- * The reference half of a reassessment, kept apart from the anchor half.
- *
- * Code drift and a reference that stopped holding are two different readings
- * with two different repairs, and merging them would hand the reader one list
- * to sort again. Either can be present without the other: a record with no
- * anchors at all can still be leaning on a decision that was replaced.
+ * The reference half of a reassessment, kept apart from the anchor half: two
+ * readings, two repairs, and either present without the other.
  */
 export type KbPacketReferences = {
   /** What this record points at that no longer holds. */
@@ -139,14 +135,9 @@ export type PacketOptions = ClassifyOptions & {
 };
 
 /**
- * One record's packet, or `null` when there is nothing for a reader to do.
- *
- * A record whose every drifted anchor turned out to be `moved` or `cosmetic`
- * is a record with no reassessment work, and emitting an empty packet for it
- * would put it back in front of the reader the classification just cleared it
- * from. An unresolved reference finding is reassessment work on its own,
- * though: a record can be perfectly anchored and still rest on a decision that
- * was replaced, which is the case "nothing to reassess" used to hide.
+ * One record's packet, or `null` when there is nothing for a reader to do:
+ * every drifted anchor classified `moved` or `cosmetic`, and no unresolved
+ * reference. Either half alone is reassessment work.
  */
 export async function reassessPacket(
   repoRoot: string,
@@ -197,9 +188,17 @@ export async function reassessPacket(
           ? "rationale-may-survive"
           : "review"
       : "review";
+  // `open` is what classification left, not what drifted: a record whose every
+  // drifted anchor turned out `moved` is a record whose anchors were read and
+  // settled, and a note denying the drift would print beside the rebaseline
+  // this command just wrote.
   const note = open.length
     ? DEFAULT_NOTES[fallback]
-    : "no anchor drift; re-read the references below against what replaced them";
+    : `${
+        entries.some((entry) => entry.state !== "match")
+          ? "nothing left open on the anchors"
+          : "no anchor drift"
+      }; re-read the references below against what replaced them`;
 
   return {
     classified,

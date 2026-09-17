@@ -6,6 +6,7 @@ import {
   type KbReassessPacket,
 } from "../drift/index.js";
 import { KbRecordNotFoundError } from "../kb-errors.js";
+import { impact } from "../kb-links/index.js";
 import {
   liveReferencesTo,
   staleReferencesFrom,
@@ -91,13 +92,16 @@ export const reassessCommand = define({
       return { conceptId: id, packet: null, rebaselined: [], cosmetic: 0 };
     }
 
-    // Only asked for once there is drift: the dependants of a record that
-    // still holds are not part of this question.
-    const impact = drifted ? await store.impact(path, id) : undefined;
+    // Asked for once there is a packet, whichever half raised it: a reference
+    // finding on a superseded record is exactly the case where the reader has
+    // to find who was leaning on it, and `incoming` is one hop where this is
+    // the causal walk. Over the bundle already in hand, never `store.impact`,
+    // which would read and adjudicate every record a second time.
+    const dependants = impact(id, bundle);
 
     const { packet, classified } = await reassessPacket(root, record, entries, {
       ...(withDiff ? { withDiff: true } : {}),
-      ...(impact ? { impact } : {}),
+      impact: dependants,
       ...(standing ? { standing } : {}),
       references,
     });

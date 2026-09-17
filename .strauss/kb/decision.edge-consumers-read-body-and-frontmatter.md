@@ -22,6 +22,32 @@ verified:
       Prose check only: bodyLinkTargets in kb-edges.ts is the sole body-citation
       parser — the BODY_LINK_TARGET regex has no second use, and validate.ts,
       sweep.ts, outbound.ts and edgeNeighbours all call it.
+  - by: "agent:performance"
+    at: "2026-09-17T19:11:35.778Z"
+    note: >-
+      Read the shared readers and timed them on the built dist. One
+      body-citation parser, and the consumers moved off edgeNeighbours'
+      per-record bundle.filter: at n=1600 the old body-link neighbour pass is
+      72.6 ms against 1.5 ms for outboundReferences, and doctor's two uses of it
+      drop from quadratic to linear. Bounded too: replacementChain's seen set
+      stops on a cycle, and the BODY_LINK_TARGET regex stays under 0.2 ms on 32
+      KB of pathological unterminated-link input.
+  - by: "agent:correctness"
+    at: "2026-09-17T19:12:21.918Z"
+    note: >-
+      Read bodyLinkTargets in kb-edges.ts and its four consumers: sweep
+      holderIndex, validate's body_link warning, doctor via
+      outboundReferences/staleReferences, and reassess's referenceReview. One
+      parser, no second regex; 897 package tests and tsc pass.
+  - by: "agent:security"
+    at: "2026-09-17T19:13:39.852Z"
+    note: >-
+      Read all five consumers: bodyLinkTargets in kb-edges.ts is the only
+      body-citation regex; sweep's holderIndex, validate's body_link warning,
+      doctor's supersededButCited and orphaned, and reassess's referenceReview
+      all read both halves. A missing target stays a warning (validate exit 0)
+      and a reason to keep (sweep skipped). KB_EDGE_KINDS has the five kinds
+      named.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS
@@ -39,9 +65,9 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences
-    hash: "sha256:1089981034bb459bbdc41e95cfb818e40b420941dfa008b7f7b6b08967b81bfc"
+    hash: "sha256:3adae82cd75f5612c9a9826479dcb47361d4231822bdb7f20c41591346664ba2"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:55:57.109Z"
+    resolved_at: "2026-09-17T19:20:09.426Z"
     lines: 30
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/stale.ts

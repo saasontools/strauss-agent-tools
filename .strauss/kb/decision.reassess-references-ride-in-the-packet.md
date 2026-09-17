@@ -14,14 +14,39 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T18:53:43.195Z"
-verified: []
+verified:
+  - by: "agent:performance"
+    at: "2026-09-17T19:12:08.902Z"
+    note: >-
+      Read the new order in reassessCommand.run: adjudicate(bundle,bundle) and
+      referenceReview now run before the drift check, so the nothing-to-do path
+      pays an adjudicate it used to skip. Timed on dist: adjudicate is 0.37 ms
+      at n=100 and 8.4-13.5 ms at n=1600 depending on the superseded fraction,
+      against store.list at 5.5-47.0 ms and a one-record detectDrift at 60 ms on
+      this base. The packet gate reads references without a second walk, and
+      impact is now skipped when nothing drifted.
+  - by: "agent:correctness"
+    at: "2026-09-17T19:12:29.222Z"
+    note: >-
+      packet.references.{outgoing,incoming} present, reassessPacket emits on
+      references with no open anchor, default stays the three-member union and
+      leans review, doctor --drifted passes no references. Checked against the
+      built CLI. The impact set it drops in that path is
+      risk.references-only-packet-reports-no-dependants.
+  - by: "agent:security"
+    at: "2026-09-17T19:13:40.140Z"
+    note: >-
+      packet.references carries outgoing/incoming; reassessPacket returns a
+      packet on references alone with default 'review'; doctor's command passes
+      impact and standing but no references. Freeze guard still gated on
+      moves.length, so the no-drift path writes nothing.
 strauss_anchors:
   - file: packages/strauss-kb/src/drift/packet.ts
     symbol: reassessPacket
-    hash: "sha256:13219117833e9e38720039a90677279fd06d948fafcaecc1813dc403b6be3839"
+    hash: "sha256:376a19d7d62f487164d6489e664e2d5241661eae52803d18127e64cb9bab8869"
     hash_kind: ast
-    resolved_at: "2026-09-17T18:54:01.042Z"
-    lines: 76
+    resolved_at: "2026-09-17T19:20:09.869Z"
+    lines: 84
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/reassess.ts
     symbol: referenceReview

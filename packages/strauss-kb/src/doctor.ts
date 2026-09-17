@@ -467,17 +467,10 @@ function brokenSupersession(
 }
 
 /**
- * A live record pointing at a record that no longer holds — both halves of the
- * edge, prose citations and `strauss_links`, detected in `kb-references/`.
- *
- * The check name is for the common case; what it looks for is stated there,
- * along with the standing rules and the replacement exemption. Reading only the
- * body missed a frontmatter-only `related_to` at a superseded target entirely,
- * and a writer that emitted both halves masked the gap.
- *
- * The note stays the sentence it always was for a prose citation, and names the
- * rels when the pointer is typed; `reference` carries the same finding in a
- * shape a consumer can act on.
+ * A live record pointing at one that no longer holds. `kb-references/` states
+ * what counts, the standing rules and the replacement exemption; the note here
+ * names the rels when the pointer is typed, and `reference` carries the same
+ * finding in a shape a consumer can act on.
  */
 function supersededButCited(
   bundle: KbRecord[],

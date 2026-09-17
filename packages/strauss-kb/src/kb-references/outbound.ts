@@ -1,5 +1,6 @@
 import { bodyLinkTargets } from "../kb-edges.js";
 import type { KbRecord } from "../kb-record.schema.js";
+import { isKbLinkRel } from "../record-types.js";
 import type { KbOutboundReference } from "./model.js";
 
 /**
@@ -14,12 +15,16 @@ import type { KbOutboundReference } from "./model.js";
  * Shared anchors and shared sources are not references. Two records about the
  * same file are co-located, which is `kb-edges`' question; neither one cites
  * the other.
+ *
+ * A rel outside the closed vocabulary is skipped, as every other walk skips
+ * it: an uninterpretable claim must not move a target out of `orphaned`, and
+ * only a known rel reaches a rendered note. `kb_validate` is what reports it.
  */
 export function outboundReferences(record: KbRecord): KbOutboundReference[] {
   const byTarget = new Map<string, KbOutboundReference>();
 
   for (const link of record.frontmatter.strauss_links ?? []) {
-    if (link.target === record.conceptId) continue;
+    if (link.target === record.conceptId || !isKbLinkRel(link.rel)) continue;
     const found = byTarget.get(link.target);
     if (!found) {
       byTarget.set(link.target, {

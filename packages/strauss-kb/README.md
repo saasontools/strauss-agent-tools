@@ -473,9 +473,7 @@ caveats: <https://saasontools.github.io/strauss-agent-tools/mcp-reference>.
 `aging`, `orphaned`, `broken-supersession`, `superseded-but-cited`, `drifted`,
 and `unchecked`. All nine groups are reported even when empty; `--strict` gates
 on expiry alone, not on drift. Pass `--repo-root PATH` when the base does not sit
-inside the tree it describes. Every check that reads the graph reads both halves
-of a reference — a prose citation and a `strauss_links` entry — as do `sweep`,
-`validate`, and `reassess`.
+inside the tree it describes.
 Windows and judgments:
 [cli-reference](https://saasontools.github.io/strauss-agent-tools/cli-reference).
 

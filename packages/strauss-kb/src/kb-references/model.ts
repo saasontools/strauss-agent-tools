@@ -1,13 +1,9 @@
 import type { KbStanding } from "../adjudicate.js";
 
 /**
- * One record's explicit references to another, whichever half of the record
- * carries them.
- *
- * `kb-edges.ts` answers "who are this record's neighbours" for a walk;
- * `kb-links/` answers "who leans on this record" causally. This module answers
- * the third question, the one a consumer about to warn or about to delete has
- * to ask: what does this record explicitly point at, counting both halves.
+ * What a record explicitly points at — the question a consumer about to warn
+ * or about to delete has to ask, where `kb-edges.ts` answers it for a walk and
+ * `kb-links/` answers the causal inverse.
  */
 
 /** Where a reference is written: the record's prose, or its `strauss_links`. */

@@ -9,7 +9,28 @@ tags:
 generated:
   by: mcp
   at: "2026-09-17T18:53:27.389Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T19:12:29.358Z"
+    note: >-
+      holderIndex holds on bodyLinkTargets, and survivorsHolding reports the
+      citing ids under skipped; a body-cited record is kept both live and under
+      --dry-run.
+  - by: "agent:security"
+    at: "2026-09-17T19:13:40.269Z"
+    note: >-
+      holderIndex holds on bodyLinkTargets for every record; survivorsHolding
+      excludes doomed ids, so only a survivor pins. Held ids surface under
+      skipped with heldBy. A cycle in replacementChain terminates (seen guard) —
+      checked on an a<->b supersession cycle.
+  - by: "agent:performance"
+    at: "2026-09-17T19:14:30.905Z"
+    note: >-
+      Checked the cost of keeping more, not the judgment: holderIndex adds one
+      bodyLinkTargets call per record and one Set insert per target, so the hold
+      index stays linear (0.48 ms per full body scan at n=400, 1.36 ms at n=1600
+      on dist). A base that grows because sweep keeps more costs linearly more
+      in every pass over it, not quadratically.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/sweep.ts
     symbol: holderIndex

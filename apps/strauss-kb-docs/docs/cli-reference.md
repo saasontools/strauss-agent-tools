@@ -892,10 +892,9 @@ Judgments worth knowing before reading one:
   not yet "older than N".
 - **`orphaned` counts incoming references only, and reads supersession one way.**
   Shared anchors and sources are co-location rather than reference.
-- **A reference is both halves of the record**: a markdown link in the prose and
-  a `strauss_links` entry, `related_to` included, deduplicated to one finding
-  per pair. `superseded-but-cited` names the rels when the pointer is typed, and
-  every finding carries the edge as `reference`.
+- **One finding per source/target pair**, however many ways the pair is stated.
+  `superseded-but-cited` names the rels when the pointer is typed, and every
+  finding carries the edge as `reference`.
 - **A record citing the one it replaced is not `superseded-but-cited`.**
 
 `--strict` gates on **expiry alone**, the one finding a pipeline can act on

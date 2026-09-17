@@ -104,14 +104,10 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
       }
     }
 
-    // The body half of the same edge, held to the same tolerance: a prose
-    // citation of a record that is not here is a warning, never an error. The
-    // half that is not optional is reading it at all — a citation nothing
-    // checks is how `sweep` came to delete records that were still cited.
-    //
-    // One finding per pair: `compose` renders a sentence with a markdown link
-    // for every typed link, so a declared target reaching this loop has already
-    // been reported above, and the repair is the one frontmatter edit.
+    // The body half of the same edge, on the same tolerance: a warning, never
+    // an error. One finding per pair — `compose` renders a markdown link for
+    // every typed link, so a declared target reaching this loop was already
+    // reported above and the repair is the one frontmatter edit.
     const declared = new Set(
       (fm.strauss_links ?? []).map((link) => link.target),
     );

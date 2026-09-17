@@ -223,9 +223,9 @@ defaults to the working directory) and `withDiff` (`boolean`) optional.
 
 Returns `{ conceptId, packet, rebaselined, cosmetic }`; `packet` is `null` when
 the record has neither drift nor an unresolved reference. `packet.references`
-holds `outgoing` — what this record points at that no longer holds, read off
-both its prose and its `strauss_links` — and `incoming`, who still points at it,
-answered for a record that has itself stopped holding. It rebaselines `moved`
+holds `outgoing` — what this record points at that no longer holds — and
+`incoming`, who still points at it, answered for a record that has itself
+stopped holding. It rebaselines `moved`
 anchors and does nothing else to the record — never `verified[]`, never
 standing, never a link.
 

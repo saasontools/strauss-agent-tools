@@ -4,20 +4,9 @@ import type { KbLiveReference, KbStaleReference } from "./model.js";
 import { outboundReferences } from "./outbound.js";
 
 /**
- * A record that still holds, pointing at one that no longer does.
- *
- * The most quietly wrong state in a base: the citing record is current, so a
- * reader trusts it, and the pointer reads as support for a claim its target
- * has already stopped making. One finding per source/target pair, because each
- * is one edit, however many ways the pair is stated.
- *
- * Rejected targets count as well as superseded ones. The failure is "points at
- * something that no longer holds", and a rejected target is the worse half — a
- * superseded record at least names its replacement, while a rejected one is a
- * well-formed assertion of what someone decided *not* to do.
- *
- * A finding asks for a reading, never for a write. A historical citation can be
- * deliberate, and a pointer alone does not prove the claim around it is wrong.
+ * A record that still holds, pointing at one that no longer does — superseded
+ * or rejected alike. One finding per source/target pair, however many ways the
+ * pair is stated, and every finding asks for a reading, never a write.
  */
 
 /** Standings whose records are out of force and stay out of both directions. */

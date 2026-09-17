@@ -173,14 +173,9 @@ function sweepable(hit: KbAdjudicated, tag: string): boolean {
 
 /**
  * Everything pointing at a record, by target: typed links, body citations, and
- * both supersession pointers. A pointer is not an edge, but a survivor left
- * holding one at a swept record has a dangling id.
- *
- * Body citations count for the same reason typed links do, and their absence
- * here was the one edge read that destroyed data rather than withholding a
- * warning: a record cited only from a surviving record's prose looked
- * unreferenced and went. `--dry-run` offered no protection, since it answers
- * from this same index.
+ * both supersession pointers. A survivor left holding one at a swept record
+ * has a dangling id, so a citation in prose keeps its target exactly as a
+ * typed link does — and `--dry-run` answers from this same index.
  */
 function holderIndex(bundle: KbRecord[]): Map<string, Set<string>> {
   const byTarget = new Map<string, Set<string>>();

@@ -140,6 +140,44 @@ describe("outboundReferences", () => {
     ]);
   });
 
+  // The rule `edgeNeighbours` already holds: a rel outside the closed
+  // vocabulary is not a claim any walk can interpret, so none traverses it,
+  // and only a known rel ever reaches a rendered note.
+  test("a rel outside the vocabulary is not a reference", () => {
+    const from = record("decision.a", {
+      links: [
+        { target: "fact.b", rel: "causes\u001b[31m\n" } as unknown as KbLink,
+        { target: "fact.c", rel: "depends_on" },
+      ],
+    });
+
+    expect(outboundReferences(from)).toEqual([
+      { target: "fact.c", origins: ["link"], rels: ["depends_on"] },
+    ]);
+
+    const bundle = [from, record("fact.b"), record("fact.c")];
+    expect(
+      notesIn(doctor(bundle, { now: NOW }), "orphaned").map((f) => f.conceptId),
+    ).toEqual(["decision.a", "fact.b"]);
+    expect(validateBundle(bundle).map((problem) => problem.check)).toEqual([
+      "link_rel",
+    ]);
+  });
+
+  test("a superseded target reached only by an unknown rel is not reported", () => {
+    const bundle = [
+      ...replacedPair(),
+      record("risk.watching", {
+        status: "open",
+        links: [
+          { target: "decision.old-way", rel: "causes" } as unknown as KbLink,
+        ],
+      }),
+    ];
+
+    expect(stale(bundle)).toEqual([]);
+  });
+
   test("a shared anchor is not a reference", () => {
     const one = record("fact.one");
     const two = record("fact.two");
@@ -553,6 +591,38 @@ describe("reassess without code drift", () => {
     expect(reassessCommand.render?.(result) ?? "").toContain(
       "## Still pointing here (1)",
     );
+  });
+
+  // The packet the change exists for: the replaced decision, whose readers have
+  // to be found. `incoming` is one hop; a dependant further down the causal
+  // chain is only in `impact`.
+  test("a references-only packet still carries the record's dependants", async ({
+    store,
+    bundle,
+  }) => {
+    await seed(store, bundle);
+    await store.write(
+      bundle,
+      composeRecord(
+        "decision",
+        {
+          slug: "export-job-window",
+          title: "The export job reads the retention window",
+          why: "The job would keep exports the policy says to drop.",
+          sections: { Decision: "Read the window from the policy." },
+          links: [{ target: "decision.retention", rel: "depends_on" }],
+        },
+        "agent:writer",
+        AT,
+      ),
+    );
+
+    const result = await run(bundle, "decision.retention");
+
+    expect(result.packet?.anchors).toEqual([]);
+    expect(result.packet?.impact).toMatchObject([
+      { conceptId: "decision.export-job-window", depth: 1 },
+    ]);
   });
 
   test("a record with no drift and no stale reference has nothing to reassess", async ({
