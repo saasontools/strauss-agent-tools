@@ -1,28 +1,19 @@
-import { z } from "zod";
 import { assertBaseNotFrozen } from "../../kb-pins/index.js";
-import { bundlePath, conceptId, define } from "../model.js";
-import {
-  anchorPatchInputSchema,
-  type KbAnchorPatchResult,
-  type KbAnchorUpdateResult,
-} from "./model.js";
-import { applyAnchorPatch } from "./patch.js";
+import { define } from "../model.js";
+import { applyAnchorSet, type KbAnchorSetOutcome } from "./apply.js";
+import { anchorSetCommandInput, type KbAnchorSetResult } from "./model.js";
 
 /** Said in the result, because the caller's next step depends on knowing it. */
 const NOTE =
   "pointers only: nothing was resolved, rebaselined or verified. Run anchor-resolve to check the new pointers, --rebaseline to accept the code, and verify separately.";
 
-export const anchorUpdateCommand = define({
-  name: "anchor-update",
-  tool: "kb_anchor_update",
-  usage: "anchor-update <concept-id> < patch.json",
+export const anchorSetCommand = define({
+  name: "anchor-set",
+  tool: "kb_anchor_set",
+  usage: "anchor-set <concept-id> < anchors.json",
   description:
-    "Move a record's anchors after a reviewed refactor: replace a pointer, add one, remove one, with a reason. Anchors you do not name survive, and a replaced one keeps its old hash — changed code still reports drift until kb_anchor_resolve rebaselines it. Each selector must match exactly one anchor.",
-  input: z.object({
-    bundlePath,
-    conceptId,
-    input: anchorPatchInputSchema,
-  }),
+    "Set a record's code anchors after a reviewed refactor, with a reason. The array is the whole set: carry an existing anchor's hash forward to keep its baseline, omit it for a new one. A hash the record does not already hold is refused, and dropping a stamped anchor needs dropBaselines.",
+  input: anchorSetCommandInput,
   fromArgv: async (argv, path, stdin) => ({
     bundlePath: path,
     conceptId: argv[1],
@@ -31,21 +22,21 @@ export const anchorUpdateCommand = define({
   run: async (
     { store, actor },
     { bundlePath: path, conceptId: id, input },
-  ): Promise<KbAnchorUpdateResult> => {
+  ): Promise<KbAnchorSetResult> => {
     await assertBaseNotFrozen(process.cwd(), path);
 
-    // Inside the mutation, so a concurrent edit is patched on top of or
-    // caught by the digest check, never silently overwritten.
-    let applied: KbAnchorPatchResult | undefined;
+    // Checked inside the mutation, against the anchors the record holds then,
+    // so a baseline the caller carries is one the record still has.
+    let applied: KbAnchorSetOutcome | undefined;
     const record = await store.updateAnchors(
       path,
       id,
       (current) => {
-        applied = applyAnchorPatch(id, current, input);
+        applied = applyAnchorSet(id, current, input);
         return {
           anchors: applied.anchors,
           log: {
-            operation: "anchor-update",
+            operation: "anchor-set",
             reason: input.reason,
             anchors: applied.changes,
           },

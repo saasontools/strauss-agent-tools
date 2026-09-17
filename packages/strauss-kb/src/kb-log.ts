@@ -4,13 +4,14 @@ import { kbAnchorLocatorSchema } from "./kb-record.schema.js";
 export const LOG_FILE = "log.jsonl";
 
 /**
- * One pointer change, as an `anchor-update` entry records it: `from` for a
- * replacement or a removal, `to` for a replacement or an addition. Locators
- * only — the log says which pointer moved, never what it was hashed against.
+ * One pointer change, as an `anchor-set` entry records it: `from` for a move or
+ * a drop, `to` for a move or an addition. Locators only — the log says which
+ * pointer moved, never what it was hashed against. Derived from the record
+ * before and after, so it reports what happened rather than what was asked.
  */
 export const kbLogAnchorChangeSchema = z
   .object({
-    op: z.enum(["replace", "add", "remove"]),
+    op: z.enum(["move", "add", "drop"]),
     from: kbAnchorLocatorSchema.optional(),
     to: kbAnchorLocatorSchema.optional(),
   })
@@ -36,11 +37,11 @@ const kbLogEntryFields = z.object({
   target: z.string().min(1).optional(),
   /**
    * Why the operation was performed, where the operation demands one.
-   * `anchor-update` does: a pointer moved by a reader is only auditable if
+   * `anchor-set` does: a pointer moved by a reader is only auditable if
    * the reading is recorded beside it.
    */
   reason: z.string().min(1).optional(),
-  /** What `anchor-update` changed, in the order it applied the changes. */
+  /** What `anchor-set` changed, derived from the record before and after. */
   anchors: z.array(kbLogAnchorChangeSchema).optional(),
 });
 

@@ -22,11 +22,9 @@ export enum Fault {
 /** Machine-readable discriminant, stable across message rewording. */
 export enum ErrorTypes {
   KbRecordAlreadyExists = "KbRecordAlreadyExists",
-  KbAnchorBoundary = "KbAnchorBoundary",
-  KbAnchorPatchConflict = "KbAnchorPatchConflict",
-  KbAnchorPatchEmptiesRecord = "KbAnchorPatchEmptiesRecord",
-  KbAnchorPatchEmpty = "KbAnchorPatchEmpty",
-  KbAnchorSelector = "KbAnchorSelector",
+  KbAnchorBaseline = "KbAnchorBaseline",
+  KbAnchorDropsBaseline = "KbAnchorDropsBaseline",
+  KbAnchorSetDuplicate = "KbAnchorSetDuplicate",
   KbClassifyInput = "KbClassifyInput",
   KbFlagConflict = "KbFlagConflict",
   KbInvalidActor = "KbInvalidActor",

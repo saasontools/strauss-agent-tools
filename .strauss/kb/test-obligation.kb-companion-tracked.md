@@ -14,7 +14,7 @@ strauss_anchors:
   - file: .strauss/kb-pins.json
     hash: "sha256:b2ae955ff8910c20985854958003203678d7662a0abd85eb31a30c091874cc63"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:22:13.152Z"
+    resolved_at: "2026-09-17T20:11:55.192Z"
     lines: 20
 strauss_verify:
   - git ls-files --error-unmatch .strauss/kb/log.jsonl

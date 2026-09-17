@@ -195,18 +195,18 @@ test("a reviewer never decides, settles, or reshapes the base", () => {
   // Moving a pointer is mechanical, like rebaselining one: allowed, and
   // held to the same actor rule.
   assert.equal(
-    decide({ command: `${own} anchor-update decision.a < patch.json` }),
+    decide({ command: `${own} anchor-set decision.a < patch.json` }),
     null,
   );
 });
 
-// anchor-update writes a record's frontmatter and a log entry under an actor
+// anchor-set writes a record's frontmatter and a log entry under an actor
 // stamp. Missing from WRITE_VERBS it was a read: no actor rule, no
 // load-before-write, no preflight — and the entry named "unknown".
-test("anchor-update is a write", () => {
+test("anchor-set is a write", () => {
   assert.match(
     String(
-      decide({ command: "strauss-kb anchor-update decision.a < patch.json" }),
+      decide({ command: "strauss-kb anchor-set decision.a < patch.json" }),
     ),
     /writes carry your own actor/,
   );
@@ -214,14 +214,14 @@ test("anchor-update is a write", () => {
     String(
       decide({
         command:
-          "STRAUSS_KB_ACTOR=agent:security strauss-kb anchor-update decision.a < patch.json",
+          "STRAUSS_KB_ACTOR=agent:security strauss-kb anchor-set decision.a < patch.json",
         loaded: false,
       }),
     ),
     /load the base/,
   );
   assert.match(
-    String(decide({ toolName: "mcp__strauss-kb__kb_anchor_update" })),
+    String(decide({ toolName: "mcp__strauss-kb__kb_anchor_set" })),
     /land as actor "mcp"/,
   );
 });

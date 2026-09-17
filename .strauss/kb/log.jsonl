@@ -151,3 +151,14 @@
 {"at":"2026-09-17T18:45:26.072Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-update-keeps-baselines"}
 {"at":"2026-09-17T18:50:02.484Z","by":"agent:claude","operation":"write","conceptId":"decision.anchor-update-second-round-fixes"}
 {"at":"2026-09-17T18:50:02.799Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-update-second-round-fixes"}
+{"at":"2026-09-17T20:11:25.383Z","by":"agent:claude","operation":"write","conceptId":"contract.anchor-baselines-are-the-records-not-the-callers"}
+{"at":"2026-09-17T20:11:25.580Z","by":"agent:claude","operation":"write","conceptId":"decision.anchor-set-is-a-whole-set-not-a-patch"}
+{"at":"2026-09-17T20:11:25.737Z","by":"agent:claude","operation":"write","conceptId":"decision.kb-log-reads-forward"}
+{"at":"2026-09-17T20:11:46.969Z","by":"agent:claude","operation":"write","conceptId":"risk.anchor-set-has-no-authorship-test"}
+{"at":"2026-09-17T20:11:47.203Z","by":"agent:claude","operation":"write","conceptId":"test-obligation.anchor-set-carries-baselines"}
+{"at":"2026-09-17T20:11:52.124Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"contract.anchor-baselines-are-the-records-not-the-callers"}
+{"at":"2026-09-17T20:11:53.033Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.kb-log-reads-forward"}
+{"at":"2026-09-17T20:11:53.534Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"decision.anchor-set-is-a-whole-set-not-a-patch"}
+{"at":"2026-09-17T20:11:54.349Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"risk.anchor-set-has-no-authorship-test"}
+{"at":"2026-09-17T20:11:55.013Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.anchor-set-carries-baselines"}
+{"at":"2026-09-17T20:11:55.199Z","by":"agent:claude","operation":"anchor-resolve","conceptId":"test-obligation.kb-companion-tracked"}

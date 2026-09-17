@@ -72,8 +72,8 @@ One JSON object per line, appended with `O_APPEND`:
 | `operation` | yes      | e.g. `write`, `verify:refused`                                                                                         |
 | `conceptId` | yes      | the record acted on                                                                                                    |
 | `target`    | no       | the operation's other end: a second id for supersession, the other base's absolute path for `promote-in`/`promote-out` |
-| `reason`    | no       | why, where the operation demands one — [`anchor-update`](./cli-reference.md#anchor-update) does                        |
-| `anchors`   | no       | what `anchor-update` changed: `{ op, from?, to? }` per pointer, `op` one of `replace`, `add`, `remove`                 |
+| `reason`    | no       | why, where the operation demands one — [`anchor-set`](./cli-reference.md#anchor-set) does                              |
+| `anchors`   | no       | what `anchor-set` changed: `{ op, from?, to? }` per pointer, `op` one of `move`, `add`, `drop`                         |
 
 Unknown keys are **kept**, not rejected: one base is read by every version that
 touches the repository, so the log has to read forward — under a strict schema
@@ -84,7 +84,7 @@ schema, since this package controls what it appends.
 
 :::note A reader older than 0.1.22
 `reason` and `anchors` arrived in 0.1.22, when the read schema was still strict.
-A CLI or MCP server built before it reports every `anchor-update` line as
+A CLI or MCP server built before it reports every `anchor-set` line as
 malformed and drops it from `entries`. Malformed lines are reported, never
 repaired, so nothing is lost — but rebuild or update before reading a base for
 its audit trail.
@@ -279,19 +279,26 @@ searched nor diffed: committed bytes cannot move or be reformatted.
 the five measured fields are its baseline. A refactor that renames the anchored
 symbol, or extracts part of it, leaves a record pointing at code that is no
 longer there — and nothing mechanical can say which new symbol replaces it.
-[`anchor-update`](./cli-reference.md#anchor-update) is the reader's answer:
-selectors naming exactly one anchor each, a required reason, and a patch that
-changes only the pointers it names.
+[`anchor-set`](./cli-reference.md#anchor-set) is the reader's answer: the new
+set of anchors, and a required reason.
 
-A patch may not take a record's last anchor, and a replaced anchor keeps its
-baseline. Moving a pointer is therefore not accepting the code behind it — the drift the rename hid is reported the moment
-the new pointer resolves, and clearing it is still
-[`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve). `repo`,
-`ref` and `side` may not be changed by a replacement, since a baseline taken
-over one repository at one rev says nothing about another's, and neither may a
-stamped anchor swap a symbol for a span or back, since the two are hashed over
-different things. Removing and adding in the same patch says so explicitly. The change lands as one
-`anchor-update` log entry and is never a `verified[]` event.
+The set is the caller's; **the baselines are the record's**. An anchor keeps its
+evidence by carrying its `hash`, and the rest of its stamp with it, forward from
+the anchor the caller read; moving that baseline to another `file` or `symbol`
+is the reviewed rename. A hash the record does not already hold is refused, so
+nobody decides for themselves what the code was measured against. A known hash
+with an altered `hash_kind`, `lines`, `resolved_at` or `resolver` is refused
+too — a measurement travels whole or not at all — and one hash may sit on one
+anchor. Omit the hash and the anchor is new.
+
+Carrying the baseline is therefore not accepting the code behind it: the drift
+the rename hid is reported the moment the new pointer resolves, and clearing it
+is still [`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve).
+Discarding a stamped anchor is possible but never accidental — it needs
+`dropBaselines`, because the shortcut of naming the new pointers and letting the
+resolver stamp the rewritten code is exactly the silent acceptance the drift
+check exists to prevent. The change lands as one `anchor-set` log entry,
+derived from the record before and after, and is never a `verified[]` event.
 
 #### What drift does and does not see
 

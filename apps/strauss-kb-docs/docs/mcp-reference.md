@@ -165,14 +165,16 @@ defaults to the working directory), `offline`, `rebaseline`, `restamp` and
 }
 ```
 
-### `kb_anchor_update`
+### `kb_anchor_set`
 
-As CLI [`anchor-update`](./cli-reference.md#anchor-update). The patch the CLI
-reads from stdin is the `input` parameter.
+As CLI [`anchor-set`](./cli-reference.md#anchor-set). The object the CLI reads
+from stdin is the `input` parameter.
 
 Parameters: `bundlePath`, `conceptId` and `input` — all required. `input` is
-`{ reason, replace?, add?, remove? }`; the rules on selectors, locators and what
-a replacement keeps are the CLI page's.
+`{ reason, anchors, dropBaselines? }`; `anchors` is the complete new set, and an
+anchor keeps its evidence by carrying its `hash` and the rest of its stamp
+forward from the anchor you read. A hash the record does not hold is refused,
+and dropping a stamped anchor needs `dropBaselines`.
 
 ```json
 {
@@ -180,13 +182,18 @@ a replacement keeps are the CLI page's.
   "conceptId": "decision.export-retention",
   "input": {
     "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
-    "replace": [
+    "anchors": [
       {
-        "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
-        "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
-      }
-    ],
-    "add": [{ "file": "src/retention.mjs", "symbol": "retentionDays" }]
+        "file": "src/cleanup.mjs",
+        "symbol": "isExportExpired",
+        "hash": "sha256:5c7242b8…",
+        "hash_kind": "ast",
+        "resolved_at": "2026-09-17T20:06:25.829Z",
+        "lines": 3,
+        "resolver": "tree-sitter"
+      },
+      { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    ]
   }
 }
 ```

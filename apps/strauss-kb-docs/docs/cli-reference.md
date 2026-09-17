@@ -42,7 +42,7 @@ pinned, since even a bare newline is noise in a fresh context.
 
 Every write verb refuses outright when the base is pinned `--frozen` in this
 workspace: `write`, `write-decision`, `no-decision`, `status`, `supersede`,
-`answer`, `verify`, `anchor-update`, and `sweep` (except under `--dry-run`).
+`answer`, `verify`, `anchor-set`, and `sweep` (except under `--dry-run`).
 `anchor-resolve` stamps nothing on a frozen base and says so in its result
 rather than failing.
 
@@ -216,83 +216,53 @@ accepted; a second run reports `match`. Being fixed under
 
 ---
 
-### `anchor-update`
+### `anchor-set`
 
 ```
-anchor-update <concept-id> < patch.json
+anchor-set <concept-id> < anchors.json
 ```
 
-Move a record's [anchors](./specification.md#anchors) after a refactor someone
-read: point one somewhere else, add one, drop one. The patch is JSON on
-**stdin**.
+Set a record's [anchors](./specification.md#anchors) after a refactor someone
+read: the new pointers, and a reason. The object is JSON on **stdin**.
 
-| Key       | Effect                                                                      |
-| --------- | --------------------------------------------------------------------------- |
-| `reason`  | Required, non-blank. What was reviewed. Goes in the log.                    |
-| `replace` | `[{ from, to }]`. `to` sets only the fields it names; the baseline is kept. |
-| `add`     | Locators appended in order, each starting with no hash.                     |
-| `remove`  | Locators to drop.                                                           |
+| Key             | Effect                                                       |
+| --------------- | ------------------------------------------------------------ |
+| `reason`        | Required, non-blank. What was reviewed. Goes in the log.     |
+| `anchors`       | The complete new set, at least one.                          |
+| `dropBaselines` | Allow the write to discard a stamped anchor. Off by default. |
 
-A locator is an anchor's address — `file`, and any of `symbol`, `span`, `side`,
-`repo`, `ref`. A `hash` or `resolved_at` under one is rejected: a baseline is
-something a resolver stamps, never something a caller supplies. Every `from`
-and `remove` selector must match **exactly one** anchor of the record as it
-stands; an omitted field matches any value, so `{ "file": "src/a.ts" }` names
-that file's only anchor and is ambiguous the moment it has two. Selectors match
-the record's anchors, not the list earlier operations in the same patch left,
-and two operations claiming one anchor are refused. Anchors nobody names
-survive, in place; additions go last.
+**Carry a baseline, never mint one.** An anchor keeps its evidence by carrying
+its `hash` — and `hash_kind`, `lines`, `resolved_at` and `resolver` with it —
+forward from the anchor you read. Moving that baseline to a different `file` or
+`symbol` is the reviewed rename. A hash the record does not already hold is
+refused, so a caller cannot decide what the code was measured against; so is a
+known hash whose stamp has been altered, and the same hash on two anchors. Omit
+the hash and the anchor is new: `anchor-resolve` stamps it.
 
-A replacement keeps the anchor's `hash`, `hash_kind`, `lines`, `resolved_at`
-and `resolver`, so changed code under a new name still reports drift. It may
-not change `repo`, `ref` or `side` — the baseline would not travel with it —
-and on a **stamped** anchor it may not swap a symbol for a span or back, since
-an `ast` hash is over a token stream and a span is hashed raw. `remove` plus
-`add` in the same patch does all of those, in one write and one log entry. So
-does _clearing_ a field rather than changing it: `to` sets what it names and
-keeps the rest, so widening a symbol anchor back to the whole file is a remove
-and an add.
+Dropping a stamped anchor needs `dropBaselines`. Without it the write is
+refused, so the shortcut — name the new pointers, forget the hashes, let
+`anchor-resolve` stamp the rewritten code — cannot happen by accident:
 
-A patch may not take a record's last anchor: a record nothing points at cannot
-drift, and emptying one is a supersession rather than a pointer move.
+```text
+strauss-kb: error: kb: this set drops 3 stamped anchor(s) on decision.export-retention
+— src/cleanup.mjs:isExportExpired, src/download.mjs:canDownloadExport,
+src/retention.mjs:retentionDays. Carry the hash forward to keep the evidence, or
+pass dropBaselines to discard it on purpose
+```
+
+An unstamped anchor may go without the flag: there is no evidence to lose.
 
 ```bash
-strauss-kb anchor-update decision.export-retention <<'JSON'
+strauss-kb anchor-set decision.export-retention <<'JSON'
 {
   "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
-  "replace": [
-    {
-      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
-      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
-    }
-  ],
-  "add": [{ "file": "src/retention.mjs", "symbol": "retentionDays" }]
-}
-JSON
-```
-
-```json
-{
-  "conceptId": "decision.export-retention",
-  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
-  "changes": [
-    {
-      "op": "replace",
-      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
-      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
-    },
-    {
-      "op": "add",
-      "to": { "file": "src/retention.mjs", "symbol": "retentionDays" }
-    }
-  ],
   "anchors": [
     {
       "file": "src/cleanup.mjs",
       "symbol": "isExportExpired",
       "hash": "sha256:5c7242b8…",
       "hash_kind": "ast",
-      "resolved_at": "2026-09-17T17:51:39.388Z",
+      "resolved_at": "2026-09-17T20:06:25.829Z",
       "lines": 3,
       "resolver": "tree-sitter"
     },
@@ -301,24 +271,52 @@ JSON
       "symbol": "canDownloadExport",
       "hash": "sha256:b4be493b…",
       "hash_kind": "ast",
-      "resolved_at": "2026-09-17T17:51:39.391Z",
+      "resolved_at": "2026-09-17T20:06:25.830Z",
       "lines": 3,
       "resolver": "tree-sitter"
     },
     { "file": "src/retention.mjs", "symbol": "retentionDays" }
+  ]
+}
+JSON
+```
+
+Only `symbol` moved on the first anchor; the second is the one it read, back
+unchanged; the third is new.
+
+```json
+{
+  "conceptId": "decision.export-retention",
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "changes": [
+    {
+      "op": "move",
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    },
+    {
+      "op": "add",
+      "to": { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    }
   ],
+  "anchors": ["…the three anchors as stored…"],
   "baseline": "unchanged",
   "note": "pointers only: nothing was resolved, rebaselined or verified. Run anchor-resolve to check the new pointers, --rebaseline to accept the code, and verify separately."
 }
 ```
 
-Hashes elided; everything else is the run's own output. Exits **0** on a patch
-that applied. A validation failure, a write conflict, a missing record or a
-frozen base leaves the record and the log untouched.
+Hashes elided; everything else is the run's own output. `changes` is derived
+from the record before and after, not from what the caller declared, so the log
+records what happened. An unchanged anchor is not listed.
 
-One `anchor-update` entry lands in the [log](#log), carrying the actor, the
-reason and every change. It is not verification — that is [`verify`](#verify),
-and it is a separate act.
+The set is checked **inside** the write, against the anchors the record holds
+then — so a baseline another writer removed since you read it cannot be carried
+back in. Exits **0** on a set that applied. A validation failure, a write
+conflict, a missing record or a frozen base leaves the record and the log
+untouched.
+
+One `anchor-set` entry lands in the [log](#log) with the actor, the reason and
+every change. It is not verification — that is [`verify`](#verify).
 
 ---
 
@@ -643,14 +641,14 @@ strauss-kb log
 
 An entry is `{ at, by, operation, conceptId }`, plus `target` where the
 operation has another end, and `reason` and `anchors` on an
-[`anchor-update`](#anchor-update). Both are optional, so entries written before
+[`anchor-set`](#anchor-set). Both are optional, so entries written before
 they existed read unchanged.
 
 ```json
 {
   "at": "2026-09-17T17:51:45.636Z",
   "by": "agent:author",
-  "operation": "anchor-update",
+  "operation": "anchor-set",
   "conceptId": "decision.export-retention",
   "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
   "anchors": [

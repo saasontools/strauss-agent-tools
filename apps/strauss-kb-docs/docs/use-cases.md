@@ -293,32 +293,35 @@ Default: rationale-may-survive — the reasoning may outlive the code that imple
 
 **Read the code first.** No tool can say that `isExportExpired` replaces
 `shouldDeleteExport`; a name that looks like a rename is the thing to check, not
-the evidence. Then say so, in one patch:
+the evidence. Then send the anchors back with the rename applied — the same
+objects you read, so each keeps the hash it was stamped with:
 
 ```bash
-strauss-kb anchor-update decision.export-retention <<'JSON'
+strauss-kb anchor-set decision.export-retention <<'JSON'
 {
   "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
-  "replace": [
-    {
-      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
-      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
-    }
-  ],
-  "add": [{ "file": "src/retention.mjs", "symbol": "retentionDays" }]
+  "anchors": [
+    { "file": "src/cleanup.mjs", "symbol": "isExportExpired",
+      "hash": "sha256:5c7242b8…", "hash_kind": "ast", "lines": 3,
+      "resolved_at": "2026-09-17T20:06:25.829Z", "resolver": "tree-sitter" },
+    { "file": "src/download.mjs", "symbol": "canDownloadExport",
+      "hash": "sha256:b4be493b…", "hash_kind": "ast", "lines": 3,
+      "resolved_at": "2026-09-17T20:06:25.830Z", "resolver": "tree-sitter" },
+    { "file": "src/retention.mjs", "symbol": "retentionDays" }
+  ]
 }
 JSON
 ```
 
-An agent calls `kb_anchor_update` with the same object as `input`. Either way
-the patch is a patch: `src/download.mjs`, which nobody named, keeps its symbol
-and its hash.
+An agent calls `kb_anchor_set` with the same object as `input`. Only `symbol`
+moved on the first anchor; the second is the one it read, back unchanged; the
+third is new and unstamped. The command reports what that amounted to:
 
 ```json
 {
   "changes": [
     {
-      "op": "replace",
+      "op": "move",
       "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
       "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
     },
@@ -332,9 +335,20 @@ and its hash.
 }
 ```
 
-The pointer moved; the baseline did not. So the next check reports the drift
-the rename had been hiding — the body really did change — and the helper is
-stamped for the first time:
+**Forget the hashes and it stops you.** The tempting shortcut — name the three
+new pointers and let the resolver stamp them — is the one that would accept a
+rewritten body nobody read:
+
+```text
+strauss-kb: error: kb: this set drops 3 stamped anchor(s) on decision.export-retention
+— src/cleanup.mjs:isExportExpired, src/download.mjs:canDownloadExport,
+src/retention.mjs:retentionDays. Carry the hash forward to keep the evidence, or
+pass dropBaselines to discard it on purpose
+```
+
+The pointer moved; the baseline did not. So the next check reports the drift the
+rename had been hiding — the body really did change — and the helper is stamped
+for the first time:
 
 ```bash
 strauss-kb anchor-resolve decision.export-retention
@@ -376,20 +390,20 @@ reader:
 decision.export-retention: nothing to reassess.
 ```
 
-Three acts, three commands, on purpose: `anchor-update` says where the code is,
+Three acts, three commands, on purpose: `anchor-set` says where the code is,
 `--rebaseline` says the code is still right, and [`verify`](#verification) says
 somebody read it. The move is in the log with the reason attached:
 
 ```json
 {
-  "at": "2026-09-17T17:51:45.636Z",
+  "at": "2026-09-17T20:07:11.204Z",
   "by": "agent:author",
-  "operation": "anchor-update",
+  "operation": "anchor-set",
   "conceptId": "decision.export-retention",
   "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
   "anchors": [
     {
-      "op": "replace",
+      "op": "move",
       "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
       "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
     },

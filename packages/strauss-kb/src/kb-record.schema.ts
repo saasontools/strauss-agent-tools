@@ -197,31 +197,6 @@ export const kbAnchorLocatorSchema = kbAnchorSchema.pick({
 });
 
 /**
- * Write-side, as `kbAnchorWriteSchema` is to `kbAnchorSchema`: a written
- * locator is refused, a read one stays tolerant so a log entry always parses.
- * Only the two an address can get wrong alone — `side: "old"` needs a `ref`,
- * which a replacement inherits, so that rule stays where it sees the result.
- */
-export const kbAnchorLocatorWriteSchema = kbAnchorLocatorSchema.superRefine(
-  (locator, ctx) => {
-    if (locator.span && locator.symbol) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["span"],
-        message: "a locator names a symbol or a span, not both",
-      });
-    }
-    if (locator.span && locator.span.end < locator.span.start) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["span", "end"],
-        message: "span end must not precede start",
-      });
-    }
-  },
-);
-
-/**
  * One typed causal edge, as the frontmatter stores it.
  *
  * Read-side, and therefore tolerant: `rel` is a plain string here even though

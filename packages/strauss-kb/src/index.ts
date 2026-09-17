@@ -31,7 +31,6 @@ export {
 } from "./kb-errors.js";
 export {
   kbAnchorLocatorSchema,
-  kbAnchorLocatorWriteSchema,
   kbAnchorSchema,
   kbAnchorSpanSchema,
   kbAnchorWriteSchema,
@@ -276,18 +275,17 @@ export {
   type KbCommandContext,
 } from "./commands/index.js";
 export {
-  anchorPatchInputSchema,
-  applyAnchorPatch,
+  anchorSetInputSchema,
+  applyAnchorSet,
   locatorOf,
-  KbAnchorBoundaryError,
-  KbAnchorPatchConflictError,
-  KbAnchorPatchEmptyError,
-  KbAnchorSelectorError,
-  type AnchorPatchInput,
+  KbAnchorBaselineError,
+  KbAnchorDropsBaselineError,
+  KbAnchorSetDuplicateError,
+  type AnchorSetInput,
   type KbAnchorChange,
-  type KbAnchorPatchResult,
-  type KbAnchorUpdateResult,
-} from "./commands/anchor-update/index.js";
+  type KbAnchorSetOutcome,
+  type KbAnchorSetResult,
+} from "./commands/anchor-set/index.js";
 export {
   carry,
   isReviewTag,
