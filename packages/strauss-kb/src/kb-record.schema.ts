@@ -182,13 +182,10 @@ export const kbAnchorWriteSchema = kbAnchorSchema.superRefine((anchor, ctx) => {
 });
 
 /**
- * An anchor's address, with none of the baseline a resolver stamps.
- *
- * Picked from `kbAnchorSchema` rather than spelled again, so a locator field
- * added to the anchor is a locator here too. Callers that maintain pointers —
- * `anchor-update`, the log entry it writes — take this, and a `hash` or
- * `resolved_at` arriving under a locator is an unknown key, not a baseline a
- * caller gets to choose.
+ * An anchor's address, with none of the baseline a resolver stamps: a `hash`
+ * under a locator is an unknown key. Picked rather than respelled, so a new
+ * locator field on the anchor is one here too. See
+ * `contract.anchor-locator-is-the-address-half-of-an-anchor`.
  */
 export const kbAnchorLocatorSchema = kbAnchorSchema.pick({
   file: true,
@@ -198,6 +195,31 @@ export const kbAnchorLocatorSchema = kbAnchorSchema.pick({
   repo: true,
   ref: true,
 });
+
+/**
+ * Write-side, as `kbAnchorWriteSchema` is to `kbAnchorSchema`: a written
+ * locator is refused, a read one stays tolerant so a log entry always parses.
+ * Only the two an address can get wrong alone — `side: "old"` needs a `ref`,
+ * which a replacement inherits, so that rule stays where it sees the result.
+ */
+export const kbAnchorLocatorWriteSchema = kbAnchorLocatorSchema.superRefine(
+  (locator, ctx) => {
+    if (locator.span && locator.symbol) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["span"],
+        message: "a locator names a symbol or a span, not both",
+      });
+    }
+    if (locator.span && locator.span.end < locator.span.start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["span", "end"],
+        message: "span end must not precede start",
+      });
+    }
+  },
+);
 
 /**
  * One typed causal edge, as the frontmatter stores it.

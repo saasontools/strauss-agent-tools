@@ -31,6 +31,7 @@ export {
 } from "./kb-errors.js";
 export {
   kbAnchorLocatorSchema,
+  kbAnchorLocatorWriteSchema,
   kbAnchorSchema,
   kbAnchorSpanSchema,
   kbAnchorWriteSchema,

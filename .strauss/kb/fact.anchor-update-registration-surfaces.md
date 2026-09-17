@@ -8,7 +8,14 @@ tags:
 generated:
   by: "agent:claude"
   at: "2026-09-17T17:59:36.758Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T18:11:30.992Z"
+    note: >-
+      commands.spec.ts asserts tool registration, the sync-instructions
+      exception, uniqueness of names and tools, and tool == kb_<name>; the suite
+      passes with anchor-update present (35 tests green). The four anchors
+      resolve to match.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/index.ts
     symbol: KB_COMMANDS
@@ -25,10 +32,10 @@ strauss_anchors:
     lines: 24
     resolver: regex
   - file: packages/strauss-kb/src/index.ts
-    hash: "sha256:03d0e05773c85569b403e462639a9f688699981737e089d76c7cc776c9aa8da4"
+    hash: "sha256:f84aab1a0dc7ee02608cc7c80c64cad8ab91953b732d4a5e1bb1d25be7b18283"
     hash_kind: raw
-    resolved_at: "2026-09-17T18:03:45.140Z"
-    lines: 338
+    resolved_at: "2026-09-17T18:21:14.799Z"
+    lines: 339
   - file: packages/strauss-kb/src/commands/anchor-update/index.ts
     hash: "sha256:3d2739209ffbcaed33a75b4a465e3534cbda1d51dd788ee5bdf720239cdb20c8"
     hash_kind: raw
@@ -51,4 +58,4 @@ commands.spec.ts asserts that every command with a tool name is registered as an
 
 ## Implication
 
-Skim them. The judgment is in commands/anchor-update/patch.ts and command.ts, and in kb-store.ts's updateAnchors.
+Skim them **for correctness**: the judgment is in commands/anchor-update/patch.ts and command.ts, and in kb-store.ts's updateAnchors. Mechanical is not free — the commands/index.ts entry projects a 34th MCP tool and is the largest per-turn cost in the change; risk.anchor-update-tool-adds-887-tokens-per-context carries the number.

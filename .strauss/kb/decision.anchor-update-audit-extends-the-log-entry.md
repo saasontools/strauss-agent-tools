@@ -16,7 +16,28 @@ sources:
 generated:
   by: "agent:claude"
   at: "2026-09-17T17:50:38.794Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T18:11:21.218Z"
+    note: >-
+      kbLogEntrySchema stays strict and gains reason and anchors as optional; a
+      pre-existing anchor-resolve entry with neither still parses
+      (anchor-update.spec.ts:343). No second audit file is written.
+  - by: "agent:security"
+    at: "2026-09-17T18:12:11.232Z"
+    note: >-
+      Read kbLogEntrySchema and renderLogEntry: reason and anchors are optional
+      and strict-parsed, JSON.stringify keeps one entry to one line so a reason
+      carrying newlines cannot forge a second entry, and record() spreads
+      conceptId and by last so neither is caller-settable. The entry's by is
+      only as good as the actor, which the reviewer gate does not check for this
+      verb — risk.anchor-update-invisible-to-the-reviewer-gate.
+  - by: "agent:performance"
+    at: "2026-09-17T18:12:51.675Z"
+    note: >-
+      Counted fs calls: exactly 1 appendFile per anchor-update, no second file
+      opened and no write per change entry, at 1 through 2000 anchors. Read
+      mutate: the entry thunk runs once, after publish.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-log.ts
     symbol: kbLogEntrySchema

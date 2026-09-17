@@ -14,7 +14,14 @@ sources:
 generated:
   by: "agent:claude"
   at: "2026-09-17T17:59:36.465Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T18:11:21.387Z"
+    note: >-
+      kbAnchorLocatorSchema is kbAnchorSchema.pick of the six address fields,
+      and pick keeps strict: { file, hash } is rejected and {} is rejected.
+      anchorPatchInputSchema takes it for from, to, add and remove;
+      kbLogAnchorChangeSchema for the log.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-record.schema.ts
     symbol: kbAnchorLocatorSchema
@@ -25,9 +32,9 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/commands/anchor-update/model.ts
     symbol: anchorPatchInputSchema
-    hash: "sha256:4b86de14ab6b43cd0afad154c33a47a76f58820f9c9dd317ec752563617c520c"
+    hash: "sha256:3b84ae1004cf3eba8c29565373279b0a510d65ce24e8d9342fd70538d2236b42"
     hash_kind: raw
-    resolved_at: "2026-09-17T17:59:44.768Z"
+    resolved_at: "2026-09-17T18:22:05.702Z"
     lines: 31
     resolver: regex
 strauss_status: proposed

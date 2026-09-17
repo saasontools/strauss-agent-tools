@@ -20,7 +20,8 @@ import { KbStore } from "../../kb-store.js";
 import { createKbMcpServer } from "../../mcp.js";
 import { KB_COMMANDS_BY_NAME } from "../index.js";
 import { anchorUpdateCommand } from "./command.js";
-import type { KbAnchorUpdateResult } from "./model.js";
+import type { AnchorPatchInput, KbAnchorUpdateResult } from "./model.js";
+import { applyAnchorPatch } from "./patch.js";
 
 /**
  * The issue's own fixture: a retention policy anchored in two files, refactored
@@ -511,6 +512,97 @@ describe("anchorUpdateCommand", () => {
       ).toThrow(/hash/);
 
       expect(snapshot(bundle)).toEqual(before);
+    });
+
+    test("a `to` naming both a symbol and a span", async () => {
+      await seedRefactor();
+      const before = snapshot(bundle);
+
+      await expect(
+        run({
+          reason: "widen it",
+          replace: [
+            {
+              from: { file: CLEANUP, symbol: "shouldDeleteExport" },
+              to: {
+                file: CLEANUP,
+                symbol: "isExportExpired",
+                span: { start: 1, end: 5 },
+              },
+            },
+          ],
+        }),
+      ).rejects.toThrow(/symbol or a span/);
+
+      expect(snapshot(bundle)).toEqual(before);
+    });
+
+    // Not the CLI's parse: a library caller forwarding its own JSON has no
+    // boundary, and this is the one field the command exists to refuse.
+    test("a baseline injected past the surface schema, straight into the library", () => {
+      const anchor: KbAnchor = {
+        file: CLEANUP,
+        symbol: "shouldDeleteExport",
+        hash: `sha256:${"a".repeat(64)}`,
+      };
+      const forged = {
+        reason: "carry the baseline across",
+        replace: [
+          {
+            from: { file: CLEANUP },
+            to: {
+              file: CLEANUP,
+              symbol: "isExportExpired",
+              hash: `sha256:${"f".repeat(64)}`,
+              resolved_at: "2099-01-01T00:00:00.000Z",
+            },
+          },
+        ],
+      } as unknown as AnchorPatchInput;
+
+      expect(() => applyAnchorPatch(ID, [anchor], forged)).toThrow(/hash/);
+    });
+
+    test("two spellings of one remote at one locator", () => {
+      const anchor: KbAnchor = {
+        file: "lib/a.go",
+        symbol: "Retention",
+        repo: "https://github.com/org/name",
+      };
+
+      expect(() =>
+        applyAnchorPatch(ID, [anchor], {
+          reason: "add the same place under another spelling",
+          add: [
+            {
+              file: "lib/a.go",
+              symbol: "Retention",
+              repo: "https://github.com/org/name.git",
+            },
+          ],
+        }),
+      ).toThrow(/appear twice/);
+    });
+
+    test("a selector spelled as the ssh remote finds the https anchor", () => {
+      const anchor: KbAnchor = {
+        file: "lib/a.go",
+        symbol: "Retention",
+        repo: "https://github.com/org/name",
+      };
+
+      const applied = applyAnchorPatch(ID, [anchor], {
+        reason: "one remote, another spelling",
+        remove: [
+          {
+            file: "lib/a.go",
+            symbol: "Retention",
+            repo: "git@github.com:org/name.git",
+          },
+        ],
+      });
+
+      expect(applied.anchors).toEqual([]);
     });
 
     test("a reason of only whitespace", () => {

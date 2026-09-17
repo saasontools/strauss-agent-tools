@@ -14,7 +14,21 @@ sources:
 generated:
   by: "agent:claude"
   at: "2026-09-17T17:50:03.216Z"
-verified: []
+verified:
+  - by: "agent:security"
+    at: "2026-09-17T18:11:25.240Z"
+    note: >-
+      Read patch.ts BOUNDARY_FIELDS and replacement(): repo/ref/side are
+      compared through fieldKey before the spread and throw
+      KbAnchorBoundaryError, and the spread carries no baseline key, so no hash
+      crosses a repo, rev or side.
+  - by: "agent:correctness"
+    at: "2026-09-17T18:11:31.319Z"
+    note: >-
+      BOUNDARY_FIELDS is repo, ref, side and replacement() throws
+      KbAnchorBoundaryError before building next; an absent side compares as
+      'new'. Caveat recorded separately: the comparison is on raw repo strings,
+      not normalizeRepoUrl.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: replacement

@@ -34,9 +34,8 @@ export const anchorUpdateCommand = define({
   ): Promise<KbAnchorUpdateResult> => {
     await assertBaseNotFrozen(process.cwd(), path);
 
-    // The patch is computed inside the mutation, against the anchors the
-    // record holds then — so a concurrent edit is either patched on top of or
-    // caught by the store's digest check, never silently overwritten.
+    // Inside the mutation, so a concurrent edit is patched on top of or
+    // caught by the digest check, never silently overwritten.
     let applied: KbAnchorPatchResult | undefined;
     const record = await store.updateAnchors(
       path,

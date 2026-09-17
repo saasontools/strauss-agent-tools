@@ -1,3 +1,4 @@
+import { normalizeRepoUrl } from "../../anchor-resolver/index.js";
 import {
   kbAnchorLocatorSchema,
   type KbAnchor,
@@ -10,10 +11,11 @@ import {
   KbAnchorSelectorError,
   locatorText,
 } from "./errors.js";
-import type {
-  AnchorPatchInput,
-  KbAnchorChange,
-  KbAnchorPatchResult,
+import {
+  anchorPatchInputSchema,
+  type AnchorPatchInput,
+  type KbAnchorChange,
+  type KbAnchorPatchResult,
 } from "./model.js";
 
 /** The locator fields, in the order a key spells them. */
@@ -27,39 +29,36 @@ const LOCATOR_FIELDS = [
 ] as const;
 
 /**
- * The fields a replacement may not cross: each says which code the stored hash
- * was taken over, so carrying a baseline past one would claim a match nothing
- * checked. Remove and add instead.
+ * The fields a replacement may not cross, because the baseline would not
+ * travel with it. See `decision.anchor-update-no-cross-boundary-replace`.
  */
 const BOUNDARY_FIELDS = ["repo", "ref", "side"] as const;
 
 /**
- * Applies a reviewed pointer patch to one record's anchors.
- *
- * Pure, and every selector is resolved against `current` — the anchors as the
- * record holds them — rather than against the list as earlier operations left
- * it. Sequential matching would make `remove` before `replace` mean something
- * different from the same patch the other way round, and a caller reading a
- * refactor has no reason to think about the order the fields sit in.
- *
- * Nothing here resolves, hashes or reads code. A replaced anchor keeps its
- * `hash`, `hash_kind`, `lines`, `resolved_at` and `resolver`, so changed code
- * under a new name still reports drift until someone accepts it.
+ * Applies a reviewed pointer patch to one record's anchors. Pure: nothing here
+ * resolves, hashes or reads code, and a replaced anchor keeps its baseline.
+ * Every selector matches against `current`, never the list earlier operations
+ * left — `decision.anchor-update-selectors-match-original-list`.
  */
 export function applyAnchorPatch(
   conceptId: string,
   current: KbAnchor[],
   input: AnchorPatchInput,
 ): KbAnchorPatchResult {
-  const replace = input.replace ?? [];
-  const add = input.add ?? [];
-  const remove = input.remove ?? [];
+  // Parsed here rather than trusted, as `composeRecord` is: the CLI and the
+  // MCP tool validate at their boundary, but a library caller forwarding its
+  // own JSON has no such gate — and an unparsed `hash` under a locator is the
+  // one thing this command exists to refuse.
+  const patch = anchorPatchInputSchema.parse(input);
+  const replace = patch.replace ?? [];
+  const add = patch.add ?? [];
+  const remove = patch.remove ?? [];
   if (!replace.length && !add.length && !remove.length) {
     throw new KbAnchorPatchEmptyError(conceptId);
   }
 
-  // One operation per anchor. Keyed by position in `current`, so two selectors
-  // spelled differently that land on one anchor are still a conflict.
+  // One operation per anchor, keyed by position so two spellings of one
+  // anchor are still a conflict.
   const claimed = new Set<number>();
   const claim = (selector: KbAnchorLocator): number => {
     const at = selectOne(current, selector);
@@ -94,9 +93,8 @@ export function applyAnchorPatch(
     changes.push({ op: "remove", from: locatorOf(current[at] as KbAnchor) });
   }
 
-  // Additions carry locator fields only — the schema rejects anything else —
-  // so a new anchor cannot arrive with a baseline its code was never hashed
-  // against. `anchor-resolve` is what stamps one.
+  // Locator fields only, so a new anchor cannot arrive with a baseline
+  // nothing measured. `anchor-resolve` stamps one.
   const added = add.map((locator) => defined(locator) as KbAnchor);
   for (const anchor of added)
     changes.push({ op: "add", to: locatorOf(anchor) });
@@ -135,12 +133,9 @@ function matchesSelector(anchor: KbAnchor, selector: KbAnchorLocator): boolean {
 }
 
 /**
- * The anchor a replacement produces: the original with the named locator
- * fields overwritten, baseline untouched.
- *
- * `symbol` and `span` are alternative addresses for one span, never both at
- * once, so naming one clears the other. Everything else the `to` omits is
- * kept, which is what makes a rename a one-field patch.
+ * The original with the named locator fields overwritten, baseline untouched.
+ * `symbol` and `span` are alternative addresses, so naming one clears the
+ * other; everything the `to` omits is kept, which makes a rename one field.
  */
 function replacement(anchor: KbAnchor, to: KbAnchorLocator): KbAnchor {
   const wanted = defined(to);
@@ -159,11 +154,9 @@ function replacement(anchor: KbAnchor, to: KbAnchorLocator): KbAnchor {
 }
 
 /**
- * No pointer this patch writes may collide with another anchor on the record:
- * a record holds each pointer once, and two anchors at one locator would
- * drift, resolve and rebaseline as a pair for ever. Only destinations are
- * checked — a duplicate a hand-edit already left behind is `kb_validate`'s
- * finding, not this patch's failure.
+ * A record holds each pointer once: two anchors at one locator would drift and
+ * rebaseline as a pair for ever. Destinations only — a duplicate a hand-edit
+ * left behind is `kb_validate`'s finding, not this patch's failure.
  */
 function assertDestinationsAreUnique(
   anchors: KbAnchor[],
@@ -196,10 +189,8 @@ export function locatorOf(anchor: KbAnchor): KbAnchorLocator {
 }
 
 /**
- * One locator field as a comparable string. Spelled out rather than compared
- * with `JSON.stringify` on the whole value, so a span's key order cannot
- * decide whether two anchors are the same place — and an absent `side` reads
- * as `new`, which is what it means.
+ * One locator field as a comparable string, spelled out so a span's key order
+ * cannot decide whether two anchors are the same place.
  */
 function fieldKey(
   locator: KbAnchor | KbAnchorLocator,
@@ -210,6 +201,11 @@ function fieldKey(
     return span ? `${span.start}-${span.end}` : "";
   }
   if (field === "side") return locator.side ?? "new";
+  // One remote has many spellings, and the resolver compares them normalised.
+  // Raw here would let `…/name` and `…/name.git` be two anchors at one place.
+  if (field === "repo") {
+    return locator.repo === undefined ? "" : normalizeRepoUrl(locator.repo);
+  }
   return locator[field] ?? "";
 }
 
@@ -218,9 +214,8 @@ function locatorKey(anchor: KbAnchor): string {
 }
 
 /**
- * The object without its explicitly-undefined keys. A tool call may pass
- * `{ symbol: undefined }` where JSON cannot, and spreading that would erase
- * the field the caller never meant to name.
+ * The object without its explicitly-undefined keys: a tool call may pass
+ * `{ symbol: undefined }`, and spreading that would erase a field.
  */
 function defined(locator: KbAnchorLocator): KbAnchorLocator {
   return Object.fromEntries(

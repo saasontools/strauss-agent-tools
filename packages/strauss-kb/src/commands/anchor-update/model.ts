@@ -1,17 +1,14 @@
 import { z } from "zod";
 import {
-  kbAnchorLocatorSchema,
+  kbAnchorLocatorWriteSchema,
   type KbAnchor,
   type KbAnchorLocator,
 } from "../../kb-record.schema.js";
 
 /**
- * A reviewed pointer patch: what to replace, add and remove, and why.
- *
- * A patch rather than a whole array, because the caller read one refactor and
- * not the record: an interface that took the full set would make every
- * unmentioned anchor a deletion the caller never intended. Everything not
- * named here survives untouched, baseline included.
+ * A reviewed pointer patch: what to replace, add and remove, and why. A patch
+ * rather than a whole array — everything not named here survives untouched,
+ * baseline included.
  */
 export const anchorPatchInputSchema = z
   .object({
@@ -26,7 +23,10 @@ export const anchorPatchInputSchema = z
     replace: z
       .array(
         z
-          .object({ from: kbAnchorLocatorSchema, to: kbAnchorLocatorSchema })
+          .object({
+            from: kbAnchorLocatorWriteSchema,
+            to: kbAnchorLocatorWriteSchema,
+          })
           .strict(),
       )
       .optional()
@@ -34,13 +34,13 @@ export const anchorPatchInputSchema = z
         "Point an existing anchor somewhere else. `from` must match exactly one anchor; `to` sets only the fields it names, and the hash is kept.",
       ),
     add: z
-      .array(kbAnchorLocatorSchema)
+      .array(kbAnchorLocatorWriteSchema)
       .optional()
       .describe(
         "New anchors, appended in order. They start with no hash: anchor-resolve stamps one.",
       ),
     remove: z
-      .array(kbAnchorLocatorSchema)
+      .array(kbAnchorLocatorWriteSchema)
       .optional()
       .describe("Drop anchors. Each selector must match exactly one."),
   })

@@ -16,14 +16,32 @@ sources:
 generated:
   by: "agent:claude"
   at: "2026-09-17T17:50:03.052Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T18:11:21.036Z"
+    note: >-
+      applyAnchorPatch resolves every selector through selectOne(current, ...)
+      and builds the result once at the end; claimed is keyed by index in
+      current, so replace-then-remove on one anchor is
+      KbAnchorPatchConflictError regardless of field order.
+      assertDestinationsAreUnique runs once on the finished list.
+  - by: "agent:performance"
+    at: "2026-09-17T18:12:45.627Z"
+    note: >-
+      Read applyAnchorPatch and selectOne: every selector rescans the full
+      anchor list, so matching against the record's own anchors costs
+      O(selectors x anchors) per call. Bounded by one record's anchors, which do
+      not grow with the repository — the widest in this base holds 4. Timed the
+      whole command with every anchor replaced: 5.2 ms at 1, 5.7 ms at 10, 12.2
+      ms at 100, 27.4 ms at 500, 78.9 ms at 1000, 197.1 ms at 2000. Nothing
+      quadratic over records, hunks or files.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/anchor-update/patch.ts
     symbol: applyAnchorPatch
-    hash: "sha256:243622d54a08aa6e4f8f8c61f0283fe9c7a0e171138c0defa3d360833c8bec45"
+    hash: "sha256:5a5d3336a3b0cdbfb61f4f7051d013a916332868a6a1fe9a170725d6f3397bb3"
     hash_kind: ast
-    resolved_at: "2026-09-17T17:50:44.974Z"
-    lines: 64
+    resolved_at: "2026-09-17T18:22:07.240Z"
+    lines: 69
     resolver: tree-sitter
 strauss_status: accepted
 ---

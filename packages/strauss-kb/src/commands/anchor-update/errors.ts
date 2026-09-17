@@ -11,10 +11,8 @@ export function locatorText(locator: KbAnchorLocator): string {
 }
 
 /**
- * A selector that named no anchor, or more than one.
- *
- * Both are refused rather than resolved by position: a patch that silently
- * picked the first of two matches would move a pointer the caller never read.
+ * A selector that named no anchor, or more than one. Picking the first of two
+ * would move a pointer the caller never read.
  */
 export class KbAnchorSelectorError extends BaseError {
   constructor(
@@ -52,9 +50,8 @@ export class KbAnchorPatchEmptyError extends BaseError {
 }
 
 /**
- * Two operations that cannot both hold: two selectors claiming one anchor, or
- * two pointers landing on one locator. Refused for the whole patch — applying
- * the survivor would leave the caller holding a result they did not ask for.
+ * Two selectors claiming one anchor, or two pointers landing on one locator.
+ * Refused for the whole patch, never resolved in favour of one.
  */
 export class KbAnchorPatchConflictError extends BaseError {
   constructor(
@@ -77,11 +74,8 @@ export class KbAnchorPatchConflictError extends BaseError {
 }
 
 /**
- * A replacement that would move an anchor to another repository, rev or side.
- *
- * Refused because the hash travels with the pointer: the baseline taken over
- * one repository's code says nothing about another's, and carrying it across
- * would report a match the run never made. Remove and add instead.
+ * A replacement that would move an anchor to another repository, rev or side,
+ * carrying a baseline measured somewhere else. Remove and add instead.
  */
 export class KbAnchorBoundaryError extends BaseError {
   constructor(

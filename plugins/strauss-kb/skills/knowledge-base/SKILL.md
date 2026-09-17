@@ -218,9 +218,7 @@ then judge the code — four steps, and none of them is one of the others:
 4. **Re-check**, and `verify <id> --note "<what you read>"` only for a reading
    you actually did. `anchor-update` is an audit entry, never a verification.
 
-A hash sees one span: a body changing under the same name drifts, an unchanged
-caller does not inherit an unanchored helper's change, and a config or
-environment change drifts nothing at all. A risk about one of those stays open
-after the anchors match.
+A hash sees one span, so clean anchors do not mean nothing changed. A risk
+about a config or environment value stays open after the drift clears.
 
 Do not edit `INDEX.md` or `log.jsonl` by hand.

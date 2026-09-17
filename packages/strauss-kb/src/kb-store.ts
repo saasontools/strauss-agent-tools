@@ -165,9 +165,8 @@ export type KbWriteInput = {
 };
 
 /**
- * What a patching caller hands `updateAnchors`: the anchor set to publish, and
- * the log entry describing the change it just computed. `log` is optional so a
- * caller with nothing extra to say keeps the default `anchor-resolve` entry.
+ * What a patching caller hands `updateAnchors`. Omitting `log` keeps the
+ * default `anchor-resolve` entry.
  */
 export type KbAnchorWrite = {
   anchors: KbAnchor[];
@@ -377,22 +376,10 @@ export class KbStore {
   }
 
   /**
-   * Replaces a record's anchors, preserving everything else.
-   *
-   * An array replaces them wholesale: the caller just resolved the anchors it
-   * is writing, so it holds the complete current set, and a merge would keep
-   * stale entries the resolution pass deliberately dropped.
-   *
-   * A function is for the caller that holds a *patch* rather than a set —
-   * `anchor-update`, which moves some pointers and must leave the rest alone.
-   * It runs inside the guarded mutation, against the anchors the record holds
-   * at that moment, so a patch computed from a stale read can never overwrite
-   * a concurrent edit: either the patch sees it, or the digest check refuses
-   * the write. It names its own log operation, which an array's cannot be.
-   *
-   * Through the write schema either way: this is a write, and a defect a
-   * hand-edit put in the frontmatter must not be published back out under an
-   * actor stamp.
+   * Replaces a record's anchors, preserving everything else. An array is the
+   * whole set; a function is a patch and runs inside the mutation, against
+   * the anchors the record holds then — see
+   * `decision.anchor-update-patch-inside-mutation`.
    */
   async updateAnchors(
     bundlePath: string,
@@ -1037,9 +1024,7 @@ export class KbStore {
     bundlePath: string,
     conceptId: string,
     change: (frontmatter: KbRecordFrontmatter) => KbRecordFrontmatter,
-    // A thunk where the entry is only knowable once `change` has run: a patch
-    // logs what it actually applied, and what it applied depends on the
-    // record this mutation read.
+    // A thunk where the entry is only knowable once `change` has run.
     entry:
       | (Omit<KbLogEntry, "at" | "conceptId"> & { target?: string })
       | (() => Omit<KbLogEntry, "at" | "conceptId"> & { target?: string }),
