@@ -22,8 +22,18 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: isSettled
+    hash: "sha256:7d64086d80fbff05dcad5e05a0b2b24ceb9a0fcf00c4c0a797c98ef31661ba8a"
+    hash_kind: ast
+    resolved_at: "2026-09-17T17:52:18.822Z"
+    lines: 6
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: matchesChild
+    hash: "sha256:9617cb75b58fab47006f123318aa0ad53accbdd514d37dd8659e661180f9d104"
+    hash_kind: ast
+    resolved_at: "2026-09-17T17:52:18.823Z"
+    lines: 9
+    resolver: tree-sitter
 strauss_verify:
   - >-
     missingIgnoreLines returns [] for a user pattern covering every sidecar, and

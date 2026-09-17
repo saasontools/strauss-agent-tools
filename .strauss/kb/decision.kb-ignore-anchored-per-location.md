@@ -21,10 +21,25 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: SEARCH_INDEX_RULE
+    hash: "sha256:65cce700e9cea9461f83812085b63281876cf70375f2b329da5c9fe1c71f5e77"
+    hash_kind: raw
+    resolved_at: "2026-09-17T17:52:12.899Z"
+    lines: 9
+    resolver: regex
   - file: packages/strauss-kb/src/kb-gitignore.ts
     symbol: LOCAL_PINS_RULE
+    hash: "sha256:4947f31e7a916af10bb4b2f9e3ee5ec2caaeb8a2ce188989b2c2af373aeed5fd"
+    hash_kind: raw
+    resolved_at: "2026-09-17T17:52:12.899Z"
+    lines: 4
+    resolver: regex
   - file: packages/strauss-kb/src/kb-pins/layers.ts
     symbol: ensureLocalPinsIgnored
+    hash: "sha256:213a51325c23bb5848c72afd47ea961336884a41eb319996565996ac67f4d699"
+    hash_kind: ast
+    resolved_at: "2026-09-17T17:52:12.900Z"
+    lines: 26
+    resolver: tree-sitter
 strauss_verify:
   - >-
     git check-ignore -q <kb>/.index.sqlite-wal at the default base and at a

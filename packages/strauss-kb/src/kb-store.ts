@@ -1123,7 +1123,7 @@ export class KbStore {
    * than a plain write: if another process won a race and created it between
    * the `readFile` below and this call, `wx` fails instead of truncating what
    * that writer just wrote, and the failure is swallowed by the catch below
-   * same as any other best-effort miss. A file that exists gets only the
+   * like every other best-effort miss. A file that exists gets only the
    * lines it lacks appended, never a wholesale rewrite; a declaration it
    * already carries — this one's value or a user's own — is left alone.
    *
