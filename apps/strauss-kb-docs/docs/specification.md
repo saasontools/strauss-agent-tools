@@ -72,6 +72,7 @@ One JSON object per line, appended with `O_APPEND`:
 | `operation` | yes      | e.g. `write`, `verify:refused`                                                                                         |
 | `conceptId` | yes      | the record acted on                                                                                                    |
 | `target`    | no       | the operation's other end: a second id for supersession, the other base's absolute path for `promote-in`/`promote-out` |
+| `reason`    | no       | why the operation happened, where the caller gave one — `status --reason` stores a risk's closing evidence here        |
 
 The schema is `.strict()`: unknown keys are a malformed line, and `at` must be
 an ISO-8601 UTC datetime. Malformed lines are reported with their 1-based

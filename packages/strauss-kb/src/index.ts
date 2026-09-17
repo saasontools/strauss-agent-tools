@@ -270,14 +270,18 @@ export {
 } from "./commands/index.js";
 export {
   carry,
+  CARRIED_FIELDS,
+  CONFLICT_POLICIES,
+  humanSettled,
   isReviewTag,
-  promoteCandidates,
   promoteInputSchema,
   PROMOTION_SOURCE_ID,
+  type KbCarriedField,
+  type KbConflictPolicy,
   type KbDroppedLink,
-  type KbPromoteCandidate,
   type KbPromoteResult,
   type KbPromotedRecord,
+  type KbSkippedRecord,
 } from "./commands/promote/index.js";
 export type {
   KbExportForeignFile,

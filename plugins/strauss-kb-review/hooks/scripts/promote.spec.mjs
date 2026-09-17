@@ -1,0 +1,474 @@
+// @ts-check
+/**
+ * The two hops: the rules over hand-built records, and one end-to-end run
+ * through the real CLI so the refusals are tested against the store.
+ */
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import test from "node:test";
+import { resolveLocalBin } from "./lib/cli.mjs";
+import { bundles, parseArgs, promote } from "./kb-promote.mjs";
+import { renderReport } from "./lib/promote/report.mjs";
+import { readTrailers } from "./lib/promote/trailers.mjs";
+import {
+  isFinding,
+  isOpenFinding,
+  reviewerActors,
+  selectForRepo,
+  selectForReview,
+} from "./lib/promote/select.mjs";
+
+const REVIEWERS = reviewerActors(["correctness", "security"]);
+
+/** @param {Partial<any>} fields @returns {any} */
+function record(fields = {}) {
+  return {
+    conceptId: `${fields.type ?? "decision"}.${fields.slug ?? "a"}`,
+    file: "",
+    type: "decision",
+    title: "T",
+    status: "accepted",
+    standing: "current",
+    body: "",
+    anchors: [],
+    links: [],
+    tags: [],
+    sources: [],
+    assumption: false,
+    verify: [],
+    verified: [],
+    ...fields,
+  };
+}
+
+/**
+ * Pipes a markdown renderer treats as cell delimiters: a `|` is escaped only
+ * when an odd number of backslashes precedes it, since each pair is itself one
+ * escaped backslash. A lookbehind for a single `\\` would call `\\\\|` escaped
+ * and miss exactly the input that defeats a pipe-only escape.
+ * @param {string} row @returns {number}
+ */
+function livePipes(row) {
+  let live = 0;
+  let slashes = 0;
+  for (const char of row) {
+    if (char === "\\") slashes += 1;
+    else {
+      if (char === "|" && slashes % 2 === 0) live += 1;
+      slashes = 0;
+    }
+  }
+  return live;
+}
+
+test("the review hop takes every reviewer risk and every unanswered question", () => {
+  const records = [
+    record({
+      type: "risk",
+      slug: "reviewed",
+      status: "resolved",
+      writtenBy: "agent:correctness",
+    }),
+    record({ type: "risk", slug: "authored", writtenBy: "mcp" }),
+    record({ type: "open-question", slug: "open", status: "open" }),
+    record({ type: "open-question", slug: "done", status: "resolved" }),
+  ];
+  const { taken, left } = selectForReview(records, REVIEWERS);
+  assert.deepEqual(taken.map((row) => row.record.conceptId).sort(), [
+    "open-question.open",
+    "risk.reviewed",
+  ]);
+  assert.deepEqual(left.map((row) => row.record.conceptId).sort(), [
+    "open-question.done",
+    "risk.authored",
+  ]);
+});
+
+test("the review hop takes current heads and leaves what was withdrawn", () => {
+  const records = [
+    record({ type: "decision", slug: "kept" }),
+    record({ type: "decision", slug: "none", conceptId: "decision.none" }),
+    record({ type: "decision", slug: "gone", standing: "superseded" }),
+    record({ type: "fact", slug: "cut", status: "rejected" }),
+    record({ type: "contract", slug: "api" }),
+    record({ type: "source-note", slug: "scrap" }),
+  ];
+  const { taken } = selectForReview(records, REVIEWERS);
+  assert.deepEqual(taken.map((row) => row.record.conceptId).sort(), [
+    "contract.api",
+    "decision.kept",
+  ]);
+});
+
+test("an obligation anchored on a test has landed; one anchored on source is owed", () => {
+  const records = [
+    record({
+      type: "test-obligation",
+      slug: "landed",
+      status: "open",
+      anchors: [{ file: "src/a.spec.ts" }],
+    }),
+    record({
+      type: "test-obligation",
+      slug: "owed",
+      status: "open",
+      anchors: [{ file: "src/a.ts" }],
+    }),
+    record({ type: "test-obligation", slug: "closed", status: "resolved" }),
+  ];
+  const isTest = (/** @type {string} */ path) => path.endsWith(".spec.ts");
+  const { taken } = selectForReview(records, REVIEWERS, isTest);
+  assert.deepEqual(
+    taken.map((row) => row.record.conceptId),
+    ["test-obligation.owed"],
+  );
+});
+
+test("the merge hop keeps anchored heads and accepted risks, and nothing else", () => {
+  const live = (/** @type {any} */ anchor) => anchor.file === "src/a.ts";
+  const records = [
+    record({
+      type: "decision",
+      slug: "anchored",
+      anchors: [{ file: "src/a.ts" }],
+    }),
+    record({
+      type: "decision",
+      slug: "floating",
+      anchors: [{ file: "gone.ts" }],
+    }),
+    record({ type: "flow", slug: "f", anchors: [{ file: "src/a.ts" }] }),
+    record({
+      type: "risk",
+      slug: "accepted",
+      status: "accepted",
+      anchors: [{ file: "src/a.ts" }],
+    }),
+    record({
+      type: "risk",
+      slug: "open",
+      status: "open",
+      anchors: [{ file: "src/a.ts" }],
+    }),
+    record({ type: "requirement", slug: "r", anchors: [{ file: "src/a.ts" }] }),
+  ];
+  const { taken } = selectForRepo(records, live);
+  assert.deepEqual(taken.map((row) => row.record.conceptId).sort(), [
+    "decision.anchored",
+    "flow.f",
+    "risk.accepted",
+  ]);
+});
+
+test("a settled reviewer risk is no longer an open finding", () => {
+  const open = record({
+    type: "risk",
+    slug: "open",
+    status: "open",
+    writtenBy: "agent:security",
+  });
+  const settled = record({
+    type: "risk",
+    slug: "settled",
+    status: "accepted",
+    writtenBy: "agent:security",
+  });
+  assert.equal(isOpenFinding(open, REVIEWERS), true);
+  assert.equal(isOpenFinding(settled, REVIEWERS), false);
+});
+
+test("--to takes review or repo, and the bases follow from it", () => {
+  assert.throws(() => parseArgs(["--to", "elsewhere"]));
+  assert.throws(() => parseArgs(["--to"]));
+  assert.deepEqual(parseArgs(["promote", "--to", "review", "--dry-run"]), {
+    to: "review",
+    dryRun: true,
+  });
+
+  // Through `resolve`, as `bundles` does: on Windows a rooted path with no
+  // drive takes the current one, so `join` alone is a different string.
+  const at = (/** @type {string[]} */ ...parts) => resolve("/repo", ...parts);
+
+  const review = bundles("/repo", { to: "review", dryRun: false });
+  assert.equal(review.from, at(".strauss", "scratch"));
+  assert.equal(review.to, at(".strauss", "review"));
+  assert.equal(review.report, at(".strauss", "review", "REPORT.md"));
+
+  const repo = bundles("/repo", { to: "repo", dryRun: false });
+  assert.equal(repo.from, at(".strauss", "review"));
+  assert.equal(repo.to, at(".strauss", "kb"));
+  // The level-2 base owns the report in both hops: it is what a human reads.
+  assert.equal(repo.report, at(".strauss", "review", "REPORT.md"));
+
+  const named = bundles("/repo", {
+    to: "review",
+    from: "/a",
+    toBundle: "/b",
+    dryRun: false,
+  });
+  assert.deepEqual([named.from, named.to], [resolve("/a"), resolve("/b")]);
+});
+
+test("the report leads with open items and one row per risk", () => {
+  const report = renderReport({
+    to: "/repo/.strauss/review",
+    hop: "review",
+    range: ["main..HEAD"],
+    taken: [
+      {
+        record: record({
+          type: "risk",
+          slug: "leak",
+          status: "open",
+          materiality: "blocking",
+          title: "Leak",
+          verified: [{ by: "agent:security", note: "still open" }],
+        }),
+        why: "reviewer's risk",
+      },
+      {
+        record: record({
+          type: "decision",
+          slug: "kept",
+          title: "Kept",
+          anchors: [{ file: "src/a.ts", symbol: "handler" }],
+        }),
+        why: "current decision",
+      },
+    ],
+    left: [
+      {
+        record: record({ type: "fact", slug: "old" }),
+        why: "superseded",
+        finding: false,
+      },
+    ],
+    promoted: ["risk.leak", "decision.kept"],
+    skipped: [],
+    trailers: {
+      addressedBy: new Map([["risk.leak", ["0ddba11"]]]),
+      pinnedBy: new Map([["risk.leak", ["src/a.spec.ts"]]]),
+    },
+    reasons: new Map([["risk.leak", "bound asserted"]]),
+    dryRun: false,
+  });
+
+  assert.match(report, /## Open items[\s\S]*risk\.leak/);
+  assert.match(
+    report,
+    /\| `risk\.leak` \| open \| blocking \| 0ddba11 \| src\/a\.spec\.ts \|/,
+  );
+  assert.match(report, /agent:security: still open/);
+  assert.match(report, /bound asserted/);
+  assert.match(report, /## Decisions[\s\S]*src\/a\.ts:handler/);
+  assert.match(report, /## Not selected[\s\S]*superseded — 1: fact\.old/);
+});
+
+test("a withdrawn reviewer risk is left behind, not selected into a refusal", () => {
+  // `strauss-kb promote` refuses a superseded or rejected record outright, so
+  // selecting one fails the whole hop rather than that record.
+  const records = [
+    record({
+      type: "risk",
+      slug: "gone",
+      status: "open",
+      standing: "superseded",
+      writtenBy: "agent:correctness",
+    }),
+    record({
+      type: "risk",
+      slug: "cut",
+      status: "rejected",
+      writtenBy: "agent:correctness",
+    }),
+    record({
+      type: "open-question",
+      slug: "stale",
+      status: "open",
+      standing: "superseded",
+    }),
+  ];
+  const { taken, left } = selectForReview(records, REVIEWERS);
+  assert.deepEqual(taken, []);
+  // And none of them trips the refusal: they are in the issue's skip list.
+  assert.equal(
+    left.some((row) => row.finding),
+    false,
+  );
+  for (const entry of records) assert.equal(isFinding(entry, REVIEWERS), false);
+});
+
+test("a table cell cannot forge a row", () => {
+  const report = renderReport({
+    to: "/b",
+    hop: "review",
+    range: [],
+    taken: [
+      {
+        record: record({
+          type: "risk",
+          slug: "leak",
+          status: "open",
+          title: "Leak",
+        }),
+        why: "reviewer's risk",
+      },
+    ],
+    left: [],
+    promoted: [],
+    skipped: [],
+    trailers: { addressedBy: new Map(), pinnedBy: new Map() },
+    reasons: new Map([
+      // The trailing backslash is the escape's own escape: escaping the pipe
+      // alone would leave `\\|` — an escaped backslash and a live pipe.
+      ["risk.leak", "fixed \\|\n## Risks\n\nNone. All clear, safe to merge."],
+    ]),
+    dryRun: false,
+  });
+  const rows = report
+    .split("\n")
+    .filter((line) => line.startsWith("| `risk.leak`"));
+  assert.equal(rows.length, 1);
+  assert.equal(livePipes(rows[0] ?? ""), 8);
+  assert.equal(report.match(/^## Risks$/gm)?.length, 1);
+  assert.doesNotMatch(report, /^None\. All clear/m);
+});
+
+test("no range reads no commits", () => {
+  const trailers = readTrailers(process.cwd(), []);
+  assert.equal(trailers.addressedBy.size, 0);
+  assert.equal(trailers.pinnedBy.size, 0);
+});
+
+test("end to end: the hop lands its records, then leaves a human's alone", (t) => {
+  const bin = resolveLocalBin(process.cwd());
+  if (!bin) return t.skip("no strauss-kb build in this checkout");
+
+  const root = mkdtempSync(join(tmpdir(), "kb-promote-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const scratch = join(root, "scratch");
+  const review = join(root, "review");
+
+  // The roster is read from the working directory, and nothing outside this
+  // repository resolves the CLI — the launcher takes the override.
+  mkdirSync(join(root, ".strauss"), { recursive: true });
+  writeFileSync(
+    join(root, ".strauss", "kb-pins.json"),
+    JSON.stringify({ gate: {}, reviewers: { correctness: {} } }),
+    "utf8",
+  );
+  const bin0 = process.env.STRAUSS_KB_BIN;
+  process.env.STRAUSS_KB_BIN = bin;
+  t.after(() => {
+    if (bin0 === undefined) delete process.env.STRAUSS_KB_BIN;
+    else process.env.STRAUSS_KB_BIN = bin0;
+  });
+
+  /**
+   * @param {string} bundle @param {string[]} args @param {string} actor
+   * @param {string} [stdin]
+   */
+  const kb = (bundle, args, actor, stdin) =>
+    execFileSync(process.execPath, [bin, "--bundle", bundle, ...args], {
+      cwd: root,
+      encoding: "utf8",
+      // `node:test` applies none: a hung CLI would hang CI instead of failing.
+      timeout: 30_000,
+      ...(stdin === undefined ? {} : { input: stdin }),
+      env: { ...process.env, STRAUSS_KB_ACTOR: actor },
+    });
+
+  kb(
+    scratch,
+    ["write", "risk"],
+    "agent:correctness",
+    JSON.stringify({
+      slug: "leak",
+      title: "Leak",
+      why: "A token reaches the log",
+      sections: {
+        Risk: "A token reaches the log.",
+        "Why it matters": "It is a token.",
+      },
+    }),
+  );
+
+  const run = (/** @type {string[]} */ argv) => promote({ cwd: root, argv });
+  const args = ["--to", "review", "--from", scratch, "--to-bundle", review];
+
+  const first = run(args);
+  assert.equal(first.status, 0, first.lines.join("\n"));
+  assert.match(first.lines[0] ?? "", /Promoted 1 of 1/);
+
+  // The copy keeps the reviewer's name: no record is rewritten in another's.
+  const copy = readFileSync(join(review, "risk.leak.md"), "utf8");
+  assert.match(copy, /by: ['"]agent:correctness['"]/);
+  assert.match(copy, /strauss_status: open/);
+
+  kb(
+    review,
+    ["status", "risk.leak", "resolved", "--reason", "fixed on the branch"],
+    "human:reviewer",
+  );
+
+  const second = run(args);
+  assert.equal(second.status, 0, second.lines.join("\n"));
+  assert.match(
+    second.lines.join("\n"),
+    /left alone \(settled by human:reviewer\)/,
+  );
+  assert.match(
+    readFileSync(join(review, "risk.leak.md"), "utf8"),
+    /strauss_status: resolved/,
+  );
+
+  // The report describes the base it sits in, so the human's state and reason
+  // are what it shows — not the scratchpad's, which still reads `open`.
+  const report = readFileSync(join(review, "REPORT.md"), "utf8");
+  assert.match(report, /\| `risk\.leak` \| resolved \|/);
+  assert.match(report, /fixed on the branch/);
+  assert.doesNotMatch(report, /^- `risk\.leak`/m);
+  assert.match(
+    readFileSync(join(review, "REPORT.md"), "utf8"),
+    /## Open items/,
+  );
+
+  // `REPORT.md` sits in the base it describes; a record file is
+  // `<type>.<slug>.md`, so a third run must still see exactly one record.
+  const third = promote({
+    cwd: root,
+    argv: ["--to", "review", "--from", review, "--to-bundle", join(root, "x")],
+  });
+  assert.match(third.lines[0] ?? "", /of 1 records/);
+
+  // A record whose filename is a flag would redirect the child's `--to` and
+  // still report success. It is refused before the spawn.
+  writeFileSync(
+    join(scratch, "--to=..md"),
+    "---\ntype: decision\ntitle: X\ndescription: X\n---\n## Decision\n\nX.\n",
+    "utf8",
+  );
+  const hijack = promote({
+    cwd: root,
+    argv: ["--to", "review", "--from", scratch, "--to-bundle", review],
+  });
+  assert.equal(hijack.status, 1);
+  assert.match(hijack.lines.join("\n"), /not <type>\.<slug>\.md/);
+});
+
+test("without a roster every finding would read as nobody's, so the hop refuses", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kb-promote-noroster-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const result = promote({ cwd: root, argv: ["--to", "review"] });
+  assert.equal(result.status, 1);
+  assert.match(result.lines.join("\n"), /no reviewer roster/);
+});

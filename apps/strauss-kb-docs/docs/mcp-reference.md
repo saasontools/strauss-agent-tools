@@ -98,13 +98,15 @@ As CLI [`no-decision`](./cli-reference.md#no-decision). Parameters:
 
 As CLI [`status`](./cli-reference.md#status). Parameters: `bundlePath`,
 `conceptId`, and `status` — one of `draft`, `proposed`, `accepted`, `open`,
-`resolved`, `rejected`, `superseded` — all required.
+`resolved`, `rejected`, `superseded` — all required; `reason` (`string`, stored
+on the log entry) optional, and required to close a `risk`.
 
 ```json
 {
   "bundlePath": "…/kb",
-  "conceptId": "requirement.export-csv",
-  "status": "accepted"
+  "conceptId": "risk.token-leak",
+  "status": "resolved",
+  "reason": "bound asserted in pack.spec.ts"
 }
 ```
 
@@ -431,25 +433,26 @@ As CLI [`promote`](./cli-reference.md#promote), with the flags as camelCase
 parameters. Reach for it at merge, to lift what a review base settled into the
 base that outlives the pull request.
 
-Parameters: `bundlePath` required — the base being promoted **from**;
-`conceptIds` (`string[]`) and `to` (the target base) required unless `list` is
-`true`; `source` (`string`, usually the pull request URL) and `force`
-(`boolean`, overwrite what the target already holds) optional.
+Parameters: `bundlePath` — the base being promoted **from** — `conceptIds`
+(`string[]`) and `to` (the target base) required; `source` (`string`, usually
+the pull request URL), `carry` (`string[]` of `status`, `verified`, `tags`,
+`anchors`) and `onConflict` (`"refuse"` | `"skip-human-settled"` | `"force"`,
+default `refuse`) optional.
 
 ```json
 {
-  "bundlePath": "/repo/.strauss/review",
-  "conceptIds": ["decision.cursor-v2"],
-  "to": "/repo/.strauss/kb",
-  "source": "https://github.com/org/repo/pull/59"
+  "bundlePath": "/repo/.strauss/scratch",
+  "conceptIds": ["risk.token-leak"],
+  "to": "/repo/.strauss/review",
+  "carry": ["status", "verified", "tags"],
+  "onConflict": "skip-human-settled"
 }
 ```
 
-Returns `{ mode: "promote", to, promoted }` with `{ conceptId, droppedLinks }`
-per record, or `{ mode: "list", candidates }` with
-`{ conceptId, type, title, why }` per candidate. Copies land without the `review`
-tags; links to records left behind are dropped and reported. The originals stay
-put.
+Returns `{ to, promoted, skipped }` with `{ conceptId, droppedLinks }` per
+promoted record and `{ conceptId, settledBy }` per record left alone. A field
+not named in `carry` settles or is stripped; links to records left behind are
+dropped and reported. The originals stay put.
 
 ### `kb_export`
 

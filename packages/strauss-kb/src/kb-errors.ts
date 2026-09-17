@@ -174,6 +174,25 @@ export class KbMissingFlagValueError extends BaseError {
   }
 }
 
+/**
+ * A risk closed with no evidence. The status alone says a risk stopped
+ * mattering without saying what made it stop, and the log is the only place
+ * that can hold the answer.
+ */
+export class KbStatusReasonRequiredError extends BaseError {
+  constructor(readonly conceptId: string) {
+    super({
+      message: `kb: closing ${conceptId} needs --reason "<what settled it>"`,
+      errorType: ErrorTypes.KbStatusReasonRequired,
+      code: 400,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: { conceptId, action: "refused" },
+    });
+  }
+}
+
 /** `classify` invoked with no diff it could read, or one it could not parse. */
 export class KbClassifyInputError extends BaseError {
   constructor(readonly reason: string) {

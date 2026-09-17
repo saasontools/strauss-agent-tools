@@ -21,6 +21,12 @@ export const kbLogEntrySchema = z
      * supersession, the other base's path for promotion.
      */
     target: z.string().min(1).optional(),
+    /**
+     * Why the operation happened, where the caller gave a reason. Closing a
+     * risk stores its evidence here: the record carries the status, and only
+     * the log carries what settled it.
+     */
+    reason: z.string().min(1).max(1000).optional(),
   })
   .strict();
 
