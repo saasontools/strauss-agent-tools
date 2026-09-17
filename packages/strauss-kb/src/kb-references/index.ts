@@ -10,10 +10,10 @@ export {
   staleReferences,
   staleReferencesFrom,
 } from "./stale.js";
-export { KB_REFERENCE_ORIGINS } from "./model.js";
-export type {
-  KbLiveReference,
-  KbOutboundReference,
-  KbReferenceOrigin,
-  KbStaleReference,
+export {
+  KB_REFERENCE_ORIGINS,
+  type KbLiveReference,
+  type KbOutboundReference,
+  type KbReferenceOrigin,
+  type KbStaleReference,
 } from "./model.js";

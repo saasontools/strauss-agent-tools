@@ -31,6 +31,55 @@ strauss_anchors:
     resolved_at: "2026-09-17T18:53:51.266Z"
     lines: 8
     resolver: tree-sitter
+  - file: packages/strauss-kb/src/kb-references/outbound.ts
+    symbol: outboundReferences
+    hash: "sha256:1089981034bb459bbdc41e95cfb818e40b420941dfa008b7f7b6b08967b81bfc"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:55:57.109Z"
+    lines: 30
+    resolver: tree-sitter
+  - file: packages/strauss-kb/src/kb-references/stale.ts
+    symbol: staleReferences
+    hash: "sha256:8bb019e7541e4d81b7b546d3c1bec25bf6d027b725a1074584bdac31eea86171"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:55:57.110Z"
+    lines: 9
+    resolver: tree-sitter
+  - file: packages/strauss-kb/src/kb-references/model.ts
+    symbol: KB_REFERENCE_ORIGINS
+    hash: "sha256:0a35cfed1e27634042e7affa2a59d9aeee503935c7cccb63e5bd8ec3ced7085f"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:57:20.224Z"
+    lines: 4
+    resolver: regex
+  - file: packages/strauss-kb/src/kb-references/index.ts
+    symbol: KbStaleReference
+    hash: "sha256:0c932a2eb8a5b53d4dd36b43e5f863823eab166fb83c26492a9993084cfda916"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:58:04.408Z"
+    lines: 2
+    resolver: regex
+  - file: packages/strauss-kb/src/validate.ts
+    symbol: validateBundle
+    hash: "sha256:63c69212ed7ce08687eadb436901301870ba4ffbada9656be72a1fb008d7d8e4"
+    hash_kind: ast
+    resolved_at: "2026-09-17T18:55:57.113Z"
+    lines: 169
+    resolver: tree-sitter
+  - file: packages/strauss-kb/src/index.ts
+    symbol: KbStaleReference
+    hash: "sha256:41fe4e02a772aa6437ffe8908f32f47f8d73a9f1220a03b6b74b4ec047e5df44"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:58:04.411Z"
+    lines: 2
+    resolver: regex
+  - file: packages/strauss-kb/src/drift/index.ts
+    symbol: KbPacketReferences
+    hash: "sha256:8d4e212d99442619a9a8b72c31b0af1f17f8ddf837fa9d3774504966c48b61aa"
+    hash_kind: raw
+    resolved_at: "2026-09-17T18:57:20.229Z"
+    lines: 7
+    resolver: regex
 strauss_links:
   - target: risk.edge-kind-enumeration-stale
     rel: informs
@@ -41,7 +90,7 @@ strauss_supersedes:
 
 ## Decision
 
-KbEdgeKind is body-link | typed-link | supersession | anchor | source — five kinds. Related edges remain body links: compose.ts renders relatedConceptIds as `Relates to [id](id.md).`, so in stored form a related edge IS a body link and a sixth `related` kind would count the same markdown twice.
+KbEdgeKind is body-link | typed-link | supersession | anchor | source — five kinds. Related edges remain body links: compose.ts renders relatedConceptIds as a `Relates to` sentence carrying a markdown link to the target's file, so in stored form a related edge IS a body link and a sixth `related` kind would count the same markdown twice.
 
 Every consumer of the edge graph reads both halves — a record's markdown body citations and its `strauss_links` frontmatter. That is doctor's `superseded-but-cited`, single-record `reassess`, `sweep`'s hold guard, and `validate`. One body-citation parser, exported from kb-edges.ts, serves all of them.
 

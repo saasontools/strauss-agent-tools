@@ -44,19 +44,19 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: edgeNeighbours
-    hash: "sha256:c4e1f59e2d0ae58bff9fd5b79be75053975708ccc840709ab930594fbe33fa94"
+    hash: "sha256:b76adc9df85f22433c21a81cea2f71a424e831a2d5c214402b812fd5444b3757"
     hash_kind: ast
-    resolved_at: "2026-09-15T07:45:34.620Z"
-    lines: 84
+    resolved_at: "2026-09-17T18:55:59.861Z"
+    lines: 82
     resolver: tree-sitter
 strauss_verify:
   - >-
     a record written via composeRecord relatedConceptIds is reached by the
     body-link edge in kb-edges.spec.ts
 strauss_status: superseded
+strauss_superseded_by: decision.edge-consumers-read-body-and-frontmatter
 strauss_materiality: important
 strauss_confidence: high
-strauss_superseded_by: decision.edge-consumers-read-body-and-frontmatter
 ---
 
 ## Decision
