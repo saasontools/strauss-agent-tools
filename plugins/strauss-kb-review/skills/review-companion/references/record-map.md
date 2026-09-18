@@ -13,7 +13,7 @@ them without guessing: `move`, `extract`, `generated`, `boilerplate`,
 
 Something that can go wrong, on the hunk that carries it. `materiality` is
 the reviewer's attention level; `confidence` is how sure you are the
-mitigation holds. `verified_by` names the test that pins it, if one exists.
+mitigation holds. `Verification` names the check that proves the mitigation.
 
 ```json
 {
@@ -31,10 +31,7 @@ mitigation holds. `verified_by` names the test that pins it, if one exists.
   ],
   "materiality": "blocking",
   "confidence": "medium",
-  "tags": ["review", "review:business"],
-  "links": [
-    { "target": "test-obligation.checkout-single-charge", "rel": "verified_by" }
-  ]
+  "tags": ["review", "review:business"]
 }
 ```
 
@@ -166,28 +163,6 @@ A `fact` that tells the reviewer how to check it instead of reading it.
   "tags": ["review", "review:generated"]
 }
 ```
-
-## Test obligation
-
-What must be verified, and whether it is. Open until the test exists; the
-risk or requirement it covers is `verified_by` it.
-
-```json
-{
-  "slug": "checkout-single-charge",
-  "title": "A retried checkout charges exactly once",
-  "why": "The double-charge risk has no other guard.",
-  "sections": {
-    "Obligation": "Retry with a mutated cart; assert one provider call.",
-    "Why it matters": "Production cannot detect a double charge before the customer does.",
-    "How to verify": "pnpm vitest run src/checkout/checkout.spec.ts -t 'charges once'"
-  },
-  "anchors": [{ "file": "src/checkout/checkout.spec.ts" }],
-  "tags": ["review"]
-}
-```
-
-Move it to `resolved` with `kb_status` when the test lands.
 
 ## Question for the reviewer
 

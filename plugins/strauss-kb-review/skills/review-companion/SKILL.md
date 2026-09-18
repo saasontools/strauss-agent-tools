@@ -17,9 +17,9 @@ categories, renames git detects, line counts — is not a record.
 
 Everything goes in the project base, `.strauss/kb`, because typed links do
 not cross bundles and a risk that cannot point at the decision it fears is
-half a record. What only this review needs — `risk`, `open-question`,
-`test-obligation`, review marks — carries the tag `review` and ends the
-review in a terminal status: `resolved`, `rejected`, or superseded. What a
+half a record. What only this review needs — `risk`, `open-question`, review
+marks — carries the tag `review` and ends the review in a terminal status:
+`resolved`, `rejected`, or superseded. What a
 reader needs in six months carries no such tag and stays `accepted`.
 
 `kb_query` first. A record that already covers the judgment is superseded or
@@ -39,7 +39,6 @@ JSON example for each row.
 | Implemented an acceptance criterion or business flow        | `requirement` per AC with the ticket as `source`; a `flow` anchored to the symbols, `satisfies` the AC  |
 | Moved or extracted logic in a way git cannot show           | `fact` tagged `review:move` or `review:extract`, old location in the body, `verify` naming the proof    |
 | Left a block a reviewer should not read line by line        | `fact` tagged `review:generated` or `review:boilerplate`, `verify` naming how to regenerate or check it |
-| Wrote a test that pins a risk or requirement                | `test-obligation`; the `risk` or `requirement` is `verified_by` it                                      |
 | Need the reviewer to decide something                       | `open-question`, `owner` set to the reviewer                                                            |
 | Settled something in a review thread                        | `decision` or `open-question` with the comment URL as `source` — recording-decisions has the table      |
 

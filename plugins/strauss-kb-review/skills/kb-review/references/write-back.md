@@ -97,11 +97,17 @@ Only when the drift is a move. Changed content is a dispute, not a rebaseline.
       "conceptId": "open-question.cache-invalidation-on-write"
     }
   ],
+  "risks": {
+    "risk.token-reuse-across-tenants": {
+      "settle": "open",
+      "reason": "fixed in a1b2c3d, but the key is still read before the tenant check"
+    }
+  },
   "partial": false,
   "reason": null
 }
 ```
 
 `verdict` is `verified | disputed | lies | unverified`; `op` is
-`write | verify | rebaseline`; `type` only on `write`; `reason` is
-`budget | unvalidated-base | null`.
+`write | verify | rebaseline`; `type` only on `write`; `risks` only on a
+rerun, `settle` is `close | open`; `reason` is `budget | unvalidated-base | null`.

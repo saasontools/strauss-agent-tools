@@ -140,7 +140,7 @@
       "name": "test-plan-doc",
       "prompt": "write a test plan section for the design doc covering the batch get edge cases",
       "expected_trigger": false,
-      "why": "Design-doc prose; test-obligation records are not asked for."
+      "why": "Design-doc prose, not a knowledge-base record."
     }
   ]
 }

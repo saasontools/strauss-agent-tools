@@ -95,6 +95,14 @@ an edit of it.
 `strauss-kb validate` or `doctor --strict` failing: write nothing, report
 `unvalidated-base`, and route it to `kb-fix`.
 
+## Rerun
+
+A rerun brief may carry `Author responses:`, one line per risk you wrote:
+fixed in a commit, answered, or left open with a reason. Check each against
+the code at head and the risk's `## Verification`, then report it under
+`risks` in the `kb` block: `close` or `open`, with a one-line reason. Do not
+`status` the risk; a human closes it.
+
 ## Report
 
 End your review with one fenced `kb` block, then your usual summary:
