@@ -95,7 +95,7 @@ describe("MCP handshake smoke test", () => {
     const types = JSON.parse(
       (result.content as { text: string }[])[0]!.text,
     ) as Record<string, { sections: string[] }>;
-    expect(Object.keys(types)).toHaveLength(12);
+    expect(Object.keys(types)).toHaveLength(11);
     expect(types.decision?.sections).toEqual([
       "Decision",
       "Rationale",

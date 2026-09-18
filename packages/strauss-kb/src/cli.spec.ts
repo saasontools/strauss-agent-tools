@@ -970,7 +970,7 @@ describe("runKbCli", () => {
       ["composeInput", "logEntry", "recordFrontmatter"],
     );
     expect(Object.keys(parsed(await cli(["types"])) as object)).toHaveLength(
-      12,
+      11,
     );
   });
 
@@ -1001,6 +1001,21 @@ describe("runKbCli", () => {
       action: "created",
       supersededIds: [],
     });
+  });
+
+  test("refuses a retired type, naming what replaces it", async () => {
+    const { KB_COMMANDS_BY_NAME } = await import("./commands/index.js");
+    const write = KB_COMMANDS_BY_NAME.get("write")!;
+    const parsed = write.input.safeParse(
+      await write.fromArgv(["write", "test-obligation"], bundle, () =>
+        Promise.resolve(JSON.stringify({ slug: "x", title: "x" })),
+      ),
+    );
+
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues[0]?.message).toMatch(
+      /retired.*rerun brief.*it\.todo/,
+    );
   });
 
   test("writes a decision from stdin, keeping the rejected alternative", async () => {

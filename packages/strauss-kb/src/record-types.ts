@@ -3,7 +3,7 @@ import type { KbRecordStatus, KbRecordType } from "./kb-record.schema.js";
 /**
  * What each record type is for, and the shape of its body.
  *
- * A table rather than twelve composer modules. The types differ only in which
+ * A table rather than eleven composer modules. The types differ only in which
  * questions their body answers and where they start in the lifecycle; encoding
  * that as data keeps the one composer honest and makes adding a type an edit
  * rather than a file.
@@ -72,11 +72,6 @@ export const RECORD_TYPES: Readonly<Record<KbRecordType, KbRecordTypeSpec>> = {
     sections: ["System", "How it is affected", "Blast radius"],
     initialStatus: "accepted",
   },
-  "test-obligation": {
-    purpose: "Behavior or contract that must be verified",
-    sections: ["Obligation", "Why it matters", "How to verify"],
-    initialStatus: "open",
-  },
   "source-note": {
     purpose: "Extracted note from source material",
     sections: ["Note", "Where it came from"],
@@ -87,6 +82,12 @@ export const RECORD_TYPES: Readonly<Record<KbRecordType, KbRecordTypeSpec>> = {
 export function isKbRecordType(value: string): value is KbRecordType {
   return Object.prototype.hasOwnProperty.call(RECORD_TYPES, value);
 }
+
+/** Types a write refuses, each with what replaces it. */
+export const RETIRED_RECORD_TYPES: Readonly<Record<string, string>> = {
+  "test-obligation":
+    "test-obligation is retired: answer a risk in the reviewer's rerun brief, and a deferred test is it.todo in its spec",
+};
 
 /**
  * The closed vocabulary of typed causal edges — `strauss_links[].rel` — which a

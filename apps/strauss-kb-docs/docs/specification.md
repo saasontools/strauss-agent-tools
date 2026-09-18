@@ -497,7 +497,7 @@ A lock file, which adds a stale-hold failure mode.
 
 ## Record types
 
-Twelve types, differing only in what their body answers and where they start in
+Eleven types, differing only in what their body answers and where they start in
 the lifecycle.
 
 | Type              | Purpose                                          | Sections                                          | Initial status |
@@ -512,7 +512,6 @@ the lifecycle.
 | `contract`        | API, data, event, schema, or permission contract | Contract · Producer · Consumer · Compatibility    | `proposed`     |
 | `flow`            | Sequence, lifecycle, or state behavior           | Flow · Trigger · Steps · Failure modes            | `accepted`     |
 | `affected-system` | Component, service, package, or external system  | System · How it is affected · Blast radius        | `accepted`     |
-| `test-obligation` | Behavior or contract that must be verified       | Obligation · Why it matters · How to verify       | `open`         |
 | `source-note`     | Extracted note from source material              | Note · Where it came from                         | `accepted`     |
 
 `strauss-kb types` prints this table from the code. An unrecognised OKF `type`
@@ -655,7 +654,7 @@ single record cannot see; a problem it reports means someone hand-edited a file.
 
 | Check           | Severity | Reported when                                                         |
 | --------------- | -------- | --------------------------------------------------------------------- |
-| `type`          | error    | the `type` is not one of the twelve — a note, since OKF permits any   |
+| `type`          | error    | the `type` is not one of the eleven — a note, since OKF permits any   |
 | `superseded_by` | error    | a `superseded` record names no replacement, or a missing one          |
 | `backlink`      | error    | the replacement does not list this record in `strauss_supersedes`     |
 | `supersedes`    | error    | a named target is missing, or is not marked `superseded`              |
