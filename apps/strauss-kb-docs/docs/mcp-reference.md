@@ -15,7 +15,7 @@ description: Every strauss-kb MCP tool, its parameters, and a short example.
 ```
 
 Every tool is a projection of the same command table the
-[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-three tools;
+[CLI](./cli-reference.md) projects, so the two cannot drift. Thirty-four tools;
 the one CLI verb with no tool is `sync-instructions`. `STRAUSS_KB_ACTOR` names
 the writer in the log, defaulting to `mcp` here. Diagnostics go to stderr,
 because stdout is the JSON-RPC transport.
@@ -151,7 +151,8 @@ parameter, a non-blank string that must say what the check found. Parameters:
 ### `kb_anchor_resolve`
 
 As CLI [`anchor-resolve`](./cli-reference.md#anchor-resolve), with the
-flags as camelCase parameters. The non-zero exit on drift is CLI-only.
+flags as camelCase parameters. Results carry the same per-anchor `outcome`;
+only the exit code is CLI-only.
 
 Parameters: `bundlePath` and `conceptId` required; `repoRoot` (`string`,
 defaults to the working directory), `offline`, `rebaseline`, `restamp` and
@@ -164,6 +165,44 @@ defaults to the working directory), `offline`, `rebaseline`, `restamp` and
   "repoRoot": "/repo"
 }
 ```
+
+### `kb_anchor_set`
+
+As CLI [`anchor-set`](./cli-reference.md#anchor-set). The object the CLI reads
+from stdin is the `input` parameter.
+
+Parameters: `bundlePath`, `conceptId` and `input` required; `resolve`,
+`offline` (`boolean`) and `repoRoot` (`string`) optional, as the CLI flags. `input` is
+`{ reason, anchors }`; `anchors` is the complete new set. Carry an anchor's
+`hash` and the rest of its stamp forward to keep drift visible until the new
+code is read.
+
+```json
+{
+  "bundlePath": "…/kb",
+  "conceptId": "decision.export-retention",
+  "input": {
+    "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+    "anchors": [
+      {
+        "file": "src/cleanup.mjs",
+        "symbol": "isExportExpired",
+        "hash": "sha256:5c7242b8…",
+        "hash_kind": "ast",
+        "resolved_at": "2026-09-17T20:06:25.829Z",
+        "lines": 3,
+        "resolver": "tree-sitter"
+      },
+      { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    ]
+  }
+}
+```
+
+Returns `{ conceptId, reason, changes, anchors, baseline, note }`. `baseline` is
+always `"unchanged"`: moving a pointer is not accepting the code behind it. Call
+`kb_anchor_resolve` next to check the new pointers, with `rebaseline` to accept
+them, and `kb_verify` only for a reading someone actually did.
 
 ### `kb_reassess`
 

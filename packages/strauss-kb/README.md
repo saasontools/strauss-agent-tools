@@ -228,10 +228,17 @@ against the working tree (`--repo-root` when the base is not inside it) and
 never writes `verified[]`; `--check` writes nothing at all. Per anchor:
 
 - **stamped** — no hash yet; hash, line count, and timestamp are written
-  (`unstamped` under `--check`, which writes none).
+  (`unstamped` until one lands, so `--check` and a refused write say so).
 - **match** — unchanged; nothing written. `--restamp` re-dates on purpose.
 - **drifted** — hash changed. Baseline kept unless `--rebaseline`.
 - **unresolved** — not comparable, with a reason. A finding, not an error.
+
+`anchor-set <concept-id>` (`kb_anchor_set`) sets those pointers when a refactor
+renamed or extracted the code: the complete new anchor set, plus a required
+reason that lands in the log. Carry an anchor's `hash` forward and the code
+behind a moved pointer still reports drift until it is read and
+accepted with `--rebaseline`; `--resolve` stamps the set in the same call.
+It never verifies or moves standing. [Full rules](https://saasontools.github.io/strauss-agent-tools/cli-reference#anchor-set).
 
 An anchor naming another `repo` is read from that repository's **remote**,
 through a bare cache under `~/.strauss/repo-cache` — a local checkout is one
@@ -244,8 +251,9 @@ finding, not a command.
 An anchor must not read outside the repository it describes, checked lexically
 and again on the real path after symlinks.
 
-Exit code is non-zero on **drifted**, or on **unresolved** for an anchor that
-carries a hash; unstamped anchors and unreachable remotes never fail.
+A write the run asked for carries its own `outcome`, and the exit code follows
+it:
+[cli-reference](https://saasontools.github.io/strauss-agent-tools/cli-reference#anchor-resolve).
 
 Symbols resolve tree-sitter first — the 20 language packs that have both a
 grammar and a definitions query, pinned together by `pnpm grammars pin` from
@@ -308,6 +316,8 @@ strauss-kb [--bundle PATH] <command> [args]
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
   anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]
                                            Resolve anchors against the working tree: stamp, or report drift.
+  anchor-set <concept-id> [--resolve] < anchors.json
+                                           Set anchors after a refactor you read, with a reason; --resolve stamps them.
   reassess <concept-id> [--repo-root <path>] [--with-diff]
                                            One drifted record as something to judge: claim, classes, diff, impact.
   promote <concept-id...> --to <bundle> [--source <url>] [--force] | --list
@@ -384,7 +394,7 @@ strauss-kb validate || echo "errors above"   # warnings alone still exit 0
 ```
 
 Every CLI verb is a tool: `kb_write`, `kb_write_decision`, `kb_no_decision`,
-`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_reassess`,
+`kb_status`, `kb_supersede`, `kb_answer`, `kb_verify`, `kb_anchor_resolve`, `kb_anchor_set`, `kb_reassess`,
 `kb_promote`,
 `kb_load`, `kb_catalog`,
 `kb_pack`, `kb_export`,

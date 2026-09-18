@@ -73,9 +73,23 @@ One JSON object per line, appended with `O_APPEND`:
 | `operation` | yes      | e.g. `write`, `verify:refused`                                                                                         |
 | `conceptId` | yes      | the record acted on                                                                                                    |
 | `target`    | no       | the operation's other end: a second id for supersession, the other base's absolute path for `promote-in`/`promote-out` |
+| `reason`    | no       | why, where the operation demands one — [`anchor-set`](./cli-reference.md#anchor-set) does                              |
+| `anchors`   | no       | what `anchor-set` changed: `{ op, from?, to? }` per pointer, `op` one of `move`, `add`, `drop`                         |
 
-The schema is `.strict()`: unknown keys are a malformed line, and `at` must be
-an ISO-8601 UTC datetime. Malformed lines are reported with their 1-based
+Unknown keys are **kept**, not rejected: one base is read by every version that
+touches the repository, so the log has to read forward — under a strict schema
+the first version to add a field turned its own entries into `malformed` for
+every older reader. A line missing a required field, or carrying an `at` that is
+not an ISO-8601 UTC datetime, is still malformed. Writes go through a strict
+schema, since this package controls what it appends.
+
+:::note A reader older than 0.1.22
+`reason` and `anchors` arrived in 0.1.22, when the read schema was still strict.
+A CLI or MCP server built before it reports every `anchor-set` line as
+malformed and drops it from `entries`. Malformed lines are reported, never
+repaired, so nothing is lost — but rebuild or update before reading a base for
+its audit trail.
+::: Malformed lines are reported with their 1-based
 position and never rewritten. Reads are **sorted by `at`** and **deduplicated on
 exact equality** over the whole parsed entry.
 
@@ -297,6 +311,37 @@ the regex resolver never reports it — there the class is `changed`. A span is
 searched for `moved` by sliding its recorded line count over its own file, since
 it names no definition to look for elsewhere. An old-side anchor is neither
 searched nor diffed: committed bytes cannot move or be reformatted.
+
+#### Moving a pointer
+
+`file`, `symbol`, `span`, `side`, `repo` and `ref` are the anchor's address;
+the five measured fields are its baseline. A refactor that renames the anchored
+symbol, or extracts part of it, leaves a record pointing at code that is no
+longer there — and nothing mechanical can say which new symbol replaces it.
+[`anchor-set`](./cli-reference.md#anchor-set) is the reader's answer: the new
+set of anchors, and a required reason.
+
+A record's first write and `anchor-set` share one check: no two anchors at one
+address. Beyond that the set is taken as given. An anchor keeps its baseline by
+carrying its `hash` and the rest of its stamp forward; carried under a new
+`file` or `symbol`, the drift the rename hid is reported the moment the pointer
+resolves, and clearing it is still
+[`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve). Whether the
+code behind a pointer was read is the caller's claim, and the `anchor-set` log
+entry records who made it and why — it is never a `verified[]` event.
+
+#### What drift does and does not see
+
+A hash over one span answers one question, which bounds the whole mechanism:
+
+- A **body that changes under the same name** drifts. That is the case the
+  hash exists for.
+- An **unchanged caller does not inherit** an unanchored helper's change: the
+  caller's own span still hashes the same, so the helper needs its own anchor
+  to be watched.
+- A **runtime change** — an environment variable, a feature flag, a config
+  value read at startup — changes no bytes and so drifts nothing. A risk about
+  one stays open after the code drift clears; only a reading closes it.
 
 #### The reassessment packet
 

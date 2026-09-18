@@ -182,6 +182,21 @@ export const kbAnchorWriteSchema = kbAnchorSchema.superRefine((anchor, ctx) => {
 });
 
 /**
+ * An anchor's address, with none of the baseline a resolver stamps: a `hash`
+ * under a locator is an unknown key. Picked rather than respelled, so a new
+ * locator field on the anchor is one here too. See
+ * `contract.anchor-locator-is-the-address-half-of-an-anchor`.
+ */
+export const kbAnchorLocatorSchema = kbAnchorSchema.pick({
+  file: true,
+  symbol: true,
+  span: true,
+  side: true,
+  repo: true,
+  ref: true,
+});
+
+/**
  * One typed causal edge, as the frontmatter stores it.
  *
  * Read-side, and therefore tolerant: `rel` is a plain string here even though
@@ -313,6 +328,7 @@ export type KbActorStamp = z.infer<typeof kbActorStampSchema>;
 export type KbVerifiedEvent = z.infer<typeof kbVerifiedEventSchema>;
 export type KbAnchorSpan = z.infer<typeof kbAnchorSpanSchema>;
 export type KbAnchor = z.infer<typeof kbAnchorSchema>;
+export type KbAnchorLocator = z.infer<typeof kbAnchorLocatorSchema>;
 export type KbLink = z.infer<typeof kbLinkSchema>;
 export type KbRecordFrontmatter = z.infer<typeof kbRecordFrontmatterSchema>;
 

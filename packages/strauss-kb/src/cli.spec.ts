@@ -682,7 +682,8 @@ describe("runKbCli", () => {
       writeFileSync(join(repo, file), source);
 
       const resolved = resolveAnchor(source, { file, symbol: "orderKey" })!;
-      await new KbStore().write(
+      const anchored = new KbStore();
+      await anchored.write(
         bundle,
         composeRecord(
           "decision",
@@ -690,19 +691,25 @@ describe("runKbCli", () => {
             slug: "region-in-key",
             title: "The region prefixes the key",
             why: "A region-less key serves the wrong region's data.",
-            anchors: [
-              {
-                file,
-                symbol: "orderKey",
-                hash: hashAnchorText(resolved.text),
-                resolved_at: "2026-08-01T02:00:00Z",
-                lines: resolved.endLine - resolved.startLine + 1,
-              },
-            ],
           },
           "seed",
           "2026-08-01T02:00:00Z",
         ),
+      );
+      // Stamped through the store, as a resolution pass does.
+      await anchored.updateAnchors(
+        bundle,
+        "decision.region-in-key",
+        [
+          {
+            file,
+            symbol: "orderKey",
+            hash: hashAnchorText(resolved.text),
+            resolved_at: "2026-08-01T02:00:00Z",
+            lines: resolved.endLine - resolved.startLine + 1,
+          },
+        ],
+        "agent:resolver",
       );
 
       const clean = await at([
@@ -743,6 +750,30 @@ describe("runKbCli", () => {
       expect(parsed(drifted)).toMatchObject({
         results: [{ state: "drifted", diffSize: 0 }],
       });
+
+      // The write is the answer to the drift it reports, so the process says
+      // so: a shell sequencing a rebaseline reads this exit code.
+      const rebaselined = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+        "--rebaseline",
+      ]);
+      expect(rebaselined.exitCode).toBeUndefined();
+      expect(parsed(rebaselined)).toMatchObject({
+        results: [{ state: "drifted", outcome: "applied", rebaselined: true }],
+      });
+      expect(readFileSync(recordFile, "utf8")).not.toBe(before);
+
+      const settled = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+      ]);
+      expect(settled.exitCode).toBeUndefined();
+      expect(parsed(settled)).toMatchObject({ results: [{ state: "match" }] });
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
@@ -806,7 +837,8 @@ describe("runKbCli", () => {
         writeFileSync(join(repo, file), source);
 
         const resolved = resolveAnchor(source, { file, symbol: "orderKey" })!;
-        await new KbStore().write(
+        const anchored = new KbStore();
+        await anchored.write(
           bundle,
           composeRecord(
             "decision",
@@ -814,19 +846,25 @@ describe("runKbCli", () => {
               slug: "region-in-key",
               title: "The region prefixes the key",
               why: "A region-less key serves the wrong region's data.",
-              anchors: [
-                {
-                  file,
-                  symbol: "orderKey",
-                  hash: hashAnchorText(resolved.text),
-                  resolved_at: "2026-08-01T02:00:00Z",
-                  lines: resolved.endLine - resolved.startLine + 1,
-                },
-              ],
             },
             "seed",
             "2026-08-01T02:00:00Z",
           ),
+        );
+        // Stamped through the store, as a resolution pass does.
+        await anchored.updateAnchors(
+          bundle,
+          "decision.region-in-key",
+          [
+            {
+              file,
+              symbol: "orderKey",
+              hash: hashAnchorText(resolved.text),
+              resolved_at: "2026-08-01T02:00:00Z",
+              lines: resolved.endLine - resolved.startLine + 1,
+            },
+          ],
+          "agent:resolver",
         );
 
         const clean = await at(["doctor", "--json", "--repo-root", repo]);

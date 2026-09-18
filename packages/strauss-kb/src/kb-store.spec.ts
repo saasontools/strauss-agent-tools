@@ -1909,20 +1909,23 @@ describe("load anchor drift", () => {
   async function seedAnchored(store: KbStore, bundle: string): Promise<void> {
     mkdirSync(join(bundle, "src"), { recursive: true });
     writeFileSync(join(bundle, "src", "order.ts"), SOURCE);
-    await store.write(
+    await store.write(bundle, fact("order-total"));
+    // Stamped through the store, as a resolution pass does: a first write can
+    // only ask for addresses.
+    await store.updateAnchors(
       bundle,
-      fact("order-total", {
-        anchors: [
-          {
-            file: "src/order.ts",
-            hash: hashAnchorText(SOURCE),
-            resolved_at: "2026-08-26T10:00:00Z",
-            // Counted the way the resolver counts, so `diffSize` measures the
-            // edit rather than a disagreement about trailing newlines.
-            lines: anchorLines(SOURCE),
-          },
-        ],
-      }),
+      "fact.order-total",
+      [
+        {
+          file: "src/order.ts",
+          hash: hashAnchorText(SOURCE),
+          resolved_at: "2026-08-26T10:00:00Z",
+          // Counted the way the resolver counts, so `diffSize` measures the
+          // edit rather than a disagreement about trailing newlines.
+          lines: anchorLines(SOURCE),
+        },
+      ],
+      "agent:resolver",
     );
   }
 

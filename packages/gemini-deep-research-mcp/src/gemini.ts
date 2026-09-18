@@ -46,22 +46,27 @@ function getClient(): GoogleGenAI {
     const baseUrl = getBaseUrl();
     client = new GoogleGenAI({
       apiKey,
-      httpOptions: {
-        ...(baseUrl ? { baseUrl } : {}),
-        timeout: 30_000,
-        // SDK-native retries; do not hand-roll a retry loop on top.
-        retryOptions: {
-          attempts: getRetryAttempts(),
-          initialDelay: 500,
-          maxDelay: 8_000,
-          expBase: 2,
-          jitter: 0.3,
-          httpStatusCodes: [408, 429, 500, 502, 503, 504],
-        },
-      },
+      httpOptions: { ...(baseUrl ? { baseUrl } : {}) },
     });
   }
   return client;
+}
+
+/** Per-request transport policy for the interactions calls. `httpOptions`
+ * cannot carry it: the next-gen interactions client rebuilds its transport
+ * from the parent client's base URL and auth alone. `maxRetries` counts
+ * retries *after* the first attempt, so attempts=1 means 0. */
+function requestOptions() {
+  return {
+    timeout_ms: 30_000,
+    retries: {
+      strategy: "attempt-count-backoff" as const,
+      maxRetries: getRetryAttempts() - 1,
+      backoff: { initialInterval: 500, maxInterval: 8_000, exponent: 2 },
+      retryConnectionErrors: true,
+    },
+    retry_codes: ["408", "429", "500", "502", "503", "504"],
+  };
 }
 
 /** HTTP status carried by an SDK error. The classic client throws ApiError
@@ -133,22 +138,25 @@ export async function startResearch(
   options: StartOptions,
 ): Promise<InteractionLike> {
   try {
-    const interaction = await getClient().interactions.create({
-      input: options.query,
-      agent: AGENTS[options.depth],
-      background: true,
-      store: true,
-      ...(options.previousInteractionId
-        ? { previous_interaction_id: options.previousInteractionId }
-        : {}),
-      agent_config: {
-        type: "deep-research",
-        thinking_summaries:
-          options.thinkingSummaries === false ? "none" : "auto",
-        visualization: options.visualization ? "auto" : "off",
-        collaborative_planning: options.collaborativePlanning ?? false,
+    const interaction = await getClient().interactions.create(
+      {
+        input: options.query,
+        agent: AGENTS[options.depth],
+        background: true,
+        store: true,
+        ...(options.previousInteractionId
+          ? { previous_interaction_id: options.previousInteractionId }
+          : {}),
+        agent_config: {
+          type: "deep-research",
+          thinking_summaries:
+            options.thinkingSummaries === false ? "none" : "auto",
+          visualization: options.visualization ? "auto" : "off",
+          collaborative_planning: options.collaborativePlanning ?? false,
+        },
       },
-    });
+      requestOptions(),
+    );
     return interaction as unknown as InteractionLike;
   } catch (err) {
     throw mapError(err, "start");
@@ -168,18 +176,21 @@ export async function replyResearch(
   options: ReplyOptions,
 ): Promise<InteractionLike> {
   try {
-    const interaction = await getClient().interactions.create({
-      input: options.message,
-      agent: AGENTS[options.depth],
-      background: true,
-      store: true,
-      previous_interaction_id: options.previousInteractionId,
-      agent_config: {
-        type: "deep-research",
-        thinking_summaries: "auto",
-        collaborative_planning: options.keepPlanning ?? false,
+    const interaction = await getClient().interactions.create(
+      {
+        input: options.message,
+        agent: AGENTS[options.depth],
+        background: true,
+        store: true,
+        previous_interaction_id: options.previousInteractionId,
+        agent_config: {
+          type: "deep-research",
+          thinking_summaries: "auto",
+          collaborative_planning: options.keepPlanning ?? false,
+        },
       },
-    });
+      requestOptions(),
+    );
     return interaction as unknown as InteractionLike;
   } catch (err) {
     throw mapError(err, "reply");
@@ -188,7 +199,11 @@ export async function replyResearch(
 
 export async function getInteraction(id: string): Promise<InteractionLike> {
   try {
-    const interaction = await getClient().interactions.get(id);
+    const interaction = await getClient().interactions.get(
+      id,
+      {},
+      requestOptions(),
+    );
     return interaction as unknown as InteractionLike;
   } catch (err) {
     throw mapError(err, "status");
@@ -197,7 +212,11 @@ export async function getInteraction(id: string): Promise<InteractionLike> {
 
 export async function cancelInteraction(id: string): Promise<InteractionLike> {
   try {
-    const interaction = await getClient().interactions.cancel(id);
+    const interaction = await getClient().interactions.cancel(
+      id,
+      {},
+      requestOptions(),
+    );
     return interaction as unknown as InteractionLike;
   } catch (err) {
     throw mapError(err, "cancel");

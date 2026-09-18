@@ -8,7 +8,7 @@ import {
   hashAnchorText,
   resolveAnchorSpan,
 } from "./anchor-resolver/index.js";
-import { anchorResolveCommand } from "./commands/anchor-resolve.js";
+import { anchorResolveCommand } from "./commands/anchor-resolve/index.js";
 import {
   doctorCommand,
   type KbDoctorCommandResult,
@@ -55,6 +55,11 @@ function spanAnchor(extra: Partial<KbAnchor> = {}): KbAnchor {
   };
 }
 
+/**
+ * A record as a resolution pass has already left it. The anchors go on after
+ * `composeRecord`, not through it: a first write can only ask for addresses,
+ * and these carry hashes.
+ */
 function record(anchors: KbAnchor[]): KbRecord {
   const input = composeRecord(
     "constraint",
@@ -62,14 +67,17 @@ function record(anchors: KbAnchor[]): KbRecord {
       slug: "retry-budget",
       title: "Three attempts, exponential backoff",
       why: "A fourth attempt outlives the caller's timeout.",
-      anchors,
     },
     "agent:writer",
     "2026-08-01T00:00:00Z",
   );
   return {
     conceptId: ID,
-    frontmatter: { ...input.frontmatter, type: input.type },
+    frontmatter: {
+      ...input.frontmatter,
+      type: input.type,
+      strauss_anchors: anchors,
+    },
     body: input.body,
   } as KbRecord;
 }
@@ -288,12 +296,12 @@ describe("span drift", () => {
           slug: "retry-budget",
           title: "Three attempts, exponential backoff",
           why: "A fourth attempt outlives the caller's timeout.",
-          anchors: [spanAnchor()],
         },
         "agent:writer",
         "2026-08-01T00:00:00Z",
       ),
     );
+    await store.updateAnchors(bundle, ID, [spanAnchor()], "agent:resolver");
 
     const output = (await anchorResolveCommand.run(
       { store, actor: "agent:resolver", now: () => NOW },
@@ -332,12 +340,12 @@ describe("span drift", () => {
           slug: "retry-budget",
           title: "Three attempts, exponential backoff",
           why: "A fourth attempt outlives the caller's timeout.",
-          anchors: [spanAnchor()],
         },
         "agent:writer",
         "2026-08-01T00:00:00Z",
       ),
     );
+    await store.updateAnchors(bundle, ID, [spanAnchor()], "agent:resolver");
 
     const report = (await doctorCommand.run(
       { store, actor: "agent:reader", now: () => NOW },

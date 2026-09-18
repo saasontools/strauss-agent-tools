@@ -12,13 +12,17 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { hashAnchorText, resolveAnchor } from "../anchor-resolver/index.js";
-import { composeRecord } from "../compose.js";
-import { pinBase } from "../kb-pins/index.js";
-import { KbStore } from "../kb-store.js";
-import type { KbAnchor } from "../kb-record.schema.js";
-import { TreeSitterResolver } from "../tree-sitter-resolver/index.js";
-import { anchorResolveCommand } from "./anchor-resolve.js";
+import { z } from "zod";
+import { hashAnchorText, resolveAnchor } from "../../anchor-resolver/index.js";
+import { composeRecord } from "../../compose.js";
+import { pinBase } from "../../kb-pins/index.js";
+import { KbWriteConflictError } from "../../kb-errors.js";
+import { KbStore } from "../../kb-store.js";
+import type { KbAnchor } from "../../kb-record.schema.js";
+import { TreeSitterResolver } from "../../tree-sitter-resolver/index.js";
+import { reassessCommand } from "../reassess.js";
+import { anchorResolveCommand } from "./index.js";
+import { planAnchors } from "./plan.js";
 
 /** What a tree-sitter stamp now hashes: the span's normalised token stream. */
 async function astHash(source: string): Promise<string> {
@@ -30,9 +34,9 @@ async function astHash(source: string): Promise<string> {
 
 /** Counts the files the command actually opens, per run. */
 const readerCalls: string[] = [];
-vi.mock("../anchor-resolver/index.js", async (importOriginal) => {
+vi.mock("../../anchor-resolver/index.js", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../anchor-resolver/index.js")>();
+    await importOriginal<typeof import("../../anchor-resolver/index.js")>();
   return {
     ...actual,
     anchorFileReader: (repoRoot: string) => {
@@ -67,6 +71,8 @@ type Output = {
     hashKind?: string;
     diffSize?: number | null;
     reason?: string;
+    outcome?: string;
+    outcomeReason?: string;
     rebaselined?: boolean;
     repo?: string;
     remoteState?: string;
@@ -111,7 +117,8 @@ describe("anchorResolveCommand", () => {
     anchors: KbAnchor[] | undefined,
     generator = "agent:writer",
   ): Promise<void> {
-    await new KbStore().write(
+    const store = new KbStore();
+    await store.write(
       bundle,
       composeRecord(
         "decision",
@@ -119,17 +126,22 @@ describe("anchorResolveCommand", () => {
           slug: "totals-shape",
           title: "Totals counts orders",
           why: "A totals that sums amounts would double-charge refunds.",
-          ...(anchors ? { anchors } : {}),
         },
         generator,
         "2026-08-01T00:00:00Z",
       ),
     );
+    // Stamped anchors arrive the way a real base gets them: a resolution pass
+    // writes them, never the first write.
+    if (anchors?.length) {
+      await store.updateAnchors(bundle, ID, anchors, "agent:resolver");
+    }
   }
 
   async function run(
     input: Record<string, unknown>,
     actor = "agent:resolver",
+    store: KbStore = new KbStore(),
   ): Promise<Output> {
     const parsed = anchorResolveCommand.input.parse({
       bundlePath: bundle,
@@ -138,7 +150,7 @@ describe("anchorResolveCommand", () => {
       ...input,
     });
     return (await anchorResolveCommand.run(
-      { store: new KbStore(), actor, now: () => NOW },
+      { store, actor, now: () => NOW },
       parsed,
     )) as Output;
   }
@@ -303,8 +315,12 @@ describe("anchorResolveCommand", () => {
 
     expect(output.results[0]).toMatchObject({
       state: "drifted",
+      outcome: "applied",
       rebaselined: true,
     });
+    // The write succeeded, so the run succeeded: a gate that saw 1 here would
+    // stop a sequence whose next step has nothing left to do.
+    expect(fails(output)).toBe(false);
     const record = await new KbStore().read(bundle, ID);
     // Rebaselining stamps the strongest hash available: over the parsed token
     // stream, not the raw text, so a later reformat of this span is not drift.
@@ -318,6 +334,242 @@ describe("anchorResolveCommand", () => {
         resolveAnchor(edited, { file: FILE, symbol: "totals" })!.text,
       ),
     );
+    expect(record?.frontmatter.verified).toEqual([]);
+  });
+
+  // The sequence this exists for: rebaseline, then look again. The second run
+  // matches, and `reassess` has nothing to hand a reader.
+  test("a rebaselined anchor rechecks clean and leaves reassess nothing", async () => {
+    await seed([stamped("totals", SOURCE)]);
+    writeSource(SOURCE.replace("orders.length", "orders.length + 0"));
+
+    await run({ rebaseline: true });
+    const again = await run({});
+
+    expect(again.results[0]).toMatchObject({ state: "match" });
+    expect(fails(again)).toBe(false);
+
+    const reassessed = (await reassessCommand.run(
+      { store: new KbStore(), actor: "agent:resolver", now: () => NOW },
+      reassessCommand.input.parse({
+        bundlePath: bundle,
+        conceptId: ID,
+        repoRoot: repo,
+      }),
+    )) as { packet: unknown };
+    expect(reassessed.packet).toBeNull();
+  });
+
+  // New, changed, and unchanged anchors in one record: the writes it owes are
+  // the drifted one and the unstamped one, and both land in the same write.
+  test("--rebaseline settles a mix of unstamped and drifted anchors", async () => {
+    const source = [
+      SOURCE,
+      "export const LIMIT = 25;",
+      "export const FLOOR = 1;",
+      "",
+    ].join("\n");
+    const drifting = stamped("totals", source);
+    const unchanged = stamped("FLOOR", source);
+    await seed([drifting, { file: FILE, symbol: "LIMIT" }, unchanged]);
+    writeSource(source.replace("orders.length", "orders.length + 0"));
+
+    const output = await run({ rebaseline: true });
+
+    expect(output.results).toMatchObject([
+      { symbol: "totals", state: "drifted", outcome: "applied" },
+      { symbol: "LIMIT", state: "stamped", outcome: "applied" },
+      { symbol: "FLOOR", state: "match" },
+    ]);
+    expect(fails(output)).toBe(false);
+
+    const anchors = (await new KbStore().read(bundle, ID))?.frontmatter
+      .strauss_anchors;
+    expect(anchors?.[0]?.hash).not.toBe(drifting.hash);
+    expect(anchors?.[1]?.hash).toBeDefined();
+    expect(anchors?.[2]?.hash).toBe(unchanged.hash);
+  });
+
+  // A refused write is not a rebaseline. The report names the refusal, the
+  // stored baseline is exactly what it was, and the gate still fails.
+  test("a store that refuses the write never reports a rebaseline", async () => {
+    const anchor = stamped("totals", SOURCE);
+    await seed([anchor]);
+    writeSource(SOURCE.replace("orders.length", "orders.length + 0"));
+    const store = new KbStore();
+    vi.spyOn(store, "updateAnchors").mockRejectedValue(new Error("disk full"));
+
+    const output = await run({ rebaseline: true }, "agent:resolver", store);
+
+    expect(output.results[0]).toMatchObject({
+      state: "drifted",
+      outcome: "failed",
+      outcomeReason: "write-failed",
+    });
+    expect(output.results[0]?.rebaselined).toBeUndefined();
+    expect(output.note).toBe("nothing was written: disk full");
+    expect(fails(output)).toBe(true);
+
+    const record = await new KbStore().read(bundle, ID);
+    expect(record?.frontmatter.strauss_anchors?.[0]?.hash).toBe(anchor.hash);
+  });
+
+  // The only write a matching anchor ever earns is its date, and a refused one
+  // used to leave the whole run silent: no outcome, and exit 0.
+  test("a refused resolved_at refresh is still a failed write", async () => {
+    writeSource(SOURCE);
+    const { resolved_at: _dropped, ...undated } = stamped("totals", SOURCE);
+    await seed([undated]);
+    const store = new KbStore();
+    vi.spyOn(store, "updateAnchors").mockRejectedValue(new Error("disk full"));
+
+    const output = await run({}, "agent:resolver", store);
+
+    expect(output.results[0]).toMatchObject({
+      state: "match",
+      outcome: "failed",
+      outcomeReason: "write-failed",
+    });
+    expect(fails(output)).toBe(true);
+  });
+
+  // A schema error is this command building an anchor badly, not the
+  // environment refusing one, so it reaches the caller as itself.
+  test("a schema error from the write propagates", async () => {
+    writeSource(SOURCE);
+    await seed([{ file: FILE, symbol: "totals" }]);
+    const store = new KbStore();
+    vi.spyOn(store, "updateAnchors").mockImplementation(() => {
+      throw new z.ZodError([]);
+    });
+
+    await expect(run({}, "agent:resolver", store)).rejects.toMatchObject({
+      name: "ZodError",
+    });
+  });
+
+  // A typed store error is the caller's to act on, and MCP has no exit code to
+  // read: it propagates rather than becoming one anchor's outcome.
+  test("a typed store error propagates instead of becoming a finding", async () => {
+    await seed([stamped("totals", SOURCE)]);
+    writeSource(SOURCE.replace("orders.length", "orders.length + 0"));
+    const store = new KbStore();
+    vi.spyOn(store, "updateAnchors").mockRejectedValue(
+      new KbWriteConflictError(ID),
+    );
+
+    await expect(
+      run({ rebaseline: true }, "agent:resolver", store),
+    ).rejects.toMatchObject({ name: "KbWriteConflictError" });
+  });
+
+  // The count and the refusal are two facts about one run, and `note` is one
+  // key: the failure used to overwrite the count.
+  test("the note keeps the anchor count beside the refusal, and stays short", async () => {
+    writeSource(SOURCE);
+    const local = stamped("totals", SOURCE);
+    const { resolved_at: _dropped, ...undated } = local;
+    await seed([
+      undated,
+      { ...local, file: "src/elsewhere.ts", repo: "org/somewhere-else" },
+    ]);
+    const store = new KbStore();
+    vi.spyOn(store, "updateAnchors").mockRejectedValue(
+      new Error("x".repeat(500)),
+    );
+
+    const output = await run({ offline: true }, "agent:resolver", store);
+
+    expect(output.note).toContain("1/1 anchors match, 1 unreachable");
+    expect(output.note).toContain("nothing was written:");
+    expect(output.note?.length).toBeLessThan(300);
+  });
+
+  // `planAnchors` is exported, and `--check` means no write whatever else the
+  // caller passed.
+  test("planAnchors writes nothing under check, even asked to rebaseline", async () => {
+    writeSource(SOURCE.replace("orders.length", "orders.length + 0"));
+    const anchor = stamped("totals", SOURCE);
+
+    const plans = await planAnchors([anchor], {
+      root: repo,
+      offline: true,
+      rebaseline: true,
+      restamp: true,
+      check: true,
+      now: () => NOW,
+    });
+
+    expect(plans[0]?.finding.state).toBe("drifted");
+    expect(plans[0]?.write).toBeUndefined();
+    expect(plans[0]?.anchor).toBe(anchor);
+  });
+
+  // Frozen skips the date this command fills in for itself, and keeps the one
+  // `--restamp` asked for, so the outcome a refusal reports is always a
+  // refusal of something the caller wanted.
+  test("planAnchors keeps only the asked-for refresh on a frozen base", async () => {
+    writeSource(SOURCE);
+    const { resolved_at: _dropped, ...undated } = stamped("totals", SOURCE);
+    const options = {
+      root: repo,
+      offline: true,
+      rebaseline: false,
+      check: false,
+      frozen: true,
+      now: () => NOW,
+    };
+
+    const backfill = await planAnchors([undated], {
+      ...options,
+      restamp: false,
+    });
+    const asked = await planAnchors([undated], { ...options, restamp: true });
+
+    expect(backfill[0]?.write).toBeUndefined();
+    expect(asked[0]?.write).toBe("refresh");
+  });
+
+  test("--rebaseline cannot settle a symbol that is gone", async () => {
+    writeSource(SOURCE);
+    await seed([
+      {
+        file: FILE,
+        symbol: "MissingThing",
+        hash: hashAnchorText("x"),
+        lines: 1,
+      },
+    ]);
+
+    const output = await run({ rebaseline: true });
+
+    expect(output.results[0]).toMatchObject({
+      state: "unresolved",
+      reason: "symbol-not-found",
+    });
+    expect(output.results[0]?.outcome).toBeUndefined();
+    expect(fails(output)).toBe(true);
+  });
+
+  // Nothing read it, so nothing rebaselined it — and an anchor the run could
+  // not check still does not fail the gate.
+  test("--rebaseline claims nothing for an unreachable foreign anchor", async () => {
+    writeSource(SOURCE);
+    const local = stamped("totals", SOURCE);
+    await seed([
+      local,
+      { ...local, file: "src/elsewhere.ts", repo: "org/somewhere-else" },
+    ]);
+
+    const output = await run({ offline: true, rebaseline: true });
+
+    expect(output.results[1]).toMatchObject({
+      state: "unresolved",
+      reason: "remote-unreachable",
+    });
+    expect(output.results[1]?.outcome).toBeUndefined();
+    expect(output.results[1]?.rebaselined).toBeUndefined();
+    expect(fails(output)).toBe(false);
   });
 
   // A stored hash that no longer resolves is a broken anchor, not an absence:
@@ -434,10 +686,68 @@ describe("anchorResolveCommand", () => {
       expect(output).toMatchObject({
         frozen: true,
         note: "base is frozen: nothing was stamped",
-        results: [{ state: "stamped" }],
+        // The refusal is the anchor's own outcome: `stamped` here would name a
+        // hash the base does not hold.
+        results: [
+          { state: "unstamped", outcome: "failed", outcomeReason: "frozen" },
+        ],
       });
+      expect(fails(output)).toBe(true);
       const record = await new KbStore().read(bundle, ID);
       expect(record?.frontmatter.strauss_anchors?.[0]?.hash).toBeUndefined();
+    } finally {
+      cwd.mockRestore();
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  // The date backfill is the command's own idea, not the caller's. On a base
+  // that can never take it, planning it would leave the run permanently red.
+  test("a frozen base plans no date backfill, so a matching record stays green", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "strauss-kb-resolve-ws-"));
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(workspace);
+    try {
+      writeSource(SOURCE);
+      const { resolved_at: _dropped, ...undated } = stamped("totals", SOURCE);
+      await seed([undated]);
+      await pinBase(new KbStore(), workspace, bundle, NOW, {
+        layer: "local",
+        frozen: true,
+      });
+
+      const output = await run({});
+
+      expect(output.results).toMatchObject([{ state: "match" }]);
+      expect(output.results[0]?.outcome).toBeUndefined();
+      expect(output.frozen).toBeUndefined();
+      expect(fails(output)).toBe(false);
+    } finally {
+      cwd.mockRestore();
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  // `--restamp` is a write the caller asked for, so a base that refuses it
+  // says so.
+  test("a frozen base fails the --restamp the caller asked for", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "strauss-kb-resolve-ws-"));
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(workspace);
+    try {
+      writeSource(SOURCE);
+      await seed([stamped("totals", SOURCE)]);
+      await pinBase(new KbStore(), workspace, bundle, NOW, {
+        layer: "local",
+        frozen: true,
+      });
+
+      const output = await run({ restamp: true });
+
+      expect(output.results[0]).toMatchObject({
+        state: "match",
+        outcome: "failed",
+        outcomeReason: "frozen",
+      });
+      expect(fails(output)).toBe(true);
     } finally {
       cwd.mockRestore();
       rmSync(workspace, { recursive: true, force: true });
@@ -473,8 +783,10 @@ describe("anchorResolveCommand", () => {
         currentHash: expectedHash,
         hashKind: "ast",
         resolver: "tree-sitter",
+        outcome: "applied",
       },
     ]);
+    expect(fails(output)).toBe(false);
 
     const record = await new KbStore().read(bundle, ID);
     expect(record?.frontmatter.strauss_anchors?.[0]).toEqual({
@@ -653,7 +965,10 @@ describe("anchorResolveCommand", () => {
       expect(output.results[0]).toMatchObject({
         state: "drifted",
         remoteState: "drifted-on-default",
+        outcome: "skipped",
+        outcomeReason: "pinned-ref",
       });
+      expect(output.results[0]?.rebaselined).toBeUndefined();
       expect(fails(output)).toBe(true);
       const record = await new KbStore().read(bundle, ID);
       expect(record?.frontmatter.strauss_anchors?.[0]?.hash).toBe(anchor.hash);
