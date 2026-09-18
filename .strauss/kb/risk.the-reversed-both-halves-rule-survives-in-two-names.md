@@ -20,10 +20,10 @@ strauss_anchors:
     lines: 21
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/references.spec.ts
-    hash: "sha256:597086bdcc5a1fd45f858aaf53936fc06e8dc4c9a4b6ac035ba3effa7e2c0195"
+    hash: "sha256:66f717d600267c11a4857f3979c708bf09771972acf92a1de600bd79d74ab723"
     hash_kind: raw
-    resolved_at: "2026-09-17T21:48:43.804Z"
-    lines: 714
+    resolved_at: "2026-09-18T15:31:23.004Z"
+    lines: 744
 strauss_links:
   - target: decision.strauss-links-is-the-one-representation
     rel: informs

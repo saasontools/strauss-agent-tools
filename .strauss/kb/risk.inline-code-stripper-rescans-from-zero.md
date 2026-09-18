@@ -27,7 +27,12 @@ verified:
       or YAML. Security reading only - the repair and the numbers are yours.
 strauss_anchors:
   - file: packages/strauss-kb/src/body-citations.ts
-    symbol: withoutCodeSpans
+    symbol: bodyCitations
+    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:31:23.524Z"
+    lines: 12
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
     hash: "sha256:37fcb846d49f6a7290d64f4327669afd3e50ff59a91b825c34dc6b3cf71cb19c"

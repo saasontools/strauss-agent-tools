@@ -21,8 +21,13 @@ strauss_anchors:
     resolved_at: "2026-09-18T15:28:53.175Z"
     lines: 45
     resolver: tree-sitter
-  - file: packages/strauss-kb/src/commands/reassess.ts
+  - file: packages/strauss-kb/src/commands/model.ts
     symbol: oneLine
+    hash: "sha256:0f05680ae784e70293c7690a5722c223abc9c6ac661897679a3652ba199ff13f"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:31:23.279Z"
+    lines: 9
+    resolver: tree-sitter
 strauss_links:
   - target: test-obligation.the-reassess-report-means-what-it-says
     rel: informs

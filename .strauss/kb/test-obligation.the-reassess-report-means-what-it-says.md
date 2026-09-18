@@ -20,12 +20,12 @@ strauss_anchors:
     resolved_at: "2026-09-17T19:38:27.245Z"
     lines: 8
     resolver: tree-sitter
-  - file: packages/strauss-kb/src/commands/reassess.ts
+  - file: packages/strauss-kb/src/commands/model.ts
     symbol: oneLine
-    hash: "sha256:d9c6e375425ba58eec1a860f04cb5f7f44b2ef4c147aa797334c40f5bf8c9c40"
+    hash: "sha256:0f05680ae784e70293c7690a5722c223abc9c6ac661897679a3652ba199ff13f"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:38:27.251Z"
-    lines: 3
+    resolved_at: "2026-09-18T15:31:23.855Z"
+    lines: 9
     resolver: tree-sitter
 strauss_links:
   - target: risk.incoming-only-packet-note-points-the-wrong-way
