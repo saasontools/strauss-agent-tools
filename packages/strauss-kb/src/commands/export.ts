@@ -11,6 +11,7 @@ import { z } from "zod";
 import { adjudicate, type KbAdjudicated } from "../adjudicate.js";
 import { selectDecisions } from "../decision-record.js";
 import type { KbRecord } from "../kb-record.schema.js";
+import { oneLine } from "../one-line.js";
 import { LINK_RELS } from "../record-types.js";
 import { argvFlag, bundlePath, define } from "./model.js";
 
@@ -156,7 +157,8 @@ function statusLine(hit: KbAdjudicated | undefined): string {
 function renderMadr(record: KbRecord, status: string): string {
   const sections = bodySections(record.body);
   const blocks = [
-    `# ${record.frontmatter.title ?? record.conceptId}`,
+    // A newline in the title would end the heading and start forged content.
+    `# ${oneLine(record.frontmatter.title ?? record.conceptId)}`,
     "## Status",
     status,
   ];

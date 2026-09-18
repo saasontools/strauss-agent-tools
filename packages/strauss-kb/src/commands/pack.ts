@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { KbWarning } from "../adjudicate.js";
 import type { KbPackResult } from "../pack.js";
+import { oneLine } from "../one-line.js";
 import { argvFlag, bundlePath, conceptId, define } from "./model.js";
 
 export const packCommand = define({
@@ -78,7 +79,7 @@ function render(result: KbPackResult, bundle: string, at: string): string {
   for (const record of result.records) {
     lines.push(
       "",
-      `### ${record.conceptId}${record.title ? ` — ${record.title}` : ""} [${record.standing}]`,
+      `### ${record.conceptId}${record.title ? ` — ${oneLine(record.title)}` : ""} [${record.standing}]`,
     );
     if (record.warnings.length) {
       lines.push(`warnings: ${record.warnings.map(warningLabel).join("; ")}`);

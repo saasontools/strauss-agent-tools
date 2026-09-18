@@ -13,14 +13,8 @@ import {
 } from "../kb-references/index.js";
 import { assertBaseNotFrozen, KbBaseFrozenError } from "../kb-pins/index.js";
 import type { KbAnchor, KbRecord } from "../kb-record.schema.js";
-import {
-  argvFlag,
-  bundlePath,
-  conceptId,
-  define,
-  oneLine,
-  REPO_ROOT,
-} from "./model.js";
+import { argvFlag, bundlePath, conceptId, define, REPO_ROOT } from "./model.js";
+import { oneLine } from "../one-line.js";
 
 /** One anchor whose code turned up unchanged elsewhere, and where. */
 export type KbRebaselinedAnchor = {

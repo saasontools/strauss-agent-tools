@@ -15,7 +15,8 @@ import {
 } from "../doctor.js";
 import { renderReassess } from "./reassess.js";
 import { grammarHints } from "../grammars/index.js";
-import { argvFlag, bundlePath, define, oneLine, REPO_ROOT } from "./model.js";
+import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
+import { oneLine } from "../one-line.js";
 
 export type KbDoctorCommandResult = KbDoctorReport & {
   bundlePath: string;

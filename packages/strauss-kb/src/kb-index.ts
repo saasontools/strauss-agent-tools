@@ -1,4 +1,5 @@
 import type { KbRecord } from "./kb-record.schema.js";
+import { oneLine } from "./one-line.js";
 
 export const INDEX_FILE = "INDEX.md";
 
@@ -32,9 +33,12 @@ export function renderIndex(records: KbRecord[]): string {
 export function renderIndexLine(record: KbRecord): string {
   const { frontmatter: fm } = record;
   const parts = [fm.type, fm.strauss_status];
-  if (fm.tags?.length) parts.push(`tags: ${fm.tags.join(", ")}`);
-  if (fm.description) parts.push(fm.description);
-  return `- [${fm.title ?? record.conceptId}](${record.conceptId}.md) — ${parts.join(" · ")}`;
+  // Foreign text is flattened so a line cannot forge another; the description
+  // and tags are the payload, so they are flattened but not cut.
+  if (fm.tags?.length)
+    parts.push(`tags: ${oneLine(fm.tags.join(", "), Infinity)}`);
+  if (fm.description) parts.push(oneLine(fm.description, Infinity));
+  return `- [${fm.title ? oneLine(fm.title) : record.conceptId}](${record.conceptId}.md) — ${parts.join(" · ")}`;
 }
 
 /** Whether the stored projection still matches the records it claims to index. */

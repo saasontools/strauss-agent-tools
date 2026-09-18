@@ -9,6 +9,7 @@ import {
 } from "../../kb-errors.js";
 import { assertBaseNotFrozen } from "../../kb-pins/index.js";
 import { KB_SLUG_PATTERN } from "../../kb-record.schema.js";
+import { oneLine } from "../../one-line.js";
 import { argvFlag, define } from "../model.js";
 import { carry } from "./carry.js";
 import { promoteCandidates } from "./candidates.js";
@@ -160,7 +161,7 @@ export function renderPromote(result: KbPromoteResult): string {
     return result.candidates
       .flatMap((candidate) => [
         `${candidate.conceptId} [${candidate.type}]${
-          candidate.title ? ` — ${candidate.title}` : ""
+          candidate.title ? ` — ${oneLine(candidate.title)}` : ""
         }`,
         `  ${candidate.why}`,
       ])

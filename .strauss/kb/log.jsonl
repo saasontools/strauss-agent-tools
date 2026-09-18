@@ -37,3 +37,4 @@
 {"at":"2026-09-15T18:12:44.452Z","by":"mcp","operation":"write","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:12:56.138Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:14:43.435Z","by":"mcp","operation":"overwrite","conceptId":"decision.none"}
+{"at":"2026-09-18T19:31:27.398Z","by":"mcp","operation":"write","conceptId":"decision.foreign-text-flattened-at-render"}

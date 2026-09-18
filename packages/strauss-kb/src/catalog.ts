@@ -1,6 +1,7 @@
 import { adjudicate, type KbStanding } from "./adjudicate.js";
 import type { KbRecord } from "./kb-record.schema.js";
 import { matchesTags, type KbTagFilter } from "./kb-tags.js";
+import { oneLine } from "./one-line.js";
 
 /** One record as the catalog names it — no body, no description, one line. */
 export type KbCatalogEntry = {
@@ -142,7 +143,7 @@ export function renderCatalogLine(entry: KbCatalogEntry): string {
   const parts = [
     entry.conceptId,
     entry.type,
-    entry.title ?? "(untitled)",
+    entry.title ? oneLine(entry.title) : "(untitled)",
     entry.standing === "superseded"
       ? `superseded → ${entry.supersededBy.join(", ") || "(no surviving head)"}`
       : entry.standing,
