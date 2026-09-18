@@ -1,6 +1,9 @@
 import { assertBaseNotFrozen } from "../../kb-pins/index.js";
 import { isUncheckedReason } from "../../remote-repo/index.js";
-import { anchorResolveCommand } from "../anchor-resolve.js";
+import {
+  anchorResolveCommand,
+  type AnchorResolveResult,
+} from "../anchor-resolve/index.js";
 import { argvFlag, define } from "../model.js";
 import {
   applyAnchorSet,
@@ -13,6 +16,8 @@ const NOTE =
   "pointers only: nothing was resolved or verified. Run anchor-resolve to check the new pointers, --rebaseline to accept the code, or pass resolve to do both here.";
 const STAMPED_NOTE =
   "pointers set and stamped against the current code. Not verification: run verify separately if someone reviewed it.";
+const INCOMPLETE_NOTE =
+  "pointers set, but not every anchor was stamped: see each resolved entry's state and outcome.";
 
 export const anchorSetCommand = define({
   name: "anchor-set",
@@ -80,24 +85,35 @@ export const anchorSetCommand = define({
         ...(repoRoot ? { repoRoot } : {}),
         ...(offline ? { offline } : {}),
       }),
-    )) as { results: unknown[] };
+    )) as { results: AnchorResolveResult[] };
     const after = await store.read(path, id);
+    // Stamped is what the base holds, not what was asked: a refused or
+    // skipped write, or an anchor nothing resolved, leaves the set incomplete.
+    const stamped = resolved.results.every(
+      (entry) => entry.state === "match" || entry.outcome === "applied",
+    );
     return {
       conceptId: id,
       reason: input.reason,
       changes,
       anchors: after?.frontmatter.strauss_anchors ?? [],
-      baseline: "stamped",
+      baseline: stamped ? "stamped" : "incomplete",
       resolved: resolved.results,
-      note: STAMPED_NOTE,
+      note: stamped ? STAMPED_NOTE : INCOMPLETE_NOTE,
     };
   },
   // With `resolve`, a pointer that names nothing is a failed set, not a
-  // finding to read later. A remote nothing could reach was never checked, so
-  // it does not fail — the same line anchor-resolve draws.
-  failsWhen: (result) =>
-    ((result as KbAnchorSetResult).resolved ?? []).some((entry) => {
-      const { state, reason } = entry as { state?: string; reason?: string };
-      return state === "unresolved" && !isUncheckedReason(reason as never);
-    }),
+  // finding to read later, and a stamp that did not land fails as it does in
+  // anchor-resolve. A remote nothing could reach was never checked, so it does
+  // not fail — the same line anchor-resolve draws.
+  failsWhen: (result, input) => {
+    const resolved = (result as KbAnchorSetResult).resolved ?? [];
+    return (
+      resolved.some(
+        (entry) =>
+          entry.state === "unresolved" && !isUncheckedReason(entry.reason),
+      ) ||
+      anchorResolveCommand.failsWhen?.({ results: resolved }, input) === true
+    );
+  },
 });

@@ -1,8 +1,12 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { pinBase } from "./kb-pins/index.js";
+import { KbStore } from "./kb-store.js";
 import { createKbMcpServer } from "./mcp.js";
+
+const NOW = "2026-08-26T12:00:00Z";
 
 type RegisteredTool = {
   handler(args: unknown): Promise<{ content: { text: string }[] }>;
@@ -89,6 +93,85 @@ describe("createKbMcpServer", () => {
       name: "KbPackBudgetExceededError",
       details: { budgetTokens: 1 },
     });
+  });
+
+  // MCP has no exit code, so the outcome per anchor is the whole answer: an
+  // agent reads the same `applied` the CLI gates on.
+  test("kb_anchor_resolve reports the same outcomes the CLI gates on", async () => {
+    const repo = mkdtempSync(join(tmpdir(), "strauss-kb-mcp-repo-"));
+    try {
+      const file = "src/orders.ts";
+      const source = [
+        "export function totals(orders: Order[]): number {",
+        "  return orders.length;",
+        "}",
+        "",
+      ].join("\n");
+      mkdirSync(join(repo, "src"), { recursive: true });
+      writeFileSync(join(repo, file), source, "utf8");
+      await tools().kb_write!.handler({
+        bundlePath: bundle,
+        type: "decision",
+        input: {
+          slug: "totals-counts",
+          title: "Totals counts orders",
+          why: "Summing amounts would double-charge refunds.",
+          anchors: [{ file, symbol: "totals" }],
+        },
+      });
+      const resolve = (args: Record<string, unknown>) =>
+        tools()
+          .kb_anchor_resolve!.handler({
+            bundlePath: bundle,
+            conceptId: "decision.totals-counts",
+            repoRoot: repo,
+            ...args,
+          })
+          .then((result) => JSON.parse(result.content[0]!.text));
+
+      expect(await resolve({})).toMatchObject({
+        results: [{ state: "stamped", outcome: "applied" }],
+      });
+
+      writeFileSync(
+        join(repo, file),
+        source.replace("orders.length", "orders.length + 0"),
+        "utf8",
+      );
+      expect(await resolve({ rebaseline: true })).toMatchObject({
+        results: [{ state: "drifted", outcome: "applied", rebaselined: true }],
+      });
+      expect(await resolve({})).toMatchObject({
+        results: [{ state: "match" }],
+      });
+
+      // MCP has no exit code, so a refusal has to be in the result itself.
+      const workspace = mkdtempSync(join(tmpdir(), "strauss-kb-mcp-ws-"));
+      const cwd = vi.spyOn(process, "cwd").mockReturnValue(workspace);
+      try {
+        await pinBase(new KbStore(), workspace, bundle, NOW, {
+          layer: "local",
+          frozen: true,
+        });
+        writeFileSync(
+          join(repo, file),
+          source.replace("orders.length", "orders.length + 1"),
+          "utf8",
+        );
+
+        expect(await resolve({ rebaseline: true })).toMatchObject({
+          frozen: true,
+          results: [
+            { state: "drifted", outcome: "failed", outcomeReason: "frozen" },
+          ],
+        });
+      } finally {
+        cwd.mockRestore();
+        rmSync(workspace, { recursive: true, force: true });
+      }
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   test("rejects arguments the command's schema does not accept", async () => {

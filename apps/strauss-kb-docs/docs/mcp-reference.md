@@ -151,7 +151,8 @@ parameter, a non-blank string that must say what the check found. Parameters:
 ### `kb_anchor_resolve`
 
 As CLI [`anchor-resolve`](./cli-reference.md#anchor-resolve), with the
-flags as camelCase parameters. The non-zero exit on drift is CLI-only.
+flags as camelCase parameters. Results carry the same per-anchor `outcome`;
+only the exit code is CLI-only.
 
 Parameters: `bundlePath` and `conceptId` required; `repoRoot` (`string`,
 defaults to the working directory), `offline`, `rebaseline`, `restamp` and

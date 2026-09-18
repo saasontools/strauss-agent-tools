@@ -269,8 +269,9 @@ strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo
 ```
 
 Run it again later and the [states](./specification.md#drift) become the answer.
-It **exits non-zero** on drift or an unresolvable hash-carrying anchor, so it
-works as a CI gate, and a green run writes **nothing at all**. You do not have
+It works as a CI gate — a run that leaves drift unsettled **exits non-zero**
+([the exact rule](./cli-reference.md#anchor-resolve)) — and a green run writes
+**nothing at all**. You do not have
 to run it to see drift: `load` and `query` re-resolve hash-carrying anchors as
 they read and attach a `drifted` warning — or `unchecked`, for an anchor in
 another repository whose remote was not in the cache.
