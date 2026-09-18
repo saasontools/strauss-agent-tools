@@ -3,22 +3,10 @@ import type { KbRecord } from "./kb-record.schema.js";
 import { KB_CAUSAL_LINK_RELS } from "./record-types.js";
 
 /**
- * Edges a trace may follow — the shared kb-edges.ts definitions, minus
- * `body-link`: body links can reach most of a bundle from anywhere, which
- * suits a bounded pack but floods a timeline. Also absent by design:
- * `strauss_answered` carries no target id, so a question's resolution lives
- * in its own body rather than in another record.
- *
- * `typed-link` is in, where `body-link` is out, because the two differ in how
- * cheaply they are made. A body link is any markdown a writer happened to
- * type; a `strauss_links` entry is a deliberate claim from a closed vocabulary
- * about what this record depends on. That is exactly the kind of edge a
- * timeline should follow — "we chose this because of that" is the history.
- *
- * Only the causal rels, though. `related_to` asserts no dependence and reaches
- * whatever a writer thought worth mentioning, which is the same flooding
- * `body-link` is excluded for; a bibliography is a neighbourhood's business
- * (`pack`), not a history's.
+ * Edges a trace may follow: every kb-edges.ts kind, narrowed to the causal
+ * rels. `related_to` reaches whatever a writer thought worth mentioning, which
+ * suits a bounded pack but floods a timeline. `strauss_answered` carries no
+ * target id, so a question's resolution is not an edge.
  */
 export const TRACE_EDGES = [
   "typed-link",
@@ -38,7 +26,7 @@ export type KbTraceStep = {
 
 export type KbTraceOptions = {
   edges?: readonly KbTraceEdge[];
-  /** Body links alone can reach the whole bundle, so a trace is always bounded. */
+  /** A trace is always bounded: supersession and shared anchors alone can reach the whole bundle. */
   depth?: number;
 };
 

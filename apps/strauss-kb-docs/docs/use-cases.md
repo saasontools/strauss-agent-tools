@@ -493,8 +493,8 @@ Narrow the walk by naming edges — `typed-link`, `supersession`, `anchor`,
 strauss-kb trace decision.cursor-v2 supersession
 ```
 
-Body links and `related_to` are excluded because they can reach most of a bundle
-from anywhere, which suits a bounded pack but floods a timeline.
+`related_to` is excluded because it can reach most of a bundle from anywhere,
+which suits a bounded pack but floods a timeline.
 
 ## Loading a base into agent context
 

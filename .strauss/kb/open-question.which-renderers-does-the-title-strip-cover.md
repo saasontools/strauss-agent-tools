@@ -16,12 +16,20 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/doctor.ts
     symbol: render
+    hash: "sha256:f56495c24f91b472d404b88a623e68890a32420914ae31804d70403b224152de"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:28:53.175Z"
+    lines: 45
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/reassess.ts
     symbol: oneLine
 strauss_links:
   - target: test-obligation.the-reassess-report-means-what-it-says
     rel: informs
-strauss_status: open
+strauss_status: resolved
+strauss_answered:
+  by: mcp
+  at: "2026-09-18T15:28:11.182Z"
 strauss_owner: mcp
 ---
 
@@ -38,3 +46,9 @@ doctor is the command a reviewing agent runs over a whole base, so it quotes mor
 doctor is unfixed and in scope; the risk is treated as open on commands/doctor.ts until a record says otherwise.
 
 Informs [test-obligation.the-reassess-report-means-what-it-says](test-obligation.the-reassess-report-means-what-it-says.md).
+
+## Answer
+
+Now two: `reassess` and `doctor`. `oneLine` moved to `commands/model.ts`, shared, and gained a 200-character bound; `doctor`'s group renderer (`commands/doctor.ts`) passes every finding's title through it. `references.spec.ts` asserts `doctor`'s report holds no escape byte and no line beginning with a forged row.
+
+Not covered, and outside this range: `pack` (`commands/pack.ts`, the `### <id> — <title>` header), `promote` (`commands/promote/command.ts`, candidate rows) and `export` (the MADR heading). Same class — a foreign title interpolated into a line-structured report — but none is touched by SAA-821, so they are filed as a follow-up rather than widened into this change.

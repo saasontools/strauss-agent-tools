@@ -191,3 +191,15 @@
 {"at":"2026-09-18T15:25:24.314Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.a-fenced-example-link-is-a-citation"}
 {"at":"2026-09-18T15:25:24.556Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.an-indented-fence-is-still-a-citation"}
 {"at":"2026-09-18T15:25:24.849Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.inline-code-stripper-rescans-from-zero"}
+{"at":"2026-09-18T15:28:11.190Z","by":"mcp","operation":"answer","conceptId":"open-question.which-renderers-does-the-title-strip-cover"}
+{"at":"2026-09-18T15:28:14.730Z","by":"mcp","operation":"answer","conceptId":"open-question.is-the-edge-rule-really-stated-once-per-surface"}
+{"at":"2026-09-18T15:28:19.117Z","by":"mcp","operation":"answer","conceptId":"open-question.unmemoised-decision-rests-on-a-spent-measurement"}
+{"at":"2026-09-18T15:28:30.601Z","by":"mcp","operation":"write","conceptId":"test-obligation.doctor-quotes-a-title-on-one-bounded-line"}
+{"at":"2026-09-18T15:28:35.377Z","by":"mcp","operation":"write","conceptId":"test-obligation.a-hostile-body-line-costs-its-length"}
+{"at":"2026-09-18T15:28:51.446Z","by":"unknown","operation":"anchor-resolve","conceptId":"test-obligation.doctor-quotes-a-title-on-one-bounded-line"}
+{"at":"2026-09-18T15:28:51.799Z","by":"unknown","operation":"anchor-resolve","conceptId":"test-obligation.a-hostile-body-line-costs-its-length"}
+{"at":"2026-09-18T15:28:52.090Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.doctor-prints-a-record-title-unescaped"}
+{"at":"2026-09-18T15:28:52.918Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.record-title-forges-a-line-in-a-prose-report"}
+{"at":"2026-09-18T15:28:53.197Z","by":"unknown","operation":"anchor-resolve","conceptId":"open-question.which-renderers-does-the-title-strip-cover"}
+{"at":"2026-09-18T15:28:53.464Z","by":"unknown","operation":"anchor-resolve","conceptId":"open-question.is-the-edge-rule-really-stated-once-per-surface"}
+{"at":"2026-09-18T15:28:53.824Z","by":"unknown","operation":"anchor-resolve","conceptId":"open-question.unmemoised-decision-rests-on-a-spent-measurement"}

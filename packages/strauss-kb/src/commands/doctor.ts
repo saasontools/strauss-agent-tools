@@ -15,7 +15,7 @@ import {
 } from "../doctor.js";
 import { renderReassess } from "./reassess.js";
 import { grammarHints } from "../grammars/index.js";
-import { argvFlag, bundlePath, define, REPO_ROOT } from "./model.js";
+import { argvFlag, bundlePath, define, oneLine, REPO_ROOT } from "./model.js";
 
 export type KbDoctorCommandResult = KbDoctorReport & {
   bundlePath: string;
@@ -243,7 +243,7 @@ function render(result: KbDoctorCommandResult): string {
     lines.push("", `## ${group.check} (${group.count})`);
     for (const found of group.findings) {
       lines.push(
-        `- ${found.conceptId}${found.title ? ` — ${found.title}` : ""}: ${found.note}`,
+        `- ${found.conceptId}${found.title ? ` — ${oneLine(found.title)}` : ""}: ${found.note}`,
       );
     }
   }

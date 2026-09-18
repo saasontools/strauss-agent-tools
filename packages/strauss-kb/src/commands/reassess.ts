@@ -13,7 +13,14 @@ import {
 } from "../kb-references/index.js";
 import { assertBaseNotFrozen, KbBaseFrozenError } from "../kb-pins/index.js";
 import type { KbAnchor, KbRecord } from "../kb-record.schema.js";
-import { argvFlag, bundlePath, conceptId, define, REPO_ROOT } from "./model.js";
+import {
+  argvFlag,
+  bundlePath,
+  conceptId,
+  define,
+  oneLine,
+  REPO_ROOT,
+} from "./model.js";
 
 /** One anchor whose code turned up unchanged elsewhere, and where. */
 export type KbRebaselinedAnchor = {
@@ -292,18 +299,6 @@ export function renderReassess(result: KbReassessResult): string {
 
 function at(file: string, symbol?: string): string {
   return symbol ? `${file}:${symbol}` : file;
-}
-
-/**
- * Another record's own text, flattened to one line. A title is data in a
- * report whose section headers state a count, so a newline or an escape in one
- * would forge a row rather than fill one.
- */
-function oneLine(text: string): string {
-  return text
-    .replace(/[\p{Cc}\p{Cf}]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /** What the pointer claims. */

@@ -30,18 +30,18 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/doctor.ts
     symbol: render
-    hash: "sha256:c127d367fef4df53c85798b2655b8aa81abc6ab8d4f18b268f2b122faeacbd9c"
+    hash: "sha256:f56495c24f91b472d404b88a623e68890a32420914ae31804d70403b224152de"
     hash_kind: ast
-    resolved_at: "2026-09-17T19:34:28.317Z"
+    resolved_at: "2026-09-18T15:28:52.910Z"
     lines: 45
     resolver: tree-sitter
 strauss_links:
   - target: decision.reassess-references-ride-in-the-packet
     rel: informs
 strauss_status: superseded
+strauss_superseded_by: risk.doctor-prints-a-record-title-unescaped
 strauss_materiality: non-blocking
 strauss_confidence: high
-strauss_superseded_by: risk.doctor-prints-a-record-title-unescaped
 ---
 
 ## Risk

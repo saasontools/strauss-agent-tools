@@ -16,9 +16,9 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/doctor.ts
     symbol: render
-    hash: "sha256:c127d367fef4df53c85798b2655b8aa81abc6ab8d4f18b268f2b122faeacbd9c"
+    hash: "sha256:f56495c24f91b472d404b88a623e68890a32420914ae31804d70403b224152de"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:52:48.153Z"
+    resolved_at: "2026-09-18T15:28:52.062Z"
     lines: 45
     resolver: tree-sitter
   - file: packages/strauss-kb/src/doctor.ts

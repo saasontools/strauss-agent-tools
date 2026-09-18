@@ -57,7 +57,7 @@ export const composeInputSchema = z
       .optional(),
     verify: z.array(z.string().min(1)).optional(),
     tags: z.array(z.string().min(1)).optional(),
-    /** Concept ids this record relates to; rendered as body links. */
+    /** Concept ids this record relates to; stored as `related_to` links, and rendered as prose. */
     relatedConceptIds: z.array(kbConceptIdSchema).optional(),
     /**
      * Typed causal edges, source → target: `{ target: "fact.b", rel:

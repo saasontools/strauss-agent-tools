@@ -9,6 +9,7 @@ import {
   reassessCommand,
   type KbReassessResult,
 } from "../commands/reassess.js";
+import { doctorCommand } from "../commands/doctor.js";
 import { doctor, type KbDoctorCheck, type KbDoctorReport } from "../doctor.js";
 import { LOG_FILE } from "../kb-log.js";
 import type { KbLink, KbRecord, KbRecordStatus } from "../kb-record.schema.js";
@@ -667,6 +668,35 @@ describe("reassess without code drift", () => {
     expect(rows).toHaveLength(1);
     expect(rendered).not.toContain("\u001b");
     // The forged text survives as text on the one real row, which is the point.
+    expect(
+      rendered.split("\n").some((line) => line.startsWith("- decision.forged")),
+    ).toBe(false);
+  });
+
+  // The same sink in the base's widest reader: `doctor` quotes every orphan's
+  // title, and every one of them was written by some other actor.
+  test("a title cannot forge a row in doctor's report either", async ({
+    store,
+    bundle,
+  }) => {
+    await seed(store, bundle);
+    const file = join(bundle, "risk.environment-override.md");
+    writeFileSync(
+      file,
+      readFileSync(file, "utf8").replace(
+        "title: An environment override can shorten the window",
+        String.raw`title: "Innocent\u001B\n- decision.forged — forged: not a real row"`,
+      ),
+      "utf8",
+    );
+
+    const result = await doctorCommand.run(
+      { store: new KbStore(), actor: "agent:reader", now: () => AT },
+      doctorCommand.input.parse({ bundlePath: bundle }),
+    );
+    const rendered = doctorCommand.render?.(result) ?? "";
+
+    expect(rendered).not.toContain("\u001b");
     expect(
       rendered.split("\n").some((line) => line.startsWith("- decision.forged")),
     ).toBe(false);
