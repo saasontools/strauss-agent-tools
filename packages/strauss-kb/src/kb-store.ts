@@ -20,7 +20,6 @@ import {
   kbVerifiedEventSchema,
   KB_SLUG_PATTERN,
   type KbAnchor,
-  type KbLink,
   type KbRecord,
   type KbRecordFrontmatter,
   type KbRecordStatus,
@@ -410,35 +409,6 @@ export class KbStore {
         };
       },
       () => entry,
-    );
-  }
-
-  /**
-   * Adds `related_to` for each target the record's `strauss_links` does not
-   * already name, for `mirror-links`. Computed against the record as it stands
-   * at write time, so a link written since the caller last read it survives.
-   */
-  async mirrorLinks(
-    bundlePath: string,
-    conceptId: string,
-    targets: readonly string[],
-    actor = "unknown",
-  ): Promise<KbRecord> {
-    assertActor(actor);
-    return this.mutate(
-      bundlePath,
-      conceptId,
-      (frontmatter) => {
-        const links: KbLink[] = [...(frontmatter.strauss_links ?? [])];
-        const named = new Set(links.map((link) => link.target));
-        for (const target of targets) {
-          if (named.has(target)) continue;
-          named.add(target);
-          links.push({ target, rel: "related_to" });
-        }
-        return { ...frontmatter, strauss_links: links };
-      },
-      { operation: "mirror-links", by: actor },
     );
   }
 

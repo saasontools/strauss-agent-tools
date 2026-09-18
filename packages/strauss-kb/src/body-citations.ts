@@ -4,8 +4,8 @@ import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 /**
  * Markdown citations in a record's prose.
  *
- * Not an edge: `strauss_links` is. Read only to say the two have come apart —
- * `validate` warns, `mirror-links` repairs, `sweep` refuses.
+ * Not an edge: `strauss_links` is. `validate` reads it only to warn that a
+ * record's prose and its links have come apart.
  */
 
 // A link whose href is a record filename, `<concept-id>.md`.
@@ -18,7 +18,7 @@ type MdNode = { type: string; url?: string; children?: MdNode[] };
 /**
  * Every concept id this record's prose cites, itself excluded.
  *
- * Parsed as CommonMark rather than matched by pattern: a link in a fence, an
+ * Parsed to an mdast tree rather than matched by pattern: a link in a fence, an
  * indented block or a code span is an example, and only a parser knows which.
  */
 export function bodyCitations(record: KbRecord): Set<string> {

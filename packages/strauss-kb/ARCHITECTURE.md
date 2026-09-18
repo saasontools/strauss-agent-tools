@@ -80,9 +80,9 @@ the moment the two drifted.
 Two representations is what the package had, and it cost data: `sweep` read
 frontmatter only and deleted records still cited in prose, while `doctor` read
 prose only and missed a `related_to` at a superseded target. The repair was one
-representation, not two readers — `mirror-links` moved every existing citation
-into the frontmatter once, and `validate` is the only body read left, reporting
-that a record's prose and its links have come apart.
+representation, not two readers: `compose` writes the link wherever it writes
+the sentence, and `validate` is the only body read left, reporting that a
+record's prose and its links have come apart.
 
 ## Rejected: a format that needs a parser
 

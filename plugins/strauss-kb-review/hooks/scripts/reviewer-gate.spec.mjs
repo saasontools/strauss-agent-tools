@@ -187,11 +187,6 @@ test("a reviewer never decides, settles, or reshapes the base", () => {
     String(decide({ command: `${own} promote risk.a --to ../kb` })),
     /not a reviewer's write/,
   );
-  // A migration rewrites every record's links: never a reviewer's to run.
-  assert.match(
-    String(decide({ command: `${own} mirror-links` })),
-    /not a reviewer's write/,
-  );
   assert.equal(
     decide({ command: `${own} anchor-resolve decision.a --rebaseline` }),
     null,
@@ -287,10 +282,6 @@ test("MCP write tools are denied; MCP reads pass", () => {
       decide({ toolName: "mcp__plugin_strauss-kb_strauss-kb__kb_verify" }),
     ),
     /MCP writes/,
-  );
-  assert.match(
-    String(decide({ toolName: "mcp__strauss-kb__kb_mirror_links" })),
-    /MCP writes land as actor "mcp"/,
   );
   assert.equal(decide({ toolName: "mcp__strauss-kb__kb_query" }), null);
 });

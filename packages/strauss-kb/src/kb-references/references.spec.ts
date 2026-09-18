@@ -114,7 +114,7 @@ const notesIn = (report: KbDoctorReport, check: KbDoctorCheck) =>
 describe("outboundReferences", () => {
   // The prose says the same thing twice as far as this is concerned, and a
   // citation with nothing beside it in the frontmatter is not an edge: it is
-  // `validate`'s warning and `mirror-links`' work.
+  // `validate`'s warning.
   test("reads strauss_links, and a prose citation adds nothing", () => {
     const from = record("risk.export-window", {
       links: [{ target: "decision.retention", rel: "related_to" }],
@@ -234,8 +234,8 @@ describe("staleReferences", () => {
     ]);
   });
 
-  // A base that has not run `mirror-links` hides this finding. That is the
-  // migration's whole job, and `validate` is what names the record.
+  // Prose is rendering: a citation with nothing beside it in the frontmatter
+  // is no finding here, and `validate` is what names the record.
   test("an unmirrored citation is not a finding, and validate says so", () => {
     const bundle = [
       ...replacedPair(),
@@ -467,7 +467,7 @@ describe("validate is the one body read left", () => {
       {
         check: "body_link",
         conceptId: "decision.live",
-        note: "body cites fact.elsewhere, which strauss_links does not declare — run mirror-links",
+        note: "body cites fact.elsewhere, which strauss_links does not declare — add it as related_to",
         severity: "warning",
       },
     ]);

@@ -122,7 +122,7 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
       report(
         "body_link",
         conceptId,
-        `body cites ${target}, which strauss_links does not declare — run mirror-links`,
+        `body cites ${target}, which strauss_links does not declare — add it as related_to`,
         "warning",
       );
     }

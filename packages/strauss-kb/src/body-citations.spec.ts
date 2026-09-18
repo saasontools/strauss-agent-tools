@@ -3,9 +3,8 @@ import { bodyCitations } from "./body-citations.js";
 import type { KbRecord } from "./kb-record.schema.js";
 
 /**
- * The one body read left in the package. `validate` uses it to say a record's
- * prose and its `strauss_links` have come apart, and `mirror-links` uses it to
- * put them back together — so a citation it invents is an edge nobody wrote.
+ * The one body read left in the package: `validate` uses it to say a record's
+ * prose and its `strauss_links` have come apart.
  */
 
 function record(conceptId: string, body: string): KbRecord {
@@ -85,8 +84,8 @@ describe("bodyCitations", () => {
     expect([...bodyCitations(from)]).toEqual([]);
   });
 
-  // The correctness reviewer's repro: both are code by CommonMark, and
-  // `mirror-links` would have written each as a `related_to` nobody stated.
+  // The correctness reviewer's repro: both are code by CommonMark, and a
+  // warning about either would name an edge nobody stated.
   test("a fence under a list item and an indented block are code", () => {
     expect(
       cited(
@@ -132,7 +131,7 @@ describe("bodyCitations", () => {
   });
 
   // Nesting depth is the author's to choose. A walk that recursed per level
-  // let one record overflow the stack of validate, doctor and mirror-links.
+  // let one record overflow the stack of validate and doctor.
   test("twenty thousand levels of nesting are read, not overflowed", () => {
     expect(cited(`${">".repeat(20000)} [fact.b](fact.b.md)`)).toEqual([
       "fact.b",

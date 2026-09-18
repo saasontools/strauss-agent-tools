@@ -30,7 +30,6 @@ export enum ErrorTypes {
   KbMatchInput = "KbMatchInput",
   KbMissingFlagValue = "KbMissingFlagValue",
   KbPackBudgetExceeded = "KbPackBudgetExceeded",
-  KbUnmigratedBase = "KbUnmigratedBase",
   KbPromoteCollision = "KbPromoteCollision",
   KbPromoteSelf = "KbPromoteSelf",
   KbPromoteStanding = "KbPromoteStanding",

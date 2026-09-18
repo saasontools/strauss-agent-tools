@@ -555,17 +555,6 @@ findingCount, healthy }`, where each group is
 `{ conceptId, title, status, note }`. A `superseded-but-cited` finding also
 carries `reference`: `{ from, target, targetStanding, rels, replacedBy }`. Under `drifted` it also carries `packets` and `rebaselinable`.
 
-### `kb_mirror_links`
-
-As CLI [`mirror-links`](./cli-reference.md#mirror-links): the one-time
-migration that copies a record's prose citations into `strauss_links` as
-`related_to`. Parameters: `bundlePath` required, `dryRun` (`boolean`) optional.
-Returns `{ dryRun, recordCount, mirrored, pending }`, each entry
-`{ conceptId, added }`.
-
-Run it once per base; until it has, `kb_sweep` refuses the base — see the
-[CLI reference](./cli-reference.md#mirror-links).
-
 ### `kb_sweep`
 
 As CLI [`sweep`](./cli-reference.md#sweep): deletes records carrying `tag` that

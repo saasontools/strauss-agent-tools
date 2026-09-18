@@ -18,8 +18,6 @@ import type { KbRecordStatus } from "../kb-record.schema.js";
 import { KbStore } from "../kb-store.js";
 import { SEARCH_INDEX_FILE } from "../search-index.js";
 import { validateBundle } from "../validate.js";
-import { KbUnmigratedBaseError } from "../kb-errors.js";
-import { mirrorLinksCommand } from "./mirror-links.js";
 import { sweepCommand, type KbSweepResult } from "./sweep.js";
 
 const AT = "2026-08-01T00:00:00Z";
@@ -209,71 +207,23 @@ describe("sweepCommand", () => {
     ]);
   });
 
-  // The hold guard reads links only, so on an unmigrated base it cannot see a
-  // prose-only citation. The plugin channel upgrades with no human in the
-  // loop, so sweep itself refuses rather than trusting a release note.
-  const citeInProseOnly = (citer: string, target: string) => {
-    const file = join(bundle, `${citer}.md`);
+  // Prose is rendering, so a citation only in prose holds nothing. The record
+  // carrying it is `validate`'s warning, and the writer is the way an edge
+  // enters a base.
+  test("a citation only in prose holds nothing, and validate names it", async () => {
+    const cited = await seed("cited", "resolved");
+    await seed("live-citer", "open", { tags: ["other"] });
+    const file = join(bundle, "fact.live-citer.md");
     writeFileSync(
       file,
-      `${readFileSync(file, "utf8")}\nRelates to [${target}](${target}.md).\n`,
+      `${readFileSync(file, "utf8")}\nRelates to [${cited}](${cited}.md).\n`,
       "utf8",
     );
-  };
 
-  test("refuses an unmigrated base, dry run included, and deletes nothing", async () => {
-    const held = await seed("held", "resolved");
-    await seed("live-citer", "open", { tags: ["other"] });
-    citeInProseOnly("fact.live-citer", held);
-    const before = digestBase();
-
-    for (const input of [{ dryRun: true }, {}]) {
-      const refusal = await run(input).catch((error: unknown) => error);
-      expect(refusal).toBeInstanceOf(KbUnmigratedBaseError);
-      expect((refusal as KbUnmigratedBaseError).records).toEqual([
-        { conceptId: "fact.live-citer", reason: `cites ${held}` },
-      ]);
-      expect(String((refusal as Error).message)).toContain(
-        "strauss-kb mirror-links",
-      );
-    }
-    expect(digestBase()).toEqual(before);
-  });
-
-  test("sweeps once mirror-links has run, and keeps what the prose cited", async () => {
-    const held = await seed("held", "resolved");
-    const free = await seed("free", "resolved");
-    await seed("live-citer", "open", { tags: ["other"] });
-    citeInProseOnly("fact.live-citer", held);
-
-    await mirrorLinksCommand.run(
-      { store, actor: "agent:migrator", now: () => AT },
-      mirrorLinksCommand.input.parse({ bundlePath: bundle }),
-    );
-    const result = await run();
-
-    expect(result.deleted).toEqual([free]);
-    expect(result.skipped).toEqual([
-      { conceptId: held, heldBy: ["fact.live-citer"] },
+    expect((await run({ dryRun: true })).candidates).toEqual([cited]);
+    expect(validateBundle(await store.list(bundle))).toMatchObject([
+      { check: "body_link", conceptId: "fact.live-citer" },
     ]);
-    await expectValid();
-  });
-
-  // A body the parser refuses could hide a citation just as well.
-  test("refuses a base holding a body it cannot read", async () => {
-    await seed("free", "resolved");
-    await seed("hostile", "open", { tags: ["other"] });
-    const file = join(bundle, "fact.hostile.md");
-    writeFileSync(
-      file,
-      `${readFileSync(file, "utf8")}\n${"* ".repeat(200)}[x](fact.free.md)\n`,
-      "utf8",
-    );
-
-    await expect(run({ dryRun: true })).rejects.toMatchObject({
-      name: "KbUnmigratedBaseError",
-      records: [{ conceptId: "fact.hostile" }],
-    });
   });
 
   // A supersession pointer is not a typed link, and it dangles the same way:

@@ -822,8 +822,7 @@ addresses (`symbol` and `span`), a malformed `span`, or a `side: "old"` with no
 someone edited a file by hand.
 An unknown rel is an **error** and a link to a record that does not exist yet is
 a **warning**. A body citation with no `strauss_links` entry beside it is also a
-warning, naming [`mirror-links`](#mirror-links) as the repair — this is the one
-place a record's prose is read. **Exits 1 on an error; warnings alone exit 0.**
+warning — prose is not an edge, and this is the one place it is read. **Exits 1 on an error; warnings alone exit 0.**
 
 ```bash
 strauss-kb validate || echo "errors above"   # warnings alone still exit 0
@@ -919,48 +918,15 @@ post-merge commit.
 | `--terminal` | Required. Names the only scope it deletes: the three terminal statuses. |
 | `--dry-run`  | Report what would go, and delete nothing.                               |
 
-**It refuses a base whose prose cites records `strauss_links` does not
-declare**, naming them: the hold guard reads links only and would delete what
-such a citation cites. Run [`mirror-links`](#mirror-links), then sweep. A record
-another **surviving** record points at — by typed link or by supersession — is
-kept and reported under `skipped`, with the ids holding it;
-an
+A record another **surviving** record points at — by typed link or by
+supersession — is kept and reported under `skipped`, with the ids holding it;
+a citation only in prose holds nothing. An
 id the run could not remove is reported under `failed`. Each deletion is one
 `sweep` log entry; afterwards the index is rebuilt and the search index dropped.
 
 ```bash
 strauss-kb sweep --tag review --terminal --dry-run
 strauss-kb sweep --tag review --terminal
-```
-
-### `mirror-links`
-
-```
-mirror-links [--dry-run]
-```
-
-**Run this once per base after upgrading, before the first `sweep`.** It copies
-every markdown citation a record's prose makes into `strauss_links` as
-`related_to`, wherever the frontmatter does not already name that target —
-from this version on, nothing reads a body for edges.
-
-| Flag        | Effect                                            |
-| ----------- | ------------------------------------------------- |
-| `--dry-run` | Report what would be mirrored, and write nothing. |
-
-`related_to` is the only rel a citation can become: prose states a pointer, not
-a direction of dependence, and a target that already carries any rel keeps it.
-A link inside a fence or a code span is an example and is left alone. The
-migration is idempotent — a second run has nothing to do — and refuses to write
-on a [frozen base](#pin), where `--dry-run` still answers.
-
-Until it runs, reads under-report every edge that lived only in prose, and
-[`sweep`](#sweep) refuses the base. A body the parser refuses — a line nesting
-more than 64 lists — is reported under `unreadable` and left unmirrored.
-
-```bash
-strauss-kb mirror-links --dry-run
-strauss-kb mirror-links
 ```
 
 ### `schema`
