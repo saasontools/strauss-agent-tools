@@ -719,7 +719,7 @@ test("owed.requirement fires on a sourced requirement nothing satisfies", () => 
   assert.ok(ids(found).includes("owed.requirement"));
 });
 
-test("owed.verification fires on an open blocking risk nothing verifies", () => {
+test("owed.verification warns on an open blocking risk and never blocks", () => {
   const open = record({
     conceptId: "risk.x",
     type: "risk",
@@ -727,16 +727,22 @@ test("owed.verification fires on an open blocking risk nothing verifies", () => 
     materiality: "blocking",
     anchors: [{ file: "src/a.ts" }],
   });
-  assert.ok(ids(owed.check(ctx({ records: [open] }))).includes("owed.verification"));
+  const [only] = owed
+    .check(ctx({ records: [open] }))
+    .filter((f) => f.id === "owed.verification");
+  assert.equal(only?.severity, "warn");
   const resolved = { ...open, status: "resolved" };
-  assert.ok(!ids(owed.check(ctx({ records: [resolved] }))).includes("owed.verification"));
-  // A test-obligation pointing at the risk verifies it as well as a link the
-  // risk carries.
-  const verified = ctx({
+  assert.ok(
+    !ids(owed.check(ctx({ records: [resolved] }))).includes(
+      "owed.verification",
+    ),
+  );
+  // A record pointing at the risk is a reply, not a settlement: still open.
+  const replied = ctx({
     records: [open],
-    backlinks: () => ({ backlinks: [{ source: "test-obligation.x", rel: "satisfies" }] }),
+    backlinks: () => ({ backlinks: [{ source: "fact.x", rel: "satisfies" }] }),
   });
-  assert.ok(!ids(owed.check(verified)).includes("owed.verification"));
+  assert.ok(ids(owed.check(replied)).includes("owed.verification"));
 });
 
 test("a block demotes to a warning by id", () => {

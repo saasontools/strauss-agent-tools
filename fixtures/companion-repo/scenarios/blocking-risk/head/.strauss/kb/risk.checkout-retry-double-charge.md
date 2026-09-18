@@ -13,8 +13,6 @@ strauss_anchors:
   - file: src/checkout/pay.ts
     symbol: PaymentClient.charge
 strauss_links:
-  - target: test-obligation.checkout-single-charge
-    rel: verified_by
   - target: fact.payment-provider-dedupes-on-key
     rel: depends_on
 strauss_status: open
@@ -37,7 +35,5 @@ idempotencyKey now returns the order id, which PaymentClient.charge receives alr
 
 `node --test --experimental-strip-types src/checkout/checkout.spec.ts` edits the cart
 mid-retry and asserts the provider recorded one charge.
-
-Verified by [test-obligation.checkout-single-charge](test-obligation.checkout-single-charge.md).
 
 Depends on [fact.payment-provider-dedupes-on-key](fact.payment-provider-dedupes-on-key.md).

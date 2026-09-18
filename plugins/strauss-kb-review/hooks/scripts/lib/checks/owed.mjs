@@ -2,7 +2,7 @@
 /**
  * owed — the diff carries a signal that owes a record type. Each signal names
  * the type the work owes at that anchor; the finding fires when neither that
- * type nor an `open-question` sits there.
+ * type nor an `open-question` sits there. owed.verification owes no type.
  */
 import { SKIPPED } from "../classify.mjs";
 import { basenameOf, finding } from "../util.mjs";
@@ -18,22 +18,27 @@ export const GROUP = "owed";
 export function check(ctx) {
   return signals(ctx).flatMap((signal) => {
     if (answered(ctx, signal)) return [];
+    const wanted = signal.want.length
+      ? ` — no ${signal.want.join(" or ")} anchored there`
+      : "";
     return [
       finding(
         signal.id,
         GROUP,
         signal.severity,
         "semantic",
-        `${signal.message} — no ${signal.want.join(" or ")} anchored there.`,
+        `${signal.message}${wanted}.`,
         { file: signal.file, symbol: signal.symbol },
       ),
     ];
   });
 }
 
-/** A record of a wanted type, or an open question, sitting on the anchor.
+/** A record of a wanted type, or an open question, sitting on the anchor. A
+ * signal that wants no type is answered by nothing.
  * @param {import("../context.mjs").Ctx} ctx @param {Signal} signal */
 function answered(ctx, signal) {
+  if (signal.want.length === 0) return false;
   return ctx.touched.some(
     (record) =>
       record.standing === "current" &&
@@ -284,46 +289,22 @@ function* requirement(ctx) {
   }
 }
 
-/** owed.verification — an open risk that matters, with nothing pinning it.
+/** owed.verification — an open risk that matters. A nudge, never a block: the
+ * author fixes it, answers it in the rerun brief, or leaves it with a reason.
  * @param {import("../context.mjs").Ctx} ctx */
 function* verification(ctx) {
   const terminal = new Set(["resolved", "rejected", "superseded", "answered"]);
   for (const record of ctx.touched) {
     if (record.type !== "risk" || terminal.has(record.status)) continue;
     if (!["blocking", "important"].includes(record.materiality ?? "")) continue;
-    if (record.links.some((link) => link.rel === "verified_by")) continue;
-    // A test-obligation that points at the risk verifies it as well as a
-    // link the risk carries: the reviewer wrote the risk, the author the check.
-    const inbound = ctx.backlinks(record.conceptId)?.backlinks ?? [];
-    if (
-      inbound.some((/** @type {any} */ link) =>
-        ["verified_by", "satisfies"].includes(link?.rel),
-      )
-    )
-      continue;
-    const anchors = record.anchors.map((anchor) => anchor.file);
-    const specNear = ctx.files.some(
-      (file) =>
-        (ctx.classes.get(file.path) ?? "") === "test" &&
-        anchors.some((anchor) => sameArea(anchor, file.path)),
+    yield sig(
+      "owed.verification",
+      record.anchors[0]?.file ?? record.path,
+      [],
+      "warn",
+      `${record.conceptId} is ${record.materiality} and still open`,
     );
-    if (!specNear) {
-      yield sig(
-        "owed.verification",
-        anchors[0] ?? record.path,
-        ["test-obligation"],
-        "block",
-        `${record.conceptId} is ${record.materiality} and nothing verifies it`,
-      );
-    }
   }
-}
-
-/** @param {string} a @param {string} b */
-function sameArea(a, b) {
-  return (
-    a.split("/").slice(0, -1).join("/") === b.split("/").slice(0, -1).join("/")
-  );
 }
 
 /**

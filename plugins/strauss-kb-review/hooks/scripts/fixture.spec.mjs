@@ -94,6 +94,17 @@ test(
         });
       }
 
+      await t.test("an open blocking risk warns and never blocks", () => {
+        const result = reportOn(repo, "blocking-risk");
+        const owed = result.findings.filter(
+          (/** @type {any} */ item) => item.id === "owed.verification",
+        );
+        assert.deepEqual(
+          owed.map((/** @type {any} */ item) => item.severity),
+          ["warn"],
+        );
+      });
+
       await t.test("docs-only blocks on nothing", () => {
         const result = reportOn(repo, "docs-only");
         assert.deepEqual(
