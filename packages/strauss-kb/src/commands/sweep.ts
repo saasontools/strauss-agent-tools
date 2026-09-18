@@ -172,12 +172,8 @@ function sweepable(hit: KbAdjudicated, tag: string): boolean {
 
 /**
  * Everything pointing at a record, by target: typed links and both
- * supersession pointers. A survivor left holding one at a swept record has a
- * dangling id, and `--dry-run` answers from this same index.
- *
- * A citation that lives only in prose is not here, and must not be: the
- * `mirror-links` migration is what puts it in `strauss_links`, and a base that
- * has not run it loses records this guard cannot see.
+ * supersession pointers. `--dry-run` answers from this same index, and a
+ * citation only in prose is not in it — hence `mirror-links` before a sweep.
  */
 function holderIndex(bundle: KbRecord[]): Map<string, Set<string>> {
   const byTarget = new Map<string, Set<string>>();

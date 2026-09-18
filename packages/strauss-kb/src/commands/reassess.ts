@@ -99,11 +99,8 @@ export const reassessCommand = define({
       return { conceptId: id, packet: null, rebaselined: [], cosmetic: 0 };
     }
 
-    // Asked for once there is a packet, whichever half raised it: a reference
-    // finding on a superseded record is exactly the case where the reader has
-    // to find who was leaning on it, and `incoming` is one hop where this is
-    // the causal walk. Over the bundle already in hand, never `store.impact`,
-    // which would read and adjudicate every record a second time.
+    // Every packet carries its dependants, whichever half raised it. Over the
+    // bundle already in hand: `store.impact` would read it a second time.
     const dependants = impact(id, bundle);
 
     const { packet, classified } = await reassessPacket(root, record, entries, {

@@ -2,20 +2,10 @@ import type { KbRecord } from "./kb-record.schema.js";
 import { KB_LINK_RELS } from "./record-types.js";
 
 /**
- * The edges between records in one bundle, defined once.
- *
- * Both walks — `trace` and `pack` — consume this module, so they cannot drift
- * into disagreeing about what makes two records neighbours, and a diagnostic
- * pass over the graph can reuse the same definition.
- *
- * An edge is `strauss_links` and nothing else; prose is never walked.
- *
- * `typed-link` is DIRECTED — the edges a record itself declares.
- * `supersession`, `anchor` and `source` are symmetric: they hold between two
- * records because both name the same thing, so either end sees the other.
- * Callers wanting the inbound half of a typed edge use `kb-links/`
- * (`kb_backlinks`, `kb_impact`) rather than this module, which answers "what
- * does this record point at".
+ * The edges between records in one bundle, defined once for `trace` and
+ * `pack`. `typed-link` (`strauss_links`) is directed and the only edge a
+ * record declares; the other three are symmetric. Prose is never walked; the
+ * inbound half of a typed edge is `kb-links/`.
  */
 export const KB_EDGE_KINDS = [
   "typed-link",
@@ -81,12 +71,9 @@ export function edgeNeighbours(
   linkRels: readonly string[] = DEFAULT_TYPED_LINK_RELS,
 ): KbRecord[] {
   switch (kind) {
-    // Outbound only: this is what the record declares about itself. A missing
-    // target is legal — records are routinely written before the ones they
-    // point at exist — so the walk skips it and `kb_validate` reports it as a
-    // warning. A rel outside `linkRels` is skipped too, which is how an
-    // unknown rel stays untraversable everywhere rather than one walk at a
-    // time.
+    // Outbound only. A missing target is skipped (`kb_validate` warns), and so
+    // is a rel outside `linkRels`, which keeps an unknown rel untraversable
+    // everywhere.
     case "typed-link": {
       const allowed = new Set(linkRels);
       const targets = new Set(

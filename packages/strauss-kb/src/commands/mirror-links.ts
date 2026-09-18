@@ -25,7 +25,7 @@ export const mirrorLinksCommand = define({
   tool: "kb_mirror_links",
   usage: "mirror-links [--dry-run]",
   description:
-    "One-time migration: copy every markdown citation in a record's prose into strauss_links as related_to, where the frontmatter does not already declare the target. Run it once per base before upgrading; afterwards nothing reads the body for edges. Idempotent.",
+    "One-time migration: copy every markdown citation in a record's prose into strauss_links as related_to, where the frontmatter does not already declare the target. Run it once per base before the first sweep. Idempotent.",
   input: z.object({
     bundlePath,
     dryRun: z
@@ -88,11 +88,8 @@ export const mirrorLinksCommand = define({
 
 /**
  * Targets this record's prose cites that its frontmatter does not declare.
- *
- * `related_to` is the only rel a citation can be read as: prose states a
- * pointer, never a direction of dependence, and inventing a stronger claim
- * from a markdown link would put a dependency in the base nobody wrote. A
- * target that already carries any rel keeps it.
+ * Each becomes `related_to`, the only rel prose can state; a target already
+ * carrying a rel keeps it.
  */
 function unmirrored(record: KbRecord): string[] {
   const declared = new Set(

@@ -209,3 +209,16 @@
 {"at":"2026-09-18T15:31:23.288Z","by":"unknown","operation":"anchor-resolve","conceptId":"open-question.which-renderers-does-the-title-strip-cover"}
 {"at":"2026-09-18T15:31:23.539Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.inline-code-stripper-rescans-from-zero"}
 {"at":"2026-09-18T15:31:23.862Z","by":"unknown","operation":"anchor-resolve","conceptId":"test-obligation.the-reassess-report-means-what-it-says"}
+{"at":"2026-09-18T15:35:12.332Z","by":"agent:prose","operation":"verify","conceptId":"test-obligation.documented-reference-shapes-match-the-model"}
+{"at":"2026-09-18T15:35:12.646Z","by":"agent:prose","operation":"write","conceptId":"open-question.do-the-new-comments-fit-four-lines"}
+{"at":"2026-09-18T15:35:12.926Z","by":"agent:prose","operation":"write","conceptId":"risk.mirror-links-told-to-run-before-the-upgrade-that-ships-it"}
+{"at":"2026-09-18T15:40:09.815Z","by":"mcp","operation":"write","conceptId":"test-obligation.mirror-links-order-is-stated-once-and-followable"}
+{"at":"2026-09-18T15:40:16.476Z","by":"mcp","operation":"answer","conceptId":"open-question.do-the-new-comments-fit-four-lines"}
+{"at":"2026-09-18T15:40:29.238Z","by":"unknown","operation":"anchor-resolve","conceptId":"decision.reference-reads-stay-unmemoised"}
+{"at":"2026-09-18T15:40:30.282Z","by":"unknown","operation":"anchor-resolve","conceptId":"decision.strauss-links-is-the-one-representation"}
+{"at":"2026-09-18T15:40:36.103Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.impact-rereads-the-bundle-the-caller-holds"}
+{"at":"2026-09-18T15:40:38.471Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.prose-is-rendering-restated-in-four-homes"}
+{"at":"2026-09-18T15:40:39.860Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.references-only-packet-reports-no-dependants"}
+{"at":"2026-09-18T15:40:42.388Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.unmigrated-base-loses-prose-edges"}
+{"at":"2026-09-18T15:40:44.698Z","by":"unknown","operation":"anchor-resolve","conceptId":"test-obligation.documented-reference-shapes-match-the-model"}
+{"at":"2026-09-18T15:40:45.777Z","by":"unknown","operation":"anchor-resolve","conceptId":"test-obligation.reassess-packet-is-honest-about-anchors-and-dependants"}

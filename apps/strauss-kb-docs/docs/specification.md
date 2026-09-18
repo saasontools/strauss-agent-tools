@@ -472,11 +472,8 @@ link also renders into the body as one sentence from a fixed per-rel template �
 
 Section headings come from the record's type (see [Record types](#record-types))
 and are **ordered**; one the type does not define is rejected, and one left
-empty is omitted rather than stubbed. A markdown link in the body is the
-**rendering** of an edge, never the edge: `relatedConceptIds` is stored in
-`strauss_links` as `related_to` and also rendered as `Relates to [id](id.md).`,
-for a reader that knows only OKF. A citation with no entry beside it is a
-`validate` warning — see [`mirror-links`](./cli-reference.md#mirror-links).
+empty is omitted rather than stubbed. A markdown link in the body renders an
+edge rather than being one — see [Edges](#edges).
 
 ```yaml
 ---

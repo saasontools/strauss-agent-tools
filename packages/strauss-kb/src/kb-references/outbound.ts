@@ -3,12 +3,9 @@ import { isKbLinkRel } from "../record-types.js";
 import type { KbOutboundReference } from "./model.js";
 
 /**
- * Every record this one explicitly points at, each target once.
- *
- * Two rels between one pair are two claims and both are kept; the same rel
- * stated twice says nothing twice. A rel outside the closed vocabulary is
- * skipped, as every walk skips it. Shared anchors and sources are co-location,
- * not reference.
+ * Every record this one points at through `strauss_links`, each target once,
+ * with every distinct rel. An unknown rel is skipped, as every walk skips it;
+ * shared anchors and sources are co-location, not reference.
  */
 export function outboundReferences(record: KbRecord): KbOutboundReference[] {
   const byTarget = new Map<string, KbOutboundReference>();

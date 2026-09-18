@@ -66,12 +66,8 @@ export function staleReferencesFrom(
 }
 
 /**
- * Who still points at this record, among the records that still hold.
- *
- * The inverse question, asked of a record that has stopped holding: a reader
- * deciding what its replacement means needs the open risks and questions that
- * were leaning on it. Contextual by design — it is one hop and every rel,
- * where `kb_impact` walks causal dependence transitively.
+ * Who still points at this record, among the records that still hold: one hop
+ * and every rel, where `kb_impact` walks causal dependence transitively.
  */
 export function liveReferencesTo(
   targetId: string,

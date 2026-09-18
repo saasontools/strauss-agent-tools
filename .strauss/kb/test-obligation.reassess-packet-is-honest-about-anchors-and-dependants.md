@@ -39,10 +39,10 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/reassess.ts
     symbol: reassessCommand
-    hash: "sha256:c2ecd7e1f5a759d13d151d3b02ad00c6d25d264615fc9951b839c1d743102097"
+    hash: "sha256:c1f423f270aa03c811a019756a1e60b06d24e13501504b2828e467687d863418"
     hash_kind: raw
-    resolved_at: "2026-09-17T19:20:08.751Z"
-    lines: 134
+    resolved_at: "2026-09-18T15:40:45.769Z"
+    lines: 131
     resolver: regex
 strauss_links:
   - target: risk.reassess-note-denies-the-drift-it-just-rebaselined

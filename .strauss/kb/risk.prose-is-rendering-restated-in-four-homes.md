@@ -25,10 +25,10 @@ strauss_anchors:
     resolved_at: "2026-09-17T21:48:43.600Z"
     lines: 268
   - file: apps/strauss-kb-docs/docs/specification.md
-    hash: "sha256:f244344b55539b1aae7507bb75e595977517a7d98869487a0c2be0b4b75329fa"
+    hash: "sha256:1e756ee19b831091fc43e90492dcc1f5ed2b329e778bf6d09de367bb449a59f2"
     hash_kind: raw
-    resolved_at: "2026-09-17T21:48:43.600Z"
-    lines: 717
+    resolved_at: "2026-09-18T15:40:38.458Z"
+    lines: 714
 strauss_links:
   - target: decision.strauss-links-is-the-one-representation
     rel: informs

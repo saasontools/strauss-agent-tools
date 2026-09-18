@@ -12,7 +12,13 @@ tags:
 generated:
   by: mcp
   at: "2026-09-18T07:24:18.455Z"
-verified: []
+verified:
+  - by: "agent:prose"
+    at: "2026-09-18T15:35:12.305Z"
+    note: >-
+      grep -rn origins over apps/strauss-kb-docs/docs and
+      packages/strauss-kb/src returns nothing; cli-reference.md:257 is
+      byte-identical to the line test/cli.spec.ts:408 asserts.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-references/model.ts
     symbol: KbStaleReference
@@ -22,14 +28,14 @@ strauss_anchors:
     lines: 9
     resolver: regex
   - file: apps/strauss-kb-docs/docs/cli-reference.md
-    hash: "sha256:dc5fd1dffa71bdb73dae78d34e568aaf0b08b87607307cdd4f891de817442b8d"
+    hash: "sha256:9040a96240179a4bfd798ec840de1cb1686efc1d3592c88a0f396c22bf705cb2"
     hash_kind: raw
-    resolved_at: "2026-09-18T07:24:26.524Z"
+    resolved_at: "2026-09-18T15:40:44.690Z"
     lines: 946
   - file: apps/strauss-kb-docs/docs/mcp-reference.md
-    hash: "sha256:2c3828d48962e705c5b632c6af0a4cc44821e89e6d390a9fb20a09816a4e9d06"
+    hash: "sha256:559c5bfea5978666b43246b2b52cd08c000967932ba22fa72a6c1e55ce801262"
     hash_kind: raw
-    resolved_at: "2026-09-18T07:24:26.524Z"
+    resolved_at: "2026-09-18T15:40:44.690Z"
     lines: 633
 strauss_links:
   - target: risk.the-reference-shapes-document-a-field-nothing-emits

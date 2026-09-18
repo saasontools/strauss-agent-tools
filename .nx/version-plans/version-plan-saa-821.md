@@ -5,7 +5,8 @@
 `strauss_links` is the one representation of an edge, and a markdown link in a
 record's body is its rendering.
 
-**Run `strauss-kb mirror-links` once per base before upgrading.** The new
+**After upgrading, run `strauss-kb mirror-links` once per base, before the first
+`sweep`.** The new
 one-time migration copies every prose citation into `strauss_links` as
 `related_to`, wherever the frontmatter does not already name that target. A base
 that skips it loses every related edge that lived only in prose — in `sweep`

@@ -71,10 +71,8 @@ export type KbDoctorFinding = {
   /** Why this record is in this group, in one phrase a reader can act on. */
   note: string;
   /**
-   * The edge behind a `superseded-but-cited` finding, for a consumer that has
-   * to act on it rather than print it: both ends, the target's standing, where
-   * the pointer is written, and what replaced the target. Absent on every other
-   * check, where the note is the whole finding.
+   * The edge behind a `superseded-but-cited` finding, for a consumer that acts
+   * on it rather than prints it. Absent on every other check.
    */
   reference?: KbStaleReference;
 };
@@ -360,9 +358,6 @@ function aging(
  * else touches would rescue itself and never report. Read one way, the
  * replaced record stays reachable through its history and the replacement has
  * to earn its own inbound link.
- *
- * A record reachable only through a `strauss_links` pointer is reachable;
- * calling it an island would send a reader to link something already linked.
  */
 function orphaned(bundle: KbRecord[]): KbDoctorFinding[] {
   const present = new Set(bundle.map((record) => record.conceptId));

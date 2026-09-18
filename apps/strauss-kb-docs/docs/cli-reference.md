@@ -936,10 +936,10 @@ strauss-kb sweep --tag review --terminal
 mirror-links [--dry-run]
 ```
 
-**Run this once per base, before upgrading.** It copies every markdown citation
-a record's prose makes into `strauss_links` as `related_to`, wherever the
-frontmatter does not already name that target. Afterwards nothing reads a body
-for edges.
+**Run this once per base after upgrading, before the first `sweep`.** It copies
+every markdown citation a record's prose makes into `strauss_links` as
+`related_to`, wherever the frontmatter does not already name that target —
+from this version on, nothing reads a body for edges.
 
 | Flag        | Effect                                            |
 | ----------- | ------------------------------------------------- |
