@@ -72,6 +72,18 @@ bundle would drop the record instead of naming it. Tolerant read, strict write:
 `kb_impact` reports a superseded or rejected record and stops there. A withdrawn
 record's declared dependencies are not obligations anyone still owes.
 
+An edge is `strauss_links` and nothing else. A markdown link in a body renders
+the same claim for a reader that knows only OKF, and `compose` writes both at
+once, so a consumer that walked prose would count the edge twice and disagree
+the moment the two drifted.
+
+Two representations is what the package had, and it cost data: `sweep` read
+frontmatter only and deleted records still cited in prose, while `doctor` read
+prose only and missed a `related_to` at a superseded target. The repair was one
+representation, not two readers: `compose` writes the link wherever it writes
+the sentence, and `validate` is the only body read left, reporting that a
+record's prose and its links have come apart.
+
 ## Rejected: a format that needs a parser
 
 A hand-rolled frontmatter reader could not express nested maps, misreading every

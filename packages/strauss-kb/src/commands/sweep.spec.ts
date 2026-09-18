@@ -37,7 +37,12 @@ describe("sweepCommand", () => {
   const seed = async (
     slug: string,
     status: KbRecordStatus,
-    options: { tags?: string[]; links?: ComposeLink[] } = {},
+    options: {
+      tags?: string[];
+      links?: ComposeLink[];
+      /** Cited in the prose only — `relatedConceptIds` writes no frontmatter link. */
+      cites?: string[];
+    } = {},
   ) => {
     const written = await store.write(
       bundle,
@@ -49,6 +54,7 @@ describe("sweepCommand", () => {
           why: "Something observed.",
           tags: options.tags ?? [TAG],
           ...(options.links ? { links: options.links } : {}),
+          ...(options.cites ? { relatedConceptIds: options.cites } : {}),
         },
         "agent:writer",
         AT,
@@ -167,6 +173,57 @@ describe("sweepCommand", () => {
     ]);
     expect(existsSync(join(bundle, `${held}.md`))).toBe(true);
     await expectValid();
+  });
+
+  // The shape that was being deleted: a survivor whose only mention of a
+  // terminal record is the sentence `relatedConceptIds` renders. It is kept
+  // because `compose` also wrote the `related_to` beside it — before that, 27
+  // deletions on one branch left 5 dangling citations across 3 records and
+  // `validate` said nothing.
+  test("keeps a record a surviving record relates to", async () => {
+    const held = await seed("held", "resolved");
+    await seed("live-citer", "open", { tags: ["other"], cites: [held] });
+    const free = await seed("free", "resolved");
+
+    const result = await run();
+
+    expect(result.deleted).toEqual([free]);
+    expect(result.skipped).toEqual([
+      { conceptId: held, heldBy: ["fact.live-citer"] },
+    ]);
+    expect(existsSync(join(bundle, `${held}.md`))).toBe(true);
+    await expectValid();
+  });
+
+  test("--dry-run answers the same way about a related record", async () => {
+    const held = await seed("held", "resolved");
+    await seed("live-citer", "open", { tags: ["other"], cites: [held] });
+
+    const result = await run({ dryRun: true });
+
+    expect(result.candidates).toEqual([]);
+    expect(result.skipped).toEqual([
+      { conceptId: held, heldBy: ["fact.live-citer"] },
+    ]);
+  });
+
+  // Prose is rendering, so a citation only in prose holds nothing. The record
+  // carrying it is `validate`'s warning, and the writer is the way an edge
+  // enters a base.
+  test("a citation only in prose holds nothing, and validate names it", async () => {
+    const cited = await seed("cited", "resolved");
+    await seed("live-citer", "open", { tags: ["other"] });
+    const file = join(bundle, "fact.live-citer.md");
+    writeFileSync(
+      file,
+      `${readFileSync(file, "utf8")}\nRelates to [${cited}](${cited}.md).\n`,
+      "utf8",
+    );
+
+    expect((await run({ dryRun: true })).candidates).toEqual([cited]);
+    expect(validateBundle(await store.list(bundle))).toMatchObject([
+      { check: "body_link", conceptId: "fact.live-citer" },
+    ]);
   });
 
   // A supersession pointer is not a typed link, and it dangles the same way:

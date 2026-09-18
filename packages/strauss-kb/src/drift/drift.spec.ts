@@ -1,5 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -322,6 +328,39 @@ describe("drift classification", () => {
     );
   }
 
+  /** A superseded decision, and a frontmatter-only link from `id` at it. */
+  async function staleLinkOn(id: string): Promise<void> {
+    const store = new KbStore();
+    for (const slug of ["retention", "retention-seven-days"]) {
+      await store.write(
+        bundle,
+        composeRecord(
+          "decision",
+          {
+            slug,
+            title: `Export retention: ${slug}`,
+            why: "Evidence a dispute needs outlives the export.",
+            sections: { Decision: `Keep exports per ${slug}.` },
+            ...(slug === "retention-seven-days"
+              ? { supersedes: ["decision.retention"] }
+              : {}),
+          },
+          "agent:writer",
+          STAMPED_AT,
+        ),
+      );
+    }
+    const file = join(bundle, `${id}.md`);
+    writeFileSync(
+      file,
+      readFileSync(file, "utf8").replace(
+        "\nstrauss_status:",
+        "\nstrauss_links:\n  - target: decision.retention\n    rel: related_to\nstrauss_status:",
+      ),
+      "utf8",
+    );
+  }
+
   async function run(
     input: Record<string, unknown> = {},
   ): Promise<KbReassessResult> {
@@ -365,6 +404,32 @@ describe("drift classification", () => {
     expect(packet?.claim).toMatchObject({ section: "Claim" });
   });
 
+  // Both sections survive together: the code moved, and the record it leans
+  // on was replaced.
+  test("code drift and a stale reference keep their own sections", async () => {
+    write(V1);
+    const anchor = await astAnchor(V1);
+    commit("seed");
+    write(REWRITTEN);
+    commit("sum amounts instead");
+    await seed([anchor]);
+
+    // Frontmatter only, which is the half a body-link reader never saw.
+    await staleLinkOn(ID);
+
+    const result = await run();
+    const rendered = reassessCommand.render?.(result) ?? "";
+
+    expect(result.packet?.anchors).toHaveLength(1);
+    expect(result.packet?.references.outgoing).toMatchObject([
+      { target: "decision.retention", rels: ["related_to"] },
+    ]);
+    // The type's lean still speaks about the code, because the code did move.
+    expect(result.packet?.default).toBe("presumed-invalidated");
+    expect(rendered).toContain("## Anchors (1)");
+    expect(rendered).toContain("## References that no longer hold (1)");
+  });
+
   test("a moved anchor is rebaselined and produces no packet", async () => {
     write(V1);
     const anchor = await astAnchor(V1);
@@ -390,6 +455,29 @@ describe("drift classification", () => {
       // The hash is the same bytes it always was; only the address moved.
       hash: anchor.hash,
     });
+  });
+
+  // The note is the only sentence left speaking about the anchors once
+  // `## Anchors` is empty, and it prints beside the rebaseline this command
+  // just wrote to the base.
+  test("a rebaselined move plus a stale reference does not deny the drift", async () => {
+    write(V1);
+    const anchor = await astAnchor(V1);
+    commit("seed");
+    git("mv", FILE, "src/billing.ts");
+    commit("move totals into billing");
+    await seed([anchor]);
+    await staleLinkOn(ID);
+
+    const result = await run();
+
+    expect(result.rebaselined).toHaveLength(1);
+    expect(result.packet?.anchors).toEqual([]);
+    expect(result.packet?.references.outgoing).toHaveLength(1);
+    expect(result.packet?.defaultNote).toContain(
+      "nothing left open on the anchors",
+    );
+    expect(result.packet?.defaultNote).not.toContain("no anchor drift");
   });
 
   test("a record with no drift reassesses to nothing", async () => {

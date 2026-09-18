@@ -1,4 +1,5 @@
 import { isCanonicalRepoUrl } from "./anchor-resolver/index.js";
+import { unmirroredCitations } from "./body-citations.js";
 import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 import { isKbLinkRel, isKbRecordType, KB_LINK_RELS } from "./record-types.js";
 
@@ -101,6 +102,29 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
           "warning",
         );
       }
+    }
+
+    // A citation with no entry beside it is an edge nothing downstream sees.
+    // One unreadable body is that record's warning, never the base's crash.
+    let unmirrored: string[];
+    try {
+      unmirrored = unmirroredCitations(record);
+    } catch (error) {
+      report(
+        "body_link",
+        conceptId,
+        error instanceof Error ? error.message : String(error),
+        "warning",
+      );
+      unmirrored = [];
+    }
+    for (const target of unmirrored) {
+      report(
+        "body_link",
+        conceptId,
+        `body cites ${target}, which strauss_links does not declare — add it as related_to`,
+        "warning",
+      );
     }
 
     // A short `repo` names a repository without saying where it lives, so a

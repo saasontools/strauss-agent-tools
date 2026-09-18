@@ -434,7 +434,7 @@ thresholds: expiring within 30d, unverified over 90d, aging over 90d
   aging                   2  still open or proposed long after it was written
   orphaned                0  no other record links to it
   broken-supersession     0  the supersession pointers do not resolve
-  superseded-but-cited    1  a live record's body links to one that no longer holds
+  superseded-but-cited    1  a live record points at one that no longer holds
   drifted                 0  the code an anchor points at moved
   unchecked               0  an anchor in another repository nothing could reach
 
@@ -493,8 +493,8 @@ Narrow the walk by naming edges — `typed-link`, `supersession`, `anchor`,
 strauss-kb trace decision.cursor-v2 supersession
 ```
 
-Body links and `related_to` are excluded because they can reach most of a bundle
-from anywhere, which suits a bounded pack but floods a timeline.
+`related_to` is excluded because it can reach most of a bundle from anywhere,
+which suits a bounded pack but floods a timeline.
 
 ## Loading a base into agent context
 
@@ -614,7 +614,7 @@ knowable; **it refuses rather than truncating** past its token budget, reporting
 the record count and every already-cut id; and **everything below the header is
 byte-identical** across runs over an unchanged base, so two packs can be diffed.
 
-The walk follows all five [edge kinds](./specification.md#edges) with the whole
+The walk follows all four [edge kinds](./specification.md#edges) with the whole
 rel vocabulary. With neither a size problem nor a root record in hand, the
 question is a point lookup — [`query`](./cli-reference.md#query).
 

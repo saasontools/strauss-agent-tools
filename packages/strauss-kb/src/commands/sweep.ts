@@ -171,9 +171,9 @@ function sweepable(hit: KbAdjudicated, tag: string): boolean {
 }
 
 /**
- * Everything pointing at a record, by target: typed links plus both
- * supersession pointers. A pointer is not an edge, but a survivor left holding
- * one at a swept record has a dangling id `validate` faults.
+ * Everything pointing at a record, by target: typed links and both
+ * supersession pointers. A citation only in prose is not an edge and holds
+ * nothing; `validate` names the record that carries one.
  */
 function holderIndex(bundle: KbRecord[]): Map<string, Set<string>> {
   const byTarget = new Map<string, Set<string>>();

@@ -207,8 +207,8 @@ them, and `kb_verify` only for a reading someone actually did.
 ### `kb_reassess`
 
 As CLI [`reassess`](./cli-reference.md#reassess), with the flags as camelCase
-parameters. Reach for it when a drift warning names a record and the question is
-whether the record still holds.
+parameters. Reach for it when a drift warning names a record, or when a
+supersession leaves you asking whether the records around it still hold.
 
 Parameters: `bundlePath` and `conceptId` required; `repoRoot` (`string`,
 defaults to the working directory) and `withDiff` (`boolean`) optional.
@@ -222,8 +222,12 @@ defaults to the working directory) and `withDiff` (`boolean`) optional.
 ```
 
 Returns `{ conceptId, packet, rebaselined, cosmetic }`; `packet` is `null` when
-the record needs no reading. It rebaselines `moved` anchors and does nothing
-else to the record — never `verified[]`, never standing.
+the record has neither drift nor an unresolved reference. `packet.references`
+holds `outgoing` — what this record's `strauss_links` point at that no longer
+holds — and `incoming`, who still points at it, answered for a record that has
+itself stopped holding. It rebaselines `moved`
+anchors and does nothing else to the record — never `verified[]`, never
+standing, never a link.
 
 ---
 
@@ -312,7 +316,7 @@ array, and this surface adds `depth`.
 Parameters: `bundlePath` and `conceptId` (the seed) required; `edges` (array of
 `typed-link`, `supersession`, `anchor`, `source`; default all four) and `depth`
 (positive integer, default 3) optional. `typed-link` follows only the **causal**
-rels — `related_to` is excluded for the same flooding reason body links are.
+rels — `related_to` is excluded because a bibliography floods a blast radius.
 
 ```json
 {
@@ -548,8 +552,8 @@ is reported even when empty.**
 Returns `{ bundlePath, checkedAt, recordCount, thresholds, counts, groups,
 findingCount, healthy }`, where each group is
 `{ check, headline, count, findings }` and each finding is
-`{ conceptId, title, status, note }`. Under `drifted` it also carries `packets`
-and `rebaselinable`.
+`{ conceptId, title, status, note }`. A `superseded-but-cited` finding also
+carries `reference`: `{ from, target, targetStanding, rels, replacedBy }`. Under `drifted` it also carries `packets` and `rebaselinable`.
 
 ### `kb_sweep`
 

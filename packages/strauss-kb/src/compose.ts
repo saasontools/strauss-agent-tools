@@ -57,7 +57,7 @@ export const composeInputSchema = z
       .optional(),
     verify: z.array(z.string().min(1)).optional(),
     tags: z.array(z.string().min(1)).optional(),
-    /** Concept ids this record relates to; rendered as body links. */
+    /** Concept ids this record relates to; stored as `related_to` links, and rendered as prose. */
     relatedConceptIds: z.array(kbConceptIdSchema).optional(),
     /**
      * Typed causal edges, source → target: `{ target: "fact.b", rel:
@@ -159,7 +159,20 @@ export function composeRecord(
       `kb: ${type}.${parsed.slug} cannot ${selfLink.rel} itself — a link must name another record`,
     );
   }
-  if (parsed.links?.length) frontmatter.strauss_links = parsed.links;
+  // `relatedConceptIds` is an edge, so it is stored like one; the sentence
+  // below stays for a plain-OKF reader. A target already carrying a declared
+  // rel keeps it.
+  const seen = new Set([
+    `${type}.${parsed.slug}`,
+    ...(parsed.links ?? []).map((link) => link.target),
+  ]);
+  const links: ComposeLink[] = [...(parsed.links ?? [])];
+  for (const target of parsed.relatedConceptIds ?? []) {
+    if (seen.has(target)) continue;
+    seen.add(target);
+    links.push({ target, rel: "related_to" });
+  }
+  if (links.length) frontmatter.strauss_links = links;
 
   const blocks: string[] = [];
   for (const heading of spec.sections) {

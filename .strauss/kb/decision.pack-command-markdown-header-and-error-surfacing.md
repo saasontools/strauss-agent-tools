@@ -36,6 +36,9 @@ strauss_anchors:
     resolved_at: "2026-09-15T07:43:48.310Z"
     lines: 48
     resolver: tree-sitter
+strauss_links:
+  - target: decision.pack-full-walk-named-exclusions-shared-stub-cost
+    rel: related_to
 strauss_status: accepted
 strauss_materiality: important
 strauss_confidence: high

@@ -5,7 +5,11 @@ import {
   type KbWarningAnchor,
 } from "./adjudicate.js";
 import type { KbAnchorDriftEntry } from "./anchor-resolver/index.js";
-import { edgeNeighbours } from "./kb-edges.js";
+import {
+  outboundReferences,
+  staleReferences,
+  type KbStaleReference,
+} from "./kb-references/index.js";
 import type { KbRecord, KbRecordStatus } from "./kb-record.schema.js";
 import { validateBundle } from "./validate.js";
 
@@ -55,8 +59,7 @@ const CHECK_HEADLINES: Record<KbDoctorCheck, string> = {
   aging: "still open or still proposed long after it was written",
   orphaned: "no other record links to it",
   "broken-supersession": "the supersession pointers do not resolve",
-  "superseded-but-cited":
-    "a live record's body links to one that no longer holds",
+  "superseded-but-cited": "a live record points at one that no longer holds",
   drifted: "the code an anchor points at moved out from under its hash",
   unchecked: "an anchor in another repository nothing could reach",
 };
@@ -67,6 +70,11 @@ export type KbDoctorFinding = {
   status: KbRecordStatus;
   /** Why this record is in this group, in one phrase a reader can act on. */
   note: string;
+  /**
+   * The edge behind a `superseded-but-cited` finding, for a consumer that acts
+   * on it rather than prints it. Absent on every other check.
+   */
+  reference?: KbStaleReference;
 };
 
 export type KbDoctorGroup = {
@@ -355,8 +363,8 @@ function orphaned(bundle: KbRecord[]): KbDoctorFinding[] {
   const present = new Set(bundle.map((record) => record.conceptId));
   const referenced = new Set<string>();
   for (const record of bundle) {
-    for (const neighbour of edgeNeighbours(record, bundle, "body-link")) {
-      referenced.add(neighbour.conceptId);
+    for (const reference of outboundReferences(record)) {
+      referenced.add(reference.target);
     }
     // Both spellings of one statement — "X replaced R" — whichever side of the
     // pair stores it. Either way it is X that references R.
@@ -453,22 +461,10 @@ function brokenSupersession(
 }
 
 /**
- * A live record whose body points at a record that no longer holds.
- *
- * The most quietly wrong state in a base: the citing record is current, so a
- * reader trusts it, and the link reads as support for a claim its target has
- * already stopped making. One finding per pair, because each is its own edit.
- *
- * Rejected targets count as well as superseded ones. The check's name is for
- * the common case, but the failure is "cites something that no longer holds",
- * and a live record citing a rejected one is the worse half — a superseded
- * record at least names its replacement, while a rejected one is a well-formed
- * assertion of what someone decided *not* to do.
- *
- * A record citing the very record it replaced is exempt. That link is the
- * history working as designed — `relatedConceptIds` on a superseding write
- * renders as exactly this edge — and reporting it would put a finding on every
- * correctly performed supersession.
+ * A live record pointing at one that no longer holds. `kb-references/` states
+ * what counts, the standing rules and the replacement exemption; the note here
+ * names the rels when the pointer is typed, and `reference` carries the same
+ * finding in a shape a consumer can act on.
  */
 function supersededButCited(
   bundle: KbRecord[],
@@ -476,29 +472,19 @@ function supersededButCited(
 ): KbDoctorFinding[] {
   const byId = new Map(bundle.map((record) => [record.conceptId, record]));
   const findings: KbDoctorFinding[] = [];
-  for (const record of bundle) {
-    const standing = standings.get(record.conceptId);
-    if (standing === "superseded" || standing === "rejected") continue;
-    for (const target of edgeNeighbours(record, bundle, "body-link")) {
-      const targetStanding = standings.get(target.conceptId);
-      if (targetStanding !== "superseded" && targetStanding !== "rejected") {
-        continue;
-      }
-      if (replaces(record, target)) continue;
-      const replacement = target.frontmatter.strauss_superseded_by;
-      findings.push(
-        finding(
-          record,
-          `cites ${targetStanding} ${target.conceptId}${
-            targetStanding === "superseded" &&
-            replacement &&
-            byId.has(replacement)
-              ? ` — replaced by ${replacement}`
-              : ""
-          }`,
-        ),
-      );
-    }
+  for (const reference of staleReferences(bundle, standings)) {
+    const record = byId.get(reference.from);
+    if (!record) continue;
+    const replacement = reference.replacedBy[0];
+    findings.push({
+      ...finding(
+        record,
+        `cites ${reference.targetStanding} ${reference.target} via ${reference.rels.join(", ")}${
+          replacement ? ` — replaced by ${replacement}` : ""
+        }`,
+      ),
+      reference,
+    });
   }
   return findings;
 }
@@ -581,14 +567,6 @@ function describeAnchor(anchor: KbWarningAnchor): string {
   return anchor.diffSize === 0
     ? `${at} (content changed, same line count)`
     : `${at} (${anchor.diffSize} line${anchor.diffSize === 1 ? "" : "s"} apart)`;
-}
-
-/** Either pointer saying `later` is what stands in `earlier`'s place. */
-function replaces(later: KbRecord, earlier: KbRecord): boolean {
-  return (
-    (later.frontmatter.strauss_supersedes ?? []).includes(earlier.conceptId) ||
-    earlier.frontmatter.strauss_superseded_by === later.conceptId
-  );
 }
 
 function finding(record: KbRecord, note: string): KbDoctorFinding {

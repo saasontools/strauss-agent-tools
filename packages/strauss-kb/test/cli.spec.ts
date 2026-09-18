@@ -1,5 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -317,6 +323,99 @@ describe("built CLI round trip", () => {
           { from: "fact.gateway", rel: "depends_on", standing: "current" },
         ],
       });
+    });
+  });
+
+  // A record can carry a `strauss_links` edge with no sentence about it in the
+  // prose — hand-written, or from a producer we did not write. Every consumer
+  // has to see it, so the round trip states it the only way the CLI cannot.
+  describe("a reference the prose does not repeat", () => {
+    let refs: string;
+
+    const at = (args: string[], stdin = "") =>
+      run(["--bundle", refs, ...args], stdin);
+
+    beforeAll(() => {
+      refs = join(base, "kb-refs");
+      const write = (type: string, input: Record<string, unknown>) =>
+        at(["write", type], JSON.stringify(input));
+
+      write("decision", {
+        slug: "retention",
+        title: "Exports are kept for thirty days",
+        why: "A shorter window loses evidence a dispute needs.",
+        sections: { Decision: "Keep exports thirty days." },
+      });
+      write("decision", {
+        slug: "retention-seven-days",
+        title: "Exports are kept for seven days",
+        why: "Storage cost outgrew the dispute window.",
+        sections: { Decision: "Keep exports seven days." },
+        supersedes: ["decision.retention"],
+      });
+      write("risk", {
+        slug: "environment-override",
+        title: "An environment override can shorten the window",
+        why: "A dispute opened after the override loses its evidence.",
+        sections: { Risk: "The window is read from the environment." },
+      });
+
+      const file = join(refs, "risk.environment-override.md");
+      writeFileSync(
+        file,
+        readFileSync(file, "utf8").replace(
+          "\nstrauss_status:",
+          "\nstrauss_links:\n  - target: decision.retention\n    rel: related_to\nstrauss_status:",
+        ),
+        "utf8",
+      );
+    });
+
+    it("doctor names it, in the table and in the machine shape", () => {
+      const { status, stdout } = at(["doctor"]);
+
+      expect(status).toBe(0);
+      expect(stdout).toContain(
+        "cites superseded decision.retention via related_to — replaced by decision.retention-seven-days",
+      );
+
+      const report = json(at(["doctor", "--json"]).stdout) as {
+        groups: { check: string; findings: unknown[] }[];
+      };
+      expect(
+        report.groups.find((group) => group.check === "superseded-but-cited")
+          ?.findings,
+      ).toMatchObject([
+        {
+          conceptId: "risk.environment-override",
+          reference: {
+            target: "decision.retention",
+            targetStanding: "superseded",
+            rels: ["related_to"],
+            replacedBy: ["decision.retention-seven-days"],
+          },
+        },
+      ]);
+    });
+
+    it("reassess reports it with no anchor and no code drift", () => {
+      const { status, stdout } = at(["reassess", "risk.environment-override"]);
+
+      expect(status).toBe(0);
+      expect(stdout).not.toContain("nothing to reassess");
+      expect(stdout).toContain("## References that no longer hold (1)");
+      expect(stdout).toContain(
+        "- decision.retention [superseded] (related_to) — replaced by decision.retention-seven-days",
+      );
+    });
+
+    it("reassessing the replaced decision names who is still on it", () => {
+      const { stdout } = at(["reassess", "decision.retention"]);
+
+      expect(stdout).toContain("## Still pointing here (1)");
+      expect(stdout).toContain(
+        "- risk.environment-override [open] (related_to)",
+      );
     });
   });
 

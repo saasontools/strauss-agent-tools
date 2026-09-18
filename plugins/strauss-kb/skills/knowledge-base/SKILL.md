@@ -157,7 +157,9 @@ strauss-kb doctor     # health sweep: expired, unconfirmed, orphaned records
 ```
 
 `validate` catches disagreeing supersession pointers, an assumption citing
-sources.
+sources, a link naming a record the bundle does not hold, and a prose citation
+`strauss_links` does not declare — add it to `links` as `related_to`; prose
+alone is not an edge.
 
 `doctor` never writes; groups: expired, expiring, unverified, aging, orphaned,
 broken supersession, superseded-but-cited, drifted, unchecked. `--json` for
@@ -174,6 +176,8 @@ foreign remote was not cached.
 `strauss-kb doctor --drifted --with-diff` (one record: `reassess <id>`) gives
 the claim, each anchor's class, the old-vs-new diff, and what depends on it.
 Anchors that only `moved` are rebaselined for you; `cosmetic` ones are dropped.
+`reassess` also answers without any drift: what this record points at that no
+longer holds, and — for a record already superseded — who still points at it.
 Read what is left, then pick exactly one:
 
 - **still holds** — `anchor-resolve <id> --rebaseline`, then `verify <id>

@@ -212,6 +212,7 @@ export {
   type KbTraceOptions,
   type KbTraceStep,
 } from "./trace.js";
+export { bodyCitations } from "./body-citations.js";
 export {
   edgeNeighbours,
   neighbours,
@@ -220,6 +221,15 @@ export {
   type KbEdgeKind,
   type KbNeighbour,
 } from "./kb-edges.js";
+export {
+  liveReferencesTo,
+  outboundReferences,
+  staleReferences,
+  staleReferencesFrom,
+  type KbLiveReference,
+  type KbOutboundReference,
+  type KbStaleReference,
+} from "./kb-references/index.js";
 export {
   pack,
   DEFAULT_PACK_HOPS,

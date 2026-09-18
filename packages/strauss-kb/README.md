@@ -474,6 +474,7 @@ caveats: <https://saasontools.github.io/strauss-agent-tools/mcp-reference>.
 and `unchecked`. All nine groups are reported even when empty; `--strict` gates
 on expiry alone, not on drift. Pass `--repo-root PATH` when the base does not sit
 inside the tree it describes.
+
 Windows and judgments:
 [cli-reference](https://saasontools.github.io/strauss-agent-tools/cli-reference).
 

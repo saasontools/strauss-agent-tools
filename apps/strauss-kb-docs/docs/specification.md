@@ -472,9 +472,8 @@ link also renders into the body as one sentence from a fixed per-rel template �
 
 Section headings come from the record's type (see [Record types](#record-types))
 and are **ordered**; one the type does not define is rejected, and one left
-empty is omitted rather than stubbed. Body edges are markdown links, directed
-but untyped, and broken ones are legal; `relatedConceptIds` renders as
-`Relates to [id](id.md).`
+empty is omitted rather than stubbed. A markdown link in the body renders an
+edge rather than being one — see [Edges](#edges).
 
 ```yaml
 ---
@@ -634,7 +633,7 @@ unknown keys are rejected.
 | `stale_after`       | no       | `YYYY-MM-DD`, and a real date                                 |
 | `verify`            | no       | checks that would confirm this still holds                    |
 | `tags`              | no       | free-text labels                                              |
-| `relatedConceptIds` | no       | rendered as body links                                        |
+| `relatedConceptIds` | no       | stored as `related_to` links, and rendered as prose           |
 | `links`             | no       | typed edges `{ target, rel }`, max 64; a self-link is refused |
 | `supersedes`        | no       | ids this record replaces, max 32                              |
 | `materiality`       | no       | `blocking` \| `important` \| `non-blocking`                   |
@@ -736,24 +735,25 @@ at }` — not bodies, because over a long session a body outlives its qualifier.
 
 ### Edges
 
-Five edge kinds connect records in one bundle:
+Four edge kinds connect records in one bundle:
 
 | Kind           | Two records are neighbours when                       | Directed |
 | -------------- | ----------------------------------------------------- | -------- |
-| `body-link`    | one body links `](<concept-id>.md)` to the other      | yes      |
 | `typed-link`   | one declares a `strauss_links` entry naming the other | yes      |
 | `supersession` | either direction of a supersession pair               | no       |
 | `anchor`       | they share a code anchor                              | no       |
 | `source`       | they share a source                                   | no       |
 
-The first two are edges a record itself **makes**; the other three are
-symmetric. `pack` walks all five with the whole rel vocabulary including
-`related_to`. `trace` walks `typed-link`, `supersession`, `anchor`, and
-`source`, narrowed to the **causal** rels: body links and `related_to` would
-flood a timeline. There is no separate `related` kind, because
-`relatedConceptIds` is stored as a body link.
+`typed-link` is the edge a record itself **makes**; the other three are
+symmetric. `pack` walks all four with the whole rel vocabulary including
+`related_to`. `trace` walks the same four narrowed to the **causal** rels:
+`related_to` would flood a timeline.
 
-A pair connected both ways comes back with **both** kinds in `via`, and an
-unknown rel is never traversed. The **inbound** half of a typed edge is answered
+**Prose is not walked.** A markdown link in a body is the rendering of an
+edge, never the edge. [`validate`](./cli-reference.md#validate) is the one
+reader of a body.
+
+A pair connected by two rels comes back with both in `via`, and an unknown rel
+is never traversed. The **inbound** half of a typed edge is answered
 by [`backlinks`](./cli-reference.md#backlinks) and
 [`impact`](./cli-reference.md#impact).

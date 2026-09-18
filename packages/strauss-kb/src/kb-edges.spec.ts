@@ -75,7 +75,7 @@ async function byId(
 }
 
 describe("edgeNeighbours", () => {
-  test("body-link reaches the target of a markdown link in the body", async ({
+  test("a markdown link in the body is not an edge on its own", async ({
     store,
     bundle,
   }) => {
@@ -90,16 +90,12 @@ describe("edgeNeighbours", () => {
     await store.write(bundle, fact("target"));
 
     const { records, get } = await byId(store, bundle);
-    expect(
-      edgeNeighbours(get("fact.linker"), records, "body-link").map(
-        (r) => r.conceptId,
-      ),
-    ).toEqual(["fact.target"]);
+    expect(neighbours(get("fact.linker"), records)).toEqual([]);
   });
 
-  // compose.ts renders relatedConceptIds as `Relates to [id](id.md).` — a
-  // related edge in stored form IS a body link, so this is the path a record
-  // written with relatedConceptIds takes to its neighbours.
+  // compose.ts mirrors relatedConceptIds into `strauss_links` as `related_to`
+  // and still renders the sentence, so this is the path a record written with
+  // relatedConceptIds takes to its neighbours.
   test("reaches a record named through composeRecord relatedConceptIds", async ({
     store,
     bundle,
@@ -113,26 +109,64 @@ describe("edgeNeighbours", () => {
     const { records, get } = await byId(store, bundle);
     const curious = get("fact.curious");
     expect(curious.body).toContain("[fact.target](fact.target.md)");
+    expect(curious.frontmatter.strauss_links).toEqual([
+      { target: "fact.target", rel: "related_to" },
+    ]);
     expect(
-      edgeNeighbours(curious, records, "body-link").map((r) => r.conceptId),
+      edgeNeighbours(curious, records, "typed-link").map((r) => r.conceptId),
     ).toEqual(["fact.target"]);
   });
 
-  // Broken links are legal per compose.ts: records are routinely written
-  // before the ones they point at exist.
-  test("skips a body link whose target is not in the bundle", async ({
+  // The rendered sentence stays for a reader that knows only OKF, and nothing
+  // reads it back: `compose` writes the frontmatter entry beside it.
+  test("relatedConceptIds is stored as a link and rendered as a sentence", async ({
     store,
     bundle,
   }) => {
     await store.write(
       bundle,
-      fact("linker", {
-        sections: { Claim: "See [fact.gone](fact.gone.md), written later." },
+      fact("both", { relatedConceptIds: ["fact.target", "fact.target"] }),
+    );
+
+    const { get } = await byId(store, bundle);
+    const both = get("fact.both");
+    expect(both.frontmatter.strauss_links).toEqual([
+      { target: "fact.target", rel: "related_to" },
+    ]);
+    expect(both.body).toContain("Relates to [fact.target](fact.target.md).");
+  });
+
+  // A stronger claim stands: `related_to` would only restate it.
+  test("a declared rel is not restated as related_to", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(
+      bundle,
+      fact("both", {
+        links: [{ target: "fact.target", rel: "depends_on" }],
+        relatedConceptIds: ["fact.target"],
       }),
     );
 
+    const { get } = await byId(store, bundle);
+    expect(get("fact.both").frontmatter.strauss_links).toEqual([
+      { target: "fact.target", rel: "depends_on" },
+    ]);
+  });
+
+  // Records are routinely written before the ones they point at exist.
+  test("skips a typed link whose target is not in the bundle", async ({
+    store,
+    bundle,
+  }) => {
+    await store.write(
+      bundle,
+      fact("linker", { relatedConceptIds: ["fact.gone"] }),
+    );
+
     const { records, get } = await byId(store, bundle);
-    expect(edgeNeighbours(get("fact.linker"), records, "body-link")).toEqual(
+    expect(edgeNeighbours(get("fact.linker"), records, "typed-link")).toEqual(
       [],
     );
   });

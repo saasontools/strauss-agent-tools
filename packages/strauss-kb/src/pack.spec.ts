@@ -35,12 +35,12 @@ const PR_SOURCE = { id: "pr-12", resource: "https://example.test/pr/12" };
  * One graph, every edge kind, three depths.
  *
  * Depth 1 from `decision.root`: `decision.old-way` (supersession),
- * `fact.related-note` (relatedConceptIds, stored as a body link),
- * `constraint.linked-limit` (hand-written body link), `fact.same-anchor`,
+ * `fact.related-note` and `constraint.linked-limit` (relatedConceptIds, which
+ * `compose` mirrors into `strauss_links`), `fact.same-anchor`,
  * `fact.stale-note` and `decision.rejected-alt` (shared anchor),
  * `fact.same-source` and `open-question.pending` (shared source).
  * Depth 2: `fact.second-hop`, sharing only `src/notes.ts` with the note.
- * Depth 3: `fact.third-hop`, linked only from second-hop's body.
+ * Depth 3: `fact.third-hop`, reached only from second-hop.
  */
 async function seed(store: KbStore, bundle: string): Promise<void> {
   const write = (
@@ -108,6 +108,7 @@ async function seed(store: KbStore, bundle: string): Promise<void> {
     title: "Second hop",
     why: "Reached only through the note.",
     sections: { Claim: "See [fact.third-hop](fact.third-hop.md)." },
+    relatedConceptIds: ["fact.third-hop"],
     anchors: [{ file: "src/notes.ts" }],
   });
   await write("fact", {
@@ -127,7 +128,7 @@ async function seed(store: KbStore, bundle: string): Promise<void> {
     },
     anchors: [{ file: "src/pay/charge.ts", symbol: "Charge.run" }],
     sources: [PR_SOURCE],
-    relatedConceptIds: ["fact.related-note"],
+    relatedConceptIds: ["fact.related-note", "constraint.linked-limit"],
     supersedes: ["decision.old-way"],
   });
   await store.setStatus(bundle, "decision.rejected-alt", "rejected");
@@ -149,8 +150,8 @@ describe("pack", () => {
     const result = await store.pack(bundle, "decision.root");
 
     const ids = packedIds(result);
-    // relatedConceptIds and a hand-written body link — both body links in
-    // stored form — plus supersession, shared anchor, and shared source.
+    // Two relatedConceptIds, which `compose` stores as `related_to`, plus
+    // supersession, shared anchor, and shared source.
     expect(ids).toContain("fact.related-note");
     expect(ids).toContain("constraint.linked-limit");
     expect(ids).toContain("decision.old-way");

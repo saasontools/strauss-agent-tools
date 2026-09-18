@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -172,6 +178,70 @@ describe("createKbMcpServer", () => {
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
+  });
+
+  // The wrapper is generic, so what this proves is that the reference findings
+  // survive the trip: `kb_doctor` carries the structured edge, and
+  // `kb_reassess` answers with a packet where drift alone would have said
+  // nothing to reassess.
+  test("kb_doctor and kb_reassess carry reference findings to a client", async () => {
+    const write = (type: string, input: Record<string, unknown>) =>
+      tools().kb_write!.handler({ bundlePath: bundle, type, input });
+
+    await write("decision", {
+      slug: "retention",
+      title: "Exports are kept for thirty days",
+      why: "A shorter window loses evidence a dispute needs.",
+      sections: { Decision: "Keep exports thirty days." },
+    });
+    await write("decision", {
+      slug: "retention-seven-days",
+      title: "Exports are kept for seven days",
+      why: "Storage cost outgrew the dispute window.",
+      sections: { Decision: "Keep exports seven days." },
+      supersedes: ["decision.retention"],
+    });
+    await write("risk", {
+      slug: "environment-override",
+      title: "An environment override can shorten the window",
+      why: "A dispute opened after the override loses its evidence.",
+      sections: { Risk: "The window is read from the environment." },
+    });
+    // Frontmatter only: `kb_write` cannot state one half without the other.
+    const file = join(bundle, "risk.environment-override.md");
+    writeFileSync(
+      file,
+      readFileSync(file, "utf8").replace(
+        "\nstrauss_status:",
+        "\nstrauss_links:\n  - target: decision.retention\n    rel: related_to\nstrauss_status:",
+      ),
+      "utf8",
+    );
+
+    const report = JSON.parse(
+      (await tools().kb_doctor!.handler({ bundlePath: bundle })).content[0]!
+        .text,
+    ) as { groups: { check: string; findings: { reference?: unknown }[] }[] };
+    expect(
+      report.groups.find((group) => group.check === "superseded-but-cited")
+        ?.findings[0]?.reference,
+    ).toMatchObject({
+      from: "risk.environment-override",
+      target: "decision.retention",
+      rels: ["related_to"],
+    });
+
+    const packet = JSON.parse(
+      (
+        await tools().kb_reassess!.handler({
+          bundlePath: bundle,
+          conceptId: "risk.environment-override",
+        })
+      ).content[0]!.text,
+    ) as { packet: { references: { outgoing: unknown[] } } | null };
+    expect(packet.packet?.references.outgoing).toMatchObject([
+      { target: "decision.retention", rels: ["related_to"] },
+    ]);
   });
 
   test("rejects arguments the command's schema does not accept", async () => {

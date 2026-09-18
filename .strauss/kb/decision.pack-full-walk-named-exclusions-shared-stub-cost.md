@@ -63,6 +63,9 @@ strauss_verify:
   - >-
     pack.spec.ts: pack superseded stub deep-equals the kb_load stub for the same
     record
+strauss_links:
+  - target: decision.kb-edges-fold-related-into-body-link
+    rel: related_to
 strauss_status: accepted
 strauss_materiality: important
 strauss_confidence: high
