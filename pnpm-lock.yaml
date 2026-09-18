@@ -178,6 +178,9 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      mdast-util-from-markdown:
+        specifier: ^2.0.3
+        version: 2.0.3(supports-color@8.1.1)
       web-tree-sitter:
         specifier: ~0.27.0
         version: 0.27.0

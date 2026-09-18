@@ -18,7 +18,49 @@ sources:
 generated:
   by: mcp
   at: "2026-09-17T21:31:01.797Z"
-verified: []
+verified:
+  - by: "agent:performance"
+    at: "2026-09-17T21:49:14.893Z"
+    note: >-
+      Performance half: the body parser left the hot path of four consumers as
+      the record says. Read doctor.ts orphaned and supersededButCited (both on
+      outboundReferences), sweep.ts holderIndex, kb-edges.ts (no body-link
+      kind), and grepped bodyCitations to two callers, validate.ts and
+      mirror-links.ts. The removed reader was quadratic: one bundle pass through
+      edgeNeighbours(record, bundle, 'body-link') is 0.33/2.77/38.94 ms at
+      n=100/400/1600 against 0.04/0.04/0.09 ms through outboundReferences, and
+      doctor has two such passes. End to end on the built CLI, doctor --json is
+      230/215/367 ms wall at the same sizes. Cost the record does not name,
+      recorded as risk.inline-code-stripper-rescans-from-zero: the surviving
+      parser is 6x the regex it replaced on a normal body and quadratic in
+      backtick runs per line.
+  - by: "agent:correctness"
+    at: "2026-09-17T21:49:42.610Z"
+    note: >-
+      Read all four anchors at HEAD: KB_EDGE_KINDS is
+      typed-link|supersession|anchor|source, composeRecord pushes
+      relatedConceptIds into strauss_links as related_to with a seen set
+      covering self and declared targets, outboundReferences filters
+      isKbLinkRel, and validate.ts:107 is the only bodyCitations caller outside
+      mirror-links. sweep/doctor/reassess/pack/trace read frontmatter alone.
+      mirror-links --dry-run on this base reports 0 across 37 records, so the
+      migration claim is satisfied here.
+  - by: "agent:security"
+    at: "2026-09-17T21:53:21.744Z"
+    note: >-
+      Security half. Read every consumer named: outboundReferences is the one
+      reader of strauss_links and filters isKbLinkRel, bodyCitations has exactly
+      two callers (validate.ts:107 and mirror-links.ts), and sweep's holderIndex
+      indexes frontmatter links plus both supersession pointers only. The
+      migration writes through store.updateLinks, which calls assertActor and
+      logs the actor under operation mirror-links, and mirrorLinksCommand calls
+      assertBaseNotFrozen after the dry-run return, so a frozen base answers but
+      does not move. Targets it writes come from a regex built on
+      KB_CONCEPT_ID_PATTERN, so nothing record-controlled becomes a path or an
+      option. Two costs the decision does not carry, both already recorded
+      elsewhere: the surviving parser is quadratic in backtick runs on
+      contributed data, and a title reaching doctor's renderer is still
+      unescaped.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS
@@ -29,10 +71,10 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: bodyCitations
-    hash: "sha256:42158e6629ec8b9d5cc820f350337340a2e016d17e9df9ae67ff568fe234351b"
+    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:32:21.238Z"
-    lines: 8
+    resolved_at: "2026-09-18T15:25:23.752Z"
+    lines: 12
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/mirror-links.ts
     symbol: mirrorLinksCommand

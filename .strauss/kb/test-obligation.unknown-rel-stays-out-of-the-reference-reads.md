@@ -12,7 +12,18 @@ tags:
 generated:
   by: mcp
   at: "2026-09-17T19:36:19.284Z"
-verified: []
+verified:
+  - by: "agent:security"
+    at: "2026-09-17T21:53:21.594Z"
+    note: >-
+      Holds at HEAD, and it closes the half of my earlier finding that was live:
+      outbound.ts skips a link whose rel fails isKbLinkRel, so an unvalidated
+      rel no longer moves a target out of doctor's orphaned group and no longer
+      reaches supersededButCited's note or reassess's where(), where it printed
+      verbatim. Re-ran the crafted bundle from that finding - rel
+      not_a_real_rel, and a rel carrying ESC bytes and a newline - through the
+      dist built at HEAD: the target stays in orphaned and nothing of the rel is
+      echoed. references.spec.ts and sweep.spec.ts pass, 56 tests.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences

@@ -9,7 +9,29 @@ description: >-
 generated:
   by: mcp
   at: "2026-09-17T21:31:18.533Z"
-verified: []
+verified:
+  - by: "agent:performance"
+    at: "2026-09-17T21:49:23.625Z"
+    note: >-
+      Cost of the migration the record makes mandatory, measured on the built
+      CLI: mirror-links is 273/613/1632 ms wall at n=100/400/1600 (node startup
+      ~150 ms included), i.e. about 1 ms per rewritten record, linear. --dry-run
+      is flat at 212-272 ms since it writes nothing. Each rewrite is a
+      sequential await through KbStore.mutate (two reads, write, rename, unlink,
+      log append) with no concurrency, and one readIndex at the end re-lists the
+      base once rather than per record. 1.5 s once per base is not worth
+      parallelising.
+  - by: "agent:security"
+    at: "2026-09-17T21:54:18.568Z"
+    note: >-
+      Data-loss half, end to end on the dist built at HEAD. Scratch bundle where
+      fact.prose-only's only mention of decision.new-way is a prose sentence:
+      doctor lists decision.new-way under orphaned, validate returns exactly one
+      body_link warning naming the citer, and mirror-links --dry-run reports the
+      one pending edge. sweep's holderIndex indexes strauss_links and both
+      supersession pointers only, so on that base the target is a deletion
+      candidate with nothing to hold it - the deletion, not the warning, that
+      the record predicts.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/mirror-links.ts
     symbol: mirrorLinksCommand

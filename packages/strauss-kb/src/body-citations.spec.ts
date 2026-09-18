@@ -85,6 +85,52 @@ describe("bodyCitations", () => {
     expect([...bodyCitations(from)]).toEqual([]);
   });
 
+  // The correctness reviewer's repro: both are code by CommonMark, and
+  // `mirror-links` would have written each as a `related_to` nobody stated.
+  test("a fence under a list item and an indented block are code", () => {
+    expect(
+      cited(
+        [
+          "- Cite like this:",
+          "",
+          "      ```md",
+          "      Relates to [fact.fenced](fact.fenced.md).",
+          "      ```",
+          "",
+          "Paragraph.",
+          "",
+          "    Relates to [fact.indented](fact.indented.md).",
+          "",
+        ].join("\n"),
+      ),
+    ).toEqual([]);
+  });
+
+  // The other direction, and the one a hand-rolled rule got wrong: indentation
+  // inside a list is continuation text, and dropping it loses a real edge.
+  test("a citation in a nested list item is still a citation", () => {
+    expect(
+      cited(
+        [
+          "- Outer",
+          "",
+          "    - Inner, relating to [fact.nested](fact.nested.md).",
+          "",
+          "    Continuation of the outer item: [fact.continued](fact.continued.md).",
+          "",
+        ].join("\n"),
+      ),
+    ).toEqual(["fact.nested", "fact.continued"]);
+  });
+
+  test("only a link to a record file counts", () => {
+    expect(
+      cited(
+        "[docs](https://example.test/a.md), [readme](README.md), [x](fact.a.md#part), [ok](fact.ok.md).",
+      ),
+    ).toEqual(["fact.ok"]);
+  });
+
   test("a record that cites nothing cites nothing", () => {
     expect(cited("\n## Claim\n\nNo links here.\n")).toEqual([]);
   });

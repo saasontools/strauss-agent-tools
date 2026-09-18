@@ -367,12 +367,12 @@ Returns `{ conceptId, packet, rebaselined, cosmetic }`. Each packet anchor
 carries `{ file, symbol?, class, storedHash, diffSize, movedTo?, diff? }`, and
 `diff` is either `{ status: "ok", source, ref, unified, added, removed,
 truncated }` or `{ status: "unrecoverable" }`. `packet.references` carries
-`outgoing` (`{ from, target, targetStanding, origins, rels, replacedBy }`) and
-`incoming` (`{ from, title, standing, origins, rels }`).
+`outgoing` (`{ from, target, targetStanding, rels, replacedBy }`) and
+`incoming` (`{ from, title, standing, rels }`).
 
 ```
 ## References that no longer hold (1)
-- decision.retention [superseded] (link, related_to) — replaced by decision.retention-seven-days
+- decision.retention [superseded] (related_to) — replaced by decision.retention-seven-days
 ```
 
 ---

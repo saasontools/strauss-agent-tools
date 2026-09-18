@@ -13,10 +13,10 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: bodyCitations
-    hash: "sha256:42158e6629ec8b9d5cc820f350337340a2e016d17e9df9ae67ff568fe234351b"
+    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:35:11.929Z"
-    lines: 8
+    resolved_at: "2026-09-18T15:25:24.029Z"
+    lines: 12
     resolver: tree-sitter
 strauss_links:
   - target: risk.a-fenced-example-link-is-a-citation

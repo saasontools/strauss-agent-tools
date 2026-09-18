@@ -38,9 +38,10 @@ strauss_anchors:
 strauss_links:
   - target: decision.reassess-references-ride-in-the-packet
     rel: informs
-strauss_status: open
+strauss_status: superseded
 strauss_materiality: non-blocking
 strauss_confidence: high
+strauss_superseded_by: risk.doctor-prints-a-record-title-unescaped
 ---
 
 ## Risk

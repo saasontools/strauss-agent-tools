@@ -50,6 +50,16 @@ verified:
       superseded decision with one live related_to and no drift prints a packet
       with '## Still pointing here (1)' and Default: review. doctor --drifted
       still passes no references, as the record states.
+  - by: "agent:performance"
+    at: "2026-09-17T21:49:15.024Z"
+    note: >-
+      No per-record spawn or read added. reassessCommand computes impact(id,
+      bundle) over the bundle store.list already returned, not store.impact, and
+      detectDrift ran before the early return at the base commit too, so a
+      references-only packet costs one extra in-memory impact walk.
+      reassessPacket is a shaper: no I/O beyond classifyDrift, which sees an
+      empty entries array when nothing drifted. referenceReview builds a second
+      byId map the command already has — microseconds, not worth the line.
 strauss_anchors:
   - file: packages/strauss-kb/src/drift/packet.ts
     symbol: reassessPacket

@@ -12,12 +12,29 @@ tags:
 generated:
   by: "agent:performance"
   at: "2026-09-17T21:47:48.914Z"
-verified: []
+verified:
+  - by: "agent:security"
+    at: "2026-09-17T21:52:48.318Z"
+    note: >-
+      Holds, and it is reachable from contributed data: a record file arrives
+      with a PR, body is z.string() with no bound, and validate plus doctor
+      --strict are what the reviewer gate spawns. Reproduced on the dist built
+      at HEAD with one record whose body is a single line of backtick runs of
+      increasing length interleaved with short spans: 362 KB costs 4.6 s of
+      validate, 1.4 MB costs 73 s (mirror-links pays the same 73 s on the same
+      bundle). Control: the identical 1.4 MB file with every backtick replaced
+      by a letter validates in 0.18 s, so the cost is withoutCodeSpans, not IO
+      or YAML. Security reading only - the repair and the numbers are yours.
 strauss_anchors:
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: withoutCodeSpans
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
+    hash: "sha256:37fcb846d49f6a7290d64f4327669afd3e50ff59a91b825c34dc6b3cf71cb19c"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:25:24.836Z"
+    lines: 163
+    resolver: tree-sitter
 strauss_links:
   - target: decision.strauss-links-is-the-one-representation
     rel: informs

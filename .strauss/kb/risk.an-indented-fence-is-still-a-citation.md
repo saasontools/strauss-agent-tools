@@ -16,8 +16,18 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: bodyCitations
+    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:25:24.539Z"
+    lines: 12
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/mirror-links.ts
     symbol: unmirrored
+    hash: "sha256:95c534ffe44254d88f5a444292194aa720d21f2da9752ea8557244fab4c8b8b9"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:25:24.546Z"
+    lines: 6
+    resolver: tree-sitter
 strauss_links:
   - target: decision.strauss-links-is-the-one-representation
     rel: informs

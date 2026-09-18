@@ -24,6 +24,15 @@ export default defineConfig({
   // The optional search backend is resolved at runtime or not at all — see
   // src/search-index.ts. Inlining it would make an optional peer mandatory.
   external: ["@tobilu/qmd", "web-tree-sitter"],
+  // The markdown parser and its family ship ESM only. Inlined, so the CJS
+  // build stays loadable without `require(esm)` — the reason both formats ship.
+  noExternal: [
+    /^mdast-util-/,
+    /^micromark/,
+    /^unist-util-/,
+    /^decode-named-character-reference$/,
+    /^character-entities/,
+  ],
   // `import.meta.url` locates `grammars/manifest.json` (see
   // src/grammars/manifest.ts). Without the shim the CJS output has no
   // spelling for it.

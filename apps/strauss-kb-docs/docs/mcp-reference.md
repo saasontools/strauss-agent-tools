@@ -553,8 +553,7 @@ Returns `{ bundlePath, checkedAt, recordCount, thresholds, counts, groups,
 findingCount, healthy }`, where each group is
 `{ check, headline, count, findings }` and each finding is
 `{ conceptId, title, status, note }`. A `superseded-but-cited` finding also
-carries `reference`: `{ from, target, targetStanding, origins, rels,
-replacedBy }`. Under `drifted` it also carries `packets` and `rebaselinable`.
+carries `reference`: `{ from, target, targetStanding, rels, replacedBy }`. Under `drifted` it also carries `packets` and `rebaselinable`.
 
 ### `kb_mirror_links`
 

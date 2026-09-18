@@ -21,6 +21,14 @@ verified:
       references-only packet still carries the record's dependants' asserts
       packet.impact names the dependant at depth 1 with anchors empty. Ran both:
       71 pass, 0 fail.
+  - by: "agent:correctness"
+    at: "2026-09-17T21:51:12.599Z"
+    note: >-
+      Read reassessPacket and reassessCommand at HEAD: the note branches on
+      entries.some(state !== 'match') so a record whose anchors all classified
+      moved says 'nothing left open on the anchors', and dependants = impact(id,
+      bundle) is unconditional once a packet is emitted. drift.spec.ts and
+      references.spec.ts both pass in a full run (917 tests, 0 failures).
 strauss_anchors:
   - file: packages/strauss-kb/src/drift/packet.ts
     symbol: reassessPacket

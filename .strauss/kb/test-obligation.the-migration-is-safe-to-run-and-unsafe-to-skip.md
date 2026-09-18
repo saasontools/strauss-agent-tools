@@ -9,7 +9,17 @@ tags:
 generated:
   by: mcp
   at: "2026-09-17T21:31:46.341Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-17T21:49:42.749Z"
+    note: >-
+      Ran mirror-links.spec.ts, sweep.spec.ts, references.spec.ts,
+      body-citations.spec.ts, doctor.spec.ts, kb-edges.spec.ts: 92 pass.
+      unmirrored() keeps a target that already carries any rel,
+      assertBaseNotFrozen is after the dry-run return, and sweep.spec.ts 'does
+      not see a citation that only ever lived in the prose' asserts the
+      candidate plus the body_link warning. Not covered: an indented fence,
+      which unmirrored does mirror - risk.an-indented-fence-is-still-a-citation.
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/mirror-links.ts
     symbol: unmirrored
