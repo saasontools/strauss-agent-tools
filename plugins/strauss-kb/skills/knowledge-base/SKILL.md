@@ -212,10 +212,9 @@ then judge the code — four steps, and none of them is one of the others:
    JSON
    ```
 
-   **Carry the hashes.** Naming the new pointers without them is refused —
-   that shortcut would let the resolver stamp a rewritten body nobody read.
-   An anchor with no hash is a new one. Anything you leave out is gone, and
-   dropping a stamped anchor needs `dropBaselines`.
+   **Carry the hashes** unless you already read the new code: without them
+   `anchor-resolve` stamps the rewrite as the baseline. Anything you leave out
+   is gone.
 
 3. **Now read the changed body** the moved pointer exposes, and
    `anchor-resolve <id> --rebaseline` only if the claim still holds. If it does

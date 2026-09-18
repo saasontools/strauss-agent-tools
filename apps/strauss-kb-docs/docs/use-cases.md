@@ -335,16 +335,9 @@ third is new and unstamped. The command reports what that amounted to:
 }
 ```
 
-**Forget the hashes and it stops you.** The tempting shortcut — name the three
-new pointers and let the resolver stamp them — is the one that would accept a
-rewritten body nobody read:
-
-```text
-strauss-kb: error: kb: this set drops 3 stamped anchor(s) on decision.export-retention
-— src/cleanup.mjs:isExportExpired, src/download.mjs:canDownloadExport,
-src/retention.mjs:retentionDays. Carry the hash forward to keep the evidence, or
-pass dropBaselines to discard it on purpose
-```
+Leave the hashes off and `anchor-resolve` stamps the rewritten body as the new
+baseline — right if you read it, not if you did not. Carrying them keeps the
+drift visible until you do.
 
 The pointer moved; the baseline did not. So the next check reports the drift the
 rename had been hiding — the body really did change — and the helper is stamped

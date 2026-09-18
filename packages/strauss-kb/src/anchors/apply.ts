@@ -4,12 +4,7 @@ import {
   type KbAnchor,
   type KbAnchorLocator,
 } from "../kb-record.schema.js";
-import {
-  KbAnchorBaselineError,
-  KbAnchorDropsBaselineError,
-  KbAnchorSetDuplicateError,
-  locatorText,
-} from "./errors.js";
+import { KbAnchorSetDuplicateError, locatorText } from "./errors.js";
 
 /** One change the write made, as the result and the log entry report it. */
 export type KbAnchorChange = {
@@ -18,15 +13,6 @@ export type KbAnchorChange = {
   from?: KbAnchorLocator;
   to?: KbAnchorLocator;
 };
-
-/** What a resolver stamps, and a caller may only ever carry, never mint. */
-const BASELINE_FIELDS = [
-  "hash",
-  "hash_kind",
-  "lines",
-  "resolved_at",
-  "resolver",
-] as const;
 
 const LOCATOR_FIELDS = [
   "file",
@@ -37,35 +23,22 @@ const LOCATOR_FIELDS = [
   "ref",
 ] as const;
 
-export type KbAnchorSetOptions = {
-  dropBaselines?: boolean;
-};
-
 export type KbAnchorSetOutcome = {
   anchors: KbAnchor[];
   changes: KbAnchorChange[];
 };
 
 /**
- * Checks a proposed anchor set against the record's current one, and says what
- * changed.
- *
- * The set is the caller's; the baselines are the record's. A hash may move to
- * another address — that is a reviewed rename — but it may not be invented,
- * altered or duplicated, and it may not be dropped by accident.
- *
- One rule, and a record's birth is not an exception to it: `current` is empty
- * there, so a first write can only ask for addresses. `anchor-resolve` is what
- * turns one into evidence, and it writes through the store rather than here.
+ * Checks a proposed anchor set and says what changed against the current one.
+ * Accepted as given — whether the code behind a pointer was read is the
+ * caller's claim, recorded in the log, not something this can check. Refuses
+ * only two anchors at one address.
  */
 export function applyAnchorSet(
-  conceptId: string,
   current: KbAnchor[],
   incoming: KbAnchor[],
-  options: KbAnchorSetOptions = {},
 ): KbAnchorSetOutcome {
   const anchors = incoming.map((anchor) => ({ ...anchor }));
-
   const seen = new Set<string>();
   for (const anchor of anchors) {
     const key = locatorKey(anchor);
@@ -74,40 +47,6 @@ export function applyAnchorSet(
     }
     seen.add(key);
   }
-
-  // A baseline is identified by its hash: the record's own stamps are the only
-  // ones a caller may hand back.
-  const held = new Map(
-    current
-      .filter((anchor) => anchor.hash)
-      .map((anchor) => [anchor.hash, anchor]),
-  );
-  const carried = new Set<string>();
-  for (const anchor of anchors) {
-    if (!anchor.hash) continue;
-    const source = held.get(anchor.hash);
-    const where = locatorText(locatorOf(anchor));
-    if (!source) throw new KbAnchorBaselineError(where, "unknown");
-    if (!sameBaseline(anchor, source)) {
-      throw new KbAnchorBaselineError(where, "altered");
-    }
-    if (carried.has(anchor.hash)) {
-      throw new KbAnchorBaselineError(where, "reused");
-    }
-    carried.add(anchor.hash);
-  }
-
-  // Evidence never leaves silently. An unstamped anchor going is housekeeping.
-  const abandoned = current.filter(
-    (anchor) => anchor.hash !== undefined && !carried.has(anchor.hash),
-  );
-  if (abandoned.length && options.dropBaselines !== true) {
-    throw new KbAnchorDropsBaselineError(
-      conceptId,
-      abandoned.map((anchor) => locatorText(locatorOf(anchor))),
-    );
-  }
-
   return { anchors, changes: diff(current, anchors) };
 }
 
@@ -148,10 +87,6 @@ function diff(current: KbAnchor[], next: KbAnchor[]): KbAnchorChange[] {
     changes.push({ op: "drop", from: locatorOf(anchor) });
   }
   return changes;
-}
-
-function sameBaseline(left: KbAnchor, right: KbAnchor): boolean {
-  return BASELINE_FIELDS.every((field) => left[field] === right[field]);
 }
 
 /** An anchor's address, without the baseline a resolver stamped onto it. */

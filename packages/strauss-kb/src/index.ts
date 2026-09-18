@@ -277,11 +277,8 @@ export {
 export {
   applyAnchorSet,
   locatorOf,
-  KbAnchorBaselineError,
-  KbAnchorDropsBaselineError,
   KbAnchorSetDuplicateError,
   type KbAnchorChange,
-  type KbAnchorSetOptions,
   type KbAnchorSetOutcome,
 } from "./anchors/index.js";
 export {

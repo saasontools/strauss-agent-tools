@@ -282,30 +282,14 @@ longer there — and nothing mechanical can say which new symbol replaces it.
 [`anchor-set`](./cli-reference.md#anchor-set) is the reader's answer: the new
 set of anchors, and a required reason.
 
-One function answers "what anchors may this record hold, given what it holds
-now", and both writers go through it — a record's first write with an empty
-`current`, `anchor-set` with the record as it stands. Birth is not an
-exception: the record holds nothing, so there is no baseline to carry and
-`kb_write` can only ask for addresses. `anchor-resolve` is what turns one into
-evidence, and it writes through the store rather than through either of them.
-
-The set is the caller's; **the baselines are the record's**. An anchor keeps its
-evidence by carrying its `hash`, and the rest of its stamp with it, forward from
-the anchor the caller read; moving that baseline to another `file` or `symbol`
-is the reviewed rename. A hash the record does not already hold is refused, so
-nobody decides for themselves what the code was measured against. A known hash
-with an altered `hash_kind`, `lines`, `resolved_at` or `resolver` is refused
-too — a measurement travels whole or not at all — and one hash may sit on one
-anchor. Omit the hash and the anchor is new.
-
-Carrying the baseline is therefore not accepting the code behind it: the drift
-the rename hid is reported the moment the new pointer resolves, and clearing it
-is still [`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve).
-Discarding a stamped anchor is possible but never accidental — it needs
-`dropBaselines`, because the shortcut of naming the new pointers and letting the
-resolver stamp the rewritten code is exactly the silent acceptance the drift
-check exists to prevent. The change lands as one `anchor-set` log entry,
-derived from the record before and after, and is never a `verified[]` event.
+A record's first write and `anchor-set` share one check: no two anchors at one
+address. Beyond that the set is taken as given. An anchor keeps its baseline by
+carrying its `hash` and the rest of its stamp forward; carried under a new
+`file` or `symbol`, the drift the rename hid is reported the moment the pointer
+resolves, and clearing it is still
+[`anchor-resolve --rebaseline`](./cli-reference.md#anchor-resolve). Whether the
+code behind a pointer was read is the caller's claim, and the `anchor-set` log
+entry records who made it and why — it is never a `verified[]` event.
 
 #### What drift does and does not see
 

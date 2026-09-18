@@ -64,11 +64,7 @@ required; `sections`, `anchors`, `sources`, `assumption`, `stale_after`,
 `verify`, `tags`, `relatedConceptIds`, `links`, `supersedes`, `materiality`,
 `confidence`, and `owner` optional. Unknown keys are rejected.
 
-`anchors` here are **addresses only** — `file`, and any of `symbol`, `span`,
-`side`, `repo`, `ref`. A record that does not exist yet holds no baseline to
-carry, so a `hash` is refused the same way
-[`anchor-set`](#anchor-set) refuses one; `anchor-resolve` stamps it once the
-change settles. Two anchors at one address are refused too.
+Two anchors at one address are refused, as in [`anchor-set`](#anchor-set).
 
 ```bash
 strauss-kb write fact <<'JSON'
@@ -231,32 +227,17 @@ anchor-set <concept-id> < anchors.json
 Set a record's [anchors](./specification.md#anchors) after a refactor someone
 read: the new pointers, and a reason. The object is JSON on **stdin**.
 
-| Key             | Effect                                                       |
-| --------------- | ------------------------------------------------------------ |
-| `reason`        | Required, non-blank. What was reviewed. Goes in the log.     |
-| `anchors`       | The complete new set, at least one.                          |
-| `dropBaselines` | Allow the write to discard a stamped anchor. Off by default. |
+| Key       | Effect                                                   |
+| --------- | -------------------------------------------------------- |
+| `reason`  | Required, non-blank. What was reviewed. Goes in the log. |
+| `anchors` | The complete new set, at least one.                      |
 
-**Carry a baseline, never mint one.** An anchor keeps its evidence by carrying
-its `hash` — and `hash_kind`, `lines`, `resolved_at` and `resolver` with it —
-forward from the anchor you read. Moving that baseline to a different `file` or
-`symbol` is the reviewed rename. A hash the record does not already hold is
-refused, so a caller cannot decide what the code was measured against; so is a
-known hash whose stamp has been altered, and the same hash on two anchors. Omit
-the hash and the anchor is new: `anchor-resolve` stamps it.
-
-Dropping a stamped anchor needs `dropBaselines`. Without it the write is
-refused, so the shortcut — name the new pointers, forget the hashes, let
-`anchor-resolve` stamp the rewritten code — cannot happen by accident:
-
-```text
-strauss-kb: error: kb: this set drops 3 stamped anchor(s) on decision.export-retention
-— src/cleanup.mjs:isExportExpired, src/download.mjs:canDownloadExport,
-src/retention.mjs:retentionDays. Carry the hash forward to keep the evidence, or
-pass dropBaselines to discard it on purpose
-```
-
-An unstamped anchor may go without the flag: there is no evidence to lose.
+The set is taken as given; only two anchors at one address are refused. An
+anchor keeps its baseline by carrying its `hash` (and `hash_kind`, `lines`,
+`resolved_at`, `resolver`) forward — do that when you have not read the new
+code yet, so it still reports drift. Omit the hash and `anchor-resolve` stamps
+the current code. Whether the code was read is your claim; the log records who
+made it and why.
 
 ```bash
 strauss-kb anchor-set decision.export-retention <<'JSON'
@@ -315,9 +296,8 @@ Hashes elided; everything else is the run's own output. `changes` is derived
 from the record before and after, not from what the caller declared, so the log
 records what happened. An unchanged anchor is not listed.
 
-The set is checked **inside** the write, against the anchors the record holds
-then — so a baseline another writer removed since you read it cannot be carried
-back in. Exits **0** on a set that applied. A validation failure, a write
+`changes` are computed inside the write, against the record as it stands.
+Exits **0** on a set that applied. A validation failure, a write
 conflict, a missing record or a frozen base leaves the record and the log
 untouched.
 

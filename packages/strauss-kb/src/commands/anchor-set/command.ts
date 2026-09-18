@@ -15,7 +15,7 @@ export const anchorSetCommand = define({
   tool: "kb_anchor_set",
   usage: "anchor-set <concept-id> < anchors.json",
   description:
-    "Set a record's code anchors after a reviewed refactor, with a reason. The array is the whole set: carry an existing anchor's hash forward to keep its baseline, omit it for a new one. A hash the record does not already hold is refused, and dropping a stamped anchor needs dropBaselines.",
+    "Set a record's code anchors after a reviewed refactor, with a reason. The array is the whole set. Carry an anchor's hash forward to keep drift visible until you read the new code; omit it to let anchor-resolve stamp the current code. Recorded in the log, never verification.",
   input: anchorSetCommandInput,
   fromArgv: async (argv, path, stdin) => ({
     bundlePath: path,
@@ -28,18 +28,14 @@ export const anchorSetCommand = define({
   ): Promise<KbAnchorSetResult> => {
     await assertBaseNotFrozen(process.cwd(), path);
 
-    // Checked inside the mutation, against the anchors the record holds then,
-    // so a baseline the caller carries is one the record still has.
+    // Inside the mutation, so the logged changes are against the record as it
+    // stands, not as the caller last read it.
     let applied: KbAnchorSetOutcome | undefined;
     const record = await store.updateAnchors(
       path,
       id,
       (current) => {
-        applied = applyAnchorSet(id, current, input.anchors, {
-          ...(input.dropBaselines === undefined
-            ? {}
-            : { dropBaselines: input.dropBaselines }),
-        });
+        applied = applyAnchorSet(current, input.anchors);
         return {
           anchors: applied.anchors,
           log: {

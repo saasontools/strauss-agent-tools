@@ -7,12 +7,6 @@ export {
   applyAnchorSet,
   locatorOf,
   type KbAnchorChange,
-  type KbAnchorSetOptions,
   type KbAnchorSetOutcome,
 } from "./apply.js";
-export {
-  KbAnchorBaselineError,
-  KbAnchorDropsBaselineError,
-  KbAnchorSetDuplicateError,
-  locatorText,
-} from "./errors.js";
+export { KbAnchorSetDuplicateError, locatorText } from "./errors.js";

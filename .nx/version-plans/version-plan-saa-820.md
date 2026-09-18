@@ -3,13 +3,11 @@
 ---
 
 `anchor-set` (MCP `kb_anchor_set`) sets a record's anchors after a refactor a
-reader identified: the complete new set and a required reason, checked inside
-the store's guarded mutation. The set is the caller's and the baselines are the
-record's — an anchor keeps its evidence by carrying its `hash` and the rest of
-its stamp forward, a hash the record does not hold is refused, and dropping a
-stamped anchor needs `dropBaselines`. So the code behind a moved pointer still
-reports drift until `anchor-resolve --rebaseline` accepts it; nothing here
-resolves, verifies or moves standing.
+reader identified: the complete new set and a required reason. Carry an
+anchor's `hash` forward and the code behind a moved pointer still reports drift
+until `anchor-resolve --rebaseline` accepts it; leave it off and the resolver
+stamps current code. Two anchors at one address are refused, here and at a
+record's first write. Nothing here resolves, verifies or moves standing.
 
 The change lands as an `anchor-set` log entry carrying the reason and every
 pointer that moved, derived from the record before and after. `reason` and

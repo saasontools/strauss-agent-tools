@@ -8,8 +8,7 @@ import { kbAnchorWriteSchema, type KbAnchor } from "../../kb-record.schema.js";
  *
  * A whole set rather than a patch: the caller has just read the record, so it
  * holds every anchor including its baseline, and carrying one forward under a
- * new symbol is a field edit rather than an operation to name. What the command
- * checks is the baseline — `applyAnchorSet`.
+ * new symbol is a field edit rather than an operation to name.
  */
 export const anchorSetInputSchema = z
   .object({
@@ -25,13 +24,7 @@ export const anchorSetInputSchema = z
       .array(kbAnchorWriteSchema)
       .min(1)
       .describe(
-        "The complete new anchor set. Carry an existing anchor's hash forward to keep its baseline; omit the hash for a new anchor.",
-      ),
-    dropBaselines: z
-      .boolean()
-      .optional()
-      .describe(
-        "Allow the write to discard a stamped anchor. Off by default, so losing evidence is never a typo.",
+        "The complete new anchor set. Carry an anchor's hash forward to keep drift visible until the new code is read.",
       ),
   })
   .strict();

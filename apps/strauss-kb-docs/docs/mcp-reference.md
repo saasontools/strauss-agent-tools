@@ -171,10 +171,9 @@ As CLI [`anchor-set`](./cli-reference.md#anchor-set). The object the CLI reads
 from stdin is the `input` parameter.
 
 Parameters: `bundlePath`, `conceptId` and `input` — all required. `input` is
-`{ reason, anchors, dropBaselines? }`; `anchors` is the complete new set, and an
-anchor keeps its evidence by carrying its `hash` and the rest of its stamp
-forward from the anchor you read. A hash the record does not hold is refused,
-and dropping a stamped anchor needs `dropBaselines`.
+`{ reason, anchors }`; `anchors` is the complete new set. Carry an anchor's
+`hash` and the rest of its stamp forward to keep drift visible until the new
+code is read.
 
 ```json
 {

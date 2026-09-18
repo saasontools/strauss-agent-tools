@@ -234,10 +234,8 @@ never writes `verified[]`; `--check` writes nothing at all. Per anchor:
 
 `anchor-set <concept-id>` (`kb_anchor_set`) sets those pointers when a refactor
 renamed or extracted the code: the complete new anchor set, plus a required
-reason that lands in the log. The set is the caller's, the baselines are the
-record's — an anchor keeps its evidence by carrying its `hash` forward, a hash
-the record does not hold is refused, and dropping a stamped anchor needs
-`dropBaselines`. So the code behind a moved pointer still has to be read and
+reason that lands in the log. Carry an anchor's `hash` forward and the code
+behind a moved pointer still reports drift until it is read and
 accepted with `--rebaseline`. It never resolves, stamps, verifies or moves
 standing. [Full rules](https://saasontools.github.io/strauss-agent-tools/cli-reference#anchor-set).
 

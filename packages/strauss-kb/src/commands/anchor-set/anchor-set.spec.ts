@@ -372,122 +372,23 @@ describe("anchorSetCommand", () => {
     });
   });
 
-  describe("a baseline is carried, never minted", () => {
-    test("a hash the record does not hold is refused", async () => {
-      const before = await seedRefactor();
-      const was = snapshot(bundle);
-
-      await expect(
-        run({
-          reason: "carry a baseline nobody took",
-          anchors: [
-            {
-              file: CLEANUP,
-              symbol: "isExportExpired",
-              hash: `sha256:${"f".repeat(64)}`,
-            },
-            before[1],
-          ],
-        }),
-      ).rejects.toMatchObject({
-        name: "KbAnchorBaselineError",
-        details: { reason: "unknown" },
-      });
-
-      expect(snapshot(bundle)).toEqual(was);
-    });
-
-    // The half a hash alone would not catch: keep the digest, relabel what it
-    // was taken over, and every later comparison is against the wrong thing.
-    test("a known hash with an altered stamp is refused", async () => {
-      const before = await seedRefactor();
-
-      await expect(
-        run({
-          reason: "relabel the measurement",
-          anchors: [
-            { ...(before[0] as KbAnchor), hash_kind: "ast" },
-            before[1],
-          ],
-        }),
-      ).rejects.toMatchObject({
-        name: "KbAnchorBaselineError",
-        details: { reason: "altered" },
-      });
-    });
-
-    test("one baseline on two anchors is refused", async () => {
-      const before = await seedRefactor();
-
-      await expect(
-        run({
-          reason: "two places, one measurement",
-          anchors: [
-            before[0],
-            { ...(before[0] as KbAnchor), symbol: "isExportExpired" },
-            before[1],
-          ],
-        }),
-      ).rejects.toMatchObject({
-        name: "KbAnchorBaselineError",
-        details: { reason: "reused" },
-      });
-    });
-
-    // The shortcut that defeated the previous interface: drop the stamped
-    // anchor, add the new pointer, let anchor-resolve stamp the rewrite.
-    test("dropping a stamped anchor is refused without dropBaselines", async () => {
-      const before = await seedRefactor();
-      const was = snapshot(bundle);
-
-      await expect(
-        run({
-          reason: "just point at the new one",
-          anchors: [
-            { file: CLEANUP, symbol: "isExportExpired" },
-            before[1] as KbAnchor,
-          ],
-        }),
-      ).rejects.toMatchObject({
-        name: "KbAnchorDropsBaselineError",
-        details: { conceptId: ID },
-      });
-
-      expect(snapshot(bundle)).toEqual(was);
-    });
-
-    test("dropBaselines discards it on purpose, and the log says so", async () => {
+  describe("the set is taken as given", () => {
+    // Whether the code was read is the caller's claim; the log records it.
+    test("dropping a stamped anchor is accepted and logged as a drop", async () => {
       const before = await seedRefactor();
 
       const result = await run({
         reason: "the cleanup path moved to another service",
-        dropBaselines: true,
         anchors: [before[1] as KbAnchor],
       });
 
       expect(result.changes).toEqual([
-        {
-          op: "drop",
-          from: { file: CLEANUP, symbol: "shouldDeleteExport" },
-        },
+        { op: "drop", from: { file: CLEANUP, symbol: "shouldDeleteExport" } },
       ]);
       expect(await anchors()).toEqual([before[1]]);
     });
-
-    test("an unstamped anchor may go without the flag", async () => {
-      await seed([
-        stamped(DOWNLOAD, "canDownloadExport", DOWNLOAD_SOURCE),
-        { file: CLEANUP, symbol: "shouldDeleteExport" },
-      ]);
-      const kept = (await anchors())[0] as KbAnchor;
-
-      await run({ reason: "the unstamped pointer was wrong", anchors: [kept] });
-
-      expect(await anchors()).toEqual([kept]);
-    });
   });
 
-  // The rule has one home, and a record's first write runs it too.
   describe("a record's birth", () => {
     test("refuses two anchors at one address, which compose used to allow", () => {
       expect(() =>
@@ -511,28 +412,6 @@ describe("anchorSetCommand", () => {
     // The same rule, and birth is not an exception: the record holds nothing,
     // so there is no baseline to carry and a first write can only ask for
     // addresses. anchor-resolve is what turns one into evidence.
-    test("refuses a baseline at a record's first write", () => {
-      expect(() =>
-        composeRecord(
-          "fact",
-          {
-            slug: "born-stamped",
-            title: "Born with a baseline",
-            why: "Nobody measured this.",
-            anchors: [
-              {
-                file: CLEANUP,
-                symbol: "shouldDeleteExport",
-                hash: `sha256:${"a".repeat(64)}`,
-              },
-            ],
-          },
-          "agent:writer",
-          "2026-08-01T00:00:00Z",
-        ),
-      ).toThrow(/carries a hash this record does not hold/);
-    });
-
     test("takes the addresses, which anchor-resolve then stamps", () => {
       const record = composeRecord(
         "fact",
@@ -607,7 +486,6 @@ describe("anchorSetCommand", () => {
     test("two spellings of one remote are one address", () => {
       expect(() =>
         applyAnchorSet(
-          ID,
           [{ file: "lib/a.go", symbol: "Retention" }],
           [
             {
@@ -676,40 +554,17 @@ describe("anchorSetCommand", () => {
 
     test("a refusal caps the locator it quotes", async () => {
       await seedRefactor();
+      const huge = { file: `src/${"a".repeat(200_000)}.mjs` };
 
       const caught = await run({
-        reason: "point at something enormous",
-        anchors: [
-          {
-            file: `src/${"a".repeat(200_000)}.mjs`,
-            hash: `sha256:${"f".repeat(64)}`,
-          },
-        ],
+        reason: "point at something enormous, twice",
+        anchors: [huge, huge],
       }).then(
         () => null,
         (error: Error) => error,
       );
 
       expect(caught?.message.length).toBeLessThan(400);
-    });
-  });
-
-  describe("concurrency", () => {
-    // The set is checked inside the mutation, so a baseline that left the
-    // record between the caller's read and its write is no longer carriable.
-    test("a baseline another writer removed cannot be carried in", async () => {
-      const before = await seedRefactor();
-      await new KbStore().updateAnchors(
-        bundle,
-        ID,
-        [before[1] as KbAnchor],
-        "agent:other",
-      );
-
-      await expect(run(renamed(before))).rejects.toMatchObject({
-        name: "KbAnchorBaselineError",
-        details: { reason: "unknown" },
-      });
     });
   });
 
