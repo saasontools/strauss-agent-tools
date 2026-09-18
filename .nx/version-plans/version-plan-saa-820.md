@@ -7,7 +7,8 @@ reader identified: the complete new set and a required reason. Carry an
 anchor's `hash` forward and the code behind a moved pointer still reports drift
 until `anchor-resolve --rebaseline` accepts it; leave it off and the resolver
 stamps current code. Two anchors at one address are refused, here and at a
-record's first write. Nothing here resolves, verifies or moves standing.
+record's first write. `--resolve` (MCP `resolve`) also stamps every anchor
+against the current code in the same call. Never verifies or moves standing.
 
 The change lands as an `anchor-set` log entry carrying the reason and every
 pointer that moved, derived from the record before and after. `reason` and

@@ -35,6 +35,23 @@ export const anchorSetCommandInput = z.object({
   bundlePath,
   conceptId,
   input: anchorSetInputSchema,
+  resolve: z
+    .boolean()
+    .optional()
+    .describe(
+      "Also resolve and stamp every anchor against the current code, as anchor-resolve --rebaseline does.",
+    ),
+  repoRoot: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "Where the anchored source lives, for resolve. Defaults to the working directory.",
+    ),
+  offline: z
+    .boolean()
+    .optional()
+    .describe("With resolve, read foreign anchors from the repo cache only."),
 });
 
 export type KbAnchorSetResult = {
@@ -43,7 +60,9 @@ export type KbAnchorSetResult = {
   /** Unchanged anchors are not listed; a no-op write reports nothing. */
   changes: KbAnchorChange[];
   anchors: KbAnchor[];
-  /** Always `unchanged`: this command never resolves, stamps or accepts. */
-  baseline: "unchanged";
+  /** `stamped` when `resolve` ran; `unchanged` otherwise. */
+  baseline: "unchanged" | "stamped";
+  /** anchor-resolve's per-anchor results, when `resolve` ran. */
+  resolved?: unknown[];
   note: string;
 };

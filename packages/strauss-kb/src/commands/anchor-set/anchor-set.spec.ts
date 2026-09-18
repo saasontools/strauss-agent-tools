@@ -315,6 +315,62 @@ describe("anchorSetCommand", () => {
     });
   });
 
+  describe("resolve", () => {
+    // Choosing the pointer is the reading, so the set can be stamped at once.
+    test("stamps every anchor against the current code in the same call", async () => {
+      const before = await seedRefactor();
+      const parsed = anchorSetCommand.input.parse({
+        bundlePath: bundle,
+        conceptId: ID,
+        input: renamed(before),
+        resolve: true,
+        repoRoot: repo,
+      });
+
+      const result = (await anchorSetCommand.run(
+        {
+          store: new KbStore(),
+          actor: "agent:reviewer",
+          now: () => "2026-09-17T12:00:00Z",
+        },
+        parsed,
+      )) as KbAnchorSetResult;
+
+      expect(result.baseline).toBe("stamped");
+      const [cleanup, , helper] = await anchors();
+      expect(cleanup?.hash).not.toBe(before[0]?.hash);
+      expect(helper?.hash).toMatch(/^sha256:/);
+
+      const check = KB_COMMANDS_BY_NAME.get("anchor-resolve")!;
+      const after = (await check.run(
+        {
+          store: new KbStore(),
+          actor: "agent:reviewer",
+          now: () => "2026-09-17T12:00:00Z",
+        },
+        check.input.parse({
+          bundlePath: bundle,
+          conceptId: ID,
+          repoRoot: repo,
+          check: true,
+        }),
+      )) as { results: { state: string }[] };
+      expect(after.results.every((entry) => entry.state === "match")).toBe(
+        true,
+      );
+    });
+
+    test("is off by default: the pointers are written and nothing stamped", async () => {
+      const before = await seedRefactor();
+
+      const result = await run(renamed(before));
+
+      expect(result.baseline).toBe("unchanged");
+      expect(result.resolved).toBeUndefined();
+      expect((await anchors())[2]?.hash).toBeUndefined();
+    });
+  });
+
   describe("the audit trail", () => {
     test("logs one anchor-set entry with actor, reason and what changed", async () => {
       const before = await seedRefactor();
@@ -578,7 +634,19 @@ describe("anchorSetCommand", () => {
         await command?.fromArgv(["anchor-set", ID], bundle, () =>
           Promise.resolve(JSON.stringify(input)),
         ),
-      ).toEqual({ bundlePath: bundle, conceptId: ID, input });
+      ).toMatchObject({
+        bundlePath: bundle,
+        conceptId: ID,
+        input,
+        resolve: false,
+      });
+      expect(
+        await command?.fromArgv(
+          ["anchor-set", ID, "--resolve", "--repo-root", "/repo"],
+          bundle,
+          () => Promise.resolve(JSON.stringify(input)),
+        ),
+      ).toMatchObject({ resolve: true, repoRoot: "/repo" });
     });
   });
 });

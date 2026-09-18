@@ -170,7 +170,8 @@ defaults to the working directory), `offline`, `rebaseline`, `restamp` and
 As CLI [`anchor-set`](./cli-reference.md#anchor-set). The object the CLI reads
 from stdin is the `input` parameter.
 
-Parameters: `bundlePath`, `conceptId` and `input` — all required. `input` is
+Parameters: `bundlePath`, `conceptId` and `input` required; `resolve`,
+`offline` (`boolean`) and `repoRoot` (`string`) optional, as the CLI flags. `input` is
 `{ reason, anchors }`; `anchors` is the complete new set. Carry an anchor's
 `hash` and the rest of its stamp forward to keep drift visible until the new
 code is read.

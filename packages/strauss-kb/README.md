@@ -236,8 +236,8 @@ never writes `verified[]`; `--check` writes nothing at all. Per anchor:
 renamed or extracted the code: the complete new anchor set, plus a required
 reason that lands in the log. Carry an anchor's `hash` forward and the code
 behind a moved pointer still reports drift until it is read and
-accepted with `--rebaseline`. It never resolves, stamps, verifies or moves
-standing. [Full rules](https://saasontools.github.io/strauss-agent-tools/cli-reference#anchor-set).
+accepted with `--rebaseline`; `--resolve` stamps the set in the same call.
+It never verifies or moves standing. [Full rules](https://saasontools.github.io/strauss-agent-tools/cli-reference#anchor-set).
 
 An anchor naming another `repo` is read from that repository's **remote**,
 through a bare cache under `~/.strauss/repo-cache` — a local checkout is one
@@ -314,7 +314,8 @@ strauss-kb [--bundle PATH] <command> [args]
   verify <concept-id> --note <text>        Append a verified[] event — who checked, when, and what the check found.
   anchor-resolve <concept-id> [--repo-root <path>] [--rebaseline] [--restamp]
                                            Resolve anchors against the working tree: stamp, or report drift.
-  anchor-set <concept-id> < anchors.json   Set anchors after a refactor you read; carry each hash forward, with a reason.
+  anchor-set <concept-id> [--resolve] < anchors.json
+                                           Set anchors after a refactor you read, with a reason; --resolve stamps them.
   reassess <concept-id> [--repo-root <path>] [--with-diff]
                                            One drifted record as something to judge: claim, classes, diff, impact.
   promote <concept-id...> --to <bundle> [--source <url>] [--force] | --list

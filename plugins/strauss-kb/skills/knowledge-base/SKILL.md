@@ -213,8 +213,9 @@ then judge the code — four steps, and none of them is one of the others:
    ```
 
    **Carry the hashes** unless you already read the new code: without them
-   `anchor-resolve` stamps the rewrite as the baseline. Anything you leave out
-   is gone.
+   `anchor-resolve` stamps the rewrite as the baseline. If you did read it,
+   pass `--resolve` and the set is stamped in the same call. Anything you leave
+   out is gone.
 
 3. **Now read the changed body** the moved pointer exposes, and
    `anchor-resolve <id> --rebaseline` only if the claim still holds. If it does

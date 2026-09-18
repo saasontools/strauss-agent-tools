@@ -221,7 +221,7 @@ accepted; a second run reports `match`. Being fixed under
 ### `anchor-set`
 
 ```
-anchor-set <concept-id> < anchors.json
+anchor-set <concept-id> [--resolve] [--repo-root <path>] [--offline] < anchors.json
 ```
 
 Set a record's [anchors](./specification.md#anchors) after a refactor someone
@@ -238,6 +238,17 @@ anchor keeps its baseline by carrying its `hash` (and `hash_kind`, `lines`,
 code yet, so it still reports drift. Omit the hash and `anchor-resolve` stamps
 the current code. Whether the code was read is your claim; the log records who
 made it and why.
+
+| Flag                 | Effect                                                           |
+| -------------------- | ---------------------------------------------------------------- |
+| `--resolve`          | Stamp every anchor against the current code in the same call.    |
+| `--repo-root <path>` | Where the anchored source lives, for `--resolve`.                |
+| `--offline`          | With `--resolve`, read foreign anchors from the repo cache only. |
+
+Choosing a pointer is reading the code behind it, so `--resolve` rebaselines
+every anchor, carried hashes included, and returns anchor-resolve's results as
+`resolved`. It also writes its own `anchor-resolve` log entry. Without it,
+nothing is stamped: run [`anchor-resolve`](#anchor-resolve) next.
 
 ```bash
 strauss-kb anchor-set decision.export-retention <<'JSON'
