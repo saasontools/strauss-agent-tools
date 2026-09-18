@@ -10,14 +10,39 @@ description: >-
 generated:
   by: mcp
   at: "2026-09-18T15:25:00.960Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-18T15:42:54.399Z"
+    note: >-
+      Read bodyCitations at f852c4c: link nodes from fromMarkdown, url matched
+      against <concept-id>.md, self excluded. On the built dist/index.cjs a
+      fenced link and a 6-space block under a list item yield nothing while a
+      prose link yields fact.b; no dist file requires mdast or micromark, so the
+      parser is inlined. Full suite 921/921. Not covered by the record: the
+      recursive visit overflows at ~12k nested blockquotes, written as
+      risk.deep-nesting-crashes-validate-and-doctor.
+  - by: "agent:performance"
+    at: "2026-09-18T15:43:23.132Z"
+    note: >-
+      Built base 986f89e and HEAD with tsup. The parser family is inlined in
+      both formats: the shared chunk grows from 296.6 KB to 486.4 KB, about 0.19
+      MB, not the 0.3 MB the Impact gives. Importing the module takes a median
+      242 ms before and 248 ms after, within noise. The record gives no runtime
+      cost; see risk.gate-parses-every-body-as-commonmark-twice.
+  - by: "agent:security"
+    at: "2026-09-18T15:46:03.283Z"
+    note: >-
+      Supply chain only: mdast-util-from-markdown is named here and in
+      package.json/pnpm-lock at HEAD; neither it nor micromark carries an
+      install script; tsup noExternal inlines the family and dist/*.js import no
+      debug. Cost on hostile bodies is disputed separately.
 strauss_anchors:
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: bodyCitations
-    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
+    hash: "sha256:bee7a9a3e82dd3b568f239f5d1e121202ff79b08a8158810cab3c054687927a6"
     hash_kind: ast
-    resolved_at: "2026-09-18T15:25:22.985Z"
-    lines: 12
+    resolved_at: "2026-09-18T15:52:54.089Z"
+    lines: 36
     resolver: tree-sitter
   - file: packages/strauss-kb/tsup.config.ts
     hash: "sha256:dda618aed40f727163b91a3139db19534765fd8ebc9f1282b9dc09d47424c2c4"

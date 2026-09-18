@@ -35,10 +35,10 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/mirror-links.ts
     symbol: mirrorLinksCommand
-    hash: "sha256:fb5522c26c108f7528107420a22a228e0aa964dcca2098de6070f1ff2b1a2dd1"
+    hash: "sha256:48a2c18107e111374d3d4b8b66c2ff23fac84a9cc311a9f3ed9f80cb85f404fb"
     hash_kind: raw
-    resolved_at: "2026-09-18T15:40:42.372Z"
-    lines: 65
+    resolved_at: "2026-09-18T15:53:05.936Z"
+    lines: 67
     resolver: regex
   - file: packages/strauss-kb/src/commands/sweep.ts
     symbol: holderIndex

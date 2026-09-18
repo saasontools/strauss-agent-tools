@@ -28,18 +28,18 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
-    hash: "sha256:37fcb846d49f6a7290d64f4327669afd3e50ff59a91b825c34dc6b3cf71cb19c"
+    hash: "sha256:955d07097dda170872a1d2f9656741a7de100867b0077b904f9ea154f4c2a3fd"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:35:09.178Z"
-    lines: 167
+    resolved_at: "2026-09-18T15:53:00.747Z"
+    lines: 176
     resolver: tree-sitter
 strauss_links:
   - target: decision.edge-consumers-read-body-and-frontmatter
     rel: informs
 strauss_status: superseded
+strauss_superseded_by: risk.doctor-scans-every-body-once-and-rebuilds-a-map
 strauss_materiality: non-blocking
 strauss_confidence: high
-strauss_superseded_by: risk.doctor-scans-every-body-once-and-rebuilds-a-map
 ---
 
 ## Risk

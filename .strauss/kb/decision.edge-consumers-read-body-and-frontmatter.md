@@ -78,10 +78,10 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: bodyCitations
-    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
+    hash: "sha256:bee7a9a3e82dd3b568f239f5d1e121202ff79b08a8158810cab3c054687927a6"
     hash_kind: ast
-    resolved_at: "2026-09-18T15:31:22.376Z"
-    lines: 12
+    resolved_at: "2026-09-18T15:52:54.546Z"
+    lines: 36
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences
@@ -113,10 +113,10 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
-    hash: "sha256:37fcb846d49f6a7290d64f4327669afd3e50ff59a91b825c34dc6b3cf71cb19c"
+    hash: "sha256:955d07097dda170872a1d2f9656741a7de100867b0077b904f9ea154f4c2a3fd"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:35:05.986Z"
-    lines: 167
+    resolved_at: "2026-09-18T15:52:54.554Z"
+    lines: 176
     resolver: tree-sitter
   - file: packages/strauss-kb/src/index.ts
     symbol: KbStaleReference

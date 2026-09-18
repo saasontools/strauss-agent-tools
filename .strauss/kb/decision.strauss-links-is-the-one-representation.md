@@ -71,17 +71,17 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: bodyCitations
-    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
+    hash: "sha256:bee7a9a3e82dd3b568f239f5d1e121202ff79b08a8158810cab3c054687927a6"
     hash_kind: ast
-    resolved_at: "2026-09-18T15:25:23.752Z"
-    lines: 12
+    resolved_at: "2026-09-18T15:52:56.357Z"
+    lines: 36
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/mirror-links.ts
     symbol: mirrorLinksCommand
-    hash: "sha256:fb5522c26c108f7528107420a22a228e0aa964dcca2098de6070f1ff2b1a2dd1"
+    hash: "sha256:48a2c18107e111374d3d4b8b66c2ff23fac84a9cc311a9f3ed9f80cb85f404fb"
     hash_kind: raw
-    resolved_at: "2026-09-18T15:40:30.262Z"
-    lines: 65
+    resolved_at: "2026-09-18T15:52:56.360Z"
+    lines: 67
     resolver: regex
   - file: packages/strauss-kb/src/compose.ts
     symbol: composeRecord
@@ -94,8 +94,15 @@ strauss_anchors:
     symbol: outboundReferences
     hash: "sha256:dc489e146f4ee68b4b8827d5de6b4fa8d897028d3293ca9f758f1d9c60c996b5"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:32:21.246Z"
+    resolved_at: "2026-09-18T15:46:45.717Z"
     lines: 13
+    resolver: tree-sitter
+  - file: packages/strauss-kb/src/kb-references/stale.ts
+    symbol: staleReferencesFrom
+    hash: "sha256:dca075a4bfa94e6cf14eae8f8b2183f72f845c20da59f4bab1408a330736ceae"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:46:45.719Z"
+    lines: 29
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-references/model.ts
     symbol: KbOutboundReference

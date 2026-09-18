@@ -1,5 +1,5 @@
 ---
-"@saasontools/strauss-kb": patch
+"@saasontools/strauss-kb": major
 ---
 
 `strauss_links` is the one representation of an edge, and a markdown link in a

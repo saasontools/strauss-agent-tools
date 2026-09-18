@@ -109,7 +109,20 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
     const declared = new Set(
       (fm.strauss_links ?? []).map((link) => link.target),
     );
-    for (const target of bodyCitations(record)) {
+    // One unreadable body is that record's warning, never the base's crash.
+    let cited: Set<string>;
+    try {
+      cited = bodyCitations(record);
+    } catch (error) {
+      report(
+        "body_link",
+        conceptId,
+        error instanceof Error ? error.message : String(error),
+        "warning",
+      );
+      cited = new Set();
+    }
+    for (const target of cited) {
       if (declared.has(target)) continue;
       report(
         "body_link",

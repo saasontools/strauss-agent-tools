@@ -26,6 +26,14 @@ verified:
       not a denial-of-service amplifier. Measured on the built regex: 0.1 ms on
       32 KB of an unterminated '](aaa...' run and on 4000 'a-' segments, flat
       across sizes.
+  - by: "agent:performance"
+    at: "2026-09-18T15:43:23.524Z"
+    note: >-
+      Read reassess.ts at cc12a72: impact(id, bundle) runs over the bundle
+      already listed, with one store.list and one adjudicate per run.
+      doctor.ts:181 still calls store.impact once per drifted finding, as the
+      decision says. Its three-scan count is out of date: one scan is left, and
+      it is now CommonMark (risk.gate-parses-every-body-as-commonmark-twice).
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/reassess.ts
     symbol: reassessCommand

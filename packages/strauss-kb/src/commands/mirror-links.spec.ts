@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -97,6 +97,59 @@ describe("mirrorLinksCommand", () => {
 
     expect((await run()).mirrored).toEqual([]);
     expect(await linksOf("fact.house-style")).toBeUndefined();
+  });
+
+  // The addition is computed against the record at write time, not against
+  // the snapshot the run started from: a link written in between survives.
+  test("keeps a link written after the run read the base", async () => {
+    await seed("citer", { Claim: "See [fact.target](fact.target.md)." });
+    const listed = store.list.bind(store);
+    vi.spyOn(store, "list").mockImplementationOnce(async (path) => {
+      const snapshot = await listed(path);
+      const file = join(bundle, "fact.citer.md");
+      writeFileSync(
+        file,
+        readFileSync(file, "utf8").replace(
+          "\nstrauss_status:",
+          "\nstrauss_links:\n  - target: fact.later\n    rel: depends_on\nstrauss_status:",
+        ),
+        "utf8",
+      );
+      return snapshot;
+    });
+
+    await run();
+
+    expect(await linksOf("fact.citer")).toEqual([
+      { target: "fact.later", rel: "depends_on" },
+      { target: "fact.target", rel: "related_to" },
+    ]);
+  });
+
+  // One hostile body must not stop the rest of the base migrating, and must
+  // not be skipped silently either.
+  test("names an unreadable body and mirrors the rest", async () => {
+    await seed("citer", { Claim: "See [fact.target](fact.target.md)." });
+    await seed("hostile", { Claim: "Placeholder." });
+    const file = join(bundle, "fact.hostile.md");
+    writeFileSync(
+      file,
+      readFileSync(file, "utf8").replace(
+        "Placeholder.",
+        `${"* ".repeat(200)}[x](fact.target.md)`,
+      ),
+      "utf8",
+    );
+
+    const result = await run();
+
+    expect(result.mirrored).toEqual([
+      { conceptId: "fact.citer", added: ["fact.target"] },
+    ]);
+    expect(result.unreadable).toMatchObject([{ conceptId: "fact.hostile" }]);
+    expect(mirrorLinksCommand.render?.(result)).toContain(
+      "unreadable fact.hostile —",
+    );
   });
 
   test("a second run has nothing left to do", async () => {

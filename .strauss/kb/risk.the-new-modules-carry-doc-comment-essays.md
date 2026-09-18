@@ -23,10 +23,10 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: bodyCitations
-    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
+    hash: "sha256:bee7a9a3e82dd3b568f239f5d1e121202ff79b08a8158810cab3c054687927a6"
     hash_kind: ast
-    resolved_at: "2026-09-18T15:31:22.659Z"
-    lines: 12
+    resolved_at: "2026-09-18T15:53:04.782Z"
+    lines: 36
     resolver: tree-sitter
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS

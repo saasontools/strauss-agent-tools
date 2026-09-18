@@ -28,22 +28,23 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/body-citations.ts
     symbol: bodyCitations
-    hash: "sha256:a3df9190aa20aa6e894967a34509842c29b0400ffadf4524e88e7ae006985b5c"
+    hash: "sha256:bee7a9a3e82dd3b568f239f5d1e121202ff79b08a8158810cab3c054687927a6"
     hash_kind: ast
-    resolved_at: "2026-09-18T15:31:23.524Z"
-    lines: 12
+    resolved_at: "2026-09-18T15:53:02.399Z"
+    lines: 36
     resolver: tree-sitter
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
-    hash: "sha256:37fcb846d49f6a7290d64f4327669afd3e50ff59a91b825c34dc6b3cf71cb19c"
+    hash: "sha256:955d07097dda170872a1d2f9656741a7de100867b0077b904f9ea154f4c2a3fd"
     hash_kind: ast
-    resolved_at: "2026-09-18T15:25:24.836Z"
-    lines: 163
+    resolved_at: "2026-09-18T15:53:02.408Z"
+    lines: 176
     resolver: tree-sitter
 strauss_links:
   - target: decision.strauss-links-is-the-one-representation
     rel: informs
-strauss_status: open
+strauss_status: superseded
+strauss_superseded_by: risk.gate-parses-every-body-as-commonmark-twice
 strauss_materiality: non-blocking
 strauss_confidence: high
 ---

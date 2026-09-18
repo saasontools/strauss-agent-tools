@@ -23,11 +23,12 @@ strauss_anchors:
 strauss_links:
   - target: decision.strauss-links-is-the-one-representation
     rel: informs
-strauss_status: open
+strauss_status: superseded
 strauss_supersedes:
   - risk.doctor-rescans-every-body-three-times
 strauss_materiality: non-blocking
 strauss_confidence: high
+strauss_superseded_by: risk.gate-parses-every-body-as-commonmark-twice
 ---
 
 ## Risk

@@ -25,6 +25,7 @@ export const WRITE_VERBS = new Set([
   "unpin",
   "promote",
   "sweep",
+  "mirror-links",
   "sync-instructions",
 ]);
 
@@ -39,6 +40,7 @@ export const FORBIDDEN_VERBS = new Set([
   "unpin",
   "promote",
   "sweep",
+  "mirror-links",
   "sync-instructions",
 ]);
 
@@ -46,7 +48,7 @@ export const FORBIDDEN_VERBS = new Set([
 const SETTLING = new Set(["accepted", "resolved", "rejected"]);
 
 const MCP_WRITE =
-  /^mcp__.*strauss[-_]kb.*__kb_(write|write_decision|no_decision|status|supersede|answer|verify|anchor_resolve|anchor_set|reassess|stamp|pin|unpin|promote|sweep)$/;
+  /^mcp__.*strauss[-_]kb.*__kb_(write|write_decision|no_decision|status|supersede|answer|verify|anchor_resolve|anchor_set|reassess|stamp|pin|unpin|promote|sweep|mirror_links)$/;
 
 const MCP_LOAD = /^mcp__.*strauss[-_]kb.*__kb_load$/;
 

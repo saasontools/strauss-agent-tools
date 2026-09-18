@@ -131,6 +131,31 @@ describe("bodyCitations", () => {
     ).toEqual(["fact.ok"]);
   });
 
+  // Nesting depth is the author's to choose. A walk that recursed per level
+  // let one record overflow the stack of validate, doctor and mirror-links.
+  test("twenty thousand levels of nesting are read, not overflowed", () => {
+    expect(cited(`${">".repeat(20000)} [fact.b](fact.b.md)`)).toEqual([
+      "fact.b",
+    ]);
+  });
+
+  // Nested list markers cost the parser quadratic time on one line: 8,000
+  // took nine seconds. No real record nests that deep, so it is refused.
+  test("a line nested past the limit is refused, by name, before parsing", () => {
+    const started = Date.now();
+    expect(() =>
+      bodyCitations(
+        record("fact.hostile", `${"* ".repeat(8000)}[x](fact.b.md)`),
+      ),
+    ).toThrow(/fact\.hostile: .*more than 64 nested lists/);
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
+  test("ordinary nesting is read", () => {
+    expect(cited(`${"- ".repeat(10)}[x](fact.b.md)`)).toEqual(["fact.b"]);
+    expect(cited(`${"1. ".repeat(10)}[x](fact.b.md)`)).toEqual(["fact.b"]);
+  });
+
   test("a record that cites nothing cites nothing", () => {
     expect(cited("\n## Claim\n\nNo links here.\n")).toEqual([]);
   });

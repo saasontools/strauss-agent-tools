@@ -414,22 +414,30 @@ export class KbStore {
   }
 
   /**
-   * Replaces a record's `strauss_links`, for the one-time `mirror-links`
-   * migration. Not a general edit verb: a link is a claim, and changing one
-   * changes what the record says. The migration only ever adds the edge a
-   * citation already stated in the record's own prose.
+   * Adds `related_to` for each target the record's `strauss_links` does not
+   * already name, for `mirror-links`. Computed against the record as it stands
+   * at write time, so a link written since the caller last read it survives.
    */
-  async updateLinks(
+  async mirrorLinks(
     bundlePath: string,
     conceptId: string,
-    links: KbLink[],
+    targets: readonly string[],
     actor = "unknown",
   ): Promise<KbRecord> {
     assertActor(actor);
     return this.mutate(
       bundlePath,
       conceptId,
-      (frontmatter) => ({ ...frontmatter, strauss_links: links }),
+      (frontmatter) => {
+        const links: KbLink[] = [...(frontmatter.strauss_links ?? [])];
+        const named = new Set(links.map((link) => link.target));
+        for (const target of targets) {
+          if (named.has(target)) continue;
+          named.add(target);
+          links.push({ target, rel: "related_to" });
+        }
+        return { ...frontmatter, strauss_links: links };
+      },
       { operation: "mirror-links", by: actor },
     );
   }
