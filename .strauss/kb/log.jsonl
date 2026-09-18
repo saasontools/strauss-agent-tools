@@ -37,3 +37,11 @@
 {"at":"2026-09-15T18:12:44.452Z","by":"mcp","operation":"write","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:12:56.138Z","by":"mcp","operation":"anchor-resolve","conceptId":"decision.gemini-mock-loopback-bind"}
 {"at":"2026-09-15T18:14:43.435Z","by":"mcp","operation":"overwrite","conceptId":"decision.none"}
+{"at":"2026-09-18T21:24:17.049Z","by":"agent:author","operation":"write","conceptId":"decision.retire-test-obligation"}
+{"at":"2026-09-18T21:24:17.176Z","by":"agent:author","operation":"write","conceptId":"contract.kb-record-type-enum"}
+{"at":"2026-09-18T21:24:17.457Z","by":"agent:author","operation":"anchor-resolve","conceptId":"decision.retire-test-obligation"}
+{"at":"2026-09-18T21:24:17.709Z","by":"agent:author","operation":"anchor-resolve","conceptId":"contract.kb-record-type-enum"}
+{"at":"2026-09-18T21:24:51.567Z","by":"agent:author","operation":"anchor-set","conceptId":"decision.retire-test-obligation","reason":"anchor symbols, not whole files; drop an anchor this diff does not change","anchors":[{"op":"add","to":{"file":"packages/strauss-kb/src/commands/write.ts","symbol":"writeCommand"}},{"op":"add","to":{"file":"packages/strauss-kb/src/commands/types.ts","symbol":"typesCommand"}},{"op":"add","to":{"file":"plugins/strauss-kb-review/hooks/scripts/lib/context.mjs","symbol":"memoBacklinks"}},{"op":"add","to":{"file":"fixtures/companion-repo/scenarios/blocking-risk/head/.strauss/kb/test-obligation.checkout-single-charge.md"}},{"op":"drop","from":{"file":"packages/strauss-kb/src/record-types.ts","symbol":"isKbRecordType"}},{"op":"drop","from":{"file":"packages/strauss-kb/src/commands/write.ts"}},{"op":"drop","from":{"file":"packages/strauss-kb/src/commands/types.ts"}},{"op":"drop","from":{"file":"plugins/strauss-kb-review/hooks/scripts/lib/context.mjs"}}]}
+{"at":"2026-09-18T21:24:51.689Z","by":"agent:author","operation":"anchor-resolve","conceptId":"decision.retire-test-obligation"}
+{"at":"2026-09-18T21:24:51.822Z","by":"agent:author","operation":"anchor-set","conceptId":"contract.kb-record-type-enum","reason":"anchor the enum, not the whole schema file","anchors":[{"op":"drop","from":{"file":"packages/strauss-kb/src/kb-record.schema.ts"}}]}
+{"at":"2026-09-18T21:24:51.939Z","by":"agent:author","operation":"anchor-resolve","conceptId":"contract.kb-record-type-enum"}
