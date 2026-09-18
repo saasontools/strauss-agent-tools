@@ -42,8 +42,9 @@ pinned, since even a bare newline is noise in a fresh context.
 
 Every write verb refuses outright when the base is pinned `--frozen` in this
 workspace: `write`, `write-decision`, `no-decision`, `status`, `supersede`,
-`answer`, `verify`, and `sweep` (except under `--dry-run`). `anchor-resolve`
-stamps nothing on a frozen base and says so in its result rather than failing.
+`answer`, `verify`, `anchor-set`, and `sweep` (except under `--dry-run`).
+`anchor-resolve` stamps nothing on a frozen base and says so in its result
+rather than failing.
 
 ---
 
@@ -62,6 +63,8 @@ accepts. The stdin object is the
 required; `sections`, `anchors`, `sources`, `assumption`, `stale_after`,
 `verify`, `tags`, `relatedConceptIds`, `links`, `supersedes`, `materiality`,
 `confidence`, and `owner` optional. Unknown keys are rejected.
+
+Two anchors at one address are refused, as in [`anchor-set`](#anchor-set).
 
 ```bash
 strauss-kb write fact <<'JSON'
@@ -208,6 +211,111 @@ which resolver produced the span — see
 [symbol resolution](./specification.md#symbol-resolution). A result whose
 `reason` is `resolver-changed` drifted because the resolver changed, not the
 code; `--rebaseline` is the whole fix.
+
+`--rebaseline` writes the new hashes and still exits **1** on the drift it just
+accepted; a second run reports `match`. Being fixed under
+[SAA-822](https://linear.app/saason/issue/SAA-822).
+
+---
+
+### `anchor-set`
+
+```
+anchor-set <concept-id> [--resolve] [--repo-root <path>] [--offline] < anchors.json
+```
+
+Set a record's [anchors](./specification.md#anchors) after a refactor someone
+read: the new pointers, and a reason. The object is JSON on **stdin**.
+
+| Key       | Effect                                                   |
+| --------- | -------------------------------------------------------- |
+| `reason`  | Required, non-blank. What was reviewed. Goes in the log. |
+| `anchors` | The complete new set, at least one.                      |
+
+The set is taken as given; only two anchors at one address are refused. An
+anchor keeps its baseline by carrying its `hash` (and `hash_kind`, `lines`,
+`resolved_at`, `resolver`) forward — do that when you have not read the new
+code yet, so it still reports drift. Omit the hash and `anchor-resolve` stamps
+the current code. Whether the code was read is your claim; the log records who
+made it and why.
+
+| Flag                 | Effect                                                           |
+| -------------------- | ---------------------------------------------------------------- |
+| `--resolve`          | Stamp every anchor against the current code in the same call.    |
+| `--repo-root <path>` | Where the anchored source lives, for `--resolve`.                |
+| `--offline`          | With `--resolve`, read foreign anchors from the repo cache only. |
+
+Choosing a pointer is reading the code behind it, so `--resolve` rebaselines
+every anchor, carried hashes included, and returns anchor-resolve's results as
+`resolved`. It also writes its own `anchor-resolve` log entry. **Exits 1** when
+an anchor does not resolve — a typo'd symbol, a missing file — but not when a
+remote could not be reached. Without it, nothing is stamped: run
+[`anchor-resolve`](#anchor-resolve) next.
+
+```bash
+strauss-kb anchor-set decision.export-retention <<'JSON'
+{
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "anchors": [
+    {
+      "file": "src/cleanup.mjs",
+      "symbol": "isExportExpired",
+      "hash": "sha256:5c7242b8…",
+      "hash_kind": "ast",
+      "resolved_at": "2026-09-17T20:06:25.829Z",
+      "lines": 3,
+      "resolver": "tree-sitter"
+    },
+    {
+      "file": "src/download.mjs",
+      "symbol": "canDownloadExport",
+      "hash": "sha256:b4be493b…",
+      "hash_kind": "ast",
+      "resolved_at": "2026-09-17T20:06:25.830Z",
+      "lines": 3,
+      "resolver": "tree-sitter"
+    },
+    { "file": "src/retention.mjs", "symbol": "retentionDays" }
+  ]
+}
+JSON
+```
+
+Only `symbol` moved on the first anchor; the second is the one it read, back
+unchanged; the third is new.
+
+```json
+{
+  "conceptId": "decision.export-retention",
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "changes": [
+    {
+      "op": "move",
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    },
+    {
+      "op": "add",
+      "to": { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    }
+  ],
+  "anchors": ["…the three anchors as stored…"],
+  "baseline": "unchanged",
+  "note": "pointers only: nothing was resolved, rebaselined or verified. Run anchor-resolve to check the new pointers, --rebaseline to accept the code, and verify separately."
+}
+```
+
+Hashes elided; everything else is the run's own output. `changes` is derived
+from the record before and after, not from what the caller declared, so the log
+records what happened. An unchanged anchor is not listed.
+
+`changes` are computed inside the write, against the record as it stands.
+Exits **0** on a set that applied. A validation failure, a write
+conflict, a missing record or a frozen base leaves the record and the log
+untouched.
+
+One `anchor-set` entry lands in the [log](#log) with the actor, the reason and
+every change. It is not verification — that is [`verify`](#verify).
 
 ---
 
@@ -528,6 +636,32 @@ skips past.
 
 ```bash
 strauss-kb log
+```
+
+An entry is `{ at, by, operation, conceptId }`, plus `target` where the
+operation has another end, and `reason` and `anchors` on an
+[`anchor-set`](#anchor-set). Both are optional, so entries written before
+they existed read unchanged.
+
+```json
+{
+  "at": "2026-09-17T17:51:45.636Z",
+  "by": "agent:author",
+  "operation": "anchor-set",
+  "conceptId": "decision.export-retention",
+  "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+  "anchors": [
+    {
+      "op": "replace",
+      "from": { "file": "src/cleanup.mjs", "symbol": "shouldDeleteExport" },
+      "to": { "file": "src/cleanup.mjs", "symbol": "isExportExpired" }
+    },
+    {
+      "op": "add",
+      "to": { "file": "src/retention.mjs", "symbol": "retentionDays" }
+    }
+  ]
+}
 ```
 
 ### `stamp`

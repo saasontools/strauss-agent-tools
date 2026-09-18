@@ -4,6 +4,7 @@ export {
   KbStore,
   type KbLoadResult,
   type KbLogger,
+  type KbAnchorWrite,
   type KbSupersededStub,
   type KbWriteInput,
 } from "./kb-store.js";
@@ -29,6 +30,7 @@ export {
   KbWriteConflictError,
 } from "./kb-errors.js";
 export {
+  kbAnchorLocatorSchema,
   kbAnchorSchema,
   kbAnchorSpanSchema,
   kbAnchorWriteSchema,
@@ -46,6 +48,7 @@ export {
   KB_SLUG_PATTERN,
   type KbActorStamp,
   type KbAnchor,
+  type KbAnchorLocator,
   type KbAnchorSpan,
   type KbLink,
   type KbRecord,
@@ -159,7 +162,10 @@ export {
   LOG_FILE,
   parseLog,
   renderLogEntry,
+  kbLogAnchorChangeSchema,
   kbLogEntrySchema,
+  kbLogEntryWriteSchema,
+  type KbLogAnchorChange,
   type KbLogEntry,
   type KbLogReadResult,
 } from "./kb-log.js";
@@ -268,6 +274,18 @@ export {
   type KbCommand,
   type KbCommandContext,
 } from "./commands/index.js";
+export {
+  applyAnchorSet,
+  locatorOf,
+  KbAnchorSetDuplicateError,
+  type KbAnchorChange,
+  type KbAnchorSetOutcome,
+} from "./anchors/index.js";
+export {
+  anchorSetInputSchema,
+  type AnchorSetInput,
+  type KbAnchorSetResult,
+} from "./commands/anchor-set/index.js";
 export {
   carry,
   isReviewTag,

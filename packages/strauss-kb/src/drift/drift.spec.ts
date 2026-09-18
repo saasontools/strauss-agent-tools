@@ -150,20 +150,26 @@ describe("drift classification", () => {
     };
   }
 
-  /** The write input, for `store.write`. */
+  /**
+   * The write input, for `store.write`. Anchors are attached after, not passed
+   * through: a first write can only ask for addresses, and these carry hashes.
+   */
   function writeInput(anchors: KbAnchor[]) {
-    return composeRecord(
+    const composed = composeRecord(
       "fact",
       {
         slug: "totals-shape",
         title: "totals counts orders, it does not sum them",
         why: "A totals that summed amounts would double-count refunds.",
         sections: { Claim: "`totals` returns the order count." },
-        anchors,
       },
       "agent:writer",
       STAMPED_AT,
     );
+    return {
+      ...composed,
+      frontmatter: { ...composed.frontmatter, strauss_anchors: anchors },
+    };
   }
 
   /** The same record as `list()` would hand it back, for the pure passes. */
@@ -475,7 +481,8 @@ describe("drift classification", () => {
     commit("sum amounts instead");
     // Two anchored records, so a per-record search would list twice.
     await seed([anchor]);
-    await new KbStore().write(
+    const second = new KbStore();
+    await second.write(
       bundle,
       composeRecord(
         "fact",
@@ -484,11 +491,16 @@ describe("drift classification", () => {
           title: "totals still counts orders",
           why: "The same claim, anchored a second time.",
           sections: { Claim: "`totals` returns the order count." },
-          anchors: [anchor],
         },
         "agent:writer",
         STAMPED_AT,
       ),
+    );
+    await second.updateAnchors(
+      bundle,
+      "fact.totals-again",
+      [anchor],
+      "agent:resolver",
     );
 
     await doctorCommand.run(

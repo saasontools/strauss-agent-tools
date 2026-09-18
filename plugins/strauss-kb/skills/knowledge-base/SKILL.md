@@ -165,6 +165,7 @@ machine output, `--strict` to exit 1 on any expiry.
 
 `strauss-kb anchor-resolve <id>` — re-hash a record's code anchors; one with a
 `repo` of its own is read from that remote (`--offline`: cache only).
+`strauss-kb anchor-set <id>` — set those anchors after a refactor you read.
 `kb_load`/`kb_query` warn `drifted` when the code moved, `unchecked` when a
 foreign remote was not cached.
 
@@ -184,5 +185,45 @@ Read what is left, then pick exactly one:
 
 Never auto-verify on drift and never auto-supersede: both are readings, and
 the type default in the packet is a starting point, not a verdict.
+
+## When the anchor points at nothing (`gone`)
+
+A rename or an extraction leaves the pointer wrong, not the claim. Repoint it,
+then judge the code — four steps, and none of them is one of the others:
+
+1. **Read the code and the record.** Nothing derives that `isExportExpired`
+   replaces `shouldDeleteExport`. A name that reads like a rename is what you
+   check, not the evidence.
+2. **Send the anchors back with the rename applied**, and a reason. Hand back
+   the same anchor objects you read — each keeps the `hash` it was stamped
+   with, so this accepts nothing:
+
+   ```bash
+   strauss-kb anchor-set decision.export-retention <<'JSON'
+   {
+     "reason": "Reviewed the refactor: isExportExpired replaces shouldDeleteExport; retentionDays owns the shared setting.",
+     "anchors": [
+       { "file": "src/cleanup.mjs", "symbol": "isExportExpired",
+         "hash": "sha256:5c7242b8…", "hash_kind": "ast", "lines": 3,
+         "resolved_at": "2026-09-17T20:06:25.829Z", "resolver": "tree-sitter" },
+       { "file": "src/retention.mjs", "symbol": "retentionDays" }
+     ]
+   }
+   JSON
+   ```
+
+   **Carry the hashes** unless you already read the new code: without them
+   `anchor-resolve` stamps the rewrite as the baseline. If you did read it,
+   pass `--resolve` and the set is stamped in the same call. Anything you leave
+   out is gone.
+
+3. **Now read the changed body** the moved pointer exposes, and
+   `anchor-resolve <id> --rebaseline` only if the claim still holds. If it does
+   not, supersede instead — the section above.
+4. **Re-check**, and `verify <id> --note "<what you read>"` only for a reading
+   you actually did. `anchor-set` is an audit entry, never a verification.
+
+A hash sees one span, so clean anchors do not mean nothing changed. A risk
+about a config or environment value stays open after the drift clears.
 
 Do not edit `INDEX.md` or `log.jsonl` by hand.

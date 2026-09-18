@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applyAnchorSet } from "./anchors/index.js";
 import {
   kbAnchorWriteSchema,
   kbConceptIdSchema,
@@ -133,7 +134,10 @@ export function composeRecord(
     strauss_status: spec.initialStatus,
   };
   if (parsed.stale_after) frontmatter.stale_after = parsed.stale_after;
-  if (parsed.anchors?.length) frontmatter.strauss_anchors = parsed.anchors;
+  // The same check `anchor-set` runs: no two anchors at one address.
+  if (parsed.anchors?.length) {
+    frontmatter.strauss_anchors = applyAnchorSet([], parsed.anchors).anchors;
+  }
   if (parsed.verify?.length) frontmatter.strauss_verify = parsed.verify;
   if (parsed.tags?.length) frontmatter.tags = parsed.tags;
   if (parsed.sources?.length) frontmatter.sources = parsed.sources;

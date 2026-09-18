@@ -111,7 +111,8 @@ describe("anchorResolveCommand", () => {
     anchors: KbAnchor[] | undefined,
     generator = "agent:writer",
   ): Promise<void> {
-    await new KbStore().write(
+    const store = new KbStore();
+    await store.write(
       bundle,
       composeRecord(
         "decision",
@@ -119,12 +120,16 @@ describe("anchorResolveCommand", () => {
           slug: "totals-shape",
           title: "Totals counts orders",
           why: "A totals that sums amounts would double-charge refunds.",
-          ...(anchors ? { anchors } : {}),
         },
         generator,
         "2026-08-01T00:00:00Z",
       ),
     );
+    // Stamped anchors arrive the way a real base gets them: a resolution pass
+    // writes them, never the first write.
+    if (anchors?.length) {
+      await store.updateAnchors(bundle, ID, anchors, "agent:resolver");
+    }
   }
 
   async function run(

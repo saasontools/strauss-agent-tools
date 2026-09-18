@@ -164,6 +164,15 @@ export type KbWriteInput = {
   overwrite?: boolean;
 };
 
+/**
+ * What a patching caller hands `updateAnchors`. Omitting `log` keeps the
+ * default `anchor-resolve` entry.
+ */
+export type KbAnchorWrite = {
+  anchors: KbAnchor[];
+  log?: Omit<KbLogEntry, "at" | "conceptId" | "by">;
+};
+
 /** What a record had to still be for `deleteRecord` to remove it. */
 export type KbDeleteExpectation = {
   tag: string;
@@ -367,28 +376,39 @@ export class KbStore {
   }
 
   /**
-   * Replaces a record's anchors wholesale, preserving everything else.
-   *
-   * Wholesale rather than merged: the caller just resolved the anchors it is
-   * writing, so it holds the complete current set, and a merge would keep
-   * stale entries the resolution pass deliberately dropped.
-   *
-   * Through the write schema: this is a write, and a defect a hand-edit put in
-   * the frontmatter must not be published back out under an actor stamp.
+   * Replaces a record's anchors, preserving everything else. An array is the
+   * whole set; a function is a patch and runs inside the mutation, against
+   * the anchors the record holds then — see
+   * `decision.anchor-update-patch-inside-mutation`.
    */
   async updateAnchors(
     bundlePath: string,
     conceptId: string,
-    anchors: KbAnchor[],
+    anchors: KbAnchor[] | ((current: KbAnchor[]) => KbAnchorWrite),
     actor = "unknown",
   ): Promise<KbRecord> {
     assertActor(actor);
-    const checked = anchors.map((anchor) => kbAnchorWriteSchema.parse(anchor));
+    let entry: Omit<KbLogEntry, "at" | "conceptId"> = {
+      operation: "anchor-resolve",
+      by: actor,
+    };
     return this.mutate(
       bundlePath,
       conceptId,
-      (frontmatter) => ({ ...frontmatter, strauss_anchors: checked }),
-      { operation: "anchor-resolve", by: actor },
+      (frontmatter) => {
+        const write =
+          typeof anchors === "function"
+            ? anchors(frontmatter.strauss_anchors ?? [])
+            : { anchors };
+        if (write.log) entry = { ...write.log, by: actor };
+        return {
+          ...frontmatter,
+          strauss_anchors: write.anchors.map((anchor) =>
+            kbAnchorWriteSchema.parse(anchor),
+          ),
+        };
+      },
+      () => entry,
     );
   }
 
@@ -1004,7 +1024,10 @@ export class KbStore {
     bundlePath: string,
     conceptId: string,
     change: (frontmatter: KbRecordFrontmatter) => KbRecordFrontmatter,
-    entry: Omit<KbLogEntry, "at" | "conceptId"> & { target?: string },
+    // A thunk where the entry is only knowable once `change` has run.
+    entry:
+      | (Omit<KbLogEntry, "at" | "conceptId"> & { target?: string })
+      | (() => Omit<KbLogEntry, "at" | "conceptId"> & { target?: string }),
     changeBody: (body: string) => string = (body) => body,
   ): Promise<KbRecord> {
     const target = this.recordPath(bundlePath, conceptId);
@@ -1028,7 +1051,10 @@ export class KbStore {
       throw new KbWriteConflictError(conceptId);
     }
     await this.publish(target, contents, true, conceptId);
-    await this.record(this.root(bundlePath), { ...entry, conceptId });
+    await this.record(this.root(bundlePath), {
+      ...(typeof entry === "function" ? entry() : entry),
+      conceptId,
+    });
 
     return { conceptId, frontmatter, body };
   }

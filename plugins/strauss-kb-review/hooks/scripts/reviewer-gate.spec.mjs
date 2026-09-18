@@ -192,6 +192,38 @@ test("a reviewer never decides, settles, or reshapes the base", () => {
     null,
   );
   assert.equal(decide({ command: `${own} verify decision.a --note ok` }), null);
+  // Moving a pointer is mechanical, like rebaselining one: allowed, and
+  // held to the same actor rule.
+  assert.equal(
+    decide({ command: `${own} anchor-set decision.a < patch.json` }),
+    null,
+  );
+});
+
+// anchor-set writes a record's frontmatter and a log entry under an actor
+// stamp. Missing from WRITE_VERBS it was a read: no actor rule, no
+// load-before-write, no preflight — and the entry named "unknown".
+test("anchor-set is a write", () => {
+  assert.match(
+    String(
+      decide({ command: "strauss-kb anchor-set decision.a < patch.json" }),
+    ),
+    /writes carry your own actor/,
+  );
+  assert.match(
+    String(
+      decide({
+        command:
+          "STRAUSS_KB_ACTOR=agent:security strauss-kb anchor-set decision.a < patch.json",
+        loaded: false,
+      }),
+    ),
+    /load the base/,
+  );
+  assert.match(
+    String(decide({ toolName: "mcp__strauss-kb__kb_anchor_set" })),
+    /land as actor "mcp"/,
+  );
 });
 
 test("blocking risks need mayBlock", () => {
