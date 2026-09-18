@@ -31,9 +31,9 @@ verified:
 strauss_anchors:
   - file: packages/strauss-kb/src/commands/pack.ts
     symbol: render
-    hash: "sha256:ab3b30e3b0547403900c30129f9554d3115f23d747b47c4d50469f97e160f085"
+    hash: "sha256:0d15b40971fbbe891a7c2c5f40a372ddefddf41d907f85b3168a88884665138c"
     hash_kind: ast
-    resolved_at: "2026-09-15T07:43:48.310Z"
+    resolved_at: "2026-09-18T19:33:06.289Z"
     lines: 48
     resolver: tree-sitter
 strauss_links:
