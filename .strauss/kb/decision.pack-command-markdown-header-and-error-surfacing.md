@@ -39,9 +39,6 @@ strauss_anchors:
 strauss_status: accepted
 strauss_materiality: important
 strauss_confidence: high
-strauss_links:
-  - target: decision.pack-full-walk-named-exclusions-shared-stub-cost
-    rel: related_to
 ---
 
 ## Decision

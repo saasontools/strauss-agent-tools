@@ -15,10 +15,10 @@ generated:
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: KB_EDGE_KINDS
-    hash: "sha256:95950bbd40c908b0d60a2d9156b6a95cef48e6b384ca27d0b36b674fb5f893a6"
+    hash: "sha256:0648248fcc514e5b045b23b469c35de373e01569dcba06453f52b1d99505a63c"
     hash_kind: raw
-    resolved_at: "2026-09-17T21:35:09.385Z"
-    lines: 6
+    resolved_at: "2026-09-15T07:43:48.885Z"
+    lines: 7
     resolver: regex
 strauss_links:
   - target: decision.kb-edges-fold-related-into-body-link
