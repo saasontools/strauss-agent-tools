@@ -8,7 +8,7 @@ import {
   hashAnchorText,
   resolveAnchorSpan,
 } from "./anchor-resolver/index.js";
-import { anchorResolveCommand } from "./commands/anchor-resolve.js";
+import { anchorResolveCommand } from "./commands/anchor-resolve/index.js";
 import {
   doctorCommand,
   type KbDoctorCommandResult,

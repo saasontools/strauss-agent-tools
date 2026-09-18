@@ -227,7 +227,7 @@ against the working tree (`--repo-root` when the base is not inside it) and
 never writes `verified[]`; `--check` writes nothing at all. Per anchor:
 
 - **stamped** — no hash yet; hash, line count, and timestamp are written
-  (`unstamped` under `--check`, which writes none).
+  (`unstamped` until one lands, so `--check` and a refused write say so).
 - **match** — unchanged; nothing written. `--restamp` re-dates on purpose.
 - **drifted** — hash changed. Baseline kept unless `--rebaseline`.
 - **unresolved** — not comparable, with a reason. A finding, not an error.
@@ -250,8 +250,9 @@ finding, not a command.
 An anchor must not read outside the repository it describes, checked lexically
 and again on the real path after symlinks.
 
-Exit code is non-zero on **drifted**, or on **unresolved** for an anchor that
-carries a hash; unstamped anchors and unreachable remotes never fail.
+A write the run asked for carries its own `outcome`, and the exit code follows
+it:
+[cli-reference](https://saasontools.github.io/strauss-agent-tools/cli-reference#anchor-resolve).
 
 Symbols resolve tree-sitter first — the 20 language packs that have both a
 grammar and a definitions query, pinned together by `pnpm grammars pin` from

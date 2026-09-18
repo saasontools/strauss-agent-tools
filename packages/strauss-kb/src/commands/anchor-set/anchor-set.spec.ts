@@ -395,6 +395,45 @@ describe("anchorSetCommand", () => {
       ).toBe(false);
     });
 
+    // The pointers landed and the stamp did not: `stamped` would be the claim
+    // SAA-822 removed from anchor-resolve, one call further out.
+    test("a stamp the store refuses leaves the baseline incomplete and fails", async () => {
+      const before = await seedRefactor();
+      const parsed = anchorSetCommand.input.parse({
+        bundlePath: bundle,
+        conceptId: ID,
+        input: renamed(before),
+        resolve: true,
+        repoRoot: repo,
+      });
+      const store = new KbStore();
+      const real = store.updateAnchors.bind(store);
+      vi.spyOn(store, "updateAnchors").mockImplementation(
+        (path, id, anchors, actor) =>
+          typeof anchors === "function"
+            ? real(path, id, anchors, actor)
+            : Promise.reject(new Error("disk full")),
+      );
+
+      const result = (await anchorSetCommand.run(
+        {
+          store,
+          actor: "agent:reviewer",
+          now: () => "2026-09-17T12:00:00Z",
+        },
+        parsed,
+      )) as KbAnchorSetResult;
+
+      expect(result.baseline).toBe("incomplete");
+      expect(result.resolved).toContainEqual(
+        expect.objectContaining({
+          outcome: "failed",
+          outcomeReason: "write-failed",
+        }),
+      );
+      expect(anchorSetCommand.failsWhen?.(result, parsed)).toBe(true);
+    });
+
     test("is off by default: the pointers are written and nothing stamped", async () => {
       const before = await seedRefactor();
 

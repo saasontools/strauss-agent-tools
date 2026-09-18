@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AnchorResolveResult } from "../anchor-resolve/index.js";
 import { bundlePath, conceptId } from "../model.js";
 import type { KbAnchorChange } from "../../anchors/index.js";
 import { kbAnchorWriteSchema, type KbAnchor } from "../../kb-record.schema.js";
@@ -60,9 +61,12 @@ export type KbAnchorSetResult = {
   /** Unchanged anchors are not listed; a no-op write reports nothing. */
   changes: KbAnchorChange[];
   anchors: KbAnchor[];
-  /** `stamped` when `resolve` ran; `unchanged` otherwise. */
-  baseline: "unchanged" | "stamped";
+  /**
+   * `unchanged` without `resolve`; with it, `stamped` only when every anchor
+   * matched or its write was `applied`, else `incomplete`.
+   */
+  baseline: "unchanged" | "stamped" | "incomplete";
   /** anchor-resolve's per-anchor results, when `resolve` ran. */
-  resolved?: unknown[];
+  resolved?: AnchorResolveResult[];
   note: string;
 };

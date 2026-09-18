@@ -22,7 +22,7 @@ import {
   reassessCommand,
   type KbReassessResult,
 } from "../commands/reassess.js";
-import { anchorResolveCommand } from "../commands/anchor-resolve.js";
+import { anchorResolveCommand } from "../commands/anchor-resolve/index.js";
 import { classifyDrift } from "./classify.js";
 import { readFileAtRef } from "./git.js";
 

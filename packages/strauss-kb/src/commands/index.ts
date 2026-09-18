@@ -5,7 +5,7 @@
  * base housekeeping, the format, and the workspace pin verbs.
  */
 import { DECISION_TYPE } from "../decision-record.js";
-import { anchorResolveCommand } from "./anchor-resolve.js";
+import { anchorResolveCommand } from "./anchor-resolve/index.js";
 import { anchorSetCommand } from "./anchor-set/index.js";
 import { answerCommand } from "./answer.js";
 import { backlinksCommand } from "./backlinks.js";

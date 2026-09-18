@@ -750,6 +750,30 @@ describe("runKbCli", () => {
       expect(parsed(drifted)).toMatchObject({
         results: [{ state: "drifted", diffSize: 0 }],
       });
+
+      // The write is the answer to the drift it reports, so the process says
+      // so: a shell sequencing a rebaseline reads this exit code.
+      const rebaselined = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+        "--rebaseline",
+      ]);
+      expect(rebaselined.exitCode).toBeUndefined();
+      expect(parsed(rebaselined)).toMatchObject({
+        results: [{ state: "drifted", outcome: "applied", rebaselined: true }],
+      });
+      expect(readFileSync(recordFile, "utf8")).not.toBe(before);
+
+      const settled = await at([
+        "anchor-resolve",
+        "decision.region-in-key",
+        "--repo-root",
+        repo,
+      ]);
+      expect(settled.exitCode).toBeUndefined();
+      expect(parsed(settled)).toMatchObject({ results: [{ state: "match" }] });
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }

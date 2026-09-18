@@ -43,8 +43,8 @@ pinned, since even a bare newline is noise in a fresh context.
 Every write verb refuses outright when the base is pinned `--frozen` in this
 workspace: `write`, `write-decision`, `no-decision`, `status`, `supersede`,
 `answer`, `verify`, `anchor-set`, and `sweep` (except under `--dry-run`).
-`anchor-resolve` stamps nothing on a frozen base and says so in its result
-rather than failing.
+`anchor-resolve` stamps nothing on a frozen base: it reports the refusal on
+each anchor, and exits non-zero only where the caller asked for that write.
 
 ---
 
@@ -192,11 +192,14 @@ else from the working tree. An unreadable file or unreachable remote is a
 | `--restamp`          | Refresh `resolved_at` on anchors that already match.                |
 | `--check`            | Report only: no hash, no `resolved_at`, no log entry.               |
 
-**Exits 1** when an anchor drifted, or when one carrying a hash no longer
-resolves, so a CI gate can run it; an anchor nothing could reach does not fail
-it. Never writes `verified[]` ([why](./specification.md#verification)); a
-judgment is [`verify`](#verify). `--check` refuses `--rebaseline` and
-`--restamp`.
+**Exits 1** when an anchor drifted and no write settled it, when one carrying a
+hash no longer resolves, or when a write this run asked for did not land, so a
+CI gate can run it. A `--rebaseline` the base took **exits 0**; an anchor
+nothing could reach does not fail it either way, and a frozen base plans no
+`resolved_at` backfill, so a record whose anchors all match still exits 0
+there. Never writes `verified[]`
+([why](./specification.md#verification)); a judgment is [`verify`](#verify).
+`--check` refuses `--rebaseline` and `--restamp`.
 
 ```bash
 strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
@@ -204,8 +207,13 @@ strauss-kb anchor-resolve decision.cas-not-lock --repo-root /repo --rebaseline
 
 Returns `{ conceptId, results }`, each result
 `{ file, symbol?, side?, state, storedHash?, currentHash?, diffSize?, reason?,
-resolver?, rebaselined?, repo?, remoteState? }`. Under `--check` an anchor with
-no hash is `unstamped` rather than `stamped`. `side` is set only for an
+resolver?, outcome?, outcomeReason?, rebaselined?, repo?, remoteState? }`.
+`state` is the comparison, `outcome` what the write did: `applied` once the
+record holds it, `skipped` where a rule forbids the write (`outcomeReason:
+pinned-ref`), `failed` where it was refused (`frozen`, `write-failed`).
+`rebaselined` is set with `applied`, never before. An anchor with no hash is
+`unstamped` until a stamp lands, so `--check`, a frozen base, and a refused
+write all report it that way. `side` is set only for an
 anchor read at its `ref` rather than in the working tree. `resolver` names
 which resolver produced the span — see
 [symbol resolution](./specification.md#symbol-resolution). A result whose
@@ -247,10 +255,12 @@ made it and why.
 
 Choosing a pointer is reading the code behind it, so `--resolve` rebaselines
 every anchor, carried hashes included, and returns anchor-resolve's results as
-`resolved`. It also writes its own `anchor-resolve` log entry. **Exits 1** when
-an anchor does not resolve — a typo'd symbol, a missing file — but not when a
-remote could not be reached. Without it, nothing is stamped: run
-[`anchor-resolve`](#anchor-resolve) next.
+`resolved`. It also writes its own `anchor-resolve` log entry. `baseline` is
+`stamped` only when every anchor matched or its write was `applied`, else
+`incomplete`. **Exits 1** when an anchor does not resolve — a typo'd symbol, a
+missing file — or its stamp did not land, but not when a remote could not be
+reached. Without it, nothing is stamped: run [`anchor-resolve`](#anchor-resolve)
+next.
 
 ```bash
 strauss-kb anchor-set decision.export-retention <<'JSON'
