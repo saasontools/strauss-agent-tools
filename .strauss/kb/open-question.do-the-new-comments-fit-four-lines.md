@@ -14,17 +14,33 @@ verified: []
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-edges.ts
     symbol: edgeNeighbours
+    hash: "sha256:1c2622d68ef5dddf5a64279db4791f922eed18f38cf5984c0cd5037d6402ffd1"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:41:51.392Z"
+    lines: 67
+    resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/reassess.ts
+    symbol: reassessCommand
+    hash: "sha256:c1f423f270aa03c811a019756a1e60b06d24e13501504b2828e467687d863418"
+    hash_kind: raw
+    resolved_at: "2026-09-18T15:41:51.400Z"
+    lines: 131
+    resolver: regex
   - file: packages/strauss-kb/src/kb-references/outbound.ts
     symbol: outboundReferences
+    hash: "sha256:dc489e146f4ee68b4b8827d5de6b4fa8d897028d3293ca9f758f1d9c60c996b5"
+    hash_kind: ast
+    resolved_at: "2026-09-18T15:41:51.403Z"
+    lines: 13
+    resolver: tree-sitter
 strauss_links:
   - target: test-obligation.the-edge-rule-has-one-home-and-no-survivors
     rel: informs
 strauss_status: resolved
-strauss_owner: mcp
 strauss_answered:
   by: mcp
   at: "2026-09-18T15:40:16.473Z"
+strauss_owner: mcp
 ---
 
 ## Question

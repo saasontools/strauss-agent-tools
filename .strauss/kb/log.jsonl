@@ -222,3 +222,5 @@
 {"at":"2026-09-18T15:40:42.388Z","by":"unknown","operation":"anchor-resolve","conceptId":"risk.unmigrated-base-loses-prose-edges"}
 {"at":"2026-09-18T15:40:44.698Z","by":"unknown","operation":"anchor-resolve","conceptId":"test-obligation.documented-reference-shapes-match-the-model"}
 {"at":"2026-09-18T15:40:45.777Z","by":"unknown","operation":"anchor-resolve","conceptId":"test-obligation.reassess-packet-is-honest-about-anchors-and-dependants"}
+{"at":"2026-09-18T15:41:51.416Z","by":"unknown","operation":"anchor-resolve","conceptId":"open-question.do-the-new-comments-fit-four-lines"}
+{"at":"2026-09-18T15:41:59.109Z","by":"agent:correctness","operation":"write","conceptId":"risk.deep-nesting-crashes-validate-and-doctor"}
