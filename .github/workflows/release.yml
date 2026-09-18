@@ -72,7 +72,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          pnpm nx release --yes
+          # Publishing is the next step's alone. npm stages a trusted publish before
+          # it is visible, so a second publish here misses it and fails with E409.
+          pnpm nx release --yes --skip-publish
 
       - name: Publish to npm (OIDC trusted publishing)
         if: steps.plans.outputs.present == 'true'
