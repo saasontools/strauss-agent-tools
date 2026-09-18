@@ -360,6 +360,41 @@ describe("anchorSetCommand", () => {
       );
     });
 
+    test("a pointer that names nothing fails the command", async () => {
+      const before = await seedRefactor();
+      const input = {
+        reason: "typo in the new symbol",
+        anchors: [
+          { file: CLEANUP, symbol: "isExportExpried" },
+          before[1] as KbAnchor,
+        ],
+      };
+      const parsed = anchorSetCommand.input.parse({
+        bundlePath: bundle,
+        conceptId: ID,
+        input,
+        resolve: true,
+        repoRoot: repo,
+      });
+
+      const result = await anchorSetCommand.run(
+        {
+          store: new KbStore(),
+          actor: "agent:reviewer",
+          now: () => "2026-09-17T12:00:00Z",
+        },
+        parsed,
+      );
+
+      expect(anchorSetCommand.failsWhen?.(result, parsed)).toBe(true);
+      expect(
+        anchorSetCommand.failsWhen?.(
+          { ...(result as object), resolved: [{ state: "match" }] },
+          parsed,
+        ),
+      ).toBe(false);
+    });
+
     test("is off by default: the pointers are written and nothing stamped", async () => {
       const before = await seedRefactor();
 

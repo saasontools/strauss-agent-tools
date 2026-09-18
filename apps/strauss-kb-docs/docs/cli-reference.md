@@ -247,8 +247,10 @@ made it and why.
 
 Choosing a pointer is reading the code behind it, so `--resolve` rebaselines
 every anchor, carried hashes included, and returns anchor-resolve's results as
-`resolved`. It also writes its own `anchor-resolve` log entry. Without it,
-nothing is stamped: run [`anchor-resolve`](#anchor-resolve) next.
+`resolved`. It also writes its own `anchor-resolve` log entry. **Exits 1** when
+an anchor does not resolve — a typo'd symbol, a missing file — but not when a
+remote could not be reached. Without it, nothing is stamped: run
+[`anchor-resolve`](#anchor-resolve) next.
 
 ```bash
 strauss-kb anchor-set decision.export-retention <<'JSON'

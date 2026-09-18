@@ -1,4 +1,5 @@
 import { assertBaseNotFrozen } from "../../kb-pins/index.js";
+import { isUncheckedReason } from "../../remote-repo/index.js";
 import { anchorResolveCommand } from "../anchor-resolve.js";
 import { argvFlag, define } from "../model.js";
 import {
@@ -91,4 +92,12 @@ export const anchorSetCommand = define({
       note: STAMPED_NOTE,
     };
   },
+  // With `resolve`, a pointer that names nothing is a failed set, not a
+  // finding to read later. A remote nothing could reach was never checked, so
+  // it does not fail — the same line anchor-resolve draws.
+  failsWhen: (result) =>
+    ((result as KbAnchorSetResult).resolved ?? []).some((entry) => {
+      const { state, reason } = entry as { state?: string; reason?: string };
+      return state === "unresolved" && !isUncheckedReason(reason as never);
+    }),
 });
