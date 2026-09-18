@@ -21,10 +21,10 @@ strauss_anchors:
     resolver: tree-sitter
   - file: packages/strauss-kb/src/validate.ts
     symbol: validateBundle
-    hash: "sha256:955d07097dda170872a1d2f9656741a7de100867b0077b904f9ea154f4c2a3fd"
+    hash: "sha256:2e9d4527e688e9f3d0ba3ce93a583575b79983fe88fbde96da0f7bf011d01a6e"
     hash_kind: ast
-    resolved_at: "2026-09-18T15:52:58.621Z"
-    lines: 176
+    resolved_at: "2026-09-18T16:32:03.591Z"
+    lines: 171
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/sweep.ts
     symbol: holderIndex

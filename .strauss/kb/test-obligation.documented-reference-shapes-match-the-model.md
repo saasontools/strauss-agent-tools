@@ -28,14 +28,14 @@ strauss_anchors:
     lines: 9
     resolver: regex
   - file: apps/strauss-kb-docs/docs/cli-reference.md
-    hash: "sha256:9040a96240179a4bfd798ec840de1cb1686efc1d3592c88a0f396c22bf705cb2"
+    hash: "sha256:4a1d139b677689a54629011ee33062aaf0fcc42e9e7e05ba7de9e1c1161a3d4b"
     hash_kind: raw
-    resolved_at: "2026-09-18T15:40:44.690Z"
-    lines: 946
+    resolved_at: "2026-09-18T16:32:13.476Z"
+    lines: 950
   - file: apps/strauss-kb-docs/docs/mcp-reference.md
-    hash: "sha256:559c5bfea5978666b43246b2b52cd08c000967932ba22fa72a6c1e55ce801262"
+    hash: "sha256:484548e2d9893df15da9fcb2bbabc5406718d3eb93707de8bc6a41a5e6b9315b"
     hash_kind: raw
-    resolved_at: "2026-09-18T15:40:44.690Z"
+    resolved_at: "2026-09-18T16:32:13.476Z"
     lines: 633
 strauss_links:
   - target: risk.the-reference-shapes-document-a-field-nothing-emits

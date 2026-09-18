@@ -1,5 +1,5 @@
 import { isCanonicalRepoUrl } from "./anchor-resolver/index.js";
-import { bodyCitations } from "./body-citations.js";
+import { unmirroredCitations } from "./body-citations.js";
 import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 import { isKbLinkRel, isKbRecordType, KB_LINK_RELS } from "./record-types.js";
 
@@ -104,15 +104,11 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
       }
     }
 
-    // The one place a body is still read: a citation with no entry beside it
-    // is an edge nothing downstream will see.
-    const declared = new Set(
-      (fm.strauss_links ?? []).map((link) => link.target),
-    );
+    // A citation with no entry beside it is an edge nothing downstream sees.
     // One unreadable body is that record's warning, never the base's crash.
-    let cited: Set<string>;
+    let unmirrored: string[];
     try {
-      cited = bodyCitations(record);
+      unmirrored = unmirroredCitations(record);
     } catch (error) {
       report(
         "body_link",
@@ -120,10 +116,9 @@ export function validateBundle(records: KbRecord[]): KbValidationProblem[] {
         error instanceof Error ? error.message : String(error),
         "warning",
       );
-      cited = new Set();
+      unmirrored = [];
     }
-    for (const target of cited) {
-      if (declared.has(target)) continue;
+    for (const target of unmirrored) {
       report(
         "body_link",
         conceptId,

@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { adjudicate, type KbAdjudicated } from "../adjudicate.js";
+import {
+  KbBodyUnreadableError,
+  unmirroredCitations,
+} from "../body-citations.js";
+import { KbUnmigratedBaseError } from "../kb-errors.js";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
 import { inboundIndex } from "../kb-links/index.js";
 import type { KbRecord, KbRecordStatus } from "../kb-record.schema.js";
@@ -44,7 +49,7 @@ export const sweepCommand = define({
   tool: "kb_sweep",
   usage: "sweep --tag <tag> --terminal [--dry-run]",
   description:
-    "Delete tagged records that are resolved, rejected or superseded. Refuses without --tag, keeps any record a surviving record still points at, and logs each deletion.",
+    "Delete tagged records that are resolved, rejected or superseded. Refuses without --tag, and on a base mirror-links has not migrated; keeps any record a surviving record still points at, and logs each deletion.",
   input: z.object({
     bundlePath,
     tag: z
@@ -74,6 +79,7 @@ export const sweepCommand = define({
     { bundlePath: path, tag, dryRun },
   ): Promise<KbSweepResult> => {
     const bundle = await store.list(path);
+    assertMigrated(bundle);
     const held = holderIndex(bundle);
     const candidates = adjudicate(bundle, bundle).filter((hit) =>
       sweepable(hit, tag),
@@ -193,6 +199,30 @@ function holderIndex(bundle: KbRecord[]): Map<string, Set<string>> {
     if (strauss_superseded_by) hold(strauss_superseded_by, record.conceptId);
   }
   return byTarget;
+}
+
+/**
+ * Refuses a base whose prose cites what `strauss_links` does not declare, or
+ * whose body cannot be read. The hold guard reads links only; on such a base
+ * it is blind to a citation and would delete what it cites.
+ */
+function assertMigrated(bundle: KbRecord[]): void {
+  const unmigrated: { conceptId: string; reason: string }[] = [];
+  for (const record of bundle) {
+    try {
+      const cites = unmirroredCitations(record);
+      if (cites.length) {
+        unmigrated.push({
+          conceptId: record.conceptId,
+          reason: `cites ${cites.join(", ")}`,
+        });
+      }
+    } catch (error) {
+      if (!(error instanceof KbBodyUnreadableError)) throw error;
+      unmigrated.push({ conceptId: record.conceptId, reason: error.message });
+    }
+  }
+  if (unmigrated.length) throw new KbUnmigratedBaseError(unmigrated);
 }
 
 /** Records outside `doomed` that point at `conceptId`. */

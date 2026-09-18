@@ -5,12 +5,11 @@
 `strauss_links` is the one representation of an edge, and a markdown link in a
 record's body is its rendering.
 
-**After upgrading, run `strauss-kb mirror-links` once per base, before the first
-`sweep`.** The new
+**After upgrading, run `strauss-kb mirror-links` once per base.** The new
 one-time migration copies every prose citation into `strauss_links` as
-`related_to`, wherever the frontmatter does not already name that target. A base
-that skips it loses every related edge that lived only in prose — in `sweep`
-that is a deletion, not a missing warning.
+`related_to`, wherever the frontmatter does not already name that target. Until
+it runs, `sweep` refuses the base and names the records, and every other read
+under-reports the edges that lived only in prose.
 
 `compose` now stores `relatedConceptIds` as `related_to` links as well as
 rendering the sentence, so a new record cannot regress. `body-link` leaves

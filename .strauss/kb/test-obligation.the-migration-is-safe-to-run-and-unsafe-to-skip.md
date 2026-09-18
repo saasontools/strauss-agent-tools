@@ -21,11 +21,11 @@ verified:
       candidate plus the body_link warning. Not covered: an indented fence,
       which unmirrored does mirror - risk.an-indented-fence-is-still-a-citation.
 strauss_anchors:
-  - file: packages/strauss-kb/src/commands/mirror-links.ts
-    symbol: unmirrored
-    hash: "sha256:95c534ffe44254d88f5a444292194aa720d21f2da9752ea8557244fab4c8b8b9"
+  - file: packages/strauss-kb/src/body-citations.ts
+    symbol: unmirroredCitations
+    hash: "sha256:927a8beaa9250b2f9760473ac488bb531062f4593828618718bef110214f10ec"
     hash_kind: ast
-    resolved_at: "2026-09-17T21:32:21.666Z"
+    resolved_at: "2026-09-18T16:32:54.029Z"
     lines: 6
     resolver: tree-sitter
   - file: packages/strauss-kb/src/commands/sweep.ts
@@ -38,7 +38,8 @@ strauss_anchors:
 strauss_links:
   - target: risk.unmigrated-base-loses-prose-edges
     rel: satisfies
-strauss_status: open
+strauss_status: superseded
+strauss_superseded_by: test-obligation.sweep-refuses-an-unmigrated-base
 ---
 
 ## Obligation

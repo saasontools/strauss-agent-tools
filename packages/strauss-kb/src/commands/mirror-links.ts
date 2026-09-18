@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { bodyCitations, KbBodyUnreadableError } from "../body-citations.js";
+import {
+  KbBodyUnreadableError,
+  unmirroredCitations,
+} from "../body-citations.js";
 import { assertBaseNotFrozen } from "../kb-pins/index.js";
-import type { KbRecord } from "../kb-record.schema.js";
 import { bundlePath, define } from "./model.js";
 
 /** One record's unmirrored citations, and the links they became. */
@@ -27,7 +29,7 @@ export const mirrorLinksCommand = define({
   tool: "kb_mirror_links",
   usage: "mirror-links [--dry-run]",
   description:
-    "One-time migration: copy every markdown citation in a record's prose into strauss_links as related_to, where the frontmatter does not already declare the target. Run it once per base before the first sweep. Idempotent.",
+    "One-time migration: copy every markdown citation in a record's prose into strauss_links as related_to, where the frontmatter does not already declare the target. Run it once per base; sweep refuses until it has. Idempotent.",
   input: z.object({
     bundlePath,
     dryRun: z
@@ -48,7 +50,7 @@ export const mirrorLinksCommand = define({
     const unreadable: KbMirrorLinksResult["unreadable"] = [];
     for (const record of bundle) {
       try {
-        const added = unmirrored(record);
+        const added = unmirroredCitations(record);
         if (added.length) pending.push({ conceptId: record.conceptId, added });
       } catch (error) {
         if (!(error instanceof KbBodyUnreadableError)) throw error;
@@ -89,18 +91,6 @@ export const mirrorLinksCommand = define({
   },
   render: (result) => renderMirrorLinks(result as KbMirrorLinksResult),
 });
-
-/**
- * Targets this record's prose cites that its frontmatter does not declare.
- * Each becomes `related_to`, the only rel prose can state; a target already
- * carrying a rel keeps it.
- */
-function unmirrored(record: KbRecord): string[] {
-  const declared = new Set(
-    (record.frontmatter.strauss_links ?? []).map((link) => link.target),
-  );
-  return [...bodyCitations(record)].filter((target) => !declared.has(target));
-}
 
 export function renderMirrorLinks(result: KbMirrorLinksResult): string {
   const shown = result.dryRun ? result.pending : result.mirrored;

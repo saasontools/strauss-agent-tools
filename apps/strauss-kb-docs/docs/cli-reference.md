@@ -919,8 +919,11 @@ post-merge commit.
 | `--terminal` | Required. Names the only scope it deletes: the three terminal statuses. |
 | `--dry-run`  | Report what would go, and delete nothing.                               |
 
-A record another **surviving** record points at — by typed link or by
-supersession — is kept and reported under `skipped`, with the ids holding it;
+**It refuses a base whose prose cites records `strauss_links` does not
+declare**, naming them: the hold guard reads links only and would delete what
+such a citation cites. Run [`mirror-links`](#mirror-links), then sweep. A record
+another **surviving** record points at — by typed link or by supersession — is
+kept and reported under `skipped`, with the ids holding it;
 an
 id the run could not remove is reported under `failed`. Each deletion is one
 `sweep` log entry; afterwards the index is rebuilt and the search index dropped.
@@ -951,8 +954,9 @@ A link inside a fence or a code span is an example and is left alone. The
 migration is idempotent — a second run has nothing to do — and refuses to write
 on a [frozen base](#pin), where `--dry-run` still answers.
 
-A base that skips it loses every related edge that lived only in prose. In
-[`sweep`](#sweep) that is a deletion, not a missing warning.
+Until it runs, reads under-report every edge that lived only in prose, and
+[`sweep`](#sweep) refuses the base. A body the parser refuses — a line nesting
+more than 64 lists — is reported under `unreadable` and left unmirrored.
 
 ```bash
 strauss-kb mirror-links --dry-run

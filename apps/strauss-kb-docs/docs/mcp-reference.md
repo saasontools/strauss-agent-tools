@@ -563,7 +563,7 @@ migration that copies a record's prose citations into `strauss_links` as
 Returns `{ dryRun, recordCount, mirrored, pending }`, each entry
 `{ conceptId, added }`.
 
-Run it once per base, before the first `kb_sweep` — see the
+Run it once per base; until it has, `kb_sweep` refuses the base — see the
 [CLI reference](./cli-reference.md#mirror-links).
 
 ### `kb_sweep`

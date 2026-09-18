@@ -304,3 +304,29 @@ export class KbStampDigestBaselineError extends BaseError {
     });
   }
 }
+
+/**
+ * `sweep` on a base whose prose still cites records its `strauss_links` does
+ * not declare. The hold guard reads links only, so it cannot see those
+ * citations and would delete what they cite.
+ */
+export class KbUnmigratedBaseError extends BaseError {
+  constructor(readonly records: { conceptId: string; reason: string }[]) {
+    const shown = records
+      .slice(0, 5)
+      .map((entry) => entry.conceptId)
+      .join(", ");
+    const more = records.length > 5 ? ` and ${records.length - 5} more` : "";
+    super({
+      message: `kb: sweep refused — the prose of ${shown}${more} cites records strauss_links does not declare, so a sweep could delete what it cites. Run \`strauss-kb mirror-links\` first`,
+      errorType: ErrorTypes.KbUnmigratedBase,
+      code: 409,
+      fault: Fault.User,
+      retriable: false,
+      reportToUser: true,
+      details: {
+        records: records.map((entry) => `${entry.conceptId}: ${entry.reason}`),
+      },
+    });
+  }
+}

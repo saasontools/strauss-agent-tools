@@ -18,6 +18,8 @@ import type { KbRecordStatus } from "../kb-record.schema.js";
 import { KbStore } from "../kb-store.js";
 import { SEARCH_INDEX_FILE } from "../search-index.js";
 import { validateBundle } from "../validate.js";
+import { KbUnmigratedBaseError } from "../kb-errors.js";
+import { mirrorLinksCommand } from "./mirror-links.js";
 import { sweepCommand, type KbSweepResult } from "./sweep.js";
 
 const AT = "2026-08-01T00:00:00Z";
@@ -207,29 +209,71 @@ describe("sweepCommand", () => {
     ]);
   });
 
-  // The migration's whole purpose, stated as the failure it prevents. A base
-  // that never ran `mirror-links` has citations no consumer can see, and this
-  // is the one consumer whose blindness deletes rather than under-reports.
-  test("does not see a citation that only ever lived in the prose", async () => {
-    const held = await seed("held", "resolved");
-    await seed("live-citer", "open", { tags: ["other"] });
-    // Hand-written, as a pre-migration record or a foreign producer leaves it:
-    // the sentence with no `strauss_links` entry beside it.
-    const file = join(bundle, "fact.live-citer.md");
+  // The hold guard reads links only, so on an unmigrated base it cannot see a
+  // prose-only citation. The plugin channel upgrades with no human in the
+  // loop, so sweep itself refuses rather than trusting a release note.
+  const citeInProseOnly = (citer: string, target: string) => {
+    const file = join(bundle, `${citer}.md`);
     writeFileSync(
       file,
-      `${readFileSync(file, "utf8")}\nRelates to [${held}](${held}.md).\n`,
+      `${readFileSync(file, "utf8")}\nRelates to [${target}](${target}.md).\n`,
+      "utf8",
+    );
+  };
+
+  test("refuses an unmigrated base, dry run included, and deletes nothing", async () => {
+    const held = await seed("held", "resolved");
+    await seed("live-citer", "open", { tags: ["other"] });
+    citeInProseOnly("fact.live-citer", held);
+    const before = digestBase();
+
+    for (const input of [{ dryRun: true }, {}]) {
+      const refusal = await run(input).catch((error: unknown) => error);
+      expect(refusal).toBeInstanceOf(KbUnmigratedBaseError);
+      expect((refusal as KbUnmigratedBaseError).records).toEqual([
+        { conceptId: "fact.live-citer", reason: `cites ${held}` },
+      ]);
+      expect(String((refusal as Error).message)).toContain(
+        "strauss-kb mirror-links",
+      );
+    }
+    expect(digestBase()).toEqual(before);
+  });
+
+  test("sweeps once mirror-links has run, and keeps what the prose cited", async () => {
+    const held = await seed("held", "resolved");
+    const free = await seed("free", "resolved");
+    await seed("live-citer", "open", { tags: ["other"] });
+    citeInProseOnly("fact.live-citer", held);
+
+    await mirrorLinksCommand.run(
+      { store, actor: "agent:migrator", now: () => AT },
+      mirrorLinksCommand.input.parse({ bundlePath: bundle }),
+    );
+    const result = await run();
+
+    expect(result.deleted).toEqual([free]);
+    expect(result.skipped).toEqual([
+      { conceptId: held, heldBy: ["fact.live-citer"] },
+    ]);
+    await expectValid();
+  });
+
+  // A body the parser refuses could hide a citation just as well.
+  test("refuses a base holding a body it cannot read", async () => {
+    await seed("free", "resolved");
+    await seed("hostile", "open", { tags: ["other"] });
+    const file = join(bundle, "fact.hostile.md");
+    writeFileSync(
+      file,
+      `${readFileSync(file, "utf8")}\n${"* ".repeat(200)}[x](fact.free.md)\n`,
       "utf8",
     );
 
-    const result = await run({ dryRun: true });
-
-    expect(result.candidates).toEqual([held]);
-    expect(result.skipped).toEqual([]);
-    // `validate` is what names the record, and the repair before sweeping.
-    expect(validateBundle(await store.list(bundle))).toMatchObject([
-      { check: "body_link", conceptId: "fact.live-citer" },
-    ]);
+    await expect(run({ dryRun: true })).rejects.toMatchObject({
+      name: "KbUnmigratedBaseError",
+      records: [{ conceptId: "fact.hostile" }],
+    });
   });
 
   // A supersession pointer is not a typed link, and it dangles the same way:

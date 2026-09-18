@@ -4,7 +4,8 @@ import { KB_CONCEPT_ID_PATTERN, type KbRecord } from "./kb-record.schema.js";
 /**
  * Markdown citations in a record's prose.
  *
- * Not an edge: `strauss_links` is. Two callers, `validate` and `mirror-links`.
+ * Not an edge: `strauss_links` is. Read only to say the two have come apart —
+ * `validate` warns, `mirror-links` repairs, `sweep` refuses.
  */
 
 // A link whose href is a record filename, `<concept-id>.md`.
@@ -55,6 +56,14 @@ export function bodyCitations(record: KbRecord): Set<string> {
     }
   }
   return targets;
+}
+
+/** Targets the prose cites that the record's `strauss_links` does not name. */
+export function unmirroredCitations(record: KbRecord): string[] {
+  const declared = new Set(
+    (record.frontmatter.strauss_links ?? []).map((link) => link.target),
+  );
+  return [...bodyCitations(record)].filter((target) => !declared.has(target));
 }
 
 /** Deepest list nesting a single line may open. */
