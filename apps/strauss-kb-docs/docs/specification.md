@@ -497,7 +497,7 @@ A lock file, which adds a stale-hold failure mode.
 
 ## Record types
 
-Eleven types, differing only in what their body answers and where they start in
+The types differ only in what their body answers and where they start in
 the lifecycle.
 
 | Type              | Purpose                                          | Sections                                          | Initial status |
@@ -654,7 +654,7 @@ single record cannot see; a problem it reports means someone hand-edited a file.
 
 | Check           | Severity | Reported when                                                         |
 | --------------- | -------- | --------------------------------------------------------------------- |
-| `type`          | error    | the `type` is not one of the eleven — a note, since OKF permits any   |
+| `type`          | error    | the `type` is not a known type — a note, since OKF permits any        |
 | `superseded_by` | error    | a `superseded` record names no replacement, or a missing one          |
 | `backlink`      | error    | the replacement does not list this record in `strauss_supersedes`     |
 | `supersedes`    | error    | a named target is missing, or is not marked `superseded`              |

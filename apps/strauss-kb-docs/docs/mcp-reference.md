@@ -45,7 +45,7 @@ Each refuses when the base is pinned `--frozen` in the workspace.
 As CLI [`write`](./cli-reference.md#write); the record object is the
 `input` parameter rather than stdin.
 
-Parameters: `bundlePath`, `type` (enum, 11 types), `input` (object) — all
+Parameters: `bundlePath`, `type` (enum), `input` (object) — all
 required. `input` is the write object — `slug`, `title`, `why` required;
 `sections`, `anchors`, `sources`, `assumption`, `stale_after`, `verify`, `tags`,
 `relatedConceptIds`, `links` (max 64), `supersedes` (max 32), `materiality`,
@@ -582,8 +582,8 @@ frontmatter, the write input, and log entries. Takes no parameters.
 
 ### `kb_types`
 
-As CLI [`types`](./cli-reference.md#types): the eleven record types with
-their purpose, body sections, and starting status. Read this before writing
+As CLI [`types`](./cli-reference.md#types): every record type with
+its purpose, body sections, and starting status. Read this before writing
 rather than guessing headings. Takes no parameters.
 
 ```json
