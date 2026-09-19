@@ -808,6 +808,41 @@ Returns `{ to, format, exported, foreign }`, each `exported` entry
 
 ## Format and housekeeping
 
+### `init`
+
+```
+init [--bundle PATH]
+```
+
+Creates the base directory and excludes its search index from Git, by writing a
+marked block into `<kb>/.gitignore`:
+
+```
+# BEGIN strauss-kb
+# Derived, rebuilt from the records beside it.
+/.index.sqlite*
+# END strauss-kb
+```
+
+**CLI-only** — the capability it adds is a Git rule, not something an agent
+reasons about. Writing to a base creates the directory too, so `init` is the
+one step that is about Git rather than records.
+
+Safe to re-run: the block is written when it is not already there, byte for
+byte, and an ignore file you already have keeps its contents. Nothing ever puts
+the block back on its own, so deleting it is how you decline it and re-running
+`init` is how you ask for it again.
+
+```bash
+strauss-kb init                      # .strauss/kb
+strauss-kb init --bundle docs/adr    # anywhere else
+```
+
+The leading slash keeps the rule to the base that owns it, and the trailing `*`
+covers the `-wal`, `-shm` and `-journal` files SQLite writes beside the
+database. Records, `log.jsonl`, `INDEX.md`, `.gitattributes` and the generated
+`.gitignore` all stay tracked.
+
 ### `validate`
 
 ```
@@ -977,7 +1012,7 @@ pinned. Idempotent — re-pinning changes nothing unless a flag below is given.
 | `--mode full`    | preload the whole base into the block regardless of the full-under threshold     |
 | `--mode index`   | never upgrade to bodies                                                          |
 | `--profiles a,b` | comma-separated context profiles this pin surfaces in. Absent: all of them.      |
-| `--local`        | write `.strauss/kb-pins.local.json` (personal, gitignored)                       |
+| `--local`        | write `.strauss/kb-pins.local.json` (personal; exclude it yourself)              |
 | `--user`         | write `~/.strauss/kb-pins.json` (every workspace)                                |
 | _(neither)_      | write `.strauss/kb-pins.json`, the committed project manifest — the default      |
 | `--frozen`       | mark the base concluded: write commands refuse and `context` labels it read-only |

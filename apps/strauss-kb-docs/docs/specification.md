@@ -23,7 +23,8 @@ enforce it, so it cannot drift from what a write will accept.
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
   .gitattributes      merge      store-owned, written on first write
-  .index.sqlite       search     derived, gitignored
+  .gitignore          exclusions written by `init`, then yours
+  .index.sqlite       search     derived, excluded by .gitignore
 ```
 
 The default base is `.strauss/kb`, relative to the working directory;
@@ -118,6 +119,44 @@ conflict markers in `log.jsonl`. Reads skip every marker line — `<<<<<<<`,
 `=======`, `>>>>>>>`, and diff3's `|||||||` base section — keep both sides'
 entries, and warn once for the file.
 :::
+
+### `.gitignore` and what is not committed
+
+The search index is derived from the records beside it, so nothing should
+commit it. `strauss-kb init` writes the rule, as a marked block:
+
+```
+# BEGIN strauss-kb
+# Derived, rebuilt from the records beside it.
+/.index.sqlite*
+# END strauss-kb
+```
+
+The leading slash keeps the rule to the base that owns it, so a base at any
+`--bundle` path excludes its own and nothing above it. Records, `log.jsonl`,
+`INDEX.md`, `.gitattributes` and this file stay tracked.
+
+**Only `init` writes it.** Writing a record creates the base directory too, but
+never this file: a tool that restores a rule you deleted leaves no way to
+decline it. Deleting the block is how you decline it, and re-running `init` is
+how you ask for it back — see the [CLI page](./cli-reference.md#init). The block
+is written when it is not already there, byte for byte, and an ignore file you
+already have keeps its contents.
+
+Personal pins are not excluded for you either. `.strauss/kb-pins.local.json`
+sits outside every base, and the only file that could exclude it —
+`<workspace>/.strauss/.gitignore` — is committed and shared, so writing to it
+would turn one contributor's `pin --local` into a change every teammate sees.
+Nothing outside a base is the store's to edit. Exclude it where personal
+ignores belong:
+
+```sh
+echo '/.strauss/kb-pins.local.json' >> "$(git rev-parse --git-path info/exclude)"
+```
+
+Or, if the team agrees it should never be committed, put the same line in the
+repository's own `.gitignore` once. The shared `kb-pins.json` stays tracked
+either way.
 
 ## Records
 

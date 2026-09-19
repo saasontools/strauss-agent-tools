@@ -43,7 +43,8 @@ ESM and CommonJS.
   INDEX.md            index      derived, store-owned
   log.jsonl           history    primary, append-only
   .gitattributes      merge      store-owned, written on first write
-  .index.sqlite       search     derived, gitignored
+  .gitignore          exclusions written by `init`, then yours
+  .index.sqlite       search     derived, excluded by .gitignore
 ```
 
 The default base is `.strauss/kb`; `--bundle PATH` names another.

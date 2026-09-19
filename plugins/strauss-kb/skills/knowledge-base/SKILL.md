@@ -8,6 +8,10 @@ description: Read and write a project's knowledge base — markdown records with
 A knowledge base is a directory of markdown records, default `.strauss/kb`;
 `--bundle PATH` addresses another.
 
+**A base that does not exist yet:** run `strauss-kb init [--bundle PATH]`
+first. Writing creates the directory too, but only `init` excludes the derived
+search index from Git. It is CLI-only and safe to re-run.
+
 Two surfaces:
 
 - MCP tools `kb_*` from the `strauss-kb` server, possibly namespaced (e.g.
