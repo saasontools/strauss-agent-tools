@@ -1,0 +1,6 @@
+# Run artefacts. A run is a spend decision and its output belongs to whoever
+# paid for it -- committing one is deliberate (`git add -f`), not the default,
+# so a smoke run left behind by an experiment never lands in a PR by accident.
+*.md
+*.json
+!README.md

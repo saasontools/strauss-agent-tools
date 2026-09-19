@@ -59,6 +59,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint .",
+    "bench": "tsx bench/run.ts",
     "grammars": "node scripts/grammars.mjs"
   },
   "dependencies": {
@@ -67,6 +68,10 @@
     "mdast-util-from-markdown": "^2.0.3",
     "web-tree-sitter": "~0.27.0",
     "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.72.1",
+    "tsx": "^4.23.13"
   },
   "peerDependencies": {
     "@tobilu/qmd": "*"
