@@ -7,7 +7,14 @@ description: >-
 generated:
   by: "agent:author"
   at: "2026-09-18T21:24:17.170Z"
-verified: []
+verified:
+  - by: "agent:correctness"
+    at: "2026-09-19T06:13:45.583Z"
+    note: >-
+      Read KB_RECORD_TYPES (11, no test-obligation) and RETIRED_RECORD_TYPES;
+      strauss-kb write test-obligation and kb_write over MCP both refuse with
+      the retired message; validate reports a legacy test-obligation record as
+      unrecognised type (error). Version plan is major.
 strauss_anchors:
   - file: packages/strauss-kb/src/kb-record.schema.ts
     symbol: KB_RECORD_TYPES

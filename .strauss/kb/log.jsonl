@@ -45,3 +45,16 @@
 {"at":"2026-09-18T21:24:51.689Z","by":"agent:author","operation":"anchor-resolve","conceptId":"decision.retire-test-obligation"}
 {"at":"2026-09-18T21:24:51.822Z","by":"agent:author","operation":"anchor-set","conceptId":"contract.kb-record-type-enum","reason":"anchor the enum, not the whole schema file","anchors":[{"op":"drop","from":{"file":"packages/strauss-kb/src/kb-record.schema.ts"}}]}
 {"at":"2026-09-18T21:24:51.939Z","by":"agent:author","operation":"anchor-resolve","conceptId":"contract.kb-record-type-enum"}
+{"at":"2026-09-19T06:10:49.071Z","by":"agent:prose","operation":"write","conceptId":"risk.record-type-count-in-prose"}
+{"at":"2026-09-19T06:10:49.387Z","by":"agent:prose","operation":"verify","conceptId":"decision.retire-test-obligation"}
+{"at":"2026-09-19T06:11:24.520Z","by":"agent:security","operation":"write","conceptId":"risk.blocking-risk-reaches-human-only-through-author-pr-body"}
+{"at":"2026-09-19T06:11:24.671Z","by":"agent:security","operation":"verify","conceptId":"decision.retire-test-obligation"}
+{"at":"2026-09-19T06:13:44.689Z","by":"agent:correctness","operation":"write","conceptId":"risk.owed-verification-escalates-through-uncovered-signal"}
+{"at":"2026-09-19T06:13:45.152Z","by":"agent:correctness","operation":"write","conceptId":"risk.retired-type-lookup-reads-prototype-keys"}
+{"at":"2026-09-19T06:13:45.596Z","by":"agent:correctness","operation":"verify","conceptId":"contract.kb-record-type-enum"}
+{"at":"2026-09-19T06:17:43.216Z","by":"agent:performance","operation":"verify","conceptId":"decision.retire-test-obligation"}
+{"at":"2026-09-19T06:18:29.862Z","by":"agent:author","operation":"anchor-resolve","conceptId":"decision.retire-test-obligation"}
+{"at":"2026-09-19T06:18:30.420Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.record-type-count-in-prose"}
+{"at":"2026-09-19T06:18:30.622Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.blocking-risk-reaches-human-only-through-author-pr-body"}
+{"at":"2026-09-19T06:18:30.861Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.owed-verification-escalates-through-uncovered-signal"}
+{"at":"2026-09-19T06:18:31.425Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.retired-type-lookup-reads-prototype-keys"}

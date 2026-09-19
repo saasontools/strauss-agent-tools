@@ -11,7 +11,29 @@ sources:
 generated:
   by: "agent:author"
   at: "2026-09-18T21:24:17.041Z"
-verified: []
+verified:
+  - by: "agent:prose"
+    at: "2026-09-19T06:10:49.369Z"
+    note: >-
+      prose surfaces: git grep finds test-obligation only in the retired-type
+      message, the version plan and KB records; docs, README, skills and the
+      kb_types description all drop it and read eleven
+  - by: "agent:security"
+    at: "2026-09-19T06:11:24.659Z"
+    note: >-
+      Read owed.mjs verification at head: severity hard-coded warn, no backlink
+      spawn. Ran write test-obligation: refused with the replacement message.
+      Ran constructor/__proto__/toString: refused with zod's default message, no
+      throw.
+  - by: "agent:performance"
+    at: "2026-09-19T06:17:43.203Z"
+    note: >-
+      performance: owed.verification no longer calls ctx.backlinks; owed.mjs:275
+      (owed.requirement) is the only caller, matching the memoBacklinks comment.
+      Saves one strauss-kb backlinks spawn (measured 0.35-0.45s) per open
+      blocking/important risk without verified_by on every gate run; sameArea
+      scan over risks x files removed. checks.spec + fixture.spec 53/53 on 5 of
+      6 runs.
 strauss_anchors:
   - file: packages/strauss-kb/src/record-types.ts
     symbol: RETIRED_RECORD_TYPES
@@ -22,23 +44,23 @@ strauss_anchors:
     resolver: regex
   - file: packages/strauss-kb/src/commands/write.ts
     symbol: writeCommand
-    hash: "sha256:39a332e1f46cc4aa8c009ed0ae31f2785a4c2a0be8203c639ab8339e711ce106"
+    hash: "sha256:861951350c190c727e647b6091a95e1db29bcfc0669ac5d64ff91f7781593746"
     hash_kind: raw
-    resolved_at: "2026-09-18T21:24:51.658Z"
-    lines: 34
+    resolved_at: "2026-09-19T06:18:29.826Z"
+    lines: 37
     resolver: regex
   - file: packages/strauss-kb/src/commands/types.ts
     symbol: typesCommand
-    hash: "sha256:22c6e83e4dc6f829a3f86fbd2b896bada44a0417ac3e91410de24a65099d4849"
+    hash: "sha256:afb30e2e1ecefa8829d4732bfb2a37bf703730e3535cf00071aa0d0300d9dcbb"
     hash_kind: raw
-    resolved_at: "2026-09-18T21:24:51.659Z"
+    resolved_at: "2026-09-19T06:18:29.826Z"
     lines: 10
     resolver: regex
   - file: plugins/strauss-kb-review/hooks/scripts/lib/checks/owed.mjs
     symbol: verification
-    hash: "sha256:669ba97c1d1e747983086f91bbcebcf8738efdceb9d76da53fd54e2c906c5a4f"
+    hash: "sha256:e114147f7b73871720876ca80c1f980e33e53a5bf22cbdff9c7fd5fa7c724c0d"
     hash_kind: ast
-    resolved_at: "2026-09-18T21:24:51.664Z"
+    resolved_at: "2026-09-19T06:18:29.832Z"
     lines: 14
     resolver: tree-sitter
   - file: plugins/strauss-kb-review/hooks/scripts/lib/checks/owed.mjs
