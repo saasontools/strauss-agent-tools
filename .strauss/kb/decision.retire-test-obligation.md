@@ -34,6 +34,14 @@ verified:
       blocking/important risk without verified_by on every gate run; sameArea
       scan over risks x files removed. checks.spec + fixture.spec 53/53 on 5 of
       6 runs.
+  - by: "agent:correctness"
+    at: "2026-09-19T06:23:36.326Z"
+    note: >-
+      At 8f456848: owed.mjs verification yields warn only, answered() returns
+      false for want=[], uncovered.signal counts block-severity signals only;
+      write.ts refuses test-obligation via Object.hasOwn(RETIRED_RECORD_TYPES);
+      checks.spec 40/40, fixture.spec 14/14, cli+smoke 52/52; validate reports a
+      leftover test-obligation as an unrecognised-type error.
 strauss_anchors:
   - file: packages/strauss-kb/src/record-types.ts
     symbol: RETIRED_RECORD_TYPES

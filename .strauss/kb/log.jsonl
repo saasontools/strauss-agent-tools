@@ -58,3 +58,4 @@
 {"at":"2026-09-19T06:18:30.622Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.blocking-risk-reaches-human-only-through-author-pr-body"}
 {"at":"2026-09-19T06:18:30.861Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.owed-verification-escalates-through-uncovered-signal"}
 {"at":"2026-09-19T06:18:31.425Z","by":"agent:author","operation":"anchor-resolve","conceptId":"risk.retired-type-lookup-reads-prototype-keys"}
+{"at":"2026-09-19T06:23:36.339Z","by":"agent:correctness","operation":"verify","conceptId":"decision.retire-test-obligation"}
