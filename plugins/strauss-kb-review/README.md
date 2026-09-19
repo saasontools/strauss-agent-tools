@@ -39,6 +39,18 @@ writes per fixture scenario; a preloaded skill has no trigger to evaluate.
 **`review-walkthrough`** — the base and the diff rendered as one HTML review
 guide for a human.
 
+**`kb-fix`** — a base whose gate findings block, routed to whoever can still
+fix them. See [Fixing a base](#fixing-a-base).
+
+## Fixing a base
+
+Whoever held the why fixes the base. `skills/kb-fix/` routes between the three
+tiers — the author in the blocked turn, the author's subagent in the same
+session, and a later session with nobody left — and the gate marks each
+`--report` finding `fixable`, so the routing is data. The late tier's mandate,
+the one repair it may apply and the `open-question` everything else becomes,
+is [`skills/kb-fix/references/late-tier.md`](skills/kb-fix/references/late-tier.md).
+
 ## Two hooks, two files
 
 | File                                                                       | Script                               | Acts on                                                                         | Events                                 |
