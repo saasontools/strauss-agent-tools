@@ -1,3 +1,16 @@
+## 0.3.0 (2026-09-19)
+
+### ⚠️  Breaking Changes
+
+- **Breaking:** the `test-obligation` record type is removed. `write`, `list`, ([46ae3b3](https://github.com/saasontools/strauss-agent-tools/commit/46ae3b3))
+  `query` and `catalog` reject it as a type, and a base still holding one reports
+  it as an unrecognised type; delete the record.
+
+### ❤️ Thank You
+
+- assafk
+- Claude Opus 5
+
 ## 0.2.0 (2026-09-18)
 
 ### ⚠️  Breaking Changes
