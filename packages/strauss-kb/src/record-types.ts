@@ -3,7 +3,7 @@ import type { KbRecordStatus, KbRecordType } from "./kb-record.schema.js";
 /**
  * What each record type is for, and the shape of its body.
  *
- * A table rather than eleven composer modules. The types differ only in which
+ * A table rather than a composer module per type. The types differ only in which
  * questions their body answers and where they start in the lifecycle; encoding
  * that as data keeps the one composer honest and makes adding a type an edit
  * rather than a file.

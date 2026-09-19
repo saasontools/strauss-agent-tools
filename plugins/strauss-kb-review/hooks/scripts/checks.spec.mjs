@@ -116,6 +116,28 @@ test("uncovered.signal fires when decision.none stands beside an F signal", () =
   assert.ok(ids(found).includes("uncovered.signal"));
 });
 
+test("uncovered.signal ignores a warn-only signal: an open risk owes no record", () => {
+  const found = uncovered.check(
+    ctx({
+      records: [
+        record({
+          conceptId: "decision.none",
+          writtenAt: "2030-01-01T00:00:00.000Z",
+          body: "## Decision\n\nOnly a comment moved, and the diff says exactly that much.",
+        }),
+        record({
+          conceptId: "risk.x",
+          type: "risk",
+          status: "open",
+          materiality: "blocking",
+          anchors: [{ file: "src/a.ts" }],
+        }),
+      ],
+    }),
+  );
+  assert.ok(!ids(found).includes("uncovered.signal"));
+});
+
 test("anchor.file-only fires on a file-only anchor over a file full of symbols", () => {
   const found = anchor.check(
     ctx({

@@ -302,7 +302,7 @@ function* verification(ctx) {
       record.anchors[0]?.file ?? record.path,
       [],
       "warn",
-      `${record.conceptId} is ${record.materiality} and still open`,
+      `${record.conceptId} is ${record.materiality} and still open: fix it, answer it in the rerun brief, or leave it open with a reason`,
     );
   }
 }

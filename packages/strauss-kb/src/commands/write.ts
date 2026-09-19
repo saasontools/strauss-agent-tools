@@ -14,9 +14,12 @@ export const writeCommand = define({
   input: z.object({
     bundlePath,
     type: z.enum(KB_RECORD_TYPES, {
-      error: (issue) =>
-        RETIRED_RECORD_TYPES[String(issue.input)] ??
-        `type must be one of ${KB_RECORD_TYPES.join(", ")}`,
+      error: (issue) => {
+        const type = String(issue.input);
+        return Object.hasOwn(RETIRED_RECORD_TYPES, type)
+          ? RETIRED_RECORD_TYPES[type]
+          : `type must be one of ${KB_RECORD_TYPES.join(", ")}`;
+      },
     }),
     input: composeInputSchema,
   }),

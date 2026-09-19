@@ -1018,6 +1018,18 @@ describe("runKbCli", () => {
     );
   });
 
+  test("an unknown type that names a prototype key is not read as retired", async () => {
+    const { KB_COMMANDS_BY_NAME } = await import("./commands/index.js");
+    const write = KB_COMMANDS_BY_NAME.get("write")!;
+    const parsed = write.input.safeParse({
+      bundlePath: bundle,
+      type: "constructor",
+      input: {},
+    });
+
+    expect(parsed.error?.issues[0]?.message).toMatch(/^type must be one of/);
+  });
+
   test("writes a decision from stdin, keeping the rejected alternative", async () => {
     const stdin = JSON.stringify({
       slug: "cas-not-lock",
