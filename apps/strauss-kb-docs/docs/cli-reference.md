@@ -56,7 +56,7 @@ each anchor, and exits non-zero only where the caller asked for that write.
 write <type> < record.json
 ```
 
-Write one record of any of the twelve types; the record is JSON on **stdin**,
+Write one record of any type; the record is JSON on **stdin**,
 `<type>` is the only positional, and `types` lists the sections each type
 accepts. The stdin object is the
 [write input](./specification.md#write-input): `slug`, `title` and `why`
@@ -948,7 +948,7 @@ strauss-kb schema > kb.schema.json
 types
 ```
 
-The twelve record types with their purpose, body sections, and starting status.
+Every record type with its purpose, body sections, and starting status.
 Read this before writing rather than guessing headings.
 
 ```bash

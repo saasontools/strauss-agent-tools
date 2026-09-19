@@ -30,11 +30,12 @@ function* symbol(ctx) {
 }
 
 /** uncovered.signal — `decision.none` stands while the diff carries a signal that owes a record.
+ * A warn-only signal owes none.
  * @param {import("../context.mjs").Ctx} ctx */
 function* signal(ctx) {
   const none = freshNoDecision(ctx);
   if (!none) return;
-  const fired = signals(ctx);
+  const fired = signals(ctx).filter((item) => item.severity === "block");
   if (fired.length === 0) return;
   yield finding(
     "uncovered.signal",

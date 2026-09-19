@@ -48,22 +48,35 @@ Never review as yourself; never pass a reviewer your own records to confirm.
 Each reviewer ends with a `kb` block: verdicts per record, what it wrote. For
 every reviewer-written record, in this order:
 
-| It wrote                       | You do                                                                                                                                                                                           |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A `risk` you can remove        | Fix the code and commit. The risk is the reviewer's record, so do not edit it: add a `test-obligation` that `satisfies` it, or a decision that `informs` it; the reviewer or a human resolves it |
-| A `risk` you accept            | Leave it open; say why in a decision that `informs` it. A `blocking` risk left open needs a human                                                                                                |
-| An `open-question` you own     | `answer` it through the CLI, as yourself                                                                                                                                                         |
-| A `verify` on your record      | Nothing                                                                                                                                                                                          |
-| A `disputed` or `lies` verdict | Read the anchor again. Right: fix code or record and say so in the answer. Wrong: answer the question with what the anchor shows; never edit the reviewer's record                               |
+| It wrote                       | You do                                                                                                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A `risk` you can fix           | Fix the code and commit; the message says what and why. Respond `fixed in <sha>`                                                                                   |
+| A `risk` that does not hold    | Respond with the argument or evidence. Evidence that outlives the PR is its own `fact` or `constraint`, never a reply                                              |
+| A `risk` you cannot address    | Respond `left open — <reason>`. A reason is required; it reaches the human                                                                                         |
+| An `open-question` you own     | `answer` it through the CLI, as yourself                                                                                                                           |
+| A `verify` on your record      | Nothing                                                                                                                                                            |
+| A `disputed` or `lies` verdict | Read the anchor again. Right: fix code or record and say so in the answer. Wrong: answer the question with what the anchor shows; never edit the reviewer's record |
 
-Never settle your own risk, never write as a reviewer's actor.
+A response goes in the rerun brief, never in the base; the risk is the
+reviewer's record. Never settle your own risk, never write as a reviewer's
+actor.
 
 ## 5. Loop, then stop
 
 Rerun only the reviewers that had a blocking finding, on the new head, at most
-twice. Then rerun the gate report. Finish with, per reviewer: records verified,
-disputed, written, and the blocking items still open for a human. Put that
-list in the pull request body.
+twice. The brief is §3's plus one line per risk that reviewer wrote:
+
+```text
+Author responses:
+- risk.a: fixed in a1b2c3d
+- risk.b: not applicable — input capped at 200 lines (classify.ts:40)
+- risk.c: left open — needs a Windows runner; CI has none
+```
+
+Then rerun the gate report; `owed.verification` warns on each risk still
+open. Finish with, per reviewer: records verified, disputed, written, and
+every risk still open with its materiality, your reason and the reviewer's
+`settle`. Put that list in the pull request body.
 
 ## Not this
 

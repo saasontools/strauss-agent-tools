@@ -79,7 +79,6 @@
         "agent": "security (sonnet-class subagent, skills: [kb-review]), reviewer hooks wired, roster as above",
         "written": [
           "verify risk.checkout-retry-double-charge",
-          "verify test-obligation.checkout-single-charge",
           "verify decision.checkout-retry-budget",
           "write risk.charge-amount-not-bound-to-key",
           "write risk.idempotency-key-from-unvalidated-order-id",
@@ -87,12 +86,12 @@
         ],
         "verdicts": {
           "risk.checkout-retry-double-charge": "verified",
-          "test-obligation.checkout-single-charge": "verified",
           "decision.checkout-retry-budget": "verified",
           "fact.payment-provider-dedupes-on-key": "unverified"
         },
         "gate": "two writes denied for a missing actor prefix, both re-issued with it; no other denial",
-        "block": "present, sha = head, partial false"
+        "block": "present, sha = head, partial false",
+        "note": "Recorded before the fixture dropped its obligation record; its verify and verdict are removed from this log."
       }
     },
     "generated-block": {

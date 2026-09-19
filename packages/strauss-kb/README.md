@@ -128,10 +128,10 @@ later OKF key of the same name:
 | `strauss_verify`                                               | Checks that would confirm the record still holds.                                                                                                               |
 | `strauss_materiality` / `strauss_confidence` / `strauss_owner` | `blocking`/`important`/`non-blocking`, `low`/`medium`/`high`, and a name.                                                                                       |
 
-Twelve types differ in what their body answers and where they start in the
+The types differ in what their body answers and where they start in the
 lifecycle: `fact`, `requirement`, `constraint`, `decision`, `assumption`,
 `open-question`, `risk`, `contract`, `flow`, `affected-system`,
-`test-obligation`, `source-note`.
+`source-note`.
 
 `strauss-kb types` prints each one's purpose, sections, and initial status;
 `strauss-kb schema` emits JSON Schema from the code that enforces it.
@@ -341,7 +341,7 @@ strauss-kb [--bundle PATH] <command> [args]
   sweep --tag <tag> --terminal [--dry-run]
                                            Delete tagged records that are resolved, rejected or superseded.
   schema                                   JSON Schema for the format.
-  types                                    The twelve types, their sections and initial status.
+  types                                    Every type, its sections and initial status.
   pin [bundle-path] [flags]                Pin a base. --mode, --profiles, --frozen; --local/--user pick the layer.
   unpin [bundle-path]                      Remove a base from every manifest layer that holds it.
   pins                                     Every pinned base, with whether it resolves to records.

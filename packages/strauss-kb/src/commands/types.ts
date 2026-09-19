@@ -7,7 +7,7 @@ export const typesCommand = define({
   tool: "kb_types",
   usage: "types",
   description:
-    "The twelve record types with their purpose, body sections, and starting status. Read this before writing rather than guessing headings — a section the type does not define is rejected.",
+    "Every record type with its purpose, body sections, and starting status. Read this before writing rather than guessing headings — a section the type does not define is rejected.",
   input: z.object({}),
   fromArgv: () => ({}),
   run: () => Promise.resolve(RECORD_TYPES),

@@ -970,7 +970,7 @@ describe("runKbCli", () => {
       ["composeInput", "logEntry", "recordFrontmatter"],
     );
     expect(Object.keys(parsed(await cli(["types"])) as object)).toHaveLength(
-      12,
+      11,
     );
   });
 

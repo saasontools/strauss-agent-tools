@@ -226,7 +226,6 @@ export const KB_RECORD_TYPES = [
   "contract",
   "flow",
   "affected-system",
-  "test-obligation",
   "source-note",
 ] as const;
 
