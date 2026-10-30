@@ -62,11 +62,11 @@
     "grammars": "node scripts/grammars.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "gray-matter": "^4.0.3",
-    "mdast-util-from-markdown": "^2.0.3",
-    "web-tree-sitter": "~0.27.0",
-    "zod": "^4.5.4"
+    "mdast-util-from-markdown": "^2.1.0",
+    "web-tree-sitter": "~0.27.1",
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@tobilu/qmd": "*"
